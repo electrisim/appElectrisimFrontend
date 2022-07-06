@@ -647,7 +647,10 @@
 		action.setSelectedCallback(function() { return graph.shadowVisible; });
 
 		var showingAbout = false;
+
 		
+		//ELXXX
+		/*
 		editorUi.actions.put('about', new Action(mxResources.get('about') + ' ' + EditorUi.VERSION + '...', function()
 		{
 			if (editorUi.isOffline() || mxClient.IS_CHROMEAPP || EditorUi.isElectronApp)
@@ -659,6 +662,7 @@
 				editorUi.openLink('https://www.diagrams.net/');
 			}
 		}));
+		*/
 		
 		editorUi.actions.addAction('support...', function()
 		{
@@ -694,7 +698,9 @@
 		{
 			editorUi.openLink('https://www.youtube.com/watch?v=Z0D96ZikMkc');
 		});
-		
+
+		//ELXXX		
+		/*
 		editorUi.actions.addAction('forkme', function()
 		{
 			editorUi.openLink('https://github.com/jgraph/drawio');
@@ -704,6 +710,7 @@
 		{
 			editorUi.openLink('https://get.diagrams.net/');
 		});
+		*/
 		
 		action = editorUi.actions.addAction('tags...', mxUtils.bind(this, function()
 		{

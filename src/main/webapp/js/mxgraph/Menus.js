@@ -496,7 +496,8 @@ Menus.prototype.init = function()
 	})));
 	this.put('help', new Menu(mxUtils.bind(this, function(menu, parent)
 	{
-		this.addMenuItems(menu, ['help', '-', 'about']);
+		//ELXXX
+		this.addMenuItems(menu, ['help', '-' /*, 'about'*/]);
 	})));
 };
 
