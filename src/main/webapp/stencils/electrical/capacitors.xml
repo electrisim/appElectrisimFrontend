@@ -63,7 +63,9 @@
 	<shape aspect="variable" h="60" name="Capacitor 4" strokewidth="inherit" w="100">
 		<connections>
 			<constraint name="in" perimeter="0" x="0" y="0.5"/>
+			<!-- 
 			<constraint name="out" perimeter="0" x="1" y="0.5"/>
+			-->
 		</connections>
 		<foreground>
 			<path>
@@ -71,6 +73,9 @@
 				<line x="42" y="30"/>
 				<move x="58" y="30"/>
 				<line x="100" y="30"/>
+				<line x="100" y="60"/>
+				<line x="100" y="0"/>
+
 			</path>
 			<stroke/>
 			<rect h="60" w="3" x="42" y="0"/>

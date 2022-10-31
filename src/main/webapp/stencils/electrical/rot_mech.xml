@@ -320,7 +320,9 @@
 <shape aspect="variable" h="100" name="Synchro" strokewidth="inherit" w="80">
     <connections>
         <constraint name="N" perimeter="0" x="0.5" y="0"/>
+        <!-- ELXXX
         <constraint name="S" perimeter="0" x="0.5" y="1"/>
+        -->
     </connections>
     <background>
         <ellipse h="80" w="80" x="0" y="10"/>
@@ -332,12 +334,46 @@
         <path>
             <move x="40" y="0"/>
             <line x="40" y="10"/>
+            <!-- 
             <move x="40" y="85"/>
             <line x="40" y="100"/>
+            -->
         </path>
         <stroke/>
     </foreground>
 </shape>
+
+<!-- -->
+<shape aspect="variable" h="100" name="Asymmetric" strokewidth="inherit" w="80">
+    <connections>
+        <constraint name="N" perimeter="0" x="0.5" y="0"/>
+        <!-- ELXXX
+        <constraint name="S" perimeter="0" x="0.5" y="1"/>
+        -->
+    </connections>
+    <background>
+        <ellipse h="80" w="80" x="0" y="10"/>
+    </background>
+    <foreground>
+        <fillstroke/>
+        <ellipse h="70" w="70" x="5" y="15"/>
+        <stroke/>
+        <fillstroke/>
+        <ellipse h="60" w="60" x="10" y="20"/>
+        <stroke/>
+        <path>
+            <move x="40" y="0"/>
+            <line x="40" y="10"/>
+            <!-- 
+            <move x="40" y="85"/>
+            <line x="40" y="100"/>
+            -->
+        </path>
+        <stroke/>
+    </foreground>
+</shape>
+
+
 <shape aspect="variable" h="100" name="Winding Connection" strokewidth="inherit" w="100">
     <connections>
         <constraint name="N" perimeter="0" x="0.5" y="0"/>

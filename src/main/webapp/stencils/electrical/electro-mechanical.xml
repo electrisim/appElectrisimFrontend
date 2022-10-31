@@ -1420,12 +1420,23 @@
     </connections>
     <foreground>
         <path>
-            <move x="0" y="16"/>
-            <line x="15" y="16"/>
+        
+        <!-- ELXXX -->           
+            <move x="0" y="16"/>            
+            <line x="15" y="16"/> 
+            <move x="60" y="16"/>
+            <line x="75" y="16"/>
+            <move x="21" y="16"/>
+            <line x="57" y="16"/>
+            
+          <!-- ELXXX BYŁ WCZEŚNIEJ STAN OTWARTY JAK PONIŻEJ
+            <move x="0" y="16"/>            
+            <line x="15" y="16"/> 
             <move x="60" y="16"/>
             <line x="75" y="16"/>
             <move x="21" y="15"/>
             <line x="57" y="0"/>
+            -->
         </path>
         <stroke/>
         <ellipse h="6" w="6" x="54" y="13"/>

@@ -44,7 +44,9 @@
 <shape aspect="variable" h="200" name="Choke" strokewidth="inherit" w="100">
     <connections>
         <constraint name="in" perimeter="0" x="0.5" y="0"/>
+        <!-- 
         <constraint name="out" perimeter="0" x="0.5" y="1"/>
+        -->
     </connections>
     <foreground>
         <path>
@@ -53,6 +55,9 @@
             <line x="0" y="100"/>
             <arc large-arc-flag="1" rx="50" ry="50" sweep-flag="1" x="50" x-axis-rotation="0" y="150"/>
             <line x="50" y="200"/>
+            <line x="100" y="200"/>
+            <line x="0" y="200"/>
+            
         </path>
         <stroke/>
     </foreground>

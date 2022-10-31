@@ -811,20 +811,112 @@
     </foreground>
 </shape>
 <shape aspect="variable" h="60" name="Generic Component" strokewidth="inherit" w="60">
+
+
+<text x="10" y="10" style = "font: bold 2pt sans-serif; fill: red;">www</text>
+       
     <connections>
         <constraint name="N" perimeter="0" x="0.5" y="0"/>
+        <!-- 
         <constraint name="S" perimeter="0" x="0.5" y="1"/>
         <constraint name="W" perimeter="0" x="0" y="0.5"/>
         <constraint name="E" perimeter="0" x="1" y="0.5"/>
+        -->
     </connections>
     <foreground>
+       
+      
+        <rect h="60" w="60" x="0" y="0"/>
+
+        
+        <fillstroke/>
+         
+        <path> 
+        
+
+          <move x="50" y="50"/>
+          <line x="30" y="10"/>
+          <line x="10" y="50"/>
+          <move x="17" y="35"/>
+          <line x="43" y="35"/>
+           <!--
+          
+        ELXXX tak było literka Z
+            <move x="20" y="18"/>
+            <line x="40" y="18"/>
+            <line x="20" y="42"/>
+            <line x="40" y="42"/>
+         -->
+        </path>
+        <stroke/>
+    </foreground>
+</shape>
+<shape aspect="variable" h="60" name="Impedance" strokewidth="inherit" w="60">
+    <connections>
+        <constraint name="N" perimeter="0" x="0.5" y="0"/>        
+        <constraint name="S" perimeter="0" x="0.5" y="1"/>
+        <!-- 
+        <constraint name="W" perimeter="0" x="0" y="0.5"/>
+        <constraint name="E" perimeter="0" x="1" y="0.5"/>
+        -->
+    </connections>
+    <foreground>
+      
         <rect h="60" w="60" x="0" y="0"/>
         <fillstroke/>
         <path>
             <move x="20" y="18"/>
             <line x="40" y="18"/>
             <line x="20" y="42"/>
-            <line x="40" y="42"/>
+            <line x="40" y="42"/>         
+        </path>
+        <stroke/>
+    </foreground>
+</shape>
+<shape aspect="variable" h="60" name="Ward" strokewidth="inherit" w="60">
+    <connections>
+        <constraint name="N" perimeter="0" x="0.5" y="0"/> 
+        <!--        
+        <constraint name="S" perimeter="0" x="0.5" y="1"/>        
+        <constraint name="W" perimeter="0" x="0" y="0.5"/>
+        <constraint name="E" perimeter="0" x="1" y="0.5"/>
+        -->
+    </connections>
+    <foreground>
+      
+        <rect h="60" w="60" x="0" y="0"/>
+        <fillstroke/>
+        <path>
+            <move x="10" y="10"/>
+            <line x="15" y="50"/>
+            <line x="30" y="15"/>
+            <line x="45" y="50"/> 
+            <line x="50" y="10"/>          
+        </path>
+        <stroke/>
+    </foreground>
+</shape>
+
+<shape aspect="variable" h="60" name="extended_ward" strokewidth="inherit" w="60">
+    <connections>
+        <constraint name="N" perimeter="0" x="0.5" y="0"/>  
+        <!--     
+        <constraint name="S" perimeter="0" x="0.5" y="1"/>        
+        <constraint name="W" perimeter="0" x="0" y="0.5"/>
+        <constraint name="E" perimeter="0" x="1" y="0.5"/>
+        -->
+    </connections>
+    <foreground>
+      
+        <rect h="60" w="60" x="0" y="0"/>
+        <fillstroke/>
+        <path>
+            <move x="50" y="10"/>
+            <line x="10" y="10"/>
+            <line x="10" y="50"/>
+            <line x="50" y="50"/>
+            <move x="10" y="30"/> 
+            <line x="40" y="30"/>        
         </path>
         <stroke/>
     </foreground>
@@ -1078,7 +1170,9 @@
 <shape aspect="variable" h="60" name="Multicell Battery" strokewidth="inherit" w="100">
     <connections>
         <constraint name="in" perimeter="0" x="0" y="0.5"/>
+        <!-- ELXXX
         <constraint name="out" perimeter="0" x="1" y="0.5"/>
+        -->
     </connections>
     <foreground>
         <path>
@@ -1086,18 +1180,22 @@
             <line x="20" y="30"/>
             <move x="34" y="0"/>
             <line x="34" y="60"/>
+            <!--
             <move x="80" y="30"/>
             <line x="100" y="30"/>
+            -->
             <move x="80" y="0"/>
             <line x="80" y="60"/>
             <move x="34" y="30"/>
             <line x="39" y="30"/>
             <move x="44" y="30"/>
-            <line x="49" y="30"/>
+            <line x="49" y="30"/>             
             <move x="54" y="30"/>
-            <line x="59" y="30"/>
+            <line x="59" y="30"/>                       
             <move x="64" y="30"/>
             <line x="66" y="30"/>
+            
+            
         </path>
         <fillstroke/>
         <rect h="30" w="4" x="20" y="15"/>

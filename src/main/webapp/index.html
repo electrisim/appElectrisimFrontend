@@ -15,6 +15,8 @@
     <meta name="mobile-web-app-capable" content="yes">
 	<meta name="theme-color" content="#d89000">
 	<script type="text/javascript">
+
+		
 		/**
 		 * URL Parameters and protocol description are here:
 		 *
@@ -145,6 +147,8 @@
 			{
 				var s = document.createElement('script');
 				s.setAttribute('type', 'text/javascript');
+				//ELXXX - żeby można było robić import dla funkcji
+				//s.setAttribute('type', 'module'); niestety nie można stosować ze wzledu na wyskakujacy blad
 				s.setAttribute('defer', 'true');
 				s.setAttribute('src', src);
 
@@ -206,6 +210,13 @@
 		(function()
 		{
 			//ELXXX
+			mxscript('js/ag-grid-community.min.js')
+			mxscript('js/electrisim/lineDialog.js')	
+			mxscript('js/electrisim/transformerDialog.js')			
+
+			mxscript('https://unpkg.com/xlsx-style@0.8.13/dist/xlsx.full.min.js')
+			
+			
 			var name = 'electrisim.com';
 			mxmeta('apple-mobile-web-app-title', name);
 			mxmeta('application-name', name);
@@ -234,6 +245,7 @@
 		{
 			if (mxScriptsLoaded && mxWinLoaded)
 			{
+				
 				App.main();				
 			}
 		};
@@ -257,6 +269,8 @@
 				// Forces includes for dev environment in node.js
 				mxForceIncludes = true;
 			}
+
+			
 
 			var geBasePath = mxDevUrl + '/javascript/examples/grapheditor/www/js';
 			var mxBasePath = mxDevUrl + '/javascript/src';
@@ -290,12 +304,16 @@
 				var supportedDomain = (hostName.substring(hostName.length - 8, hostName.length) === '.draw.io') ||
 					(hostName.substring(hostName.length - 13, hostName.length) === '.diagrams.net');
 					(hostName.substring(hostName.length - 17, hostName.length) === '.quipelements.com');
-				
-				function loadAppJS()
+
+									
+				function loadAppJS()				
 				{
+					
+					
 					mxscript('js/app.min.js', function()
 					{
 						mxScriptsLoaded = true;
+						
 						checkAllLoaded();
 						
 						if (!supportedDomain)
@@ -409,6 +427,40 @@
 			cursor:pointer;
 			margin:5px;
 		}
+
+		/*ELXXX ag-grid styles */
+		.action-button {
+			border: none;
+			color: white;
+			padding: 3px 12px;
+			text-align: center;
+			text-decoration: none;
+			display: inline-block;
+			font-size: 16px;
+			opacity: 0.7;
+		}
+
+		.action-button:hover {
+			opacity: 1;
+		}
+
+		.action-button.edit {
+			background-color: #008cba; /* Blue */
+		}
+		.action-button.update {
+			background-color: #4caf50; /* Green */
+		}
+
+		.action-button.delete {
+			background-color: #f44336; /* Red */
+		}
+
+		.action-button.cancel {
+			background-color: #e7e7e7; /* Gray */
+			color: black;
+		}
+
+
 	</style>
 	<!-- Workaround for binary XHR in IE 9/10, see App.loadUrl -->
 	<!--[if (IE 9)|(IE 10)]><!-->
@@ -429,15 +481,17 @@
 	<div class="geBlock" style="text-align:center;min-width:50%;">
 		<h1>Electrisim - free app for power system modelling, simulation and analysis</h1>
 		<p>
-			app.electrisim.com is free online application for modelling, simlulation and analysis of power system.
+			app.electrisim.com is free online application for modelling, simulation and analysis of power system.
 		</p>
 		<h2 id="geStatus">Loading...</h2>
 		<p>
-			Please ensure JavaScript is enabled.
+			Only desktop version available. Please ensure JavaScript is enabled.
 		</p>
 	</div>
 </div>
 <script type="text/javascript">
+
+
 /**
  * Main
  */
@@ -448,10 +502,14 @@ if (navigator.userAgent != null && navigator.userAgent.toLowerCase().
 	var div = document.getElementById('geInfo');
 	
 	if (div != null)
+	
 	{
+		/** ELXXX
 		div.innerHTML = '<center><h2>You are using an out of date version of this app.<br>Please download the latest version ' +
 			'<a href="https://github.com/jgraph/drawio-desktop/releases/latest" target="_blank">here</a>.</h2></center>';
+		**/
 	}
+	
 }
 else
 {
@@ -464,7 +522,7 @@ else
 		});
 	}
 	else
-	{
+	{		
 		App.main();
 	}
 }
