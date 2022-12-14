@@ -2,6 +2,28 @@
 <!DOCTYPE html>
 <html>
 <head>
+
+	<!-- Google tag (gtag.js) -->
+	<script async src="https://www.googletagmanager.com/gtag/js?id=UA-96285072-1"></script>
+	<script>
+	window.dataLayer = window.dataLayer || [];
+	function gtag(){dataLayer.push(arguments);}
+	gtag('js', new Date());
+
+	gtag('config', 'UA-96285072-1');
+	</script>
+
+	 <!-- Smartlook tag (gtag.js) -->
+    <script type='text/javascript'>
+    window.smartlook||(function(d) {
+        var o=smartlook=function(){ o.api.push(arguments)},h=d.getElementsByTagName('head')[0];
+        var c=d.createElement('script');o.api=new Array();c.async=true;c.type='text/javascript';
+        c.charset='utf-8';c.src='https://web-sdk.smartlook.com/recorder.js';h.appendChild(c);
+        })(document);
+        smartlook('init', '7fe0bb01192a8f24ef76c35cbecc07b34a6df737', { region: 'eu' });
+    </script>
+
+
     <title>Electrisim &amp; Model, Simulate And Analyse Power System With the Free Cloud App</title>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
@@ -212,7 +234,8 @@
 			//ELXXX
 			mxscript('js/ag-grid-community.min.js')
 			mxscript('js/electrisim/lineDialog.js')	
-			mxscript('js/electrisim/transformerDialog.js')			
+			mxscript('js/electrisim/transformerDialog.js')		
+			mxscript('js/electrisim/threeWindingTransformerDialog.js')			
 
 			mxscript('https://unpkg.com/xlsx-style@0.8.13/dist/xlsx.full.min.js')
 			
