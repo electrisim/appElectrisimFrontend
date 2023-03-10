@@ -11,7 +11,7 @@ const rowDefsDataThreeWindingTransformerDialog = [
         editable: false,
         colId: "action"
       },
-      { field: "name" },
+      { field: "name", minWidth: 300 },
       { field: "sn_hv_mva",
         valueParser: numberParser,
       },
@@ -125,6 +125,7 @@ const rowDefsDataThreeWindingTransformerDialog = [
       if (action === "update") {
         var rowNode = gridOptionsThreeWindingTransformerDialog.api.getRowNode(params.node.rowIndex);      
         rowNode.setData(params.node.data);  
+        rowDefsDataThreeWindingTransformerDialog.push(params.node.data)
 
         params.api.stopEditing(false);
       }
@@ -133,8 +134,7 @@ const rowDefsDataThreeWindingTransformerDialog = [
         params.api.stopEditing(true);
       }
       if (action === "add") {
-        rowDefsDataThreeWindingTransformerDialog.push(params.node.data)
-
+        
         params.api.applyTransaction({
           add: [{}],
         });

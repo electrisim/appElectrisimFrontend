@@ -107,6 +107,7 @@ const rowDefsDataTransformerDialog = [
       if (action === "update") {
         var rowNode = gridOptionsTransformerDialog.api.getRowNode(params.node.rowIndex);      
         rowNode.setData(params.node.data);  
+        rowDefsDataTransformerDialog.push(params.node.data)
 
         params.api.stopEditing(false);
       }
@@ -114,12 +115,12 @@ const rowDefsDataTransformerDialog = [
       if (action === "cancel") {
         params.api.stopEditing(true);
       }
-      if (action === "add") {
-        rowDefsDataTransformerDialog.push(params.node.data)
-
+      if (action === "add") {  
+        
         params.api.applyTransaction({
           add: [{}],
-        });
+        }); 
+        
       }
     }
   }
