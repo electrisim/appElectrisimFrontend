@@ -665,6 +665,7 @@
         <constraint name="W" perimeter="0" x="0" y="0.5"/>
     </connections>
     <foreground>
+    
         <path>
             <move x="0" y="25"/>
             <line x="32.5" y="25"/>
@@ -702,10 +703,16 @@
 <shape aspect="variable" h="250" name="Pot Trans 3 Windings" strokewidth="inherit" w="175">
     <connections>
         <constraint name="N" perimeter="0" x="0.5" y="0"/>
+        
         <constraint name="SW" perimeter="0" x="0.285" y="1"/>
         <constraint name="SE" perimeter="0" x="0.715" y="1"/>
     </connections>
     <foreground>
+        <!-- ELXXX dodane oznaczenia uzwojeń-->
+        <text str="HV" valign="bottom" x="35" y="25"/>
+        <text str="MV" valign="bottom" x="0" y="250"/>
+        <text str="LV" valign="bottom" x="130" y="250"/>
+        
         <path>
             <move x="87.5" y="0"/>
             <line x="87.5" y="40"/>
@@ -723,6 +730,40 @@
         <stroke/>
     </foreground>
 </shape>
+
+<!--ELXXX nie korzystam z tego nowego przygotowanego przeze mnie element-->
+
+<shape aspect="variable" w="160" h="20"  name="busbar elxxx" strokewidth="inherit" > 
+    <connections>
+        <constraint name="N" perimeter="0" x="0" y="0"/>
+        
+        <constraint name="SW" perimeter="0" x="0.1" y="0"/>
+        <constraint name="SE" perimeter="0" x="0.2" y="0"/>
+    </connections>
+ 
+    <foreground>
+         <!-- ELXXX dodane oznaczenia -->
+         <text str="U[pu]: " x="0" y="0"/>
+         <text str="U[degree]: " x="0" y="50"/> 
+         <text str="P[MW]: " x="0" y="100"/> 
+         <text str="Q[MVar]: " x="0" y="150"/>   <!-- valign="bottom"-->
+       
+         
+   
+        
+        <path>
+            <move x="0" y="0"/>
+            <line x="175" y="0"/>
+            
+        </path>
+        <stroke/>
+       
+    </foreground>
+</shape>
+
+
+
+
 <shape aspect="variable" h="150" name="Saturating Transformer" strokewidth="inherit" w="200">
     <connections>
         <constraint name="NW" perimeter="0" x="0" y="0.165"/>
@@ -794,6 +835,8 @@
         <stroke/>
     </foreground>
 </shape>
+
+<!-- ELXXX nie używane. Zamiast tego używane jest current_source z signal_sources.xml-->
 <shape aspect="variable" h="100" name="Transformer" strokewidth="inherit" w="100">
     <connections>
         <constraint name="in1" perimeter="0" x="0" y="0"/>
@@ -802,6 +845,7 @@
         <constraint name="out2" perimeter="0" x="1" y="1"/>
     </connections>
     <foreground>
+
         <path>
             <move x="0" y="0"/>
             <line x="30" y="0"/>
