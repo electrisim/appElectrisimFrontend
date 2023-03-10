@@ -48,6 +48,11 @@
         <ellipse h="40" w="40" x="0" y="20"/>
     </background>
     <foreground>
+      <!-- ELXXX dodane oznaczenia uzwojeń-->
+        <text str="HV" valign="bottom" x="0" y="0"/>
+        <text str="MV" valign="bottom" x="0" y="73"/>
+        
+
         <fillstroke/>
         <ellipse h="40" w="40" x="0" y="0"/>
         <fillstroke/>
