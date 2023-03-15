@@ -834,7 +834,7 @@ function loadFlow(a, b, c) {
 
             //bootstrap button with spinner
             // this.ui.spinner.stop();
-            fetch("https://electrisimbackendpython.onrender.com/json-example", { // http://127.0.0.1:5005/json-example     
+            fetch("http://127.0.0.1:5005/json-example", { //https://electrisimbackendpython.onrender.com/json-example      
                 mode: "cors",
                 method: "post",
                 headers: {
