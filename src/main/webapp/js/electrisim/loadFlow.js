@@ -6,6 +6,7 @@ function loadFlow(a, b, c) {
     //c - Editor
 
     var apka = a
+    var grafka = b
 
     b.isEnabled() && !b.isCellLocked(b.getDefaultParent()) && a.showLoadFlowDialog("", "Calculate", function (a, c) {
 
@@ -975,7 +976,7 @@ function loadFlow(a, b, c) {
 
             //bootstrap button with spinner
             // this.ui.spinner.stop();
-            fetch("https://electrisimbackendpython.onrender.com/json-example", { //http://127.0.0.1:5005/json-example https://electrisimbackendpython.onrender.com/json-example
+            fetch("https://electrisimbackendpython.onrender.com/json-example", { //http://127.0.0.1:5005/json-example
                 mode: "cors",
                 method: "post",
                 headers: {
@@ -1143,20 +1144,35 @@ function loadFlow(a, b, c) {
                         label12.setStyle('shapeELXXX=Result')
                         label12.setAttribute('idELXXX', 'lineLoadingId')
 
-                        //zmiana kolorów 
-
-                        if(dataJson.lines[i].loading_percent.toFixed(1) > 90){
-                            label12.setStyle('color:red')
-
+                        //zmiana kolorów przy przekroczeniu obciążenia linii
+                        if(dataJson.lines[i].loading_percent.toFixed(1) > 100){
+                
+                            var linia = b.getModel().getCell(dataJson.lines[i].name)
+                   
+                            var style=grafka.getModel().getStyle(linia);
+                            var newStyle=mxUtils.setStyle(style,mxConstants.STYLE_STROKECOLOR,'red');
+                            var cs= new Array();
+                            cs[0]=linia;
+                            grafka.setCellStyle(newStyle,cs);                              
                             
-                            
-                            
-                            console.log('resultCell')
-                            console.log(resultCell)
-
-                            console.log(document.getElementById('lineLoadingId'))
-                            
-                            
+                        }
+                        if(dataJson.lines[i].loading_percent.toFixed(1) > 80 && dataJson.lines[i].loading_percent.toFixed(1) <= 100){
+                
+                            var linia = b.getModel().getCell(dataJson.lines[i].name)                   
+                            var style=grafka.getModel().getStyle(linia);
+                            var newStyle=mxUtils.setStyle(style,mxConstants.STYLE_STROKECOLOR,'orange');
+                            var cs= new Array();
+                            cs[0]=linia;
+                            grafka.setCellStyle(newStyle,cs); 
+                        }
+                        if(dataJson.lines[i].loading_percent.toFixed(1) > 0 && dataJson.lines[i].loading_percent.toFixed(1) <= 80){
+                
+                            var linia = b.getModel().getCell(dataJson.lines[i].name)                   
+                            var style=grafka.getModel().getStyle(linia);
+                            var newStyle=mxUtils.setStyle(style,mxConstants.STYLE_STROKECOLOR,'green');
+                            var cs= new Array();
+                            cs[0]=linia;
+                            grafka.setCellStyle(newStyle,cs); 
                         }
 
                         var label12 = b.insertVertex(resultCell, null, 'P[MW]: ' + dataJson.lines[i].p_to_mw.toFixed(3), 0.7, 43, 0, 0, null, true);
