@@ -979,9 +979,9 @@ function loadFlow(a, b, c) {
             fetch("https://electrisimbackendpython.onrender.com/json-example", { //http://127.0.0.1:5005/json-example
                 mode: "cors",
                 method: "post",
-                headers: {
-                    "Content-Type": "application/json",
-                    // "Access-Control-Allow-Origin":"*",                                  
+                headers: { 
+                   "Content-Type": "application/json",
+                   "Access-Control-Allow-Origin":"*",                                  
                 },
                 body: JSON.stringify(obj)
             })
