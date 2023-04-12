@@ -493,9 +493,9 @@ function shortCircuit(a, b, c) {
                         shuntReactor.q_mvar = cellsArray[i].value.attributes[3].nodeValue
 
                         //Optional_parameters
-                        shuntReactor.vn_kv = cellsArray[i].value.attributes[4].nodeValue
-                        shuntReactor.step = cellsArray[i].value.attributes[5].nodeValue
-                        shuntReactor.max_step = cellsArray[i].value.attributes[6].nodeValue
+                        shuntReactor.vn_kv = cellsArray[i].value.attributes[5].nodeValue
+                        shuntReactor.step = cellsArray[i].value.attributes[6].nodeValue
+                        shuntReactor.max_step = cellsArray[i].value.attributes[7].nodeValue
 
                         shuntReactorNo++
 

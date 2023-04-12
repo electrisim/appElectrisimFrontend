@@ -474,9 +474,9 @@ function loadFlow(a, b, c) {
                         shuntReactor.q_mvar = cellsArray[i].value.attributes[3].nodeValue
 
                         //Optional_parameters
-                        shuntReactor.vn_kv = cellsArray[i].value.attributes[4].nodeValue
-                        shuntReactor.step = cellsArray[i].value.attributes[5].nodeValue
-                        shuntReactor.max_step = cellsArray[i].value.attributes[6].nodeValue
+                        shuntReactor.vn_kv = cellsArray[i].value.attributes[5].nodeValue
+                        shuntReactor.step = cellsArray[i].value.attributes[6].nodeValue
+                        shuntReactor.max_step = cellsArray[i].value.attributes[7].nodeValue
 
                         shuntReactorNo++
 
@@ -1007,7 +1007,7 @@ function loadFlow(a, b, c) {
                     console.log(dataJson)
 
 
-
+                    //Obsługiwanie błędów
                     if (dataJson[0] != undefined) {
                         if (dataJson[0] == "line") {
                             //rozpływ się nie udał, output z diagnostic_function
@@ -1047,21 +1047,12 @@ function loadFlow(a, b, c) {
 
 
                     //*************** WYŚWIETLANIE WYNIKÓW NA DIAGRAMIE ****************
-                    var csvArray = []
-                    var oneBusbarArray = []
-
-                    /*dataJson.lines.forEach(function(arrayTen) {
-                        let row = dataJson.lines.join(",");
-                        csvContent += row + "\r\n";
-                    });*/
+           
 
                     //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Line
-                    let csvContent = "data:text/csv;charset=utf-8,Busbar Name,v_m, va_degree\n";
+                    let csvContent = "data:text/csv;charset=utf-8,Busbar Name,v_m, va_degree, p_mw, q_mvar, pf\n";
 
                     for (var i = 0; i < dataJson.busbars.length; i++) {
-
-
-
                         resultId = dataJson.busbars[i].name
 
                         resultId = resultId.replace('NUMBER', dataJson.busbars[i].name)
@@ -1083,18 +1074,18 @@ function loadFlow(a, b, c) {
                         label12.setStyle('shapeELXXX=Result')
 
                         var label12 = b.insertVertex(resultCell, null, 'U[degree]: ' + dataJson.busbars[i].va_degree.toFixed(3), 0.2, 2.7, 0, 0, null, true);
-                        label12.setStyle('shapeELXXX=Result')
-                        /*
-                        if (dataJson.parameter[i] == 'pf') {
-                            var label12 = b.insertVertex(resultCell, null, 'PF: ' + dataJson.value[i].toFixed(3), 0.2, 4, 0, 0, null, true);
-                        }
+                        label12.setStyle('shapeELXXX=Result')                        
+                        
                         
                         if (dataJson.parameter[i] == 'p_mw') {
                             var label12 = b.insertVertex(resultCell, null, 'P[MW]: ' + dataJson.value[i].toFixed(3), 1, 4, 0, 0, null, true);
                         }
                         if (dataJson.parameter[i] == 'q_mvar') {
                             var label12 = b.insertVertex(resultCell, null, 'Q[MVar]: ' + dataJson.value[i].toFixed(3), 1, 5.3, 0, 0, null, true);
-                        }*/
+                        }
+                        if (dataJson.parameter[i] == 'pf') {
+                            var label12 = b.insertVertex(resultCell, null, 'PF: ' + dataJson.value[i].toFixed(3), 0.2, 4, 0, 0, null, true);
+                        }
 
                     }
 
