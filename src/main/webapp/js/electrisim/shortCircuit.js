@@ -983,8 +983,8 @@ function shortCircuit(a, b, c) {
 
             //bootstrap button with spinner
             // this.ui.spinner.stop();
-            fetch("https://electrisimbackendpython.onrender.com/json-example", { //http://127.0.0.1:5005/json-example
-                mode: "cors",
+            fetch("https://electrisimbackendpython.onrender.com/", { // http://127.0.0.1:5005/
+                mode: "cors", 
                 method: "post",
                 headers: {
                     "Content-Type": "application/json",

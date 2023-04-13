@@ -114,11 +114,14 @@ function loadFlow(a, b, c) {
 
                     //wybierz obiekty typu Ext_grid
                     if (result.shapeELXXX == "External Grid") {
+                        console.log("TUTAJ:")
+                        console.log(cellsArray[i])
 
                         //zrób plik json i wyślij do backend
                         var externalGrid = new Object();
                         externalGrid.typ = "External Grid" + externalGridNo
-                        externalGrid.name = "External Grid" + externalGridNo
+                        externalGrid.name = cellsArray[i].id
+
 
                         //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
                         if(cellsArray[i].edges[0].target.id != cellsArray[i].id){ 
@@ -976,7 +979,7 @@ function loadFlow(a, b, c) {
 
             //bootstrap button with spinner
             // this.ui.spinner.stop();
-            fetch("https://electrisimbackendpython.onrender.com/json-example", { //http://127.0.0.1:5005/json-example
+            fetch("https://electrisimbackendpython.onrender.com/", { // http://127.0.0.1:5005/
                 mode: "cors",
                 method: "post",
                 headers: { 
@@ -985,10 +988,7 @@ function loadFlow(a, b, c) {
                 },
                 body: JSON.stringify(obj)
             })
-
-                //.then(response => console.log(response))
-
-
+                
                 .then(response => {
                     apka.spinner.stop();
 
@@ -1074,18 +1074,17 @@ function loadFlow(a, b, c) {
                         label12.setStyle('shapeELXXX=Result')
 
                         var label12 = b.insertVertex(resultCell, null, 'U[degree]: ' + dataJson.busbars[i].va_degree.toFixed(3), 0.2, 2.7, 0, 0, null, true);
-                        label12.setStyle('shapeELXXX=Result')                        
+                        label12.setStyle('shapeELXXX=Result')            
                         
+                        var label12 = b.insertVertex(resultCell, null, 'P[MW]: ' + dataJson.busbars[i].p_mw.toFixed(3), 0.2, 4.0, 0, 0, null, true);
+                        label12.setStyle('shapeELXXX=Result')
+
+                        var label12 = b.insertVertex(resultCell, null, 'Q[MVar]: ' + dataJson.busbars[i].q_mvar.toFixed(3), 0.2, 5.3, 0, 0, null, true);
+                        label12.setStyle('shapeELXXX=Result')    
+
+                        var label12 = b.insertVertex(resultCell, null, 'PF: ' + dataJson.busbars[i].pf.toFixed(3), 0.2, 6.3, 0, 0, null, true);
+                        label12.setStyle('shapeELXXX=Result')    
                         
-                        if (dataJson.parameter[i] == 'p_mw') {
-                            var label12 = b.insertVertex(resultCell, null, 'P[MW]: ' + dataJson.value[i].toFixed(3), 1, 4, 0, 0, null, true);
-                        }
-                        if (dataJson.parameter[i] == 'q_mvar') {
-                            var label12 = b.insertVertex(resultCell, null, 'Q[MVar]: ' + dataJson.value[i].toFixed(3), 1, 5.3, 0, 0, null, true);
-                        }
-                        if (dataJson.parameter[i] == 'pf') {
-                            var label12 = b.insertVertex(resultCell, null, 'PF: ' + dataJson.value[i].toFixed(3), 0.2, 4, 0, 0, null, true);
-                        }
 
                     }
 
@@ -1172,6 +1171,41 @@ function loadFlow(a, b, c) {
                         label12.setStyle('shapeELXXX=Result')
                         var label12 = b.insertVertex(resultCell, null, 'i[kA]: ' + dataJson.lines[i].i_to_ka.toFixed(3), 0.9, 43, 0, 0, null, true);
                         label12.setStyle('shapeELXXX=Result')
+                    }
+
+
+                    //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Line
+                    csvContent += "data:text/csv;charset=utf-8,ExternalGrid Name, p_mw, q_mvar\n";
+
+                    for (var i = 0; i < dataJson.externalgrids.length; i++) {
+                        resultId = dataJson.externalgrids[i].name
+
+                        resultId = resultId.replace('NUMBER', dataJson.externalgrids[i].name)
+
+                        //sprawdz na jakich pozycjach był znak '-'
+                        //podmien w tyc pozycjach znaki
+                        resultId = resultId.replaceAll('___', '-')
+
+                        dataJson.externalgrids[i].name = resultId
+
+                        //for the csv file
+                        let row = Object.values(dataJson.externalgrids[i]).join(",")
+                        csvContent += row + "\r\n";
+
+                        //create label
+                        var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
+
+                      
+                        var label12 = b.insertVertex(resultCell, null, 'P[MW]: ' + dataJson.externalgrids[i].p_mw.toFixed(3), -0.15, 1, 0, 0, null, true);
+                        label12.setStyle('shapeELXXX=Result')
+
+                        var label12 = b.insertVertex(resultCell, null, 'Q[MVar]: ' + dataJson.externalgrids[i].q_mvar.toFixed(3), -0.15, 1.2, 0, 0, null, true);
+                        label12.setStyle('shapeELXXX=Result')    
+
+                        var label12 = b.insertVertex(resultCell, null, 'PF: ' + dataJson.externalgrids[i].pf.toFixed(3), -0.15, 1.4, 0, 0, null, true);
+                        label12.setStyle('shapeELXXX=Result')    
+                        
+
                     }
                     //download to CSV
                     var encodedUri = encodeURI(csvContent);
