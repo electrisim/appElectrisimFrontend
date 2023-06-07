@@ -60,27 +60,42 @@
 			<stroke/>
 		</foreground>
 	</shape>
-	<shape aspect="variable" h="60" name="Capacitor 4" strokewidth="inherit" w="100">
+	<!--ELXXX-->
+	<shape aspect="variable" h="200" name="Capacitor 4" strokewidth="inherit" w="100">
+		
 		<connections>
-			<constraint name="in" perimeter="0" x="0" y="0.5"/>
-			<!-- 
-			<constraint name="out" perimeter="0" x="1" y="0.5"/>
-			-->
+			<constraint name="in" perimeter="0" x="0.5" y="0"/>		
+		
+			
 		</connections>
 		<foreground>
 			<path>
+				<move x="50" y="0"/>
+				<line x="50" y="84"/>
+				<move x="50" y="116"/>
+				<line x="50" y="200"/>
+				<line x="100" y="200"/>
+				<line x="0" y="200"/>
+			</path>
+				<stroke/>
+				<rect h="3" w="100" x="0" y="84"/>
+				<stroke/>
+				<rect h="3" w="100" x="0" y="110"/>
+			<!-- 
 				<move x="0" y="30"/>
 				<line x="42" y="30"/>
 				<move x="58" y="30"/>
 				<line x="100" y="30"/>
 				<line x="100" y="60"/>
 				<line x="100" y="0"/>
+					</path>
+				<stroke/>
+				<rect h="60" w="3" x="42" y="0"/>
+				<stroke/>
+				<rect h="60" w="3" x="55" y="0"/>
+			-->
 
-			</path>
-			<stroke/>
-			<rect h="60" w="3" x="42" y="0"/>
-			<stroke/>
-			<rect h="60" w="3" x="55" y="0"/>
+		
 			<fillstroke/>
 		</foreground>
 	</shape>

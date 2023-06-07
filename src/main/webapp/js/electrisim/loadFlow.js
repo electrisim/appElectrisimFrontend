@@ -163,7 +163,7 @@ function loadFlow(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var generator = new Object();
                         generator.typ = "Generator"
-                        generator.name = "Generator" + generatorNo
+                        generator.name = cellsArray[i].id.replaceAll('-', '___')
 
                         //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
                         if(cellsArray[i].edges[0].target.id != cellsArray[i].id){ 
@@ -203,7 +203,7 @@ function loadFlow(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var staticGenerator = new Object();
                         staticGenerator.typ = "Static Generator"
-                        staticGenerator.name = "Static Generator" + staticGeneratorNo
+                        staticGenerator.name = cellsArray[i].id.replaceAll('-', '___')
                         //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
                         if(cellsArray[i].edges[0].target.id != cellsArray[i].id){ 
 
@@ -243,7 +243,7 @@ function loadFlow(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var asymmetricStaticGenerator = new Object();
                         asymmetricStaticGenerator.typ = "Asymmetric Static Generator" + generatorNo
-                        asymmetricStaticGenerator.name = "Asymmetric Static Generator" + generatorNo
+                        asymmetricStaticGenerator.name = cellsArray[i].id.replaceAll('-', '___')
                         
                         //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
                         if(cellsArray[i].edges[0].target.id != cellsArray[i].id){
@@ -299,7 +299,7 @@ function loadFlow(a, b, c) {
 
                         //Load_flow_parameters
                         busbar.vn_kv = cellsArray[i].value.attributes[2].nodeValue
-                        busbar.type = cellsArray[i].value.attributes[3].nodeValue
+                        //busbar.type = cellsArray[i].value.attributes[3].nodeValue
                         //busbar.in_service = cellsArray[i].value.attributes[3].nodeValue
                         busbarNo++
 
@@ -312,7 +312,7 @@ function loadFlow(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var transformer = new Object();
                         transformer.typ = "Transformer" + transformerNo
-                        transformer.name = "Transformer" + transformerNo
+                        transformer.name = cellsArray[i].id.replaceAll('-', '___')
 
                         //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
                         if(cellsArray[i].edges[0].target.id != cellsArray[i].id){  
@@ -383,7 +383,7 @@ function loadFlow(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var threeWindingTransformer = new Object();
                         threeWindingTransformer.typ = "Three Winding Transformer" + threeWindingTransformerNo
-                        threeWindingTransformer.name = "Three Winding Transformer" + threeWindingTransformerNo
+                        threeWindingTransformer.name = cellsArray[i].id.replaceAll('-', '___')
                         //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
                         if(cellsArray[i].edges[2].target.id != cellsArray[i].id){ 
                             threeWindingTransformer.hv_bus = cellsArray[i].edges[2].target.id.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
@@ -459,6 +459,7 @@ function loadFlow(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var shuntReactor = new Object();
                         shuntReactor.typ = "Shunt Reactor" + shuntReactorNo
+                        shuntReactor.name = cellsArray[i].id.replaceAll('-', '___')
 
                         //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
                         if(cellsArray[i].edges[0].target.id != cellsArray[i].id){ 
@@ -475,9 +476,9 @@ function loadFlow(a, b, c) {
                         //Load_flow_parameters
                         shuntReactor.p_mw = cellsArray[i].value.attributes[2].nodeValue
                         shuntReactor.q_mvar = cellsArray[i].value.attributes[3].nodeValue
+                        shuntReactor.vn_kv = cellsArray[i].value.attributes[4].nodeValue
 
-                        //Optional_parameters
-                        shuntReactor.vn_kv = cellsArray[i].value.attributes[5].nodeValue
+                        //Optional_parameters                        
                         shuntReactor.step = cellsArray[i].value.attributes[6].nodeValue
                         shuntReactor.max_step = cellsArray[i].value.attributes[7].nodeValue
 
@@ -492,6 +493,7 @@ function loadFlow(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var capacitor = new Object();
                         capacitor.typ = "Capacitor" + capacitorNo
+                        capacitor.name = cellsArray[i].id.replaceAll('-', '___')
 
                         //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
                         if(cellsArray[i].edges[0].target.id != cellsArray[i].id){                        
@@ -508,8 +510,9 @@ function loadFlow(a, b, c) {
                         //Load_flow_parameters
                         capacitor.q_mvar = cellsArray[i].value.attributes[2].nodeValue
                         capacitor.loss_factor = cellsArray[i].value.attributes[3].nodeValue
+                        capacitor.vn_kv = cellsArray[i].value.attributes[4].nodeValue
                         //Optional_parameters
-                        capacitor.vn_kv = cellsArray[i].value.attributes[5].nodeValue
+                        
                         capacitor.step = cellsArray[i].value.attributes[6].nodeValue
                         capacitor.max_step = cellsArray[i].value.attributes[7].nodeValue
 
@@ -526,6 +529,8 @@ function loadFlow(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var load = new Object();
                         load.typ = "Load" + loadNo
+                        load.name =  cellsArray[i].id.replaceAll('-', '___')
+                        load.name =  load.name.replace(/^\d/, 'NUMBER')
 
                         //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
                         if(cellsArray[i].edges[0].target.id != cellsArray[i].id){                        
@@ -553,8 +558,7 @@ function loadFlow(a, b, c) {
                         load.type = cellsArray[i].value.attributes[8].nodeValue
 
                         loadNo++
-                        console.log("TUTAJ")
-                        console.log(load)
+                  
 
                         loadArray.push(load);
                     }
@@ -564,6 +568,7 @@ function loadFlow(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var asymmetricLoad = new Object();
                         asymmetricLoad.typ = "Asymmetric Load" + asymmetricLoadNo
+                        asymmetricLoad.name = cellsArray[i].id.replaceAll('-', '___')
 
                         //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
                         if(cellsArray[i].edges[0].target.id != cellsArray[i].id){   
@@ -598,6 +603,7 @@ function loadFlow(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var impedance = new Object();
                         impedance.typ = "Impedance" + impedanceNo
+                        impedance.name = cellsArray[i].id.replaceAll('-', '___')
 
 
                         console.log("Impedance attributes")
@@ -640,6 +646,7 @@ function loadFlow(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var ward = new Object();
                         ward.typ = "Ward" + wardNo
+                        ward.name = cellsArray[i].id.replaceAll('-', '___')
 
                         if(cellsArray[i].edges[0].target.id != cellsArray[i].id)
                         {
@@ -669,6 +676,7 @@ function loadFlow(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var extendedWard = new Object();
                         extendedWard.typ = "Extended Ward" + extendedWardNo
+                        extendedWard.name = cellsArray[i].id.replaceAll('-', '___')
 
                         if(cellsArray[i].edges[0].target.id != cellsArray[i].id)
                         {
@@ -701,6 +709,7 @@ function loadFlow(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var motor = new Object();
                         motor.typ = "Motor" + motorNo
+                        motor.name = cellsArray[i].id.replaceAll('-', '___')
 
                         if(cellsArray[i].edges[0].target.id != cellsArray[i].id)
                         {
@@ -743,6 +752,7 @@ function loadFlow(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var storage = new Object();
                         storage.typ = "Storage" + storageNo
+                        storage.name = cellsArray[i].id.replaceAll('-', '___')
 
 
                         if(cellsArray[i].edges[0].target.id != cellsArray[i].id)
@@ -779,6 +789,7 @@ function loadFlow(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var dcLine = new Object();
                         dcLine.typ = "DC Line" + dcLineNo
+                        dcLine.name = cellsArray[i].id.replaceAll('-', '___')
 
                         if(cellsArray[i].edges[0].target.id != cellsArray[i].id)
                         {
@@ -864,9 +875,6 @@ function loadFlow(a, b, c) {
 
                 }
             }
-
-
-
 
             //zamień w transformerArray kolejności busbar (hv, lv)
             //porównaj dwa napięcia i dzięki temu określ który jest HV i LV
@@ -979,7 +987,7 @@ function loadFlow(a, b, c) {
 
             //bootstrap button with spinner
             // this.ui.spinner.stop();
-            fetch("https://electrisimbackendpython.onrender.com/", { // http://127.0.0.1:5005/
+            fetch("https://electrisimbackendpython.onrender.com/", { //http://127.0.0.1:5005/
                 mode: "cors",
                 method: "post",
                 headers: { 
@@ -1048,10 +1056,19 @@ function loadFlow(a, b, c) {
 
                     //*************** WYŚWIETLANIE WYNIKÓW NA DIAGRAMIE ****************
            
+                    var style = new Object();
+                    style[mxConstants.STYLE_FONTSIZE] = '8';
+                    //style[mxConstants.STYLE_SHAPE] = 'box';
+                    //style[mxConstants.STYLE_STROKECOLOR] = '#000000';
+                    //style[mxConstants.STYLE_FONTCOLOR] = '#000000';
+                        
+                    b.getStylesheet().putCellStyle('labelstyle', style);
 
-                    //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Line
+
+
+                    //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Busbar
                     let csvContent = "data:text/csv;charset=utf-8,Busbar Name,v_m, va_degree, p_mw, q_mvar, pf\n";
-
+                                       
                     for (var i = 0; i < dataJson.busbars.length; i++) {
                         resultId = dataJson.busbars[i].name
 
@@ -1070,143 +1087,656 @@ function loadFlow(a, b, c) {
                         //create label
                         var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
 
-                        var label12 = b.insertVertex(resultCell, null, 'U[pu]: ' + dataJson.busbars[i].vm_pu.toFixed(3), 0.2, 1.4, 0, 0, null, true);
-                        label12.setStyle('shapeELXXX=Result')
-
-                        var label12 = b.insertVertex(resultCell, null, 'U[degree]: ' + dataJson.busbars[i].va_degree.toFixed(3), 0.2, 2.7, 0, 0, null, true);
-                        label12.setStyle('shapeELXXX=Result')            
-                        
-                        var label12 = b.insertVertex(resultCell, null, 'P[MW]: ' + dataJson.busbars[i].p_mw.toFixed(3), 0.2, 4.0, 0, 0, null, true);
-                        label12.setStyle('shapeELXXX=Result')
-
-                        var label12 = b.insertVertex(resultCell, null, 'Q[MVar]: ' + dataJson.busbars[i].q_mvar.toFixed(3), 0.2, 5.3, 0, 0, null, true);
-                        label12.setStyle('shapeELXXX=Result')    
-
-                        var label12 = b.insertVertex(resultCell, null, 'PF: ' + dataJson.busbars[i].pf.toFixed(3), 0.2, 6.3, 0, 0, null, true);
-                        label12.setStyle('shapeELXXX=Result')    
-                        
+                        b.insertVertex(resultCell, null, 'Bus', 0.2, 1, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');  
+                        b.insertVertex(resultCell, null, 'U[pu]: ' + dataJson.busbars[i].vm_pu.toFixed(3), 0.2, 2, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');  
+                        b.insertVertex(resultCell, null, 'U[degree]: ' + dataJson.busbars[i].va_degree.toFixed(3), 0.2, 3.2, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');  
+                        b.insertVertex(resultCell, null, 'P[MW]: ' + dataJson.busbars[i].p_mw.toFixed(3), 0.2, 4.4, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');  
+                        b.insertVertex(resultCell, null, 'Q[MVar]: ' + dataJson.busbars[i].q_mvar.toFixed(3), 0.2, 5.6, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');  
+                        b.insertVertex(resultCell, null, 'PF: ' + dataJson.busbars[i].pf.toFixed(3), 0.2, 6.8, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');  
 
                     }
 
-                    //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Line
-                    csvContent += "Line Name, p_from_mw, q_from_mvar, p_to_mw, q_to_mvar, i_from_ka, i_to_ka, loading_percent \n";
-                    for (var i = 0; i < dataJson.lines.length; i++) {
+                    if(dataJson.lines != undefined)
+                    {
+                        //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Line
+                        csvContent += "Line Name, p_from_mw, q_from_mvar, p_to_mw, q_to_mvar, i_from_ka, i_to_ka, loading_percent \n";
+                        for (var i = 0; i < dataJson.lines.length; i++) {
 
-                        resultId = dataJson.lines[i].name
+                            resultId = dataJson.lines[i].name
 
-                        resultId = resultId.replace('NUMBER', dataJson.lines[i].name)
+                            resultId = resultId.replace('NUMBER', dataJson.lines[i].name)
 
-                        //sprawdz na jakich pozycjach był znak '-'
-                        //podmien w tyc pozycjach znaki
-                        resultId = resultId.replaceAll('___', '-')
+                            //sprawdz na jakich pozycjach był znak '-'
+                            //podmien w tyc pozycjach znaki
+                            resultId = resultId.replaceAll('___', '-')
 
-                        dataJson.lines[i].name = resultId
+                            dataJson.lines[i].name = resultId
 
-                        //for the csv file
-                        let row = Object.values(dataJson.lines[i]).join(",")
-                        csvContent += row + "\r\n";
+                            //for the csv file
+                            let row = Object.values(dataJson.lines[i]).join(",")
+                            csvContent += row + "\r\n";
 
-                        var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
+                            var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
 
+                            b.insertVertex(resultCell, null, 'Line', -0.9, 43, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');  
+                            b.insertVertex(resultCell, null, 'P[MW]: ' + dataJson.lines[i].p_from_mw.toFixed(3), -0.8, 43, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');  
+                            b.insertVertex(resultCell, null, 'Q[MVar]: ' + dataJson.lines[i].q_from_mvar.toFixed(3), -0.7, 43, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');  
+                            b.insertVertex(resultCell, null, 'i[kA]: ' + dataJson.lines[i].i_from_ka.toFixed(3), -0.6, 43, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');                          
 
-                        var label12 = b.insertVertex(resultCell, null, 'P[MW]: ' + dataJson.lines[i].p_from_mw.toFixed(3), -0.9, 43, 0, 0, null, true);
-                        label12.setStyle('shapeELXXX=Result')
+                            /*
+                            if (dataJson.parameter[i] == 'i_ka') {
+                                var label12 = b.insertVertex(resultCell, null, 'I[kA]: ' + dataJson.value[i].toFixed(3), -0.4, 43, 0, 0, 'labelstyle', true);
+                            }
+                            
+                            if (dataJson.parameter[i] == 'pl_mw') {
+                                var label12 = b.insertVertex(resultCell, null, 'Pl[MW]: ' + dataJson.value[i].toFixed(3), -0.2, 43, 0, 0, 'labelstyle', true);
+                            }
+                            if (dataJson.parameter[i] == 'ql_mvar') {
+                                var label12 = b.insertVertex(resultCell, null, 'Ql[MVar]: ' + dataJson.value[i].toFixed(3), -0.1, 43, 0, 0, 'labelstyle', true);
+                            } */
 
-                        var label12 = b.insertVertex(resultCell, null, 'Q[MVar]: ' + dataJson.lines[i].q_from_mvar.toFixed(3), -0.8, 43, 0, 0, null, true);
-                        label12.setStyle('shapeELXXX=Result')
+                            var label12 = b.insertVertex(resultCell, null, 'Loading[%]: ' + dataJson.lines[i].loading_percent.toFixed(1), -0.3, 43, 0, 0, 'labelstyle', true);
+                            label12.setStyle('shapeELXXX=Result')
+                            label12.setAttribute('idELXXX', 'lineLoadingId')
 
-                        var label12 = b.insertVertex(resultCell, null, 'i[kA]: ' + dataJson.lines[i].i_from_ka.toFixed(3), -0.7, 43, 0, 0, null, true);
-                        label12.setStyle('shapeELXXX=Result')
+                            //zmiana kolorów przy przekroczeniu obciążenia linii
+                            if(dataJson.lines[i].loading_percent.toFixed(1) > 100){
+                    
+                                var linia = b.getModel().getCell(dataJson.lines[i].name)
+                    
+                                var style=grafka.getModel().getStyle(linia);
+                                var newStyle=mxUtils.setStyle(style,mxConstants.STYLE_STROKECOLOR,'red');
+                                var cs= new Array();
+                                cs[0]=linia;
+                                grafka.setCellStyle(newStyle,cs);                              
+                                
+                            }
+                            if(dataJson.lines[i].loading_percent.toFixed(1) > 80 && dataJson.lines[i].loading_percent.toFixed(1) <= 100){
+                    
+                                var linia = b.getModel().getCell(dataJson.lines[i].name)                   
+                                var style=grafka.getModel().getStyle(linia);
+                                var newStyle=mxUtils.setStyle(style,mxConstants.STYLE_STROKECOLOR,'orange');
+                                var cs= new Array();
+                                cs[0]=linia;
+                                grafka.setCellStyle(newStyle,cs); 
+                            }
+                            if(dataJson.lines[i].loading_percent.toFixed(1) > 0 && dataJson.lines[i].loading_percent.toFixed(1) <= 80){
+                    
+                                var linia = b.getModel().getCell(dataJson.lines[i].name)                   
+                                var style=grafka.getModel().getStyle(linia);
+                                var newStyle=mxUtils.setStyle(style,mxConstants.STYLE_STROKECOLOR,'green');
+                                var cs= new Array();
+                                cs[0]=linia;
+                                grafka.setCellStyle(newStyle,cs); 
+                            }
 
-                        /*
-                        if (dataJson.parameter[i] == 'i_ka') {
-                            var label12 = b.insertVertex(resultCell, null, 'I[kA]: ' + dataJson.value[i].toFixed(3), -0.4, 43, 0, 0, null, true);
-                        }
-                        
-                        if (dataJson.parameter[i] == 'pl_mw') {
-                            var label12 = b.insertVertex(resultCell, null, 'Pl[MW]: ' + dataJson.value[i].toFixed(3), -0.2, 43, 0, 0, null, true);
-                        }
-                        if (dataJson.parameter[i] == 'ql_mvar') {
-                            var label12 = b.insertVertex(resultCell, null, 'Ql[MVar]: ' + dataJson.value[i].toFixed(3), -0.1, 43, 0, 0, null, true);
-                        } */
-
-                        var label12 = b.insertVertex(resultCell, null, 'Loading[%]: ' + dataJson.lines[i].loading_percent.toFixed(1), -0.3, 43, 0, 0, null, true);
-                        label12.setStyle('shapeELXXX=Result')
-                        label12.setAttribute('idELXXX', 'lineLoadingId')
-
-                        //zmiana kolorów przy przekroczeniu obciążenia linii
-                        if(dataJson.lines[i].loading_percent.toFixed(1) > 100){
-                
-                            var linia = b.getModel().getCell(dataJson.lines[i].name)
-                   
-                            var style=grafka.getModel().getStyle(linia);
-                            var newStyle=mxUtils.setStyle(style,mxConstants.STYLE_STROKECOLOR,'red');
-                            var cs= new Array();
-                            cs[0]=linia;
-                            grafka.setCellStyle(newStyle,cs);                              
+                           
+                            b.insertVertex(resultCell, null, 'Line', 0.6, 43, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');                            
+                            b.insertVertex(resultCell, null, 'P[MW]: ' + dataJson.lines[i].p_to_mw.toFixed(3), 0.7, 43, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');                          
+                            b.insertVertex(resultCell, null, 'Q[MVar]: ' + dataJson.lines[i].q_to_mvar.toFixed(3), 0.8, 43, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');                          
+                            b.insertVertex(resultCell, null, 'i[kA]: ' + dataJson.lines[i].i_to_ka.toFixed(3), 0.9, 43, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result'); 
                             
                         }
-                        if(dataJson.lines[i].loading_percent.toFixed(1) > 80 && dataJson.lines[i].loading_percent.toFixed(1) <= 100){
-                
-                            var linia = b.getModel().getCell(dataJson.lines[i].name)                   
-                            var style=grafka.getModel().getStyle(linia);
-                            var newStyle=mxUtils.setStyle(style,mxConstants.STYLE_STROKECOLOR,'orange');
-                            var cs= new Array();
-                            cs[0]=linia;
-                            grafka.setCellStyle(newStyle,cs); 
-                        }
-                        if(dataJson.lines[i].loading_percent.toFixed(1) > 0 && dataJson.lines[i].loading_percent.toFixed(1) <= 80){
-                
-                            var linia = b.getModel().getCell(dataJson.lines[i].name)                   
-                            var style=grafka.getModel().getStyle(linia);
-                            var newStyle=mxUtils.setStyle(style,mxConstants.STYLE_STROKECOLOR,'green');
-                            var cs= new Array();
-                            cs[0]=linia;
-                            grafka.setCellStyle(newStyle,cs); 
-                        }
+                    }
 
-                        var label12 = b.insertVertex(resultCell, null, 'P[MW]: ' + dataJson.lines[i].p_to_mw.toFixed(3), 0.7, 43, 0, 0, null, true);
-                        label12.setStyle('shapeELXXX=Result')
-                        var label12 = b.insertVertex(resultCell, null, 'Q[MVar]: ' + dataJson.lines[i].q_to_mvar.toFixed(3), 0.8, 43, 0, 0, null, true);
-                        label12.setStyle('shapeELXXX=Result')
-                        var label12 = b.insertVertex(resultCell, null, 'i[kA]: ' + dataJson.lines[i].i_to_ka.toFixed(3), 0.9, 43, 0, 0, null, true);
-                        label12.setStyle('shapeELXXX=Result')
+                    if(dataJson.externalgrids != undefined)
+                    {
+                        //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy ExternalGrids
+                        csvContent += "data:text/csv;charset=utf-8,ExternalGrid Name, p_mw, q_mvar, pf\n";
+
+                        for (var i = 0; i < dataJson.externalgrids.length; i++) {
+                            resultId = dataJson.externalgrids[i].name
+
+                            resultId = resultId.replace('NUMBER', dataJson.externalgrids[i].name)
+
+                            //sprawdz na jakich pozycjach był znak '-'
+                            //podmien w tyc pozycjach znaki
+                            resultId = resultId.replaceAll('___', '-')
+
+                            dataJson.externalgrids[i].name = resultId
+
+                            //for the csv file
+                            let row = Object.values(dataJson.externalgrids[i]).join(",")
+                            csvContent += row + "\r\n";
+
+                            //create label
+                            var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
+
+                            var x = -0.15
+                            var y = 1
+                            var ydelta = 0.2
+                            b.insertVertex(resultCell, null, 'External Grid', x, y, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');                           
+                            b.insertVertex(resultCell, null, 'P[MW]: ' + dataJson.externalgrids[i].p_mw.toFixed(3), x, y+ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');
+                            b.insertVertex(resultCell, null, 'Q[MVar]: ' + dataJson.externalgrids[i].q_mvar.toFixed(3), x, y+2*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');
+                            b.insertVertex(resultCell, null, 'PF: ' + dataJson.externalgrids[i].pf.toFixed(3), x, y+3*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');
+                        }
+                    }
+                    
+                    if(dataJson.generators != undefined)
+                    {
+                        //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Generator
+                        csvContent += "data:text/csv;charset=utf-8,Generator Name, p_mw, q_mvar, va_degree, vm_pu \n";
+
+                        for (var i = 0; i < dataJson.generators.length; i++) {
+                            resultId = dataJson.generators[i].name
+
+                            resultId = resultId.replace('NUMBER', dataJson.generators[i].name)
+
+                            //sprawdz na jakich pozycjach był znak '-'
+                            //podmien w tyc pozycjach znaki
+                            resultId = resultId.replaceAll('___', '-')
+
+                            dataJson.generators[i].name = resultId
+
+                            //for the csv file
+                            let row = Object.values(dataJson.generators[i]).join(",")
+                            csvContent += row + "\r\n";
+
+                            //create label
+                            var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
+
+                            var x = -0.15
+                            var y = 1
+                            var ydelta = 0.2
+                            b.insertVertex(resultCell, null, 'Generator', x, y, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');
+                            b.insertVertex(resultCell, null, 'P[MW]: ' + dataJson.generators[i].p_mw.toFixed(3), x, y+ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');
+                            b.insertVertex(resultCell, null, 'Q[MVar]: ' + dataJson.generators[i].q_mvar.toFixed(3), x, y+2*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');
+                            b.insertVertex(resultCell, null, 'U[degree]: ' + dataJson.generators[i].va_degree.toFixed(3), x, y+3*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');
+                            b.insertVertex(resultCell, null, 'Um[pu]: ' + dataJson.generators[i].vm_pu.toFixed(3), x, y+4*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');                            
+                        }
                     }
 
 
-                    //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Line
-                    csvContent += "data:text/csv;charset=utf-8,ExternalGrid Name, p_mw, q_mvar\n";
+                    if(dataJson.staticgenerators != undefined)
+                    {
+                        //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Static Generator
+                        csvContent += "data:text/csv;charset=utf-8, Static Generator Name, p_mw, q_mvar \n";
 
-                    for (var i = 0; i < dataJson.externalgrids.length; i++) {
-                        resultId = dataJson.externalgrids[i].name
+                        for (var i = 0; i < dataJson.staticgenerators.length; i++) {
+                            resultId = dataJson.staticgenerators[i].name
 
-                        resultId = resultId.replace('NUMBER', dataJson.externalgrids[i].name)
+                            resultId = resultId.replace('NUMBER', dataJson.staticgenerators[i].name)
 
-                        //sprawdz na jakich pozycjach był znak '-'
-                        //podmien w tyc pozycjach znaki
-                        resultId = resultId.replaceAll('___', '-')
+                            //sprawdz na jakich pozycjach był znak '-'
+                            //podmien w tyc pozycjach znaki
+                            resultId = resultId.replaceAll('___', '-')
 
-                        dataJson.externalgrids[i].name = resultId
+                            dataJson.staticgenerators[i].name = resultId
 
-                        //for the csv file
-                        let row = Object.values(dataJson.externalgrids[i]).join(",")
-                        csvContent += row + "\r\n";
+                            //for the csv file
+                            let row = Object.values(dataJson.staticgenerators[i]).join(",")
+                            csvContent += row + "\r\n";
 
-                        //create label
-                        var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
+                            //create label
+                            
+                            var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
 
-                      
-                        var label12 = b.insertVertex(resultCell, null, 'P[MW]: ' + dataJson.externalgrids[i].p_mw.toFixed(3), -0.15, 1, 0, 0, null, true);
-                        label12.setStyle('shapeELXXX=Result')
-
-                        var label12 = b.insertVertex(resultCell, null, 'Q[MVar]: ' + dataJson.externalgrids[i].q_mvar.toFixed(3), -0.15, 1.2, 0, 0, null, true);
-                        label12.setStyle('shapeELXXX=Result')    
-
-                        var label12 = b.insertVertex(resultCell, null, 'PF: ' + dataJson.externalgrids[i].pf.toFixed(3), -0.15, 1.4, 0, 0, null, true);
-                        label12.setStyle('shapeELXXX=Result')    
-                        
-
+                            var x = -0.15
+                            var y = 1
+                            var ydelta = 0.2
+                            b.insertVertex(resultCell, null, 'Static Generator', x, y, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');                        
+                            b.insertVertex(resultCell, null, 'P[MW]: ' + dataJson.staticgenerators[i].p_mw.toFixed(3), x, y+ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');
+                            b.insertVertex(resultCell, null, 'Q[MVar]: ' + dataJson.staticgenerators[i].q_mvar.toFixed(3), x, y+2*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');
+                             
+                        }
                     }
+
+                    
+                    if(dataJson.asymmetricstaticgenerators != undefined)
+                    {
+                        //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Asymmetric Static Generator
+                        csvContent += "data:text/csv;charset=utf-8, Asymmetric Static Generator Name, p_a_mw, q_a_mvar, p_b_mw, q_b_mvar, p_c_mw, q_c_mvar \n";
+
+                        for (var i = 0; i < dataJson.asymmetricstaticgenerators.length; i++) {
+                            resultId = dataJson.asymmetricstaticgenerators[i].name
+
+                            resultId = resultId.replace('NUMBER', dataJson.asymmetricstaticgenerators[i].name)
+
+                            //sprawdz na jakich pozycjach był znak '-'
+                            //podmien w tyc pozycjach znaki
+                            resultId = resultId.replaceAll('___', '-')
+
+                            dataJson.asymmetricstaticgenerators[i].name = resultId
+
+                            //for the csv file
+                            let row = Object.values(dataJson.asymmetricstaticgenerators[i]).join(",")
+                            csvContent += row + "\r\n";
+
+                            //create label
+                            var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
+
+                            var x = -0.15
+                            var y = 1
+                            var ydelta = 0.2
+                            b.insertVertex(resultCell, null, 'Asymmetric Static Generator', x, y, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');
+                            b.insertVertex(resultCell, null, 'P_A[MW]: ' + dataJson.asymmetricstaticgenerators[i].p_a_mw.toFixed(3), x, y+ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');
+                            b.insertVertex(resultCell, null, 'Q_A[MVar]: ' + dataJson.asymmetricstaticgenerators[i].q_a_mvar.toFixed(3), x, y+2*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');
+                            b.insertVertex(resultCell, null, 'P_B[MW]: ' + dataJson.asymmetricstaticgenerators[i].p_b_mw.toFixed(3), x, y+3*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');
+                            b.insertVertex(resultCell, null, 'Q_B[MVar]: ' + dataJson.asymmetricstaticgenerators[i].q_b_mvar.toFixed(3), x, y+4*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');
+                            b.insertVertex(resultCell, null, 'P_C[MW]: ' + dataJson.asymmetricstaticgenerators[i].p_c_mw.toFixed(3), x, y+5*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');
+                            b.insertVertex(resultCell, null, 'Q_C[MVar]: ' + dataJson.asymmetricstaticgenerators[i].q_c_mvar.toFixed(3), x, y+6*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');
+                           
+                        }
+                    }
+
+                    if(dataJson.transformers != undefined)
+                    {
+                        //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Transformer
+                        csvContent += "data:text/csv;charset=utf-8, Transformer Name, p_hv_mw, q_hv_mvar, p_lv_mw, q_lv_mvar, pl_mw, ql_mvar, i_hv_ka, i_lv_ka, vm_hv_pu, vm_lv_pu, va_hv_degree, va_lv_degree, loading_percent \n";
+
+                        for (var i = 0; i < dataJson.transformers.length; i++) {
+                            resultId = dataJson.transformers[i].name
+
+                            resultId = resultId.replace('NUMBER', dataJson.transformers[i].name)
+
+                            //sprawdz na jakich pozycjach był znak '-'
+                            //podmien w tyc pozycjach znaki
+                            resultId = resultId.replaceAll('___', '-')
+
+                            dataJson.transformers[i].name = resultId
+
+                            //for the csv file
+                            let row = Object.values(dataJson.transformers[i]).join(",")
+                            csvContent += row + "\r\n";
+
+                            //create label
+                            var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
+
+                            var x = -1
+                            var y = -1
+                            var ydelta = 0.2
+                            b.insertVertex(resultCell, null, 'Trasformer', x, y, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');                                                   
+                            b.insertVertex(resultCell, null, 'P_HV[MW]: ' + dataJson.transformers[i].p_hv_mw.toFixed(3), x, y+ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');
+                            b.insertVertex(resultCell, null, 'Q_HV[MVar]: ' + dataJson.transformers[i].q_hv_mvar.toFixed(3), x, y+2*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');
+                            b.insertVertex(resultCell, null, 'P_LV[MW]: ' + dataJson.transformers[i].p_lv_mw.toFixed(3), x, y+3*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');
+                            b.insertVertex(resultCell, null, 'Q_LV[MVar]: ' + dataJson.transformers[i].q_lv_mvar.toFixed(3), x, y+4*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');    
+                            b.insertVertex(resultCell, null, 'Pl[MW]: ' + dataJson.transformers[i].pl_mw.toFixed(3), x, y+5*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');
+                            b.insertVertex(resultCell, null, 'Ql[MVar]: ' + dataJson.transformers[i].ql_mvar.toFixed(3), x, y+6*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');                           
+                            b.insertVertex(resultCell, null, 'i_HV[kA]: ' + dataJson.transformers[i].i_hv_ka.toFixed(3), x, y+7*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');          
+                            b.insertVertex(resultCell, null, 'i_LV[kA]: ' + dataJson.transformers[i].i_lv_ka.toFixed(3), x, y+8*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');        
+                            b.insertVertex(resultCell, null, 'Um_HV[pu]: ' + dataJson.transformers[i].vm_hv_pu.toFixed(3), x, y+9*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result'); 
+                            b.insertVertex(resultCell, null, 'Um_LV[pu]: ' + dataJson.transformers[i].vm_lv_pu.toFixed(3), x, y+10*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');                     
+                            b.insertVertex(resultCell, null, 'Ua_HV[degree]: ' + dataJson.transformers[i].va_hv_degree.toFixed(3), x, y+11*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result'); 
+                            b.insertVertex(resultCell, null, 'Ua_LV[degree]: ' + dataJson.transformers[i].va_lv_degree.toFixed(3), x, y+12*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');
+                            b.insertVertex(resultCell, null, 'loading[%]: ' + dataJson.transformers[i].loading_percent.toFixed(3), x, y+13*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');                  
+                        }
+                    }
+
+                    if(dataJson.transformers3W != undefined)
+                    {
+                        //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Transformer3W
+                        csvContent += "data:text/csv;charset=utf-8, Transformer3W Name, p_hv_mw, q_hv_mvar, p_mv_mw, q_mv_mvar, p_lv_mw, q_lv_mvar, pl_mw, ql_mvar, i_hv_ka, i_mv_ka, i_lv_ka, vm_hv_pu, vm_mv_pu, vm_lv_pu, va_hv_degree, va_mv_degree, va_lv_degree, loading_percent  \n";
+
+                        for (var i = 0; i < dataJson.transformers3W.length; i++) {
+                            resultId = dataJson.transformers3W[i].name
+
+                            resultId = resultId.replace('NUMBER', dataJson.transformers3W[i].name)
+
+                            //sprawdz na jakich pozycjach był znak '-'
+                            //podmien w tyc pozycjach znaki
+                            resultId = resultId.replaceAll('___', '-')
+
+                            dataJson.transformers3W[i].name = resultId
+
+                            //for the csv file
+                            let row = Object.values(dataJson.transformers3W[i]).join(",")
+                            csvContent += row + "\r\n";
+
+                            //create label
+                            var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
+
+
+                            var x = -1.4
+                            var y = -1
+                            var ydelta = 0.2
+                            b.insertVertex(resultCell, null, 'Transformer3W', x, y, 0, 0, 'labelstyle', true);                        
+                            b.insertVertex(resultCell, null, 'P_HV[MW]: ' + dataJson.transformers3W[i].p_hv_mw.toFixed(3), x, y+ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result'); 
+                            b.insertVertex(resultCell, null, 'Q_HV[MVar]: ' + dataJson.transformers3W[i].q_hv_mvar.toFixed(3), x, y+2*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');
+                            b.insertVertex(resultCell, null, 'P_MV[MW]: ' + dataJson.transformers3W[i].p_mv_mw.toFixed(3), x, y+3*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');
+                            b.insertVertex(resultCell, null, 'Q_MV[MVar]: ' + dataJson.transformers3W[i].q_mv_mvar.toFixed(3), x, y+4*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');
+                            b.insertVertex(resultCell, null, 'P_LV[MW]: ' + dataJson.transformers3W[i].p_lv_mw.toFixed(3), x, y+5*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');                         
+                            b.insertVertex(resultCell, null, 'Q_LV[MVar]: ' + dataJson.transformers3W[i].q_lv_mvar.toFixed(3), x, y+6*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');                       
+                            b.insertVertex(resultCell, null, 'Pl[MW]: ' + dataJson.transformers3W[i].pl_mw.toFixed(3), x, y+7*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');                    
+                            b.insertVertex(resultCell, null, 'Ql[MVar]: ' + dataJson.transformers3W[i].ql_mvar.toFixed(3), x, y+8*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');
+                            b.insertVertex(resultCell, null, 'i_HV[kA]: ' + dataJson.transformers3W[i].i_hv_ka.toFixed(3), x, y+9*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');                            
+                            b.insertVertex(resultCell, null, 'i_MV[kA]: ' + dataJson.transformers3W[i].i_mv_ka.toFixed(3), x, y+10*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');                            
+                            b.insertVertex(resultCell, null, 'i_LV[kA]: ' + dataJson.transformers3W[i].i_lv_ka.toFixed(3), x, y+11*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');                            
+                            b.insertVertex(resultCell, null, 'Um_HV[pu]: ' + dataJson.transformers3W[i].vm_hv_pu.toFixed(3), x, y+12*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');                           
+                            b.insertVertex(resultCell, null, 'Um_MV[pu]: ' + dataJson.transformers3W[i].vm_mv_pu.toFixed(3), x, y+13*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');                            
+                            b.insertVertex(resultCell, null, 'Um_LV[pu]: ' + dataJson.transformers3W[i].vm_lv_pu.toFixed(3), x, y+14*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');                            
+                            b.insertVertex(resultCell, null, 'Ua_HV[degree]: ' + dataJson.transformers3W[i].va_hv_degree.toFixed(3), x, y+15*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');                        
+                            b.insertVertex(resultCell, null, 'Ua_MV[degree]: ' + dataJson.transformers3W[i].va_mv_degree.toFixed(3), x, y+16*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');
+                            b.insertVertex(resultCell, null, 'Ua_LV[degree]: ' + dataJson.transformers3W[i].va_lv_degree.toFixed(3), x, y+17*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');
+                            b.insertVertex(resultCell, null, 'loading[%]: ' + dataJson.transformers3W[i].loading_percent.toFixed(3), x, y+18*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');
+                            
+                        }
+                    }
+
+                    if(dataJson.shunts != undefined)
+                    {
+                        //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Shunts
+                        csvContent += "data:text/csv;charset=utf-8,Shunt Reactor Name, p_mw, q_mvar, vm_pu\n";
+
+                        for (var i = 0; i < dataJson.shunts.length; i++) {
+                            resultId = dataJson.shunts[i].name
+
+                            resultId = resultId.replace('NUMBER', dataJson.shunts[i].name)
+
+                            //sprawdz na jakich pozycjach był znak '-'
+                            //podmien w tyc pozycjach znaki
+                            resultId = resultId.replaceAll('___', '-')
+
+                            dataJson.shunts[i].name = resultId
+
+                            //for the csv file
+                            let row = Object.values(dataJson.shunts[i]).join(",")
+                            csvContent += row + "\r\n";
+
+                            //create label
+                            var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
+
+                            var x = -1
+                            var y = 1
+                            var ydelta = 0.2
+                            b.insertVertex(resultCell, null, 'Shunt reactor', x, y, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');                
+                            b.insertVertex(resultCell, null, 'P[MW]: ' + dataJson.shunts[i].p_mw.toFixed(3), x, y+ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result'); 
+                            b.insertVertex(resultCell, null, 'Q[MVar]: ' + dataJson.shunts[i].q_mvar.toFixed(3), x, y+2*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result'); 
+                            b.insertVertex(resultCell, null, 'Um[pu]: ' + dataJson.shunts[i].vm_pu.toFixed(3), x, y+3*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result'); 
+                            
+                        }
+                    }
+
+                    if(dataJson.capacitors != undefined)
+                    {
+                        //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Capacitors
+                        csvContent += "data:text/csv;charset=utf-8,Capacitor Name, p_mw, q_mvar, vm_pu\n";
+
+                        for (var i = 0; i < dataJson.capacitors.length; i++) {
+                            resultId = dataJson.capacitors[i].name
+
+                            resultId = resultId.replace('NUMBER', dataJson.capacitors[i].name)
+
+                            //sprawdz na jakich pozycjach był znak '-'
+                            //podmien w tyc pozycjach znaki
+                            resultId = resultId.replaceAll('___', '-')
+
+                            dataJson.capacitors[i].name = resultId
+
+                            //for the csv file
+                            let row = Object.values(dataJson.capacitors[i]).join(",")
+                            csvContent += row + "\r\n";
+
+                            //create label
+                            var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
+                            var x = -1
+                            var y = 1
+                            var ydelta = 0.2
+                            b.insertVertex(resultCell, null, 'Capacitor', x, y, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');                        
+                            b.insertVertex(resultCell, null, 'P[MW]: ' + dataJson.capacitors[i].p_mw.toFixed(3), x, y+ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');
+                            b.insertVertex(resultCell, null, 'Q[MVar]: ' + dataJson.capacitors[i].q_mvar.toFixed(3), x, y+2*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');
+                            b.insertVertex(resultCell, null, 'Um[pu]: ' + dataJson.capacitors[i].vm_pu.toFixed(3), x, y+3*ydelta, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');
+                            
+                        }
+                    }    
+
+
+                    if(dataJson.loads != undefined)
+                    {
+                        //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Loads
+                        csvContent += "data:text/csv;charset=utf-8,Load Name, p_mw, q_mvar\n";
+
+                        for (var i = 0; i < dataJson.loads.length; i++) {
+                            resultId = dataJson.loads[i].name
+
+                            resultId = resultId.replace('NUMBER', dataJson.loads[i].name)
+
+                            //sprawdz na jakich pozycjach był znak '-'
+                            //podmien w tyc pozycjach znaki
+                            resultId = resultId.replaceAll('___', '-')
+
+                            dataJson.loads[i].name = resultId
+
+                            //for the csv file
+                            let row = Object.values(dataJson.loads[i]).join(",")
+                            csvContent += row + "\r\n";
+
+                            //create label
+                            var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
+
+                            b.insertVertex(resultCell, null, 'Load', -0.15, 1, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');
+                            b.insertVertex(resultCell, null, 'P[MW]: ' + dataJson.loads[i].p_mw.toFixed(3), -0.15, 1.4, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');
+                            b.insertVertex(resultCell, null, 'Q[MVar]: ' + dataJson.loads[i].q_mvar.toFixed(3), -0.15, 1.8, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');                            
+                        }
+                    }
+                    
+                    if(dataJson.asymmetricloads != undefined)
+                    {
+                        //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy AsymmetricLoads
+                        csvContent += "data:text/csv;charset=utf-8,Asymmetric Load Name, p_a_mw, q_a_mvar, p_b_mw, q_b_mvar, p_c_mw, q_c_mvar \n";
+
+                        for (var i = 0; i < dataJson.asymmetricloads.length; i++) {
+                            resultId = dataJson.asymmetricloads[i].name
+
+                            resultId = resultId.replace('NUMBER', dataJson.asymmetricloads[i].name)
+
+                            //sprawdz na jakich pozycjach był znak '-'
+                            //podmien w tyc pozycjach znaki
+                            resultId = resultId.replaceAll('___', '-')
+
+                            dataJson.asymmetricloads[i].name = resultId
+
+                            //for the csv file
+                            let row = Object.values(dataJson.asymmetricloads[i]).join(",")
+                            csvContent += row + "\r\n";
+
+                            //create label
+                            var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
+
+                            b.insertVertex(resultCell, null, 'Load', -0.15, 1, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');                             
+                            b.insertVertex(resultCell, null, 'P_a[MW]: ' + dataJson.asymmetricloads[i].p_a_mw.toFixed(3), -0.15, 1.2, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');   
+                            b.insertVertex(resultCell, null, 'Q_a[MVar]: ' + dataJson.asymmetricloads[i].q_a_mvar.toFixed(3), -0.15, 1.4, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result'); 
+                            b.insertVertex(resultCell, null, 'P_b[MW]: ' + dataJson.asymmetricloads[i].p_b_mw.toFixed(3), -0.15, 1.6, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result'); 
+                            b.insertVertex(resultCell, null, 'Q_b[MVar]: ' + dataJson.asymmetricloads[i].q_b_mvar.toFixed(3), -0.15, 1.8, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');                            
+                            b.insertVertex(resultCell, null, 'P_c[MW]: ' + dataJson.asymmetricloads[i].p_c_mw.toFixed(3), -0.15, 2.0, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');        
+                            b.insertVertex(resultCell, null, 'Q_c[MVar]: ' + dataJson.asymmetricloads[i].q_c_mvar.toFixed(3), -0.15, 2.2, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result'); 
+                           
+                        }
+                    }
+
+                    if(dataJson.impedances != undefined)
+                    {
+                        //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Impedances
+                        csvContent += "data:text/csv;charset=utf-8,Impedance Name, p_from_mw, q_from_mvar, p_to_mw, q_to_mvar, pl_mw, ql_mvar, i_from_ka, i_to_ka \n";
+
+                        for (var i = 0; i < dataJson.impedances.length; i++) {
+                            resultId = dataJson.impedances[i].name
+
+                            resultId = resultId.replace('NUMBER', dataJson.impedances[i].name)
+
+                            //sprawdz na jakich pozycjach był znak '-'
+                            //podmien w tyc pozycjach znaki
+                            resultId = resultId.replaceAll('___', '-')
+
+                            dataJson.impedances[i].name = resultId
+
+                            //for the csv file
+                            let row = Object.values(dataJson.impedances[i]).join(",")
+                            csvContent += row + "\r\n";
+
+                            //create label
+                            var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
+
+                            b.insertVertex(resultCell, null, 'Load', -0.15, 1, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');     
+                            b.insertVertex(resultCell, null, 'P_from[MW]: ' + dataJson.impedances[i].p_from_mw.toFixed(3), -0.15, 1.2, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');                             
+                            b.insertVertex(resultCell, null, 'Q_from[MVar]: ' + dataJson.impedances[i].q_from_mvar.toFixed(3), -0.15, 1.4, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result'); 
+                            b.insertVertex(resultCell, null, 'P_to[MW]: ' + dataJson.impedances[i].p_to_mw.toFixed(3), -0.15, 1.6, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result'); 
+                            b.insertVertex(resultCell, null, 'Q_to[MVar]: ' + dataJson.impedances[i].q_to_mvar.toFixed(3), -0.15, 1.8, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result'); 
+                            b.insertVertex(resultCell, null, 'Pl[MW]: ' + dataJson.impedances[i].pl_mw.toFixed(3), -0.15, 2.0, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result'); 
+                            b.insertVertex(resultCell, null, 'Ql[MVar]: ' + dataJson.impedances[i].ql_mvar.toFixed(3), -0.15, 2.2, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');                            
+                            b.insertVertex(resultCell, null, 'i_from[kA]: ' + dataJson.impedances[i].i_from_ka.toFixed(3), -0.15, 2.4, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');
+                            b.insertVertex(resultCell, null, 'i_to[kA]: ' + dataJson.impedances[i].i_to_ka.toFixed(3), -0.15, 2.6, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');                             
+                        }
+                    }
+
+                    if(dataJson.wards != undefined)
+                    {
+                        //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Wards
+                        csvContent += "data:text/csv;charset=utf-8,Ward Name, p_mw, q_mvar, vm_pu \n";
+
+                        for (var i = 0; i < dataJson.wards.length; i++) {
+                            resultId = dataJson.wards[i].name
+
+                            resultId = resultId.replace('NUMBER', dataJson.wards[i].name)
+
+                            //sprawdz na jakich pozycjach był znak '-'
+                            //podmien w tyc pozycjach znaki
+                            resultId = resultId.replaceAll('___', '-')
+
+                            dataJson.wards[i].name = resultId
+
+                            //for the csv file
+                            let row = Object.values(dataJson.wards[i]).join(",")
+                            csvContent += row + "\r\n";
+
+                            //create label
+                            var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
+                            b.insertVertex(resultCell, null, 'Ward', -0.15, 1, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');                         
+                            b.insertVertex(resultCell, null, 'P[MW]: ' + dataJson.wards[i].p_mw.toFixed(3), -0.15, 1.2, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result'); 
+                            b.insertVertex(resultCell, null, 'Q[MVar]: ' + dataJson.wards[i].q_mvar.toFixed(3), -0.15, 1.4, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result'); 
+                            b.insertVertex(resultCell, null, 'Um[pu]: ' + dataJson.wards[i].vm_pu.toFixed(3), -0.15, 1.6, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result'); 
+                          
+                        }
+                    }    
+
+                    if(dataJson.extendedwards != undefined)
+                    {
+                        //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Extended Wards
+                        csvContent += "data:text/csv;charset=utf-8,Extended Ward Name, p_mw, q_mvar, vm_pu \n";
+
+                        for (var i = 0; i < dataJson.extendedwards.length; i++) {
+                            resultId = dataJson.wards[i].name
+
+                            resultId = resultId.replace('NUMBER', dataJson.extendedwards[i].name)
+
+                            //sprawdz na jakich pozycjach był znak '-'
+                            //podmien w tyc pozycjach znaki
+                            resultId = resultId.replaceAll('___', '-')
+
+                            dataJson.extendedwards[i].name = resultId
+
+                            //for the csv file
+                            let row = Object.values(dataJson.extendedwards[i]).join(",")
+                            csvContent += row + "\r\n";
+
+                            //create label
+                            var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
+
+                            b.insertVertex(resultCell, null, 'Extended Ward', -0.15, 1, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');     
+                            b.insertVertex(resultCell, null, 'P[MW]: ' + dataJson.extendedwards[i].p_mw.toFixed(3), -0.15, 1.2, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');                             
+                            b.insertVertex(resultCell, null, 'Q[MVar]: ' + dataJson.extendedwards[i].q_mvar.toFixed(3), -0.15, 1.4, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');                          
+                            b.insertVertex(resultCell, null, 'Um[pu]: ' + dataJson.extendedwards[i].vm_pu.toFixed(3), -0.15, 1.6, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result'); 
+                            
+                        }
+                    }
+                    
+                    
+                    if(dataJson.motors != undefined)
+                    {
+                        //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Motors
+                        csvContent += "data:text/csv;charset=utf-8,Motor Name, p_mw, q_mvar \n";
+
+                        for (var i = 0; i < dataJson.motors.length; i++) {
+                            resultId = dataJson.motors[i].name
+
+                            resultId = resultId.replace('NUMBER', dataJson.motors[i].name)
+
+                            //sprawdz na jakich pozycjach był znak '-'
+                            //podmien w tyc pozycjach znaki
+                            resultId = resultId.replaceAll('___', '-')
+
+                            dataJson.motors[i].name = resultId
+
+                            //for the csv file
+                            let row = Object.values(dataJson.motors[i]).join(",")
+                            csvContent += row + "\r\n";
+
+                            //create label
+                            var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
+
+                            b.insertVertex(resultCell, null, 'Motor', -0.15, 1, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');
+                            b.insertVertex(resultCell, null, 'P[MW]: ' + dataJson.motors[i].p_mw.toFixed(3), -0.15, 1.2, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result'); 
+                            b.insertVertex(resultCell, null, 'Q[MVar]: ' + dataJson.motors[i].q_mvar.toFixed(3), -0.15, 1.4, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result'); 
+                       
+                        }
+                    }
+
+                    if(dataJson.storages != undefined)
+                    {
+                        //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Storages
+                        csvContent += "data:text/csv;charset=utf-8,Storage Name, p_mw, q_mvar \n";
+
+                        for (var i = 0; i < dataJson.storages.length; i++) {
+                            resultId = dataJson.storages[i].name
+
+                            resultId = resultId.replace('NUMBER', dataJson.storages[i].name)
+
+                            //sprawdz na jakich pozycjach był znak '-'
+                            //podmien w tyc pozycjach znaki
+                            resultId = resultId.replaceAll('___', '-')
+
+                            dataJson.storages[i].name = resultId
+
+                            //for the csv file
+                            let row = Object.values(dataJson.storages[i]).join(",")
+                            csvContent += row + "\r\n";
+
+                            //create label
+                            var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
+
+                            b.insertVertex(resultCell, null, 'Storage', -0.15, 1, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');   
+                            b.insertVertex(resultCell, null, 'P[MW]: ' + dataJson.storages[i].p_mw.toFixed(3), -0.15, 1.2, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result'); 
+                            b.insertVertex(resultCell, null, 'Q[MVar]: ' + dataJson.storages[i].q_mvar.toFixed(3), -0.15, 1.4, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result'); 
+                            
+                        }
+                    }
+
+                    if(dataJson.dclines != undefined)
+                    {
+                        //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy DC lines
+                        csvContent += "data:text/csv;charset=utf-8,DCline Name, p_from_mw, q_from_mvar, p_to_mw, q_to_mvar, pl_mw, vm_from_pu, va_from_degree, vm_to_pu, va_to_degree \n";
+
+                        for (var i = 0; i < dataJson.dclines.length; i++) {
+                            resultId = dataJson.dclines[i].name
+
+                            resultId = resultId.replace('NUMBER', dataJson.dclines[i].name)
+
+                            //sprawdz na jakich pozycjach był znak '-'
+                            //podmien w tyc pozycjach znaki
+                            resultId = resultId.replaceAll('___', '-')
+
+                            dataJson.dclines[i].name = resultId
+
+                            //for the csv file
+                            let row = Object.values(dataJson.dclines[i]).join(",")
+                            csvContent += row + "\r\n";
+
+                            //create label
+                            var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
+
+                            b.insertVertex(resultCell, null, 'DC line', -0.15, 1, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result'); 
+                            b.insertVertex(resultCell, null, 'P_from[MW]: ' + dataJson.dclines[i].p_from_mw.toFixed(3), -0.15, 1.2, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result'); 
+                            b.insertVertex(resultCell, null, 'Q_from[MVar]: ' + dataJson.dclines[i].q_from_mvar.toFixed(3), -0.15, 1.4, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result'); 
+                            b.insertVertex(resultCell, null, 'P_to[MW]: ' + dataJson.dclines[i].p_to_mw.toFixed(3), -0.15, 1.6, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result'); 
+                            b.insertVertex(resultCell, null, 'Q_to[MVar]: ' + dataJson.dclines[i].q_to_mvar.toFixed(3), -0.15, 1.8, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result'); 
+                            b.insertVertex(resultCell, null, 'Pl[MW]: ' + dataJson.dclines[i].pl_mw.toFixed(3), -0.15, 2.0, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result'); 
+                            b.insertVertex(resultCell, null, 'U_from[pu]: ' + dataJson.dclines[i].vm_from_pu.toFixed(3), -0.15, 2.2, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result'); 
+                            b.insertVertex(resultCell, null, 'Ua_from[degree]: ' + dataJson.dclines[i].va_from_degree.toFixed(3), -0.15, 2.4, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');                            
+                            b.insertVertex(resultCell, null, 'Um_to[pu]: ' + dataJson.dclines[i].vm_to_pu.toFixed(3), -0.15, 2.6, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');      
+                            b.insertVertex(resultCell, null, 'Ua_to[degree]: ' + dataJson.dclines[i].va_to_degree.toFixed(3), -0.15, 2.8, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');                             
+                        }
+                    }                     
+
+
                     //download to CSV
                     var encodedUri = encodeURI(csvContent);
                     var link = document.createElement("a");

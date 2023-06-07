@@ -314,7 +314,7 @@ function shortCircuit(a, b, c) {
 
                         //Load_flow_parameters
                         busbar.vn_kv = cellsArray[i].value.attributes[2].nodeValue
-                        busbar.type = cellsArray[i].value.attributes[3].nodeValue
+                        //busbar.type = cellsArray[i].value.attributes[3].nodeValue
                         //busbar.in_service = cellsArray[i].value.attributes[3].nodeValue
                         busbarNo++
 
@@ -491,9 +491,10 @@ function shortCircuit(a, b, c) {
                         //Load_flow_parameters
                         shuntReactor.p_mw = cellsArray[i].value.attributes[2].nodeValue
                         shuntReactor.q_mvar = cellsArray[i].value.attributes[3].nodeValue
+                        shuntReactor.vn_kv = cellsArray[i].value.attributes[4].nodeValue
 
                         //Optional_parameters
-                        shuntReactor.vn_kv = cellsArray[i].value.attributes[5].nodeValue
+                        
                         shuntReactor.step = cellsArray[i].value.attributes[6].nodeValue
                         shuntReactor.max_step = cellsArray[i].value.attributes[7].nodeValue
 
@@ -525,8 +526,9 @@ function shortCircuit(a, b, c) {
                         //Load_flow_parameters
                         capacitor.q_mvar = cellsArray[i].value.attributes[2].nodeValue
                         capacitor.loss_factor = cellsArray[i].value.attributes[3].nodeValue
-                        //Optional_parameters
-                        capacitor.vn_kv = cellsArray[i].value.attributes[5].nodeValue
+                        capacitor.vn_kv = cellsArray[i].value.attributes[4].nodeValue
+                        
+                        //Optional_parameters                        
                         capacitor.step = cellsArray[i].value.attributes[6].nodeValue
                         capacitor.max_step = cellsArray[i].value.attributes[7].nodeValue
 
@@ -983,7 +985,7 @@ function shortCircuit(a, b, c) {
 
             //bootstrap button with spinner
             // this.ui.spinner.stop();
-            fetch("https://electrisimbackendpython.onrender.com/", { // http://127.0.0.1:5005/
+            fetch("https://electrisimbackendpython.onrender.com/", { //http://127.0.0.1:5005/
                 mode: "cors", 
                 method: "post",
                 headers: {
@@ -1054,6 +1056,13 @@ function shortCircuit(a, b, c) {
                     var csvArray = []
                     var oneBusbarArray = []
 
+                    var style = new Object();
+                    style[mxConstants.STYLE_FONTSIZE] = '8';
+                    //style[mxConstants.STYLE_SHAPE] = 'box';
+                    //style[mxConstants.STYLE_STROKECOLOR] = '#000000';
+                    //style[mxConstants.STYLE_FONTCOLOR] = '#000000';                        
+                    b.getStylesheet().putCellStyle('labelstyle', style);
+
                     /*dataJson.lines.forEach(function(arrayTen) {
                         let row = dataJson.lines.join(",");
                         csvContent += row + "\r\n";
@@ -1082,27 +1091,29 @@ function shortCircuit(a, b, c) {
                         //create label
                         var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
 
-                        var label12 = b.insertVertex(resultCell, null, 'ikss[kA]: ' + dataJson.busbars[i].ikss_ka.toFixed(3), 0.2, 1.4, 0, 0, null, true);
+                        var label12 = b.insertVertex(resultCell, null, 'Bus', 0.2, 1.4, 0, 0, 'labelstyle', true);
+                        label12.setStyle('shapeELXXX=Result')
+
+                        var label12 = b.insertVertex(resultCell, null, 'ikss[kA]: ' + dataJson.busbars[i].ikss_ka.toFixed(3), 0.2, 2.6, 0, 0, 'labelstyle', true);
                         label12.setStyle('shapeELXXX=Result')
 
 
                         if (dataJson.busbars[i].ip_ka != "NaN") {
 
-                            var label12 = b.insertVertex(resultCell, null, 'ip[kA]: ' + dataJson.busbars[i].ip_ka.toFixed(3), 0.2, 2.7, 0, 0, null, true);
+                            var label12 = b.insertVertex(resultCell, null, 'ip[kA]: ' + dataJson.busbars[i].ip_ka.toFixed(3), 0.2, 3.8, 0, 0, 'labelstyle', true);
                             label12.setStyle('shapeELXXX=Result')
                         }
 
                         if (dataJson.busbars[i].ith_ka != "NaN") {
-                            var label12 = b.insertVertex(resultCell, null, 'ith[kA]: ' + dataJson.busbars[i].ith_ka.toFixed(3), 0.2, 4, 0, 0, null, true);
+                            var label12 = b.insertVertex(resultCell, null, 'ith[kA]: ' + dataJson.busbars[i].ith_ka.toFixed(3), 0.2, 5, 0, 0, 'labelstyle', true);
                             label12.setStyle('shapeELXXX=Result')
                         }
 
-                        var label12 = b.insertVertex(resultCell, null, 'rk[ohm]: ' + dataJson.busbars[i].rk_ohm.toFixed(3), 0.2, 5.3, 0, 0, null, true);
+                        var label12 = b.insertVertex(resultCell, null, 'rk[ohm]: ' + dataJson.busbars[i].rk_ohm.toFixed(3), 0.2, 6.2, 0, 0, 'labelstyle', true);
                         label12.setStyle('shapeELXXX=Result')
 
-                        var label12 = b.insertVertex(resultCell, null, 'xk[ohm]: ' + dataJson.busbars[i].xk_ohm.toFixed(3), 0.2, 6.6, 0, 0, null, true);
+                        var label12 = b.insertVertex(resultCell, null, 'xk[ohm]: ' + dataJson.busbars[i].xk_ohm.toFixed(3), 0.2, 7.4, 0, 0, 'labelstyle', true);
                         label12.setStyle('shapeELXXX=Result')
-
 
                     }
 
@@ -1128,16 +1139,16 @@ function shortCircuit(a, b, c) {
 
                         var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
 
-                        var label12 = b.insertVertex(resultCell, null, 'ikss[kA]: ' + dataJson.lines[i].ikss.toFixed(3), -0.3, 43, 0, 0, null, true);
+                        var label12 = b.insertVertex(resultCell, null, 'ikss[kA]: ' + dataJson.lines[i].ikss.toFixed(3), -0.3, 43, 0, 0, 'labelstyle', true);
                         label12.setStyle('shapeELXXX=Result')
 
-                        var label12 = b.insertVertex(resultCell, null, 'ip[kA]: ' + dataJson.lines[i].ip.toFixed(3), -0.4, 43, 0, 0, null, true);
+                        var label12 = b.insertVertex(resultCell, null, 'ip[kA]: ' + dataJson.lines[i].ip.toFixed(3), -0.4, 43, 0, 0, 'labelstyle', true);
                         label12.setStyle('shapeELXXX=Result')
 
-                        var label12 = b.insertVertex(resultCell, null, 'ith[kA]: ' + dataJson.lines[i].ith.toFixed(3), -0.5, 43, 0, 0, null, true);
+                        var label12 = b.insertVertex(resultCell, null, 'ith[kA]: ' + dataJson.lines[i].ith.toFixed(3), -0.5, 43, 0, 0, 'labelstyle', true);
                         label12.setStyle('shapeELXXX=Result')
 
-                        var label12 = b.insertVertex(resultCell, null, 'Loading[%]: ' + dataJson.lines[i].loading_percent.toFixed(1), -0.3, 43, 0, 0, null, true);
+                        var label12 = b.insertVertex(resultCell, null, 'Loading[%]: ' + dataJson.lines[i].loading_percent.toFixed(1), -0.3, 43, 0, 0, 'labelstyle', true);
                         label12.setStyle('shapeELXXX=Result')
 
 
