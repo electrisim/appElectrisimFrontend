@@ -1139,18 +1139,18 @@ function loadFlow(a, b, c) {
             // this.createVertexTemplateEntry("line;strokeWidth=2;html=1;shapeELXXX=Bus;", 160, 10, "", "Bus"),
 
 
-            //bootstrap button with spinner
+            //bootstrap button with spinner 
             // this.ui.spinner.stop();
-            fetch("https://electrisimbackendpython.onrender.com/", { // http://127.0.0.1:5005/
-                mode: "cors",
-                method: "post",
+            fetch("https://electrisimbackendpython.onrender.com/", { //    http://127.0.0.1:5005/
+                mode: "cors", 
+                method: "post", 
                 headers: { 
                    "Content-Type": "application/json",
-                   "Access-Control-Allow-Origin":"*",                                  
+                  //BYŁO NIEPRAWIDŁOWO, TEN PARAMETR TRZEBA NA SERWERZE UMIESZCZAĆ "Access-Control-Allow-Origin":"*",                                  
                 },
                 body: JSON.stringify(obj)
             })
-                
+                 
                 .then(response => {
                     apka.spinner.stop();
 
