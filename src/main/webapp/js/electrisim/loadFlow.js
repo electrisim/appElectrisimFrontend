@@ -1141,17 +1141,17 @@ function loadFlow(a, b, c) {
 
             //bootstrap button with spinner 
             // this.ui.spinner.stop();
-            fetch("https://electrisimbackendpython.onrender.com/", { //    http://127.0.0.1:5005/
+            fetch("https://electrisimbackendpython.onrender.com/", { //     http://127.0.0.1:5005/
                 mode: "cors", 
-                method: "post", 
+                method: "post",  
                 headers: { 
-                   "Content-Type": "application/json",
-                  //BYŁO NIEPRAWIDŁOWO, TEN PARAMETR TRZEBA NA SERWERZE UMIESZCZAĆ "Access-Control-Allow-Origin":"*",                                  
+                  "Content-Type": "application/json",                    
+                  //BYŁO NIEPRAWIDŁOWO, TEN PARAMETR TRZEBA NA SERWERZE UMIESZCZAĆ    "Access-Control-Allow-Origin":"*",                               
                 },
                 body: JSON.stringify(obj)
             })
                  
-                .then(response => {
+                .then(response => { 
                     apka.spinner.stop();
 
                     if (response.status === 200) {
