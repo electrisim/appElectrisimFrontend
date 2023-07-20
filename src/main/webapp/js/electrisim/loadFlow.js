@@ -1141,15 +1141,17 @@ function loadFlow(a, b, c) {
 
             //bootstrap button with spinner 
             // this.ui.spinner.stop();
-            fetch("https://electrisimbackendpython.onrender.com/", { //     http://127.0.0.1:5005/
+            fetch("https://electrisim-0fe342b90b0c.herokuapp.com/",  { //  http://127.0.0.1:5005/
                 mode: "cors", 
-                method: "post",  
+                method: "post",   
+                
                 headers: { 
-                  "Content-Type": "application/json",                    
-                  //BYŁO NIEPRAWIDŁOWO, TEN PARAMETR TRZEBA NA SERWERZE UMIESZCZAĆ    "Access-Control-Allow-Origin":"*",                               
+                  "Content-Type": "application/json",   
+                  //"Access-Control-Allow-Origin":"*",  //BYŁO NIEPRAWIDŁOWO, TEN PARAMETR TRZEBA NA SERWERZE UMIESZCZAĆ                                                 
+                  
                 },
                 body: JSON.stringify(obj)
-            })
+            }) 
                  
                 .then(response => { 
                     apka.spinner.stop();
