@@ -1141,7 +1141,7 @@ function loadFlow(a, b, c) {
 
             //bootstrap button with spinner 
             // this.ui.spinner.stop();
-            fetch("https://electrisim-0fe342b90b0c.herokuapp.com/",  { //  http://127.0.0.1:5005/
+            fetch("http://127.0.0.1:5005/",  { //   https://electrisim-0fe342b90b0c.herokuapp.com/
                 mode: "cors", 
                 method: "post",   
                 
