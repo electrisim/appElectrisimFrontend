@@ -73,36 +73,48 @@ const columnDefsLineDialog = [
       minWidth: 100,
       cellRenderer: actionCellRenderer,      
       editable: false,
-      colId: "action"
+      colId: "action",
+      //suppressSizeToFit: true, //nie zmieniaj szerokości tej kolumny
     },
     { field: "name", minWidth: 300 },
     { field: "r_ohm_per_km",
+      maxWidth: 140,
       valueParser: numberParser,
     },
     { field: "x_ohm_per_km",
-    valueParser: numberParser,
+      maxWidth: 140,
+      valueParser: numberParser,
     },
     { field: "c_nf_per_km",
-    valueParser: numberParser,
+      maxWidth: 130,
+      valueParser: numberParser,
     },
     { field: "g_us_per_km",
-    valueParser: numberParser,
+      maxWidth: 130,
+      valueParser: numberParser,
     },
     { field: "max_i_ka",
-    valueParser: numberParser,
+      maxWidth: 100,
+      valueParser: numberParser,
     },
-    { field: "type" },
+    { field: "type",
+      maxWidth: 100,
+    },
     { field: "r0_ohm_per_km",
-    valueParser: numberParser,
+      maxWidth: 150,
+      valueParser: numberParser,
     },
     { field: "x0_ohm_per_km",
-    valueParser: numberParser,
+      maxWidth: 150,
+      valueParser: numberParser,
     },
     { field: "c0_nf_per_km",
-    valueParser: numberParser,
+      maxWidth: 130,
+      valueParser: numberParser,
     },
     { field: "endtemp_degree",
-    valueParser: numberParser,
+      maxWidth: 150,
+      valueParser: numberParser,
     }
 ];
 
@@ -239,7 +251,7 @@ function numberParser(params) {
   if(Number(params.newValue) >= 0) {
     return(Number(params.newValue))
   }else {
-    alert("The value must be number (comma separated) or >= 0")
+    alert("The value must be number (dot separated) or >= 0")
     return(Number(params.oldValue))
   }
 }
@@ -273,6 +285,10 @@ function setLineCsvData(keys, values) {
   
 }
 
+function onFirstDataRendered(params) {
+  params.api.sizeColumnsToFit();
+}
+
 var gridOptionsLineDialog = {
   suppressClickEdit: true, //edit, delete, update, cancel
   editType: "fullRow",
@@ -283,6 +299,9 @@ var gridOptionsLineDialog = {
   defaultColDef: {
     editable: true    
   },
+
+  //dopasuj kolumny do wyświetlanego dialogu
+  //onFirstDataRendered: onFirstDataRendered,
 
   //edit, delete, update, cancel*****************
   onCellClicked: onCellClicked,   

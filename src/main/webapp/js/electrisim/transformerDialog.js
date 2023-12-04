@@ -27,54 +27,72 @@ const rowDefsDataTransformerDialog = [
       },
       { field: "name" },
       { field: "sn_mva",
+         maxWidth: 100,
         valueParser: numberParser,
       },
       { field: "vn_hv_kv",
+      maxWidth: 100,
       valueParser: numberParser,
       },
       { field: "vn_lv_kv",
+      maxWidth: 100,
       valueParser: numberParser,
       },
       { field: "vkr_percent",
+      maxWidth: 120,
       valueParser: numberParser,
       },
       { field: "vk_percent",
+      maxWidth: 120,
       valueParser: numberParser,
       },
       { field: "pfe_kw",
+      maxWidth: 100,
       valueParser: numberParser,
       },
       { field: "i0_percent",
+      maxWidth: 100,
       valueParser: numberParser,
       },
       { field: "shift_degree",
+      maxWidth: 120,
       valueParser: numberParser,
       },
-      { field: "vector_group" },
+      { field: "vector_group",
+      maxWidth: 120 },
+      
       { field: "vk0_percent",
+      maxWidth: 120,
       valueParser: numberParser,
       },
       { field: "vkr0_percent",
+      maxWidth: 120,
       valueParser: numberParser,
       },
       { field: "mag0_percent",
+      maxWidth: 120,
       valueParser: numberParser,
       },
       { field: "si0_hv_partial",
+      maxWidth: 120,
       valueParser: numberParser,
       },
       { field: "tap_max",
+      maxWidth: 100,
       valueParser: numberParser,
       },
-      { field: "tap_min", //tutaj może być liczba ujemna dlatego nie używam numberParser     
+      { field: "tap_min", maxWidth: 100 //tutaj może być liczba ujemna dlatego nie używam numberParser     
       },
       { field: "tap_step_percent",
+      maxWidth: 140,
       valueParser: numberParser,
       },
       { field: "tap_step_degree",
+      maxWidth: 130,
       valueParser: numberParser,
       },
       { field: "tap_phase_shifter",
+      maxWidth: 140
       
       }
 
@@ -192,19 +210,7 @@ const rowDefsDataTransformerDialog = [
   }
   //**************************************
   
-  
-  //***********sprawdzenia poprawnego formatowania wprowadzanych parametrów */
-  
-  function numberParser(params) {
-    if(Number(params.newValue) >= 0) {
-      return(Number(params.newValue))
-    }else {
-      alert("The value must be number (comma separated) or >= 0")
-      return(Number(params.oldValue))
-    }
-  }
-  /*********************************************** */
-  
+    
   /* wczytywanie pliku CSV */
   function setTransformerCsvData(keys, values) {
   
@@ -222,13 +228,7 @@ const rowDefsDataTransformerDialog = [
   
   
     gridOptionsTransformerDialog.api.setRowData(rowDefsDataTransformerDialog);
-    
-    /*
-    params.api.refreshCells({
-      columns: ["action"],
-      rowNodes: [params.node],
-      force: true
-    });*/
+ 
     
   }
   
