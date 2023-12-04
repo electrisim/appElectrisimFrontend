@@ -241,10 +241,38 @@
 		{
 			//ELXXX
 			mxscript('js/ag-grid-community.min.js')
-			mxscript('js/electrisim/lineDialog.js')	
+			
+			mxscript('js/electrisim/select-cell-renderer.js')	
+			mxscript('js/electrisim/lineBaseDialog.js')	
+			mxscript('js/electrisim/lineDialog.js')		
+			mxscript('js/electrisim/externalGridDialog.js')
+			mxscript('js/electrisim/generatorDialog.js')
+
+			mxscript('js/electrisim/staticGeneratorDialog.js')
+			mxscript('js/electrisim/asymmetricStaticGeneratorDialog.js')
+			mxscript('js/electrisim/busDialog.js')
+
 			mxscript('js/electrisim/transformerBaseDialog.js')	
-			mxscript('js/electrisim/transformerDialog.js')		
-			mxscript('js/electrisim/threeWindingTransformerDialog.js')	
+			mxscript('js/electrisim/transformerDialog.js')
+			mxscript('js/electrisim/threeWindingTransformerBaseDialog.js')			
+			mxscript('js/electrisim/threeWindingTransformerDialog.js')
+			
+			mxscript('js/electrisim/shuntReactorDialog.js')
+			mxscript('js/electrisim/capacitorDialog.js')
+			mxscript('js/electrisim/loadDialog.js')
+			mxscript('js/electrisim/asymmetricLoadDialog.js')
+			mxscript('js/electrisim/impedanceDialog.js')
+			mxscript('js/electrisim/wardDialog.js')
+			mxscript('js/electrisim/extendedWardDialog.js')
+			mxscript('js/electrisim/motorDialog.js')
+			mxscript('js/electrisim/storageDialog.js')
+			mxscript('js/electrisim/dcLineDialog.js')
+			
+
+
+			
+
+
 			mxscript('js/electrisim/loadFlow.js')	
 			mxscript('js/electrisim/shortCircuit.js')		
 	
@@ -342,8 +370,8 @@
 									
 				function loadAppJS()				
 				{
-					
-					
+					//mxscript('js/electrisim/select-cell-renderer.js')
+					//mxscript('js/electrisim/transformerBaseDialog.js')
 					mxscript('js/app.min.js', function()
 					{
 						mxScriptsLoaded = true;

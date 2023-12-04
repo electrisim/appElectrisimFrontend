@@ -210,19 +210,7 @@ const rowDefsDataTransformerDialog = [
   }
   //**************************************
   
-  
-  //***********sprawdzenia poprawnego formatowania wprowadzanych parametrów */
-  
-  function numberParser(params) {
-    if(Number(params.newValue) >= 0) {
-      return(Number(params.newValue))
-    }else {
-      alert("The value must be number (dot separated) or >= 0")
-      return(Number(params.oldValue))
-    }
-  }
-  /*********************************************** */
-  
+    
   /* wczytywanie pliku CSV */
   function setTransformerCsvData(keys, values) {
   
@@ -240,13 +228,7 @@ const rowDefsDataTransformerDialog = [
   
   
     gridOptionsTransformerDialog.api.setRowData(rowDefsDataTransformerDialog);
-    
-    /*
-    params.api.refreshCells({
-      columns: ["action"],
-      rowNodes: [params.node],
-      force: true
-    });*/
+ 
     
   }
   
