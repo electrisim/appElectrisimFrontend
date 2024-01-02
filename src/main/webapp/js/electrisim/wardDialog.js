@@ -8,28 +8,28 @@ const  rowDefsWard = [
     },
     {
       field: "ps_mw",
-      headerTooltip: "",
+      headerTooltip: "active power of the PQ load",
       maxWidth: 100,
       valueParser: numberParser,
   
     },
     {
       field: "qs_mvar",
-      headerTooltip: "",
+      headerTooltip: "reactive power of the PQ load",
       maxWidth: 100,
-      valueParser: numberParser,
+      
     },
     {
       field: "pz_mw",
-      headerTooltip: "",
+      headerTooltip: "active power of the impedance load in MW at 1.pu voltage",
       maxWidth: 100,
       valueParser: numberParser,
     },
     {
       field: "qz_mvar",
-      headerTooltip: "",
+      headerTooltip: "reactive power of the impedance load in MVar at 1.pu voltage",
       maxWidth: 120,
-      valueParser: numberParser,
+      
     }
   ];
   

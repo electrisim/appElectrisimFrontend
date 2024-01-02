@@ -8,26 +8,26 @@ const  rowDefsCapacitor = [
     },
     {
       field: "q_mvar",
-      headerTooltip: "",
+      headerTooltip: "reactive power of the capacitor bank at rated voltage",
       maxWidth: 100,
-      valueParser: numberParser,
+      
   
     },
     {
       field: "loss_factor",
-      headerTooltip: "",
+      headerTooltip: "loss factor tan(delta) of the capacitor bank",
       maxWidth: 100,
       valueParser: numberParser,
     },
     {
       field: "vn_kv",
-      headerTooltip: "",
+      headerTooltip: "rated voltage of the shunt element",
       maxWidth: 100,
       valueParser: numberParser,
     },
     {
       field: "step",
-      headerTooltip: "",
+      headerTooltip: "step position of the shunt",
       maxWidth: 120,
       valueParser: numberParser,
     },

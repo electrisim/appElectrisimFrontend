@@ -8,7 +8,7 @@ const  rowDefsBus = [
     },
     {
       field: "vn_kv",
-      headerTooltip: "",
+      headerTooltip: "The grid voltage level",
       maxWidth: 100,
       valueParser: numberParser,
   

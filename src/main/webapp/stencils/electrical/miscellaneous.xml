@@ -830,6 +830,7 @@
 
         
         <fillstroke/>
+        <!-- 
          
         <path> 
         
@@ -839,7 +840,10 @@
           <line x="10" y="50"/>
           <move x="17" y="35"/>
           <line x="43" y="35"/>
-           <!--
+           
+        </path>
+        -->
+        <!--
           
         ELXXX tak było literka Z
             <move x="20" y="18"/>
@@ -847,7 +851,6 @@
             <line x="20" y="42"/>
             <line x="40" y="42"/>
          -->
-        </path>
         <stroke/>
     </foreground>
 </shape>
@@ -864,12 +867,14 @@
       
         <rect h="60" w="60" x="0" y="0"/>
         <fillstroke/>
+        <!-- 
         <path>
             <move x="20" y="18"/>
             <line x="40" y="18"/>
             <line x="20" y="42"/>
             <line x="40" y="42"/>         
         </path>
+        -->
         <stroke/>
     </foreground>
 </shape>
@@ -886,6 +891,7 @@
       
         <rect h="60" w="60" x="0" y="0"/>
         <fillstroke/>
+        <!-- 
         <path>
             <move x="10" y="10"/>
             <line x="15" y="50"/>
@@ -893,6 +899,7 @@
             <line x="45" y="50"/> 
             <line x="50" y="10"/>          
         </path>
+        -->
         <stroke/>
     </foreground>
 </shape>
@@ -910,6 +917,7 @@
       
         <rect h="60" w="60" x="0" y="0"/>
         <fillstroke/>
+        <!-- 
         <path>
             <move x="50" y="10"/>
             <line x="10" y="10"/>
@@ -918,9 +926,69 @@
             <move x="10" y="30"/> 
             <line x="40" y="30"/>        
         </path>
+        -->
         <stroke/>
     </foreground>
 </shape>
+
+
+
+
+
+<!-- FACTS --> 
+<shape aspect="variable" h="60" name="svc" strokewidth="inherit" w="60">
+    <connections>
+        <constraint name="N" perimeter="0" x="0.5" y="0"/> 
+       
+    </connections>
+    
+    <foreground>      
+        <rect h="60" w="60" x="0" y="0"/>
+        <fillstroke/>  
+        <stroke/>        
+
+         
+    </foreground>
+ 
+</shape>
+
+<shape aspect="variable" h="60" name="tcsc" strokewidth="inherit" w="60">
+    <connections>
+        <!--
+        <constraint name="N" perimeter="0" x="0.5" y="0"/>                 
+        <constraint name="S" perimeter="0" x="0.5" y="1"/>        
+        -->    
+        <constraint name="W" perimeter="0" x="0" y="0.5"/>
+        <constraint name="E" perimeter="0" x="1" y="0.5"/>
+        
+    </connections>
+    <foreground>
+      
+        <rect h="60" w="60" x="0" y="0"/>
+        <fillstroke/>        
+        <stroke/>
+    </foreground>
+</shape>
+
+<shape aspect="variable" h="60" name="ssc" strokewidth="inherit" w="60">
+    <connections>
+        <constraint name="N" perimeter="0" x="0.5" y="0"/> 
+        <!--        
+        <constraint name="S" perimeter="0" x="0.5" y="1"/>        
+        <constraint name="W" perimeter="0" x="0" y="0.5"/>
+        <constraint name="E" perimeter="0" x="1" y="0.5"/>
+        -->
+    </connections>
+    <foreground>
+      
+        <rect h="60" w="60" x="0" y="0"/>
+        <fillstroke/>
+        <stroke/>
+    </foreground>
+</shape>
+
+
+
 <shape aspect="variable" h="39" name="Igniter Plug" strokewidth="inherit" w="72">
     <connections>
         <constraint name="N" perimeter="0" x="0.54" y="0"/>

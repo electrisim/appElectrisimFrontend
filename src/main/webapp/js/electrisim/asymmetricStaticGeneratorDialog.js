@@ -8,56 +8,56 @@ const  rowDefsAsymmetricStaticGenerator = [
     },
     {
       field: "p_a_mw",
-      headerTooltip: "",
+      headerTooltip: "The active power of the static generator : Phase A",
       maxWidth: 100,
       valueParser: numberParser,
   
     },
     {
       field: "p_b_mw",
-      headerTooltip: "",
+      headerTooltip: "The active power of the static generator : Phase B",
       maxWidth: 100,
       valueParser: numberParser,
     },
     {
       field: "p_c_mw",
-      headerTooltip: "",
+      headerTooltip: "The active power of the static generator : Phase C",
       maxWidth: 100,
       valueParser: numberParser,
     },
     {
       field: "q_a_mvar",
-      headerTooltip: "",
+      headerTooltip: "The reactive power of the sgen : Phase A",
       maxWidth: 120,
-      valueParser: numberParser,
+      
     },
     {
       field: "q_b_mvar",
-      headerTooltip: "",
+      headerTooltip: "The reactive power of the sgen : Phase B",
       maxWidth: 120,
-      valueParser: numberParser,
+      
     },
     {
       field: "q_c_mvar",
-      headerTooltip: "",
+      headerTooltip: "The reactive power of the sgen : Phase C",
       maxWidth: 100,
-      valueParser: numberParser,
+      
     },
     {
       field: "sn_mva",
-      headerTooltip: "",
+      headerTooltip: "Nominal power of the sgen",
       maxWidth: 100,
       valueParser: numberParser,
     },
     {
       field: "scaling",
-      headerTooltip: "",
+      headerTooltip: "An OPTIONAL scaling factor to be set customly. Multiplys with p_mw and q_mvar of all phases.",
       maxWidth: 120,
       valueParser: numberParser,
     },
     {
       field: "type",
-      headerTooltip: "",
+      headerTooltip: "Three phase Connection type of the static generator: wye/delta",
       maxWidth: 100,
       valueParser: numberParser,
     }
