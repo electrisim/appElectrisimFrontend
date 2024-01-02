@@ -8,44 +8,44 @@ const  rowDefsExtendedWard = [
     },
     {
       field: "ps_mw",
-      headerTooltip: "",
+      headerTooltip: "active power of the PQ load",
       maxWidth: 100,
       valueParser: numberParser,
   
     },
     {
       field: "qs_mvar",
-      headerTooltip: "",
+      headerTooltip: "reactive power of the PQ load",
       maxWidth: 100,
-      valueParser: numberParser,
+      
     },
     {
       field: "pz_mw",
-      headerTooltip: "",
+      headerTooltip: "active power of the impedance load in MW at 1.pu voltage",
       maxWidth: 100,
       valueParser: numberParser,
     },
     {
       field: "qz_mvar",
-      headerTooltip: "",
+      headerTooltip: "reactive power of the impedance load in MVar at 1.pu voltage",
       maxWidth: 120,
-      valueParser: numberParser,
+      
     },
     {
       field: "r_ohm",
-      headerTooltip: "",
+      headerTooltip: "internal resistance of the voltage source",
       maxWidth: 120,
       valueParser: numberParser,
     },
     {
       field: "x_ohm",
-      headerTooltip: "",
+      headerTooltip: "internal reactance of the voltage source",
       maxWidth: 100,
       valueParser: numberParser,
     },
     {
       field: "vm_pu",
-      headerTooltip: "",
+      headerTooltip: "voltage magnitude at the additional PV-node",
       maxWidth: 100,
       valueParser: numberParser,
     }

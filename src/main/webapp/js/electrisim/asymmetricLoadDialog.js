@@ -8,56 +8,56 @@ const  rowDefsAsymmetricLoad = [
     },
     {
       field: "p_a_mw",
-      headerTooltip: "",
+      headerTooltip: "The active power for Phase A load",
       maxWidth: 100,
       valueParser: numberParser,
   
     },
     {
       field: "p_b_mw",
-      headerTooltip: "",
+      headerTooltip: "The active power for Phase B load",
       maxWidth: 100,
       valueParser: numberParser,
     },
     {
       field: "p_c_mw",
-      headerTooltip: "",
+      headerTooltip: "The active power for Phase C load",
       maxWidth: 100,
       valueParser: numberParser,
     },
     {
       field: "q_a_mvar",
-      headerTooltip: "",
+      headerTooltip: "The reactive power for Phase A load",
       maxWidth: 120,
       valueParser: numberParser,
     },
     {
       field: "q_b_mvar",
-      headerTooltip: "",
+      headerTooltip: "The reactive power for Phase B load",
       maxWidth: 120,
       valueParser: numberParser,
     },
     {
       field: "q_c_mvar",
-      headerTooltip: "",
+      headerTooltip: "The reactive power for Phase C load",
       maxWidth: 100,
       valueParser: numberParser,
     },
     {
       field: "sn_mva",
-      headerTooltip: "",
+      headerTooltip: "Nominal power of the load",
       maxWidth: 100,
       valueParser: numberParser,
     },
     {
       field: "scaling",
-      headerTooltip: "",
+      headerTooltip: "An OPTIONAL scaling factor to be set customly Multiplys with p_mw and q_mvar of all phases.",
       maxWidth: 120,
       valueParser: numberParser,
     },
     {
       field: "type",
-      headerTooltip: "",
+      headerTooltip: "type variable to classify three ph load: delta/wye",
       maxWidth: 100,      
     }
   ];

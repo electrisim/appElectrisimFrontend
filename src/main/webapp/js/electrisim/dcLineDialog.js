@@ -8,32 +8,32 @@ const  rowDefsDCLine = [
     },
     {
       field: "p_mw",
-      headerTooltip: "",
+      headerTooltip: "Active power transmitted from from_bus to to_bus",
       maxWidth: 100,
       valueParser: numberParser,
   
     },
     {
       field: "loss_percent",
-      headerTooltip: "",
+      headerTooltip: "Relative transmission loss in percent of active power transmission",
       maxWidth: 100,
       valueParser: numberParser,
     },
     {
       field: "loss_mw",
-      headerTooltip: "",
+      headerTooltip: "Total transmission loss in MW",
       maxWidth: 100,
       valueParser: numberParser,
     },
     {
       field: "vm_from_pu",
-      headerTooltip: "",
+      headerTooltip: "Voltage setpoint at from bus",
       maxWidth: 120,
       valueParser: numberParser,
     },
     {
       field: "vm_to_pu",
-      headerTooltip: "",
+      headerTooltip: "Voltage setpoint at to bus",
       maxWidth: 120,
       valueParser: numberParser,
     }

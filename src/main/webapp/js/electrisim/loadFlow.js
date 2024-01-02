@@ -49,6 +49,10 @@ function loadFlow(a, b, c) {
             var lineNo = 0
             var dcLineNo = 0
 
+            var SVCNo = 0
+            var TCSCNo = 0
+            var SSCNo = 0
+
             var storageNo = 0
 
             //Arrays
@@ -77,6 +81,10 @@ function loadFlow(a, b, c) {
 
             var lineArray = [];
             var dcLineArray = [];
+
+            var SVCArray = [];
+            var TCSCArray = [];
+            var SSCArray = [];
 
             var storageArray = [];
 
@@ -143,7 +151,7 @@ function loadFlow(a, b, c) {
                         }
 
                       
-
+                       
                         //Load_flow_parameters 
                         externalGrid.vm_pu = cellsArray[i].value.attributes[2].nodeValue
                         externalGrid.va_degree = cellsArray[i].value.attributes[3].nodeValue
@@ -921,6 +929,136 @@ function loadFlow(a, b, c) {
                         storageArray.push(storage);
                     }
 
+                    //FACTS
+                    if (result.shapeELXXX == "SVC") {
+                        //zrób plik json i wyślij do backend
+                        var SVC = new Object();
+                        SVC.typ = "SVC" + SVCNo
+
+                        SVC.name = cellsArray[i].id.replaceAll('-', '___')
+                     
+                        if (SVC.name.match(regex)) {
+                            SVC.firstnumberinid = SVC.name.match(regex)[0];
+                             
+                        } else {
+                            SVC.firstnumberinid = 0
+                        } 
+                        SVC.name = SVC.name.replace(/^\d/, 'NUMBER')                         
+
+
+                        if(cellsArray[i].edges[0].target.id != cellsArray[i].id)
+                        {
+                            SVC.bus = cellsArray[i].edges[0].target.id.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
+                            SVC.bus = SVC.bus.replace(/^\d/, 'NUMBER')
+                        }else{
+                            SVC.bus = cellsArray[i].edges[0].source.id.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
+                            SVC.bus = SVC.bus.replace(/^\d/, 'NUMBER')
+                        }
+
+                        
+
+                        //Load_flow_parameters
+                        SVC.x_l_ohm = cellsArray[i].value.attributes[1].nodeValue
+                        SVC.x_cvar_ohm = cellsArray[i].value.attributes[2].nodeValue
+                        SVC.set_vm_pu = cellsArray[i].value.attributes[3].nodeValue
+                        SVC.thyristor_firing_angle_degree = cellsArray[i].value.attributes[4].nodeValue
+
+                        //Optional_parameters
+                        SVC.controllable = cellsArray[i].value.attributes[5].nodeValue
+                        SVC.min_angle_degree = cellsArray[i].value.attributes[6].nodeValue
+                        SVC.max_angle_degree = cellsArray[i].value.attributes[7].nodeValue
+            
+
+                        SVCNo++
+
+                        SVCArray.push(SVC);
+                    }
+
+                    if (result.shapeELXXX == "TCSC") {
+                        //zrób plik json i wyślij do backend
+                        var TCSC = new Object();
+                        TCSC.typ = "TCSC" + TCSCNo
+
+                        TCSC.name = cellsArray[i].id.replaceAll('-', '___')
+                     
+                        if (TCSC.name.match(regex)) {
+                            TCSC.firstnumberinid = TCSC.name.match(regex)[0];
+                             
+                        } else {
+                            TCSC.firstnumberinid = 0
+                        } 
+                        TCSC.name = TCSC.name.replace(/^\d/, 'NUMBER')                         
+
+
+                        if(cellsArray[i].edges[0].target.id != cellsArray[i].id)
+                        {
+                            TCSC.bus = cellsArray[i].edges[0].target.id.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
+                            TCSC.bus = TCSC.bus.replace(/^\d/, 'NUMBER')
+                        }else{
+                            TCSC.bus = cellsArray[i].edges[0].source.id.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
+                            TCSC.bus = TCSC.bus.replace(/^\d/, 'NUMBER')
+                        }
+
+                        console.log('TCSC loadflow:')
+                        console.log(cellsArray[i])
+
+                        //Load_flow_parameters
+                        TCSC.x_l_ohm = cellsArray[i].value.attributes[1].nodeValue
+                        TCSC.x_cvar_ohm = cellsArray[i].value.attributes[2].nodeValue
+                        TCSC.set_p_to_mw = cellsArray[i].value.attributes[3].nodeValue
+                        TCSC.thyristor_firing_angle_degree = cellsArray[i].value.attributes[4].nodeValue
+
+                        //Optional_parameters
+                        TCSC.controllable = cellsArray[i].value.attributes[5].nodeValue
+                        TCSC.min_angle_degree = cellsArray[i].value.attributes[6].nodeValue
+                        TCSC.max_angle_degree = cellsArray[i].value.attributes[7].nodeValue
+                       
+                        TCSCNo++
+
+                        TCSCArray.push(TCSC);
+                    }
+                    if (result.shapeELXXX == "SSC") {
+                        //zrób plik json i wyślij do backend
+                        var SSC = new Object();
+                        SSC.typ = "SSC" + SSCNo
+
+                        SSC.name = cellsArray[i].id.replaceAll('-', '___')
+                     
+                        if (SSC.name.match(regex)) {
+                            SSC.firstnumberinid = SSC.name.match(regex)[0];
+                             
+                        } else {
+                            SSC.firstnumberinid = 0
+                        } 
+                        SSC.name = SSC.name.replace(/^\d/, 'NUMBER')                         
+
+
+                        if(cellsArray[i].edges[0].target.id != cellsArray[i].id)
+                        {
+                            SSC.bus = cellsArray[i].edges[0].target.id.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
+                            SSC.bus = SSC.bus.replace(/^\d/, 'NUMBER')
+                        }else{
+                            SSC.bus = cellsArray[i].edges[0].source.id.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
+                            SSC.bus = SSC.bus.replace(/^\d/, 'NUMBER')
+                        }
+
+                        //Load_flow_parameters
+                        SSC.r_ohm = cellsArray[i].value.attributes[2].nodeValue
+                        SSC.x_ohm = cellsArray[i].value.attributes[3].nodeValue
+                        SSC.set_vm_pu = cellsArray[i].value.attributes[4].nodeValue
+                        SSC.vm_internal_pu = cellsArray[i].value.attributes[5].nodeValue
+                        SSC.va_internal_degree = cellsArray[i].value.attributes[6].nodeValue
+
+                        //Optional_parameters
+                        SSC.controllable = cellsArray[i].value.attributes[4].nodeValue
+                        
+
+                        SSCNo++
+
+                        SSCArray.push(SSC);
+                    }
+
+                    //DC
                     if (result.shapeELXXX == "DC Line") {
                         //zrób plik json i wyślij do backend
                         var dcLine = new Object();
@@ -987,7 +1125,10 @@ function loadFlow(a, b, c) {
                         //line.id = cellsArray[i].id.replace('-','_')
 
                         //wybierz z busbarArray typ o nazwie cellsArray[i].source.id
-                        //result = busbarArray.find( ({ name }) => name === "EmPby_tfOVPkMeLiDtfa-4" );                        
+                        //result = busbarArray.find( ({ name }) => name === "EmPby_tfOVPkMeLiDtfa-4" );            
+                        
+                        console.log("line cellsArray[i].value:")
+                        console.log(cellsArray[i])
 
                         line.busFrom = cellsArray[i].source.id.replaceAll('-', '___')//cellsArray[i].source.mxObjectId.replace('#', '')
                         line.busFrom = line.busFrom.replace(/^\d/, 'NUMBER')
@@ -1110,6 +1251,11 @@ function loadFlow(a, b, c) {
             array = array.concat(extendedWardArray)
             array = array.concat(motorArray)
             array = array.concat(storageArray)
+
+            array = array.concat(SVCArray)
+            array = array.concat(TCSCArray)
+            array = array.concat(SSCArray)
+
             array = array.concat(dcLineArray)
             array = array.concat(lineArray)
 
@@ -2028,6 +2174,130 @@ function loadFlow(a, b, c) {
                             b.setCellStyles(mxConstants.STYLE_ALIGN, 'ALIGN_LEFT', [labelka])  
                         }
                     }
+
+
+                    if(dataJson.SVC != undefined)
+                    {
+                        //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy DC lines
+                        csvContent += "data:text/csv;charset=utf-8,SVC Name, thyristor_firing_angle_degree, x_ohm, q_mvar, vm_pu, va_degree \n";
+
+                        for (var i = 0; i < dataJson.SVC.length; i++) {
+                            resultId = dataJson.SVC[i].name
+
+                            resultId = resultId.replace('NUMBER', dataJson.SVC[i].firstnumberinid)
+
+                            //sprawdz na jakich pozycjach był znak '-'
+                            //podmien w tyc pozycjach znaki
+                            resultId = resultId.replaceAll('___', '-')
+
+                            dataJson.SVC[i].name = resultId
+
+                            //for the csv file
+                            let row = Object.values(dataJson.SVC[i]).join(",")
+                            csvContent += row + "\r\n";
+
+                            //create label
+                            var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
+
+                            var resultString  = 'SVC' +
+                            '\n Firing angle[degree]: ' + dataJson.SVC[i].thyristor_firing_angle_degree.toFixed(3) +
+                            '\n x[Ohm]: ' + dataJson.SVC[i].x_ohm.toFixed(3) + 
+                            '\n q[MVar]: ' + dataJson.SVC[i].q_mvar.toFixed(3) +
+                            '\n vm[pu]: ' + dataJson.SVC[i].vm_pu.toFixed(3) +  
+                            '\n va[degree]: ' + dataJson.SVC[i].va_degree.toFixed(3)                 
+                         
+                            var labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1, 0, 0, 'shapeELXXX=Result', true)
+                            b.setCellStyles(mxConstants.STYLE_FONTSIZE, '6', [labelka])
+                            b.setCellStyles(mxConstants.STYLE_ALIGN, 'ALIGN_LEFT', [labelka])  
+
+                                                   
+                        }
+                    }
+
+                    if(dataJson.TCSC != undefined)
+                    {
+                        //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy DC lines
+                        csvContent += "data:text/csv;charset=utf-8,TCSC Name, thyristor_firing_angle_degree, x_ohm, p_from_mw, q_from_mvar, p_to_mw, q_to_mvar, p_l_mw, q_l_mvar, vm_from_pu, va_from_degree, vm_to_pu, va_to_degree  \n";
+
+                        for (var i = 0; i < dataJson.TCSC.length; i++) {
+                            resultId = dataJson.TCSC[i].name
+
+                            resultId = resultId.replace('NUMBER', dataJson.SVC[i].firstnumberinid)
+
+                            //sprawdz na jakich pozycjach był znak '-'
+                            //podmien w tyc pozycjach znaki
+                            resultId = resultId.replaceAll('___', '-')
+
+                            dataJson.TCSC[i].name = resultId
+
+                            //for the csv file
+                            let row = Object.values(dataJson.TCSC[i]).join(",")
+                            csvContent += row + "\r\n";
+
+                            //create label
+                            var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
+
+                            var resultString  = 'TCSC' +
+                            '\n Firing angle[degree]: ' + dataJson.TCSC[i].thyristor_firing_angle_degree.toFixed(3) +
+                            '\n x[Ohm ]: ' + dataJson.TCSC[i].x_ohm.toFixed(3) + 
+                            '\n p_from[MW]: ' + dataJson.TCSC[i].p_from_mw.toFixed(3) +
+                            '\n q_from[MVar]: ' + dataJson.TCSC[i].q_from_mvar.toFixed(3) +  
+                            '\n p_to[MW]: ' + dataJson.TCSC[i].p_to_mw.toFixed(3) +
+                            '\n q_to[MVar]: ' + dataJson.TCSC[i].q_to_mvar.toFixed(3) +
+                            '\n p_l[MW]: ' + dataJson.TCSC[i].p_l_mw.toFixed(3) +
+                            '\n q_l[MVar]: ' + dataJson.TCSC[i].q_l_mvar.toFixed(3) +
+                            '\n vm_from[pu]: ' + dataJson.TCSC[i].vm_from_pu.toFixed(3) +
+                            '\n va_from[degree]: ' + dataJson.TCSC[i].va_from_degree.toFixed(3) +
+                            '\n vm_to[pu]: ' + dataJson.TCSC[i].vm_to_pu.toFixed(3) +
+                            '\n va_to[degree]: ' + dataJson.TCSC[i].va_to_degree.toFixed(3)                  
+                         
+                            var labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1, 0, 0, 'shapeELXXX=Result', true)
+                            b.setCellStyles(mxConstants.STYLE_FONTSIZE, '6', [labelka])
+                            b.setCellStyles(mxConstants.STYLE_ALIGN, 'ALIGN_LEFT', [labelka])  
+
+                                                
+                        }
+                    }
+
+                    if(dataJson.SSC != undefined)
+                    {
+                        //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy DC lines
+                        csvContent += "data:text/csv;charset=utf-8,SSC Name, thyristor_firing_angle_degree, q_mvar, vm_internal_pu, va_internal_degree, vm_pu, va_degree  \n";
+
+                        for (var i = 0; i < dataJson.SSC.length; i++) {
+                            resultId = dataJson.SSC[i].name
+
+                            resultId = resultId.replace('NUMBER', dataJson.SSC[i].firstnumberinid)
+
+                            //sprawdz na jakich pozycjach był znak '-'
+                            //podmien w tyc pozycjach znaki
+                            resultId = resultId.replaceAll('___', '-')
+
+                            dataJson.SSC[i].name = resultId
+
+                            //for the csv file
+                            let row = Object.values(dataJson.SSC[i]).join(",")
+                            csvContent += row + "\r\n";
+
+                            //create label
+                            var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
+
+                            var resultString  = 'SSC' +
+                            '\n Firing angle[degree]: ' + dataJson.SSC[i].thyristor_firing_angle_degree.toFixed(3) +
+                            '\n q[MVar]: ' + dataJson.SSC[i].q_mvar.toFixed(3) + 
+                            '\n vm_internal[pu]: ' + dataJson.SSC[i].vm_internal_pu.toFixed(3) +
+                            '\n va_internal[degree]: ' + dataJson.SSC[i].va_internal_degree.toFixed(3) +  
+                            '\n vm[pu]: ' + dataJson.SSC[i].vm_pu.toFixed(3) +
+                            '\n va[degree]: ' + dataJson.SSC[i].va_degree.toFixed(3) 
+
+                         
+                            var labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1, 0, 0, 'shapeELXXX=Result', true)
+                            b.setCellStyles(mxConstants.STYLE_FONTSIZE, '6', [labelka])
+                            b.setCellStyles(mxConstants.STYLE_ALIGN, 'ALIGN_LEFT', [labelka])                                                    
+                        }
+                    }
+
+
 
                     if(dataJson.dclines != undefined)
                     {

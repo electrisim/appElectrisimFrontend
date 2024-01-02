@@ -8,31 +8,31 @@ const  rowDefsShuntReactor = [
     },
     {
       field: "p_mw",
-      headerTooltip: "",
+      headerTooltip: "shunt active power in MW at v= 1.0 p.u.",
       maxWidth: 100,
       valueParser: numberParser,  
     },
     {
       field: "q_mvar",
-      headerTooltip: "",
+      headerTooltip: "shunt reactive power in MVAr at v= 1.0 p.u.",
       maxWidth: 100,
-      valueParser: numberParser,
+      
     },
     {
       field: "vn_kv",
-      headerTooltip: "",
+      headerTooltip: "rated voltage of the shunt. Defaults to rated voltage of connected bus",
       maxWidth: 100,
       valueParser: numberParser,
     },
     {
       field: "step",
-      headerTooltip: "",
+      headerTooltip: "step of shunt with which power values are multiplied",
       maxWidth: 120,
       valueParser: numberParser,
     },
     {
       field: "max_step",
-      headerTooltip: "",
+      headerTooltip: "True for in_service or False for out of service",
       maxWidth: 120,
       valueParser: numberParser,
     }

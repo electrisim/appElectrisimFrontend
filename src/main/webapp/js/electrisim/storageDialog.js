@@ -8,50 +8,50 @@ const  rowDefsStorage = [
     },
     {
       field: "p_mw",
-      headerTooltip: "",
+      headerTooltip: "The momentary active power of the storage (positive for charging, negative for discharging)",
       maxWidth: 100,
       valueParser: numberParser,
   
     },
     {
       field: "max_e_mwh",
-      headerTooltip: "",
+      headerTooltip: "The maximum energy content of the storage (maximum charge level)",
       maxWidth: 100,
       valueParser: numberParser,
     },
     {
       field: "q_mvar",
-      headerTooltip: "",
+      headerTooltip: "The reactive power of the storage",
       maxWidth: 100,
-      valueParser: numberParser,
+      
     },
     {
       field: "sn_mva",
-      headerTooltip: "",
+      headerTooltip: "Nominal power of the storage",
       maxWidth: 120,
       valueParser: numberParser,
     },
     {
       field: "soc_percent",
-      headerTooltip: "",
+      headerTooltip: "The state of charge of the storage",
       maxWidth: 120,
       valueParser: numberParser,
     },
     {
       field: "min_e_mwh",
-      headerTooltip: "",
+      headerTooltip: "The minimum energy content of the storage (minimum charge level)",
       maxWidth: 100,
       valueParser: numberParser,
     },
     {
       field: "scaling",
-      headerTooltip: "",
+      headerTooltip: "An OPTIONAL scaling factor to be set customly. Multiplys with p_mw and q_mvar.",
       maxWidth: 100,
       valueParser: numberParser,
     },
     {
       field: "type",
-      headerTooltip: "",
+      headerTooltip: "type variable to classify the storage",
       maxWidth: 120,
       
     }

@@ -1,5 +1,5 @@
 const  rowDefsTestowanie = [
-  { name: "Transformer", sn_mva:0.0,  vn_hv_kv: 0.0, vn_lv_kv: 0.0, vkr_percent: 0.0, vk_percent: 0.0, pfe_kw:0.0, i0_percent:0.0, shift_degree: 0.0, vector_group:"Dyn", vk0_percent:0.0, vkr0_percent:0.0, mag0_percent:0.0, si0_hv_partial:0.0, tap_max:0.0, tap_min:0.0, tap_step_percent:0.0, tap_step_degree:0, tap_phase_shifter:'False'},
+  { name: "Transformer", sn_mva:0.0,  vn_hv_kv: 0.0, vn_lv_kv: 0.0, vkr_percent: 0.0, vk_percent: 0.0, pfe_kw:0.0, i0_percent:0.0, shift_degree: 0.0, vector_group:"Dyn", vk0_percent:0.0, vkr0_percent:0.0, mag0_percent:0.0, si0_hv_partial:0.0, tap_pos:0, tap_max:0.0, tap_min:0.0, tap_step_percent:0.0, tap_step_degree:0, tap_phase_shifter:'False'},
   
 ];  
 const columnDefsTestowanie = [  
@@ -86,6 +86,11 @@ const columnDefsTestowanie = [
     maxWidth: 120,
     valueParser: numberParser,
   },
+  {
+    field: "tap_pos",
+    headerTooltip: "current tap position of the transformer",
+    maxWidth: 100,    
+  }, 
   {
     field: "tap_max",
     headerTooltip: "maximal allowed tap position",

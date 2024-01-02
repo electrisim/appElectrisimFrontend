@@ -8,43 +8,43 @@ const  rowDefsLoad = [
     },
     {
       field: "p_mw",
-      headerTooltip: "",
+      headerTooltip: "The active power of the load",
       maxWidth: 100,
       valueParser: numberParser,  
     },
     {
       field: "q_mvar",
-      headerTooltip: "",
+      headerTooltip: "The reactive power of the load",
       maxWidth: 100,
-      valueParser: numberParser,
+      
     },
     {
       field: "const_z_percent",
-      headerTooltip: "",
+      headerTooltip: "percentage of p_mw and q_mvar that will be associated to constant impedance load at rated voltage",
       maxWidth: 100,
       valueParser: numberParser,
     },
     {
       field: "const_i_percent",
-      headerTooltip: "",
+      headerTooltip: "percentage of p_mw and q_mvar that will be associated to constant current load at rated voltage",
       maxWidth: 120,
       valueParser: numberParser,
     },
     {
       field: "sn_mva",
-      headerTooltip: "",
+      headerTooltip: "Nominal power of the load",
       maxWidth: 120,
       valueParser: numberParser,
     },
     {
       field: "scaling",
-      headerTooltip: "",
+      headerTooltip: "An OPTIONAL scaling factor to be set customly. Multiplys with p_mw and q_mvar.",
       maxWidth: 100,
       valueParser: numberParser,
     },
     {
       field: "type",
-      headerTooltip: "",
+      headerTooltip: "type variable to classify the load: wye/delta",
       maxWidth: 100,     
     }
   ];

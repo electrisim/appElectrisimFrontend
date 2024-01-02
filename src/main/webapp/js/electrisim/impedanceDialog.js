@@ -8,19 +8,19 @@ const  rowDefsImpedance = [
     },
     {
       field: "r_pu",
-      headerTooltip: "",
+      headerTooltip: "real part of the impedance in per unit",
       maxWidth: 100,
       valueParser: numberParser,  
     },
     {
       field: "x_pu",
-      headerTooltip: "",
+      headerTooltip: "imaginary part of the impedance in per unit",
       maxWidth: 100,
       valueParser: numberParser,
     },
     {
       field: "sn_mva",
-      headerTooltip: "",
+      headerTooltip: "rated power of the impedance in MVA",
       maxWidth: 100,
       valueParser: numberParser,
     }
