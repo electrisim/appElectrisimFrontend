@@ -94,9 +94,10 @@ function loadFlow(a, b, c) {
             //***************SCZYTYWANIE PARAMETRÓW ROZPŁYWU****************
             var loadFlowParameters = new Object();
             loadFlowParameters.typ = "PowerFlow Parameters" //używam PowerFlow zamiast LoadFlow, bo w pythonie występuje błąd
-            loadFlowParameters.algorithm = a[0]
-            loadFlowParameters.calculate_voltage_angles = a[1]
-            loadFlowParameters.initialization = a[2]
+            loadFlowParameters.frequency = a[0]
+            loadFlowParameters.algorithm = a[1]
+            loadFlowParameters.calculate_voltage_angles = a[2]
+            loadFlowParameters.initialization = a[3]
             //for(var i = 0; i < a.length; i++) {
 
             simulationParametersArray.push(loadFlowParameters)
@@ -1283,11 +1284,12 @@ function loadFlow(a, b, c) {
             let dataReceived = "";
 
             // this.createVertexTemplateEntry("line;strokeWidth=2;html=1;shapeELXXX=Bus;", 160, 10, "", "Bus"),
+           
 
-
+            
             //bootstrap button with spinner 
             // this.ui.spinner.stop();
-            fetch("https://electrisim-0fe342b90b0c.herokuapp.com/",  { //http://127.0.0.1:5000/
+            fetch("https://electrisim-0fe342b90b0c.herokuapp.com/",  { //http://127.0.0.1:5000/ 
                 mode: "cors", 
                 method: "post",   
                 
@@ -1301,6 +1303,7 @@ function loadFlow(a, b, c) {
                  
                 .then(response => { 
                     apka.spinner.stop();
+                    
 
                     if (response.status === 200) {
                         console.log("Przyszło 200")
