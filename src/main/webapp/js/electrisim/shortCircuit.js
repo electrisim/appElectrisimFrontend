@@ -85,7 +85,7 @@ function shortCircuit(a, b, c) {
 
             //***************SCZYTYWANIE PARAMETRÓW ZWARĆ****************
             var shorCircuitParameters = new Object();
-            shorCircuitParameters.typ = "ShortCircuit Parameters"
+            shorCircuitParameters.typ = "ShortCircuitPandaPower Parameters"
             shorCircuitParameters.fault = a[0]
             shorCircuitParameters.case = a[1]
             shorCircuitParameters.lv_tol_percent = a[2]
@@ -102,6 +102,7 @@ function shortCircuit(a, b, c) {
 
             //*************** SCZYTYWANIE MODELU DO BACKEND ****************
             //trzeba rozpoznawać po style - styleELXXX = np. Transformer
+            const regex = /^\d/g;
             for (var i = 0; i < cellsArray.length; i++) {
 
                 //usun wyniki poprzednich obliczen
@@ -123,7 +124,17 @@ function shortCircuit(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var externalGrid = new Object();
                         externalGrid.typ = "External Grid" + externalGridNo
-                        externalGrid.name = "External Grid" + externalGridNo
+                        
+                        externalGrid.name = cellsArray[i].id.replaceAll('-', '___') //mxObjectId.replace('#', '_')//cellsArray[i].id.replaceAll('-', '_') //zamień wszystkie - na _ żeby można byłoby w pythonie obrabiać  //cellsArray[i].mxObjectId.replace('#', '')
+                        //w busbar.number zapisz wartość pierwszej cyfry która znalazła się w mxObjectId. 
+                        
+                        if (externalGrid.name.match(regex)) {
+                            externalGrid.firstnumberinid = externalGrid.name.match(regex)[0];
+                            
+                        } else {
+                            externalGrid.firstnumberinid = 0
+                        }
+                        externalGrid.name = externalGrid.name.replace(/^\d/, 'NUMBER') //jeśli na pierwszej pozycji występuje cyfra to zamień ją na tekst Number                               
 
                          //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
                         if(cellsArray[i].edges[0].target.id != cellsArray[i].id){ 
@@ -176,7 +187,15 @@ function shortCircuit(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var generator = new Object();
                         generator.typ = "Generator"
-                        generator.name = "Generator" + generatorNo
+                        generator.name = cellsArray[i].id.replaceAll('-', '___')
+                         //w busbar.number zapisz wartość pierwszej cyfry która znalazła się w mxObjectId. 
+                    
+                        if (generator.name.match(regex)) {
+                            generator.firstnumberinid = generator.name.match(regex)[0];                             
+                        } else {
+                            generator.firstnumberinid = 0
+                        } 
+                        generator.name = generator.name.replace(/^\d/, 'NUMBER') //jeśli na pierwszej pozycji występuje cyfra to zamień ją na tekst Number                               
 
                         //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
                         if(cellsArray[i].edges[0].target.id != cellsArray[i].id){ 
@@ -216,7 +235,18 @@ function shortCircuit(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var staticGenerator = new Object();
                         staticGenerator.typ = "Static Generator"
-                        staticGenerator.name = "Static Generator" + staticGeneratorNo
+                        staticGenerator.name = cellsArray[i].id.replaceAll('-', '___')
+                        
+                        //w busbar.number zapisz wartość pierwszej cyfry która znalazła się w mxObjectId. 
+                       
+                        if (staticGenerator.name.match(regex)) {
+                            staticGenerator.firstnumberinid = staticGenerator.name.match(regex)[0];
+                            
+                        } else {
+                            staticGenerator.firstnumberinid = 0
+                        }
+
+                        staticGenerator.name = staticGenerator.name.replace(/^\d/, 'NUMBER') //jeśli na pierwszej pozycji występuje cyfra to zamień ją na tekst Number                               
 
                         //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
                         if(cellsArray[i].edges[0].target.id != cellsArray[i].id){ 
@@ -257,7 +287,16 @@ function shortCircuit(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var asymmetricStaticGenerator = new Object();
                         asymmetricStaticGenerator.typ = "Asymmetric Static Generator" + generatorNo
-                        asymmetricStaticGenerator.name = "Asymmetric Static Generator" + generatorNo
+                        asymmetricStaticGenerator.name = cellsArray[i].id.replaceAll('-', '___')
+
+                        //w busbar.number zapisz wartość pierwszej cyfry która znalazła się w mxObjectId. 
+                       
+                        if (asymmetricStaticGenerator.name.match(regex)) {
+                            asymmetricStaticGenerator.firstnumberinid = asymmetricStaticGenerator.name.match(regex)[0];                            
+                        } else {
+                            asymmetricStaticGenerator.firstnumberinid = 0
+                        }
+                        asymmetricStaticGenerator.name = asymmetricStaticGenerator.name.replace(/^\d/, 'NUMBER') //jeśli na pierwszej pozycji występuje cyfra to zamień ją na tekst Number 
                         
                         //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
                         if(cellsArray[i].edges[0].target.id != cellsArray[i].id){
@@ -300,11 +339,12 @@ function shortCircuit(a, b, c) {
                         busbar.name = cellsArray[i].id.replaceAll('-', '___') //mxObjectId.replace('#', '_')//cellsArray[i].id.replaceAll('-', '_') //zamień wszystkie - na _ żeby można byłoby w pythonie obrabiać  //cellsArray[i].mxObjectId.replace('#', '')
 
                         //w busbar.number zapisz wartość pierwszej cyfry która znalazła się w mxObjectId. 
-                        const regex = /^\d/g;
+                  
                         if (busbar.name.match(regex)) {
-                            busbar.number = busbar.name.match(regex)[0];
+                            busbar.firstnumberinid = busbar.name.match(regex)[0];
+                            
                         } else {
-                            busbar.number = 0
+                            busbar.firstnumberinid = 0
                         }
 
                         busbar.name = busbar.name.replace(/^\d/, 'NUMBER') //jeśli na pierwszej pozycji występuje cyfra to zamień ją na tekst Number                               
@@ -327,7 +367,18 @@ function shortCircuit(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var transformer = new Object();
                         transformer.typ = "Transformer" + transformerNo
-                        transformer.name = "Transformer" + transformerNo
+                        transformer.name = cellsArray[i].id.replaceAll('-', '___')
+                        
+                        //w busbar.number zapisz wartość pierwszej cyfry która znalazła się w mxObjectId. 
+                        
+                        if (transformer.name.match(regex)) {
+                            transformer.firstnumberinid = transformer.name.match(regex)[0];
+                             
+                        } else {
+                            transformer.firstnumberinid = 0
+                        }
+ 
+                        transformer.name = transformer.name.replace(/^\d/, 'NUMBER') //jeśli na pierwszej pozycji występuje cyfra to zamień ją na tekst Number                               
 
                         //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
                         if(cellsArray[i].edges[0].target.id != cellsArray[i].id){  
@@ -397,7 +448,19 @@ function shortCircuit(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var threeWindingTransformer = new Object();
                         threeWindingTransformer.typ = "Three Winding Transformer" + threeWindingTransformerNo
-                        threeWindingTransformer.name = "Three Winding Transformer" + threeWindingTransformerNo
+                    
+                        threeWindingTransformer.name = cellsArray[i].id.replaceAll('-', '___')
+                        
+                        //w busbar.number zapisz wartość pierwszej cyfry która znalazła się w mxObjectId. 
+                      
+                        if (threeWindingTransformer.name.match(regex)) {
+                            threeWindingTransformer.firstnumberinid = threeWindingTransformer.name.match(regex)[0];
+                             
+                        } else {
+                            threeWindingTransformer.firstnumberinid = 0
+                        }
+ 
+                        threeWindingTransformer.name = threeWindingTransformer.name.replace(/^\d/, 'NUMBER') //jeśli na pierwszej pozycji występuje cyfra to zamień ją na tekst Number                               
 
                         //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
                         if(cellsArray[i].edges[2].target.id != cellsArray[i].id){ 
@@ -475,6 +538,16 @@ function shortCircuit(a, b, c) {
                         var shuntReactor = new Object();
                         shuntReactor.typ = "Shunt Reactor" + shuntReactorNo
 
+                        shuntReactor.name = cellsArray[i].id.replaceAll('-', '___')                                
+                                  
+                        if (shuntReactor.name.match(regex)) {
+                            shuntReactor.firstnumberinid = shuntReactor.name.match(regex)[0];
+                             
+                        } else {
+                            shuntReactor.firstnumberinid = 0
+                        } 
+                        shuntReactor.name = shuntReactor.name.replace(/^\d/, 'NUMBER') 
+
                         //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
                         if(cellsArray[i].edges[0].target.id != cellsArray[i].id){ 
                             shuntReactor.bus = cellsArray[i].edges[0].target.id.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
@@ -511,6 +584,16 @@ function shortCircuit(a, b, c) {
                         var capacitor = new Object();
                         capacitor.typ = "Capacitor" + capacitorNo
 
+                        capacitor.name = cellsArray[i].id.replaceAll('-', '___')                                               
+                                  
+                        if (capacitor.name.match(regex)) {
+                            capacitor.firstnumberinid = capacitor.name.match(regex)[0];
+                             
+                        } else {
+                            capacitor.firstnumberinid = 0
+                        } 
+                        capacitor.name = capacitor.name.replace(/^\d/, 'NUMBER')
+
                         //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
                         if(cellsArray[i].edges[0].target.id != cellsArray[i].id){                        
                             capacitor.bus = cellsArray[i].edges[0].target.id.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
@@ -544,6 +627,15 @@ function shortCircuit(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var load = new Object();
                         load.typ = "Load" + loadNo
+                        load.name =  cellsArray[i].id.replaceAll('-', '___')
+
+                        if (load.name.match(regex)) {
+                            load.firstnumberinid = load.name.match(regex)[0];
+                             
+                        } else {
+                            load.firstnumberinid = 0
+                        } 
+                        load.name = load.name.replace(/^\d/, 'NUMBER')
 
                         //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
                         if(cellsArray[i].edges[0].target.id != cellsArray[i].id){                        
@@ -580,6 +672,15 @@ function shortCircuit(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var asymmetricLoad = new Object();
                         asymmetricLoad.typ = "Asymmetric Load" + asymmetricLoadNo
+                        asymmetricLoad.name = cellsArray[i].id.replaceAll('-', '___')
+
+                        if (asymmetricLoad.name.match(regex)) {
+                            asymmetricLoad.firstnumberinid = asymmetricLoad.name.match(regex)[0];
+                             
+                        } else {
+                            asymmetricLoad.firstnumberinid = 0
+                        } 
+                        asymmetricLoad.name = asymmetricLoad.name.replace(/^\d/, 'NUMBER')
 
                         //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
                         if(cellsArray[i].edges[0].target.id != cellsArray[i].id){   
@@ -614,6 +715,15 @@ function shortCircuit(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var impedance = new Object();
                         impedance.typ = "Impedance" + impedanceNo
+                        impedance.name = cellsArray[i].id.replaceAll('-', '___')
+
+                        if (impedance.name.match(regex)) {
+                            impedance.firstnumberinid = impedance.name.match(regex)[0];
+                             
+                        } else {
+                            impedance.firstnumberinid = 0
+                        } 
+                        impedance.name = impedance.name.replace(/^\d/, 'NUMBER')
 
 
                         console.log("Impedance attributes")
@@ -655,6 +765,15 @@ function shortCircuit(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var ward = new Object();
                         ward.typ = "Ward" + wardNo
+                        ward.name = cellsArray[i].id.replaceAll('-', '___')
+
+                        if (ward.name.match(regex)) {
+                            ward.firstnumberinid = ward.name.match(regex)[0];
+                             
+                        } else {
+                            ward.firstnumberinid = 0
+                        } 
+                        ward.name = ward.name.replace(/^\d/, 'NUMBER') 
 
                         if(cellsArray[i].edges[0].target.id != cellsArray[i].id)
                         {
@@ -683,6 +802,15 @@ function shortCircuit(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var extendedWard = new Object();
                         extendedWard.typ = "Extended Ward" + extendedWardNo
+
+                        extendedWard.name = cellsArray[i].id.replaceAll('-', '___')
+                        if (extendedWard.name.match(regex)) {
+                            extendedWard.firstnumberinid = extendedWard.name.match(regex)[0];
+                             
+                        } else {
+                            extendedWard.firstnumberinid = 0
+                        } 
+                        extendedWard.name = extendedWard.name.replace(/^\d/, 'NUMBER') 
 
                         if(cellsArray[i].edges[0].target.id != cellsArray[i].id)
                         {
@@ -715,6 +843,15 @@ function shortCircuit(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var motor = new Object();
                         motor.typ = "Motor" + motorNo
+                        motor.name = cellsArray[i].id.replaceAll('-', '___')
+                     
+                        if (motor.name.match(regex)) {
+                            motor.firstnumberinid = motor.name.match(regex)[0];
+                             
+                        } else {
+                            motor.firstnumberinid = 0
+                        } 
+                        motor.name = motor.name.replace(/^\d/, 'NUMBER')
 
                         if(cellsArray[i].edges[0].target.id != cellsArray[i].id)
                         {
@@ -757,6 +894,15 @@ function shortCircuit(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var storage = new Object();
                         storage.typ = "Storage" + storageNo
+                        storage.name = cellsArray[i].id.replaceAll('-', '___')
+                     
+                        if (storage.name.match(regex)) {
+                            storage.firstnumberinid = storage.name.match(regex)[0];
+                             
+                        } else {
+                            storage.firstnumberinid = 0
+                        } 
+                        storage.name = storage.name.replace(/^\d/, 'NUMBER')
 
                         if(cellsArray[i].edges[0].target.id != cellsArray[i].id)
                         {
@@ -788,10 +934,27 @@ function shortCircuit(a, b, c) {
                         storageArray.push(storage);
                     }
 
+                    //NIE MA SVC 
+                    //NIE MA TCSC
+                    //NIE MA SSC
+
                     if (result.shapeELXXX == "DC Line") {
                         //zrób plik json i wyślij do backend
                         var dcLine = new Object();
                         dcLine.typ = "DC Line" + dcLineNo
+
+                        dcLine.name = cellsArray[i].id.replaceAll('-', '___')
+                     
+                        if (dcLine.name.match(regex)) {
+                            dcLine.firstnumberinid = dcLine.name.match(regex)[0];
+                             
+                        } else {
+                            dcLine.firstnumberinid = 0
+                        } 
+                        dcLine.name = dcLine.name.replace(/^\d/, 'NUMBER')
+
+
+
 
                         if(cellsArray[i].edges[0].target.id != cellsArray[i].id)
                         {
@@ -837,6 +1000,15 @@ function shortCircuit(a, b, c) {
 
                         //wybierz z busbarArray typ o nazwie cellsArray[i].source.id
                         //result = busbarArray.find( ({ name }) => name === "EmPby_tfOVPkMeLiDtfa-4" );                        
+                        line.name = cellsArray[i].id.replaceAll('-', '___')
+                     
+                        if (line.name.match(regex)) {
+                            line.firstnumberinid = line.name.match(regex)[0];
+                             
+                        } else {
+                            line.firstnumberinid = 0
+                        } 
+                        line.name = line.name.replace(/^\d/, 'NUMBER')
 
                         line.busFrom = cellsArray[i].source.id.replaceAll('-', '___')//cellsArray[i].source.mxObjectId.replace('#', '')
                         line.busFrom = line.busFrom.replace(/^\d/, 'NUMBER')
@@ -985,7 +1157,7 @@ function shortCircuit(a, b, c) {
 
             //bootstrap button with spinner
             // this.ui.spinner.stop();
-            fetch("https://electrisim-0fe342b90b0c.herokuapp.com/", { // http://127.0.0.1:5000/
+            fetch("https://electrisim-0fe342b90b0c.herokuapp.com/", { //  http://127.0.0.1:5000/
                 mode: "cors", 
                 method: "post",
                 headers: {
