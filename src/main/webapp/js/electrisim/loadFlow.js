@@ -1056,7 +1056,7 @@ function loadFlowPandaPower(a, b, c) {
             
             //bootstrap button with spinner 
             // this.ui.spinner.stop();
-            fetch("http://54.159.5.204:5000/",  { //  http://127.0.0.1:5000/ https://electrisim-0fe342b90b0c.herokuapp.com/
+            fetch("http://54.159.5.204:5000/",  { //  http://127.0.0.1:5000/  https://electrisim-0fe342b90b0c.herokuapp.com/
                 mode: "cors", 
                 method: "post",   
                 
@@ -2696,7 +2696,7 @@ function loadFlowOpenDss(a, b, c) {
             
             //bootstrap button with spinner 
             // this.ui.spinner.stop();
-            fetch("http://54.159.5.204:5000/",  { //http://127.0.0.1:5000/ //https://electrisim-0fe342b90b0c.herokuapp.com/
+            fetch("http://54.159.5.204:5000/",  { //http://127.0.0.1:5000/ //  https://electrisim-0fe342b90b0c.herokuapp.com/
                 mode: "cors", 
                 method: "post",   
                 
