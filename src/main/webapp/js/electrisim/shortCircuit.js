@@ -125,29 +125,16 @@ function shortCircuit(a, b, c) {
                         var externalGrid = new Object();
                         externalGrid.typ = "External Grid" + externalGridNo
                         
-                        externalGrid.name = cellsArray[i].id.replaceAll('-', '___') //mxObjectId.replace('#', '_')//cellsArray[i].id.replaceAll('-', '_') //zamień wszystkie - na _ żeby można byłoby w pythonie obrabiać  //cellsArray[i].mxObjectId.replace('#', '')
-                        //w busbar.number zapisz wartość pierwszej cyfry która znalazła się w mxObjectId. 
-                        
-                        if (externalGrid.name.match(regex)) {
-                            externalGrid.firstnumberinid = externalGrid.name.match(regex)[0];
-                            
-                        } else {
-                            externalGrid.firstnumberinid = 0
-                        }
-                        externalGrid.name = externalGrid.name.replace(/^\d/, 'NUMBER') //jeśli na pierwszej pozycji występuje cyfra to zamień ją na tekst Number                               
-
-                         //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
-                        if(cellsArray[i].edges[0].target.id != cellsArray[i].id){ 
-                            externalGrid.bus = cellsArray[i].edges[0].target.id.replaceAll('-', '___') //cellsArray[i].edges[0].target.mxObjectId.replace('#', '') //id do ktorego jest dolaczony busbar
-                            externalGrid.bus = externalGrid.bus.replace(/^\d/, 'NUMBER')
+                        externalGrid.name = cellsArray[i].mxObjectId.replace('#', '_')//.replaceAll('-', '___')
+                        externalGrid.id = cellsArray[i].id                        
+                      
+                        //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
+                        if(cellsArray[i].edges[0].target.mxObjectId != cellsArray[i].mxObjectId){ 
+                            externalGrid.bus = cellsArray[i].edges[0].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___') //cellsArray[i].edges[0].target.mxObjectId.replace('#', '') //id do ktorego jest dolaczony busbar
+                           
                         }else{
-                            externalGrid.bus = cellsArray[i].edges[0].source.id.replaceAll('-', '___') //cellsArray[i].edges[0].target.mxObjectId.replace('#', '') //id do ktorego jest dolaczony busbar
-                            externalGrid.bus = externalGrid.bus.replace(/^\d/, 'NUMBER')
+                            externalGrid.bus = cellsArray[i].edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___') //cellsArray[i].edges[0].target.mxObjectId.replace('#', '') //id do ktorego jest dolaczony busbar
                         }
-
-
-                        console.log("External Grid attributes")
-                        console.log(cellsArray[i].value.attributes)
 
                         //Load_flow_parameters 
                         externalGrid.vm_pu = cellsArray[i].value.attributes[2].nodeValue
@@ -187,28 +174,19 @@ function shortCircuit(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var generator = new Object();
                         generator.typ = "Generator"
-                        generator.name = cellsArray[i].id.replaceAll('-', '___')
-                         //w busbar.number zapisz wartość pierwszej cyfry która znalazła się w mxObjectId. 
-                    
-                        if (generator.name.match(regex)) {
-                            generator.firstnumberinid = generator.name.match(regex)[0];                             
-                        } else {
-                            generator.firstnumberinid = 0
-                        } 
-                        generator.name = generator.name.replace(/^\d/, 'NUMBER') //jeśli na pierwszej pozycji występuje cyfra to zamień ją na tekst Number                               
-
+                       
+                        generator.name = cellsArray[i].mxObjectId.replace('#', '_')//.replaceAll('-', '___')
+                        generator.id = cellsArray[i].id                        
+                      
                         //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
-                        if(cellsArray[i].edges[0].target.id != cellsArray[i].id){ 
-                            generator.bus = cellsArray[i].edges[0].target.id.replaceAll('-', '___') //cellsArray[i].edges[0].target.mxObjectId.replace('#', '') //id do ktorego jest dolaczony busbar
-                            generator.bus = generator.bus.replace(/^\d/, 'NUMBER')
+                        if(cellsArray[i].edges[0].target.mxObjectId != cellsArray[i].mxObjectId){ 
+                            generator.bus = cellsArray[i].edges[0].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___') //cellsArray[i].edges[0].target.mxObjectId.replace('#', '') //id do ktorego jest dolaczony busbar
+                           
                         }else{
-                            generator.bus = cellsArray[i].edges[0].source.id.replaceAll('-', '___') //cellsArray[i].edges[0].target.mxObjectId.replace('#', '') //id do ktorego jest dolaczony busbar
-                            generator.bus = generator.bus.replace(/^\d/, 'NUMBER')
+                            generator.bus = cellsArray[i].edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___') //cellsArray[i].edges[0].target.mxObjectId.replace('#', '') //id do ktorego jest dolaczony busbar
                         }
 
-                        console.log("Generator attributes")
-                        console.log(cellsArray[i].value.attributes)
-
+            
                         //Load_flow_parameters 
                         generator.p_mw = cellsArray[i].value.attributes[2].nodeValue
                         generator.vm_pu = cellsArray[i].value.attributes[3].nodeValue
@@ -235,31 +213,17 @@ function shortCircuit(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var staticGenerator = new Object();
                         staticGenerator.typ = "Static Generator"
-                        staticGenerator.name = cellsArray[i].id.replaceAll('-', '___')
-                        
-                        //w busbar.number zapisz wartość pierwszej cyfry która znalazła się w mxObjectId. 
-                       
-                        if (staticGenerator.name.match(regex)) {
-                            staticGenerator.firstnumberinid = staticGenerator.name.match(regex)[0];
-                            
-                        } else {
-                            staticGenerator.firstnumberinid = 0
-                        }
 
-                        staticGenerator.name = staticGenerator.name.replace(/^\d/, 'NUMBER') //jeśli na pierwszej pozycji występuje cyfra to zamień ją na tekst Number                               
-
+                        staticGenerator.name = cellsArray[i].mxObjectId.replace('#', '_')//.replaceAll('-', '___')
+                        staticGenerator.id = cellsArray[i].id                        
+                      
                         //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
-                        if(cellsArray[i].edges[0].target.id != cellsArray[i].id){ 
-
-                            staticGenerator.bus = cellsArray[i].edges[0].target.id.replaceAll('-', '___') //cellsArray[i].edges[0].target.mxObjectId.replace('#', '') //id do ktorego jest dolaczony busbar
-                            staticGenerator.bus = staticGenerator.bus.replace(/^\d/, 'NUMBER')
+                        if(cellsArray[i].edges[0].target.mxObjectId != cellsArray[i].mxObjectId){ 
+                             staticGenerator.bus = cellsArray[i].edges[0].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___') //cellsArray[i].edges[0].target.mxObjectId.replace('#', '') //id do ktorego jest dolaczony busbar
+                           
                         }else{
-                            staticGenerator.bus = cellsArray[i].edges[0].source.id.replaceAll('-', '___') //cellsArray[i].edges[0].target.mxObjectId.replace('#', '') //id do ktorego jest dolaczony busbar
-                            staticGenerator.bus = staticGenerator.bus.replace(/^\d/, 'NUMBER')
-                        }
-
-                        console.log("Static Generator attributes")
-                        console.log(cellsArray[i].value.attributes)
+                            staticGenerator.bus = cellsArray[i].edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___') //cellsArray[i].edges[0].target.mxObjectId.replace('#', '') //id do ktorego jest dolaczony busbar
+                        }                        
 
                         //Load_flow_parameters
                         staticGenerator.p_mw = cellsArray[i].value.attributes[2].nodeValue
@@ -287,25 +251,17 @@ function shortCircuit(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var asymmetricStaticGenerator = new Object();
                         asymmetricStaticGenerator.typ = "Asymmetric Static Generator" + generatorNo
-                        asymmetricStaticGenerator.name = cellsArray[i].id.replaceAll('-', '___')
-
-                        //w busbar.number zapisz wartość pierwszej cyfry która znalazła się w mxObjectId. 
-                       
-                        if (asymmetricStaticGenerator.name.match(regex)) {
-                            asymmetricStaticGenerator.firstnumberinid = asymmetricStaticGenerator.name.match(regex)[0];                            
-                        } else {
-                            asymmetricStaticGenerator.firstnumberinid = 0
-                        }
-                        asymmetricStaticGenerator.name = asymmetricStaticGenerator.name.replace(/^\d/, 'NUMBER') //jeśli na pierwszej pozycji występuje cyfra to zamień ją na tekst Number 
                         
+                        asymmetricStaticGenerator.name = cellsArray[i].mxObjectId.replace('#', '_')//.replaceAll('-', '___')
+                        asymmetricStaticGenerator.id = cellsArray[i].id                        
+                      
                         //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
-                        if(cellsArray[i].edges[0].target.id != cellsArray[i].id){
-                            asymmetricStaticGenerator.bus = cellsArray[i].edges[0].target.id.replaceAll('-', '___') //cellsArray[i].edges[0].target.mxObjectId.replace('#', '') //id do ktorego jest dolaczony busbar
-                            asymmetricStaticGenerator.bus = asymmetricStaticGenerator.bus.replace(/^\d/, 'NUMBER')
+                        if(cellsArray[i].edges[0].target.mxObjectId != cellsArray[i].mxObjectId){ 
+                            asymmetricStaticGenerator.bus = cellsArray[i].edges[0].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___') //cellsArray[i].edges[0].target.mxObjectId.replace('#', '') //id do ktorego jest dolaczony busbar
+                           
                         }else{
-                            asymmetricStaticGenerator.bus = cellsArray[i].edges[0].source.id.replaceAll('-', '___') //cellsArray[i].edges[0].target.mxObjectId.replace('#', '') //id do ktorego jest dolaczony busbar
-                            asymmetricStaticGenerator.bus = asymmetricStaticGenerator.bus.replace(/^\d/, 'NUMBER')
-                        }
+                            asymmetricStaticGenerator.bus = cellsArray[i].edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___') //cellsArray[i].edges[0].target.mxObjectId.replace('#', '') //id do ktorego jest dolaczony busbar
+                        }    
 
                         console.log("Asymmetric Static Generator attributes")
                         console.log(cellsArray[i].value.attributes)
@@ -335,23 +291,9 @@ function shortCircuit(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var busbar = new Object();
                         busbar.typ = "Bus" + busbarNo
-
-                        busbar.name = cellsArray[i].id.replaceAll('-', '___') //mxObjectId.replace('#', '_')//cellsArray[i].id.replaceAll('-', '_') //zamień wszystkie - na _ żeby można byłoby w pythonie obrabiać  //cellsArray[i].mxObjectId.replace('#', '')
-
-                        //w busbar.number zapisz wartość pierwszej cyfry która znalazła się w mxObjectId. 
-                  
-                        if (busbar.name.match(regex)) {
-                            busbar.firstnumberinid = busbar.name.match(regex)[0];
-                            
-                        } else {
-                            busbar.firstnumberinid = 0
-                        }
-
-                        busbar.name = busbar.name.replace(/^\d/, 'NUMBER') //jeśli na pierwszej pozycji występuje cyfra to zamień ją na tekst Number                               
-
-                        console.log("Busbar attributes")
-                        console.log(cellsArray[i].value.attributes)
-
+                        busbar.name = cellsArray[i].mxObjectId.replace('#', '_')//.replaceAll('-', '___') //mxObjectId.replace('#', '_')//cellsArray[i].id.replaceAll('-', '_') //zamień wszystkie - na _ żeby można byłoby w pythonie obrabiać  //cellsArray[i].mxObjectId.replace('#', '')
+                        busbar.id = cellsArray[i].id    
+        
                         //Load_flow_parameters
                         busbar.vn_kv = cellsArray[i].value.attributes[2].nodeValue
                         //busbar.type = cellsArray[i].value.attributes[3].nodeValue
@@ -367,36 +309,23 @@ function shortCircuit(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var transformer = new Object();
                         transformer.typ = "Transformer" + transformerNo
-                        transformer.name = cellsArray[i].id.replaceAll('-', '___')
                         
-                        //w busbar.number zapisz wartość pierwszej cyfry która znalazła się w mxObjectId. 
-                        
-                        if (transformer.name.match(regex)) {
-                            transformer.firstnumberinid = transformer.name.match(regex)[0];
-                             
-                        } else {
-                            transformer.firstnumberinid = 0
-                        }
- 
-                        transformer.name = transformer.name.replace(/^\d/, 'NUMBER') //jeśli na pierwszej pozycji występuje cyfra to zamień ją na tekst Number                               
+                        transformer.name = cellsArray[i].mxObjectId.replace('#', '_')//cellsArray[i].id.replaceAll('-', '___')
+                        transformer.id = cellsArray[i].id 
 
                         //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
-                        if(cellsArray[i].edges[0].target.id != cellsArray[i].id){  
-                        
-                            transformer.hv_bus = cellsArray[i].edges[0].target.id.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
-                            transformer.hv_bus = transformer.hv_bus.replace(/ ^\d/, 'NUMBER')                          
-                        } else{
-                            transformer.hv_bus = cellsArray[i].edges[0].source.id.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
-                            transformer.hv_bus = transformer.hv_bus.replace(/ ^\d/, 'NUMBER')                            
-                        }
-
-                        //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
-                        if(cellsArray[i].edges[1].target.id != cellsArray[i].id){                          
-                            transformer.lv_bus = cellsArray[i].edges[1].target.id.replaceAll('-', '___')//cellsArray[i].edges[1].target.mxObjectId.replace('#', '')
-                            transformer.lv_bus = transformer.lv_bus.replace(/^\d/, 'NUMBER')
+                        if(cellsArray[i].edges[0].target.mxObjectId != cellsArray[i].mxObjectId){                             
+                            transformer.hv_bus = cellsArray[i].edges[0].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
                         } else{                            
-                            transformer.lv_bus = cellsArray[i].edges[1].source.id.replaceAll('-', '___')//cellsArray[i].edges[1].target.mxObjectId.replace('#', '')
-                            transformer.lv_bus = transformer.lv_bus.replace(/^\d/, 'NUMBER')
+                            transformer.hv_bus = cellsArray[i].edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
+                        }
+                        
+
+                        //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
+                        if(cellsArray[i].edges[1].target.mxObjectId != cellsArray[i].mxObjectId){                          
+                            transformer.lv_bus = cellsArray[i].edges[1].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].edges[1].target.mxObjectId.replace('#', '')
+                        } else{                            
+                            transformer.lv_bus = cellsArray[i].edges[1].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].edges[1].target.mxObjectId.replace('#', '')
                         }
 
                         console.log("Transformer")
@@ -449,43 +378,28 @@ function shortCircuit(a, b, c) {
                         var threeWindingTransformer = new Object();
                         threeWindingTransformer.typ = "Three Winding Transformer" + threeWindingTransformerNo
                     
-                        threeWindingTransformer.name = cellsArray[i].id.replaceAll('-', '___')
-                        
-                        //w busbar.number zapisz wartość pierwszej cyfry która znalazła się w mxObjectId. 
-                      
-                        if (threeWindingTransformer.name.match(regex)) {
-                            threeWindingTransformer.firstnumberinid = threeWindingTransformer.name.match(regex)[0];
-                             
-                        } else {
-                            threeWindingTransformer.firstnumberinid = 0
-                        }
- 
-                        threeWindingTransformer.name = threeWindingTransformer.name.replace(/^\d/, 'NUMBER') //jeśli na pierwszej pozycji występuje cyfra to zamień ją na tekst Number                               
+                        threeWindingTransformer.name = cellsArray[i].mxObjectId.replace('#', '_')//.replaceAll('-', '___')
+                        threeWindingTransformer.id = cellsArray[i].id 
 
+                             
                         //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
-                        if(cellsArray[i].edges[2].target.id != cellsArray[i].id){ 
-                            threeWindingTransformer.hv_bus = cellsArray[i].edges[2].target.id.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
-                            threeWindingTransformer.hv_bus = threeWindingTransformer.hv_bus.replace(/^\d/, 'NUMBER')
+                        if(cellsArray[i].edges[2].target.mxObjectId != cellsArray[i].mxObjectId){ 
+                            threeWindingTransformer.hv_bus = cellsArray[i].edges[2].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
                         }
                         else{
-                            threeWindingTransformer.hv_bus = cellsArray[i].edges[2].source.id.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
-                            threeWindingTransformer.hv_bus = threeWindingTransformer.hv_bus.replace(/^\d/, 'NUMBER')
+                            threeWindingTransformer.hv_bus = cellsArray[i].edges[2].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
                         }    
 
-                        if(cellsArray[i].edges[1].target.id != cellsArray[i].id){ 
-                            threeWindingTransformer.mv_bus = cellsArray[i].edges[1].target.id.replaceAll('-', '___')//cellsArray[i].edges[1].target.mxObjectId.replace('#', '')
-                            threeWindingTransformer.mv_bus = threeWindingTransformer.mv_bus.replace(/^\d/, 'NUMBER')
+                        if(cellsArray[i].edges[1].target.mxObjectId != cellsArray[i].mxObjectId){ 
+                            threeWindingTransformer.mv_bus = cellsArray[i].edges[1].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].edges[1].target.mxObjectId.replace('#', '')
                         }else{
-                            threeWindingTransformer.mv_bus = cellsArray[i].edges[1].source.id.replaceAll('-', '___')//cellsArray[i].edges[1].target.mxObjectId.replace('#', '')
-                            threeWindingTransformer.mv_bus = threeWindingTransformer.mv_bus.replace(/^\d/, 'NUMBER')
+                            threeWindingTransformer.mv_bus = cellsArray[i].edges[1].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].edges[1].target.mxObjectId.replace('#', '')
                         }
 
-                        if(cellsArray[i].edges[0].target.id != cellsArray[i].id){
-                            threeWindingTransformer.lv_bus = cellsArray[i].edges[0].target.id.replaceAll('-', '___')//cellsArray[i].edges[1].target.mxObjectId.replace('#', '')
-                            threeWindingTransformer.lv_bus = threeWindingTransformer.lv_bus.replace(/^\d/, 'NUMBER')
+                        if(cellsArray[i].edges[0].target.mxObjectId != cellsArray[i].mxObjectId){
+                            threeWindingTransformer.lv_bus = cellsArray[i].edges[0].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].edges[1].target.mxObjectId.replace('#', '')
                         }else{
-                            threeWindingTransformer.lv_bus = cellsArray[i].edges[0].source.id.replaceAll('-', '___')//cellsArray[i].edges[1].target.mxObjectId.replace('#', '')
-                            threeWindingTransformer.lv_bus = threeWindingTransformer.lv_bus.replace(/^\d/, 'NUMBER')
+                            threeWindingTransformer.lv_bus = cellsArray[i].edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].edges[1].target.mxObjectId.replace('#', '')
                         }
 
                         console.log("Three Winding Transformer attributes")
@@ -538,23 +452,14 @@ function shortCircuit(a, b, c) {
                         var shuntReactor = new Object();
                         shuntReactor.typ = "Shunt Reactor" + shuntReactorNo
 
-                        shuntReactor.name = cellsArray[i].id.replaceAll('-', '___')                                
-                                  
-                        if (shuntReactor.name.match(regex)) {
-                            shuntReactor.firstnumberinid = shuntReactor.name.match(regex)[0];
-                             
-                        } else {
-                            shuntReactor.firstnumberinid = 0
-                        } 
-                        shuntReactor.name = shuntReactor.name.replace(/^\d/, 'NUMBER') 
+                        shuntReactor.name = cellsArray[i].mxObjectId.replace('#', '_')//.replaceAll('-', '___')                                
+                        shuntReactor.id = cellsArray[i].id   
 
                         //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
-                        if(cellsArray[i].edges[0].target.id != cellsArray[i].id){ 
-                            shuntReactor.bus = cellsArray[i].edges[0].target.id.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
-                            shuntReactor.bus = shuntReactor.bus.replace(/^\d/, 'NUMBER')
+                        if(cellsArray[i].edges[0].target.mxObjectId != cellsArray[i].mxObjectId){ 
+                            shuntReactor.bus = cellsArray[i].edges[0].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
                         }else{
-                            shuntReactor.bus = cellsArray[i].edges[0].source.id.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
-                            shuntReactor.bus = shuntReactor.bus.replace(/^\d/, 'NUMBER')
+                            shuntReactor.bus = cellsArray[i].edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
                         }
 
                         console.log("Shunt reactor attributes")
@@ -584,24 +489,16 @@ function shortCircuit(a, b, c) {
                         var capacitor = new Object();
                         capacitor.typ = "Capacitor" + capacitorNo
 
-                        capacitor.name = cellsArray[i].id.replaceAll('-', '___')                                               
-                                  
-                        if (capacitor.name.match(regex)) {
-                            capacitor.firstnumberinid = capacitor.name.match(regex)[0];
-                             
-                        } else {
-                            capacitor.firstnumberinid = 0
-                        } 
-                        capacitor.name = capacitor.name.replace(/^\d/, 'NUMBER')
+                        capacitor.name = cellsArray[i].mxObjectId.replace('#', '_')//.replaceAll('-', '___')                                                 
+                        capacitor.id = cellsArray[i].id
 
                         //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
-                        if(cellsArray[i].edges[0].target.id != cellsArray[i].id){                        
-                            capacitor.bus = cellsArray[i].edges[0].target.id.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
-                            capacitor.bus = capacitor.bus.replace(/^\d/, 'NUMBER')
+                        if(cellsArray[i].edges[0].target.mxObjectId != cellsArray[i].mxObjectId){                        
+                            capacitor.bus = cellsArray[i].edges[0].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
                         }else{
-                            capacitor.bus = cellsArray[i].edges[0].source.id.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
-                            capacitor.bus = capacitor.bus.replace(/^\d/, 'NUMBER')
+                            capacitor.bus = cellsArray[i].edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
                         }
+
 
                         console.log("Capacitor attributes")
                         console.log(cellsArray[i].value.attributes)
@@ -627,24 +524,16 @@ function shortCircuit(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var load = new Object();
                         load.typ = "Load" + loadNo
-                        load.name =  cellsArray[i].id.replaceAll('-', '___')
-
-                        if (load.name.match(regex)) {
-                            load.firstnumberinid = load.name.match(regex)[0];
-                             
-                        } else {
-                            load.firstnumberinid = 0
-                        } 
-                        load.name = load.name.replace(/^\d/, 'NUMBER')
-
+                        load.name =  cellsArray[i].mxObjectId.replace('#', '_')//.replaceAll('-', '___')
+                        load.id = cellsArray[i].id                            
+                                               
                         //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
-                        if(cellsArray[i].edges[0].target.id != cellsArray[i].id){                        
-                            load.bus = cellsArray[i].edges[0].target.id.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
-                            load.bus = load.bus.replace(/^\d/, 'NUMBER')
+                        if(cellsArray[i].edges[0].target.mxObjectId != cellsArray[i].mxObjectId){                        
+                            load.bus = cellsArray[i].edges[0].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
+          
                         }
                         else{
-                            load.bus = cellsArray[i].edges[0].source.id.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
-                            load.bus = load.bus.replace(/^\d/, 'NUMBER')
+                            load.bus = cellsArray[i].edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
                         }
 
                         console.log("cellsArray[i].value.attributes: ")
@@ -672,23 +561,14 @@ function shortCircuit(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var asymmetricLoad = new Object();
                         asymmetricLoad.typ = "Asymmetric Load" + asymmetricLoadNo
-                        asymmetricLoad.name = cellsArray[i].id.replaceAll('-', '___')
-
-                        if (asymmetricLoad.name.match(regex)) {
-                            asymmetricLoad.firstnumberinid = asymmetricLoad.name.match(regex)[0];
-                             
-                        } else {
-                            asymmetricLoad.firstnumberinid = 0
-                        } 
-                        asymmetricLoad.name = asymmetricLoad.name.replace(/^\d/, 'NUMBER')
-
+                        asymmetricLoad.name = cellsArray[i].mxObjectId.replace('#', '_')//.replaceAll('-', '___')
+                        asymmetricLoad.id = cellsArray[i].id
+                    
                         //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
-                        if(cellsArray[i].edges[0].target.id != cellsArray[i].id){   
-                            asymmetricLoad.bus = cellsArray[i].edges[0].target.id.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
-                            asymmetricLoad.bus = asymmetricLoad.bus.replace(/^\d/, 'NUMBER')
+                        if(cellsArray[i].edges[0].target.mxObjectId != cellsArray[i].mxObjectId){   
+                            asymmetricLoad.bus = cellsArray[i].edges[0].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
                         }else{
-                            asymmetricLoad.bus = cellsArray[i].edges[0].source.id.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
-                            asymmetricLoad.bus = asymmetricLoad.bus.replace(/^\d/, 'NUMBER')
+                            asymmetricLoad.bus = cellsArray[i].edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
                         }
 
                         console.log("Asymmetric Load attributes")
@@ -715,37 +595,26 @@ function shortCircuit(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var impedance = new Object();
                         impedance.typ = "Impedance" + impedanceNo
-                        impedance.name = cellsArray[i].id.replaceAll('-', '___')
-
-                        if (impedance.name.match(regex)) {
-                            impedance.firstnumberinid = impedance.name.match(regex)[0];
-                             
-                        } else {
-                            impedance.firstnumberinid = 0
-                        } 
-                        impedance.name = impedance.name.replace(/^\d/, 'NUMBER')
-
-
-                        console.log("Impedance attributes")
-                        console.log(cellsArray[i].value.attributes)
+                        impedance.name = cellsArray[i].mxObjectId.replace('#', '_')//.replaceAll('-', '___')
+                        impedance.id = cellsArray[i].id 
 
                         try {
                             //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
-                            if(cellsArray[i].edges[0].target.id != cellsArray[i].id){
-                                impedance.busFrom = cellsArray[i].edges[0].target.id.replaceAll('-', '___')//cellsArray[i].source.mxObjectId.replace('#', '')
-                                impedance.busFrom = impedance.busFrom.replace(/^\d/, 'NUMBER')
+                            if(cellsArray[i].edges[0].target.mxObjectId != cellsArray[i].mxObjectId){
+                                impedance.busFrom = cellsArray[i].edges[0].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].source.mxObjectId.replace('#', '')
+                           
                             }else{
-                                impedance.busFrom = cellsArray[i].edges[0].source.id.replaceAll('-', '___')//cellsArray[i].source.mxObjectId.replace('#', '')
-                                impedance.busFrom = impedance.busFrom.replace(/^\d/, 'NUMBER')
+                                impedance.busFrom = cellsArray[i].edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].source.mxObjectId.replace('#', '')
+                         
                             }
 
                             //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
-                            if(cellsArray[i].edges[1].target.id != cellsArray[i].id){
-                                impedance.busTo = cellsArray[i].edges[1].target.id.replaceAll('-', '___')//cellsArray[i].target.mxObjectId.replace('#', '')
-                                impedance.busTo = impedance.busTo.replace(/^\d/, 'NUMBER')
+                            if(cellsArray[i].edges[1].target.mxObjectId != cellsArray[i].mxObjectId){
+                                impedance.busTo = cellsArray[i].edges[1].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].target.mxObjectId.replace('#', '')
+                           
                             }else{
-                                impedance.busTo = cellsArray[i].edges[1].source.id.replaceAll('-', '___')//cellsArray[i].target.mxObjectId.replace('#', '')
-                                impedance.busTo = impedance.busTo.replace(/^\d/, 'NUMBER')
+                                impedance.busTo = cellsArray[i].edges[1].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].target.mxObjectId.replace('#', '')
+              
                             }
 
                             //Load_flow_parameters
@@ -765,27 +634,17 @@ function shortCircuit(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var ward = new Object();
                         ward.typ = "Ward" + wardNo
-                        ward.name = cellsArray[i].id.replaceAll('-', '___')
+                        ward.name = cellsArray[i].mxObjectId.replace('#', '_')
+                        ward.id = cellsArray[i].id                       
 
-                        if (ward.name.match(regex)) {
-                            ward.firstnumberinid = ward.name.match(regex)[0];
-                             
-                        } else {
-                            ward.firstnumberinid = 0
-                        } 
-                        ward.name = ward.name.replace(/^\d/, 'NUMBER') 
-
-                        if(cellsArray[i].edges[0].target.id != cellsArray[i].id)
+                        if(cellsArray[i].edges[0].target.mxObjectId != cellsArray[i].mxObjectId)
                         {
-                            ward.bus = cellsArray[i].edges[0].target.id.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
-                            ward.bus = ward.bus.replace(/^\d/, 'NUMBER')
+                            ward.bus = cellsArray[i].edges[0].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
+                        
                         }else{
-                            ward.bus = cellsArray[i].edges[0].source.id.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
-                            ward.bus = ward.bus.replace(/^\d/, 'NUMBER')
+                            ward.bus = cellsArray[i].edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
+                         
                         }
-
-                        console.log("Ward attributes")
-                        console.log(cellsArray[i].value.attributes)
 
                         //Load_flow_parameters
                         ward.ps_mw = cellsArray[i].value.attributes[2].nodeValue
@@ -803,28 +662,19 @@ function shortCircuit(a, b, c) {
                         var extendedWard = new Object();
                         extendedWard.typ = "Extended Ward" + extendedWardNo
 
-                        extendedWard.name = cellsArray[i].id.replaceAll('-', '___')
-                        if (extendedWard.name.match(regex)) {
-                            extendedWard.firstnumberinid = extendedWard.name.match(regex)[0];
-                             
-                        } else {
-                            extendedWard.firstnumberinid = 0
-                        } 
-                        extendedWard.name = extendedWard.name.replace(/^\d/, 'NUMBER') 
+                        extendedWard.name = cellsArray[i].mxObjectId.replace('#', '_')
+                        extendedWard.id = cellsArray[i].id                       
 
-                        if(cellsArray[i].edges[0].target.id != cellsArray[i].id)
+                        if(cellsArray[i].edges[0].target.mxObjectId != cellsArray[i].mxObjectId)
                         {
-                            extendedWard.bus = cellsArray[i].edges[0].target.id.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
-                            extendedWard.bus = extendedWard.bus.replace(/^\d/, 'NUMBER')
+                            extendedWard.bus = cellsArray[i].edges[0].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
+                          
                         }
                         else{
-                            extendedWard.bus = cellsArray[i].edges[0].source.id.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
-                            extendedWard.bus = extendedWard.bus.replace(/^\d/, 'NUMBER')
+                            extendedWard.bus = cellsArray[i].edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
                         }
 
-                        console.log("Extended Ward attributes")
-                        console.log(cellsArray[i].value.attributes)
-
+                     
                         //Load_flow_parameters
                         extendedWard.ps_mw = cellsArray[i].value.attributes[2].nodeValue
                         extendedWard.qs_mvar = cellsArray[i].value.attributes[3].nodeValue
@@ -843,23 +693,14 @@ function shortCircuit(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var motor = new Object();
                         motor.typ = "Motor" + motorNo
-                        motor.name = cellsArray[i].id.replaceAll('-', '___')
-                     
-                        if (motor.name.match(regex)) {
-                            motor.firstnumberinid = motor.name.match(regex)[0];
-                             
-                        } else {
-                            motor.firstnumberinid = 0
-                        } 
-                        motor.name = motor.name.replace(/^\d/, 'NUMBER')
+                        motor.name = cellsArray[i].mxObjectId.replace('#', '_')
+                        motor.id = cellsArray[i].id 
 
-                        if(cellsArray[i].edges[0].target.id != cellsArray[i].id)
+                        if(cellsArray[i].edges[0].target.mxObjectId != cellsArray[i].mxObjectId)
                         {
-                            motor.bus = cellsArray[i].edges[0].target.id.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
-                            motor.bus = motor.bus.replace(/^\d/, 'NUMBER')
+                            motor.bus = cellsArray[i].edges[0].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
                         }else{
-                            motor.bus = cellsArray[i].edges[0].source.id.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
-                            motor.bus = motor.bus.replace(/^\d/, 'NUMBER')
+                            motor.bus = cellsArray[i].edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '                            
                         }
 
                         console.log("Motor attributes")
@@ -894,29 +735,17 @@ function shortCircuit(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var storage = new Object();
                         storage.typ = "Storage" + storageNo
-                        storage.name = cellsArray[i].id.replaceAll('-', '___')
+                        storage.name = cellsArray[i].mxObjectId.replace('#', '_')
+                        storage.id = cellsArray[i].id 
                      
-                        if (storage.name.match(regex)) {
-                            storage.firstnumberinid = storage.name.match(regex)[0];
-                             
-                        } else {
-                            storage.firstnumberinid = 0
-                        } 
-                        storage.name = storage.name.replace(/^\d/, 'NUMBER')
-
-                        if(cellsArray[i].edges[0].target.id != cellsArray[i].id)
+                        if(cellsArray[i].edges[0].target.mxObjectId != cellsArray[i].mxObjectId)
                         {
-                            storage.bus = cellsArray[i].edges[0].target.id.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
-                            storage.bus = storage.bus.replace(/^\d/, 'NUMBER')
+                            storage.bus = cellsArray[i].edges[0].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
                         }else{
-                            storage.bus = cellsArray[i].edges[0].source.id.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
-                            storage.bus = storage.bus.replace(/^\d/, 'NUMBER')
+                            storage.bus = cellsArray[i].edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
                         }
 
-                        console.log("Storage attributes")
-                        console.log(cellsArray[i].value.attributes)
-
-
+        
                         //Load_flow_parameters
                         storage.p_mw = cellsArray[i].value.attributes[2].nodeValue
                         storage.max_e_mwh = cellsArray[i].value.attributes[3].nodeValue
@@ -943,35 +772,21 @@ function shortCircuit(a, b, c) {
                         var dcLine = new Object();
                         dcLine.typ = "DC Line" + dcLineNo
 
-                        dcLine.name = cellsArray[i].id.replaceAll('-', '___')
-                     
-                        if (dcLine.name.match(regex)) {
-                            dcLine.firstnumberinid = dcLine.name.match(regex)[0];
-                             
-                        } else {
-                            dcLine.firstnumberinid = 0
-                        } 
-                        dcLine.name = dcLine.name.replace(/^\d/, 'NUMBER')
+                        dcLine.name = cellsArray[i].mxObjectId.replace('#', '_')//.replaceAll('-', '___')
+                        dcLine.id = cellsArray[i].id                
 
-
-
-
-                        if(cellsArray[i].edges[0].target.id != cellsArray[i].id)
+                        if(cellsArray[i].edges[0].target.mxObjectId != cellsArray[i].mxObjectId)
                         {
-                            dcLine.busFrom = cellsArray[i].edges[0].target.id.replaceAll('-', '___')//cellsArray[i].source.mxObjectId.replace('#', '')
-                            dcLine.busFrom = dcLine.busFrom.replace(/^\d/, 'NUMBER')
+                            dcLine.busFrom = cellsArray[i].edges[0].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].source.mxObjectId.replace('#', '')
                         }else{
-                            dcLine.busFrom = cellsArray[i].edges[0].source.id.replaceAll('-', '___')//cellsArray[i].source.mxObjectId.replace('#', '')
-                            dcLine.busFrom = dcLine.busFrom.replace(/^\d/, 'NUMBER')
+                            dcLine.busFrom = cellsArray[i].edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].source.mxObjectId.replace('#', '')
                         }
                         
-                        if(cellsArray[i].edges[1].target.id != cellsArray[i].id)
+                        if(cellsArray[i].edges[1].target.mxObjectId != cellsArray[i].mxObjectId)
                         {
-                            dcLine.busTo = cellsArray[i].edges[1].target.id.replaceAll('-', '___')//cellsArray[i].target.mxObjectId.replace('#', '')
-                            dcLine.busTo = dcLine.busTo.replace(/^\d/, 'NUMBER')
+                            dcLine.busTo = cellsArray[i].edges[1].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].target.mxObjectId.replace('#', '')
                         }else{
-                            dcLine.busTo = cellsArray[i].edges[1].source.id.replaceAll('-', '___')//cellsArray[i].target.mxObjectId.replace('#', '')
-                            dcLine.busTo = dcLine.busTo.replace(/^\d/, 'NUMBER')
+                            dcLine.busTo = cellsArray[i].edges[1].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].target.mxObjectId.replace('#', '')
                         }
 
                         console.log("DC line attributes")
@@ -995,28 +810,11 @@ function shortCircuit(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var line = new Object();
                         line.typ = "Line" + lineNo
-                        line.name = cellsArray[i].id.replaceAll('-', '___')//mxObjectId.replace('#', '_')     
-                        //line.id = cellsArray[i].id.replace('-','_')
-
-                        //wybierz z busbarArray typ o nazwie cellsArray[i].source.id
-                        //result = busbarArray.find( ({ name }) => name === "EmPby_tfOVPkMeLiDtfa-4" );                        
-                        line.name = cellsArray[i].id.replaceAll('-', '___')
-                     
-                        if (line.name.match(regex)) {
-                            line.firstnumberinid = line.name.match(regex)[0];
-                             
-                        } else {
-                            line.firstnumberinid = 0
-                        } 
-                        line.name = line.name.replace(/^\d/, 'NUMBER')
-
-                        line.busFrom = cellsArray[i].source.id.replaceAll('-', '___')//cellsArray[i].source.mxObjectId.replace('#', '')
-                        line.busFrom = line.busFrom.replace(/^\d/, 'NUMBER')
-                        line.busTo = cellsArray[i].target.id.replaceAll('-', '___')//cellsArray[i].target.mxObjectId.replace('#', '')
-                        line.busTo = line.busTo.replace(/^\d/, 'NUMBER')
-
-                        console.log("Line attributes")
-                        console.log(cellsArray[i].value.attributes)
+                        line.name = cellsArray[i].mxObjectId.replace('#', '_')//id.replaceAll('-', '___')
+                        line.id = cellsArray[i].id
+                       
+                        line.busFrom = cellsArray[i].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].source.mxObjectId.replace('#', '')                        
+                        line.busTo = cellsArray[i].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].target.mxObjectId.replace('#', '')
 
                         line.length_km = cellsArray[i].value.attributes[2].nodeValue
                         line.parallel = cellsArray[i].value.attributes[3].nodeValue
