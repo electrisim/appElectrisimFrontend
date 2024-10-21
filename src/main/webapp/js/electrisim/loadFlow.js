@@ -1123,7 +1123,7 @@ function loadFlowPandaPower(a, b, c) {
                     }
 
 
-                    //*************** WYŚWIETLANIE WYNIKÓW NA DIAGRAMIE ****************
+                    //*************** SHOWING RESULTS ON DIAGRAM ****************
            
                     var style = new Object();
                     style[mxConstants.STYLE_FONTSIZE] = '6';

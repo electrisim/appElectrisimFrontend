@@ -1022,7 +1022,7 @@ function shortCircuit(a, b, c) {
                     }
 
 
-                    //*************** WYŚWIETLANIE WYNIKÓW NA DIAGRAMIE ****************
+                    //*************** SHOWING RESULTS ON DIAGRAM ****************
                     var csvArray = []
                     var oneBusbarArray = []
 
@@ -1044,15 +1044,10 @@ function shortCircuit(a, b, c) {
 
                     for (var i = 0; i < dataJson.busbars.length; i++) {
 
-                        resultId = dataJson.busbars[i].name
+                        resultId = dataJson.busbars[i].id
 
-                        resultId = resultId.replace('NUMBER', dataJson.busbars[i].name)
+                        dataJson.busbars[i].name = dataJson.busbars[i].name.replace('_', '#')
 
-                        //sprawdz na jakich pozycjach był znak '-'
-                        //podmien w tyc pozycjach znaki
-                        resultId = resultId.replaceAll('___', '-')
-
-                        dataJson.busbars[i].name = resultId
 
                         //for the csv file
                         let row = Object.values(dataJson.busbars[i]).join(",")
