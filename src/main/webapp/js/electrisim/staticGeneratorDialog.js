@@ -33,7 +33,7 @@ const  rowDefsStaticGenerator = [
     },
     {
       field: "type",
-      headerTooltip: "Three phase Connection type of the static generator: wye/delta",
+      headerTooltip: "type of generator",
       maxWidth: 120,
    
     },

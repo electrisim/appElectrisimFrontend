@@ -8,7 +8,7 @@ function loadFlowPandaPower(a, b, c) {
     var apka = a
     var grafka = b
 
-    b.isEnabled() && !b.isCellLocked(b.getDefaultParent()) && a.showLoadFlowDialog("", "Calculate", function (a, c) {
+    b.isEnabled() && !b.isCellLocked(b.getDefaultParent()) && a.showLoadFlowDialogPandaPower("", "Calculate", function (a, c) {
 
         apka.spinner.spin(document.body, "Waiting for results...")
 
@@ -399,9 +399,7 @@ function loadFlowPandaPower(a, b, c) {
                         threeWindingTransformer.name = cellsArray[i].mxObjectId.replace('#', '_')//.replaceAll('-', '___')
                         threeWindingTransformer.id = cellsArray[i].id 
 
-                        console.log('cellsArray')
-                        console.log(cellsArray[i])
-     
+                             
                         //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
                         if(cellsArray[i].edges[2].target.mxObjectId != cellsArray[i].mxObjectId){ 
                             threeWindingTransformer.hv_bus = cellsArray[i].edges[2].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
@@ -469,8 +467,7 @@ function loadFlowPandaPower(a, b, c) {
                         var shuntReactor = new Object();
                         shuntReactor.typ = "Shunt Reactor" + shuntReactorNo
                         shuntReactor.name = cellsArray[i].mxObjectId.replace('#', '_')//.replaceAll('-', '___')                                
-                        shuntReactor.id = cellsArray[i].id        
-
+                        shuntReactor.id = cellsArray[i].id   
 
                         //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
                         if(cellsArray[i].edges[0].target.mxObjectId != cellsArray[i].mxObjectId){ 
@@ -2006,7 +2003,7 @@ function loadFlowOpenDss(a, b, c) {
     var apka = a
     var grafka = b
 
-    b.isEnabled() && !b.isCellLocked(b.getDefaultParent()) && a.showLoadFlowDialog("", "Calculate", function (a, c) {
+    b.isEnabled() && !b.isCellLocked(b.getDefaultParent()) && a.showLoadFlowDialogOpenDSS("", "Calculate", function (a, c) {
 
         apka.spinner.spin(document.body, "Waiting for results...")
 
