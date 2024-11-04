@@ -1,4 +1,4 @@
-const rowDefsDataThreeWindingTransformer = [
+  rowDefsDataThreeWindingTransformer = [
     { name: "63/25/38 MVA 110/20/10 kV", sn_hv_mva: 63, sn_mv_mva: 25, sn_lv_mva: 38, vn_hv_kv: 110, vn_mv_kv: 20, vn_lv_kv:10, vk_hv_percent:10.4, vk_mv_percent:10.4, vk_lv_percent:10.4, vkr_hv_percent:0.28, vkr_mv_percent:0.32, vkr_lv_percent:0.35, pfe_kw:35, i0_percent:0.89, shift_mv_degree:0, shift_lv_degree:0, tap_step_percent:1.2, tap_pos:0, tap_min:-10, tap_max:10},//, vk0_hv_percent:1.0,vk0_mv_percent:1.0,vk0_lv_percent:1.0,vkr0_hv_percent:1.0,vkr0_mv_percent:1.0,vkr0_lv_percent:1.0,vector_group:1.0 },
     { name: "63/25/38 MVA 110/10/10 kV", sn_hv_mva: 63, sn_mv_mva: 25, sn_lv_mva: 38, vn_hv_kv: 110, vn_mv_kv: 10, vn_lv_kv:10, vk_hv_percent:10.4, vk_mv_percent:10.4, vk_lv_percent:10.4, vkr_hv_percent:0.28, vkr_mv_percent:0.32, vkr_lv_percent:0.35, pfe_kw:35, i0_percent:0.89, shift_mv_degree:0, shift_lv_degree:0, tap_step_percent:1.2, tap_pos:0, tap_min:-10, tap_max:10},//, vk0_hv_percent:1.0,vk0_mv_percent:1.0,vk0_lv_percent:1.0,vkr0_hv_percent:1.0,vkr0_mv_percent:1.0,vkr0_lv_percent:1.0,vector_group:1.0 },
   ];     
@@ -153,9 +153,7 @@ const rowDefsDataThreeWindingTransformer = [
       }
   
       if (action === "delete") {
-        console.log(params)
-        console.log(params.rowIndex)
-  
+   
         let removeRowIndex = params.rowIndex;   
         rowDefsDataThreeWindingTransformer.splice(removeRowIndex, 1); //usun jeden element z indexu
         
@@ -166,8 +164,7 @@ const rowDefsDataThreeWindingTransformer = [
   
       if (action === "update") {
         var rowNode = gridOptionsThreeWindingTransformer.api.getRowNode(params.node.rowIndex);      
-        rowNode.setData(params.node.data);  
-        rowDefsDataThreeWindingTransformer.push(params.node.data)
+        rowNode.setData(params.node.data); 
 
         params.api.stopEditing(false);
       }
@@ -184,14 +181,16 @@ const rowDefsDataThreeWindingTransformer = [
     }
   }
   function onRowEditingStarted(params) {
+
+    rowDefsDataThreeWindingTransformer.push(params.node.data)
+
     params.api.refreshCells({
       columns: ["action"],
       rowNodes: [params.node],
       force: true
     });
   }
-  function onRowEditingStopped(params) { 
-   console.log(params) 
+  function onRowEditingStopped(params) {    
 
     params.api.refreshCells({
       columns: ["action"],
