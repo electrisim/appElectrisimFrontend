@@ -1,4 +1,4 @@
-const rowDefsDataTransformerDialog = [
+ rowDefsDataTransformerDialog = [
     { name: "160 MVA 380/110 kV", sn_mva: 160.0, vn_hv_kv: 380.0, vn_lv_kv: 110.0, vkr_percent: 0.25, vk_percent: 12.2, pfe_kw:60.0, i0_percent:0.06, shift_degree: 0, vector_group:"Dyn", vk0_percent:1.0, vkr0_percent:1.0, mag0_percent:1.0, si0_hv_partial:1.0, tap_pos:0, tap_max:9, tap_min:-9, tap_step_percent:1.5, tap_step_degree:0, tap_phase_shifter:'False'},
     { name: "100 MVA 220/110 kV", sn_mva: 100.0, vn_hv_kv: 220.0, vn_lv_kv: 110.0, vkr_percent: 0.26, vk_percent: 12.0, pfe_kw:55.0, i0_percent:0.06, shift_degree: 0, vector_group:"Dyn", vk0_percent:1.0, vkr0_percent:1.0, mag0_percent:1.0, si0_hv_partial:1.0, tap_pos:0, tap_max:9, tap_min:-9, tap_step_percent:1.5, tap_step_degree:0, tap_phase_shifter:'False'},   
     { name: "63 MVA 110/20 kV", sn_mva: 63.0, vn_hv_kv: 110.0, vn_lv_kv: 20.0, vkr_percent: 0.32, vk_percent: 18.0, pfe_kw:22.0, i0_percent:0.04, shift_degree: 0, vector_group:"Dyn", vk0_percent:1.0, vkr0_percent:1.0, mag0_percent:1.0, si0_hv_partial:1.0, tap_pos:0, tap_max:9, tap_min:-9, tap_step_percent:1.5, tap_step_degree:0, tap_phase_shifter:'False'},
@@ -28,7 +28,7 @@ const rowDefsDataTransformerDialog = [
       { field: "name" },
       { field: "sn_mva",
         headerTooltip: "rated apparent power",
-         maxWidth: 100,
+        maxWidth: 100,
         valueParser: numberParser,
       },
       { field: "vn_hv_kv",
@@ -118,8 +118,7 @@ const rowDefsDataTransformerDialog = [
       maxWidth: 140      
       }
 
-  ];
-  
+  ];  
   
   //edit, delete, update, cancel*********
   function onCellClicked(params) {
@@ -137,12 +136,9 @@ const rowDefsDataTransformerDialog = [
       }
   
       if (action === "delete") {
-        console.log(params)
-        console.log(params.rowIndex)
   
         let removeRowIndex = params.rowIndex;   
-        rowDefsDataTransformerDialog.splice(removeRowIndex, 1); //usun jeden element z indexu
-        
+        rowDefsDataTransformerDialog.splice(removeRowIndex, 1); //usun jeden element z indexu        
           
         params.api.applyTransaction({
           remove: [params.node.data]
@@ -152,7 +148,7 @@ const rowDefsDataTransformerDialog = [
       if (action === "update") {
         var rowNode = gridOptionsTransformerDialog.api.getRowNode(params.node.rowIndex);      
         rowNode.setData(params.node.data);  
-        rowDefsDataTransformerDialog.push(params.node.data)
+        
 
         params.api.stopEditing(false);
       }
@@ -164,12 +160,14 @@ const rowDefsDataTransformerDialog = [
         
         params.api.applyTransaction({
           add: [{}],
-        }); 
-        
+        });        
       }
     }
   }
   function onRowEditingStarted(params) {
+    
+    rowDefsDataTransformerDialog.push(params.node.data) 
+
     params.api.refreshCells({
       columns: ["action"],
       rowNodes: [params.node],
@@ -177,7 +175,7 @@ const rowDefsDataTransformerDialog = [
     });
   }
   function onRowEditingStopped(params) { 
-   console.log(params) 
+   
 
     params.api.refreshCells({
       columns: ["action"],

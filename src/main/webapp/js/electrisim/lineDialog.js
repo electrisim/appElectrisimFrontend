@@ -1,4 +1,4 @@
-const rowDefsDataLineDialog = [
+rowDefsLineLibrary = [
   { name: "NAYY 4x50 SE", r_ohm_per_km: 0.642, x_ohm_per_km: 0.083, c_nf_per_km: 210.0, g_us_per_km: 0.0, max_i_ka: 0.142, type:"cs", r0_ohm_per_km:0.0, x0_ohm_per_km:0.0, c0_nf_per_km:0.0, endtemp_degree:250.0},
   { name: "NAYY 4x120 SE", r_ohm_per_km: 0.225, x_ohm_per_km: 0.08, c_nf_per_km: 264.0, g_us_per_km: 0.0, max_i_ka: 0.242, type:"cs", r0_ohm_per_km:0.0, x0_ohm_per_km:0.0, c0_nf_per_km:0.0, endtemp_degree:250.0},
   { name: "NAYY 4x150 SE", r_ohm_per_km: 0.208, x_ohm_per_km: 0.08, c_nf_per_km: 261.0, g_us_per_km: 0.0, max_i_ka: 0.27, type:"cs", r0_ohm_per_km:0.0, x0_ohm_per_km:0.0, c0_nf_per_km:0.0, endtemp_degree:250.0},
@@ -65,7 +65,7 @@ const rowDefsDataLineDialog = [
   { name: "679-AL1/86-ST1A 220.0", r_ohm_per_km: 0.042, x_ohm_per_km: 0.275, c_nf_per_km: 11.7, g_us_per_km: 0.0, max_i_ka: 1.15, type:"ol", r0_ohm_per_km:0.0, x0_ohm_per_km:0.0, c0_nf_per_km:0.0, endtemp_degree:250.0 }, 
   { name: "490-AL1/64-ST1A 380.0", r_ohm_per_km: 0.059, x_ohm_per_km: 0.253, c_nf_per_km: 11.0, g_us_per_km: 0.0, max_i_ka: 0.96, type:"ol", r0_ohm_per_km:0.0, x0_ohm_per_km:0.0, c0_nf_per_km:0.0, endtemp_degree:250.0 },
   { name: "679-AL1/86-ST1A 380.0", r_ohm_per_km: 0.042, x_ohm_per_km: 0.25, c_nf_per_km: 14.6, g_us_per_km: 0.0, max_i_ka: 1.15, type:"ol", r0_ohm_per_km:0.0, x0_ohm_per_km:0.0, c0_nf_per_km:0.0, endtemp_degree:250.0 }
-];     
+];
 
 const columnDefsLineDialog = [
     {
@@ -149,14 +149,7 @@ function onCellClicked(params) {
       console.log(params.rowIndex)
 
       let removeRowIndex = params.rowIndex;   
-      rowDefsDataLineDialog.splice(removeRowIndex, 1); //usun jeden element z indexu
-      
-      //rowDefsDataLineDialog.push(newRow)
-      /*let newRowData = rowDefsDataLineDialog.filter(row => {
-        return row !== removeRow;
-      });*/
-      //gridOptionsLineDialog.api.setRowData(newRowData);
-      
+      rowDefsLineLibrary.splice(removeRowIndex, 1);      
 
       params.api.applyTransaction({
         remove: [params.node.data]
@@ -176,8 +169,8 @@ function onCellClicked(params) {
       params.api.stopEditing(true);
     }
     if (action === "add") {   
-      
-      rowDefsDataLineDialog.push(params.node.data)
+      //TO WPROWADZAŁO W BŁĄD
+      //rowDefsLineLibrary.push(params.node.data)      
 
       params.api.applyTransaction({
         add: [{}],
@@ -187,7 +180,7 @@ function onCellClicked(params) {
 }
 function onRowEditingStarted(params) {
 
-  rowDefsDataLineDialog.push(params.node.data)
+  rowDefsLineLibrary.push(params.node.data)
 
   params.api.refreshCells({
     columns: ["action"],
@@ -198,8 +191,8 @@ function onRowEditingStarted(params) {
 function onRowEditingStopped(params) { 
  console.log(params)  
  // let newRow = params.data;   
- // rowDefsDataLineDialog.push(newRow)
- // gridOptionsLineDialog.api.setRowData(rowDefsDataLineDialog);
+ // rowDefsLineLibrary.push(newRow)
+ // gridOptionsLineDialog.api.setRowData(rowDefsLineLibrary);
 
   params.api.refreshCells({
     columns: ["action"],
@@ -258,10 +251,12 @@ function actionCellRenderer(params) {
 //***********sprawdzenia poprawnego formatowania wprowadzanych parametrów */
 
 function numberParser(params) {
+  
+ 
   if(Number(params.newValue) >= 0) {
     return(Number(params.newValue))
   }else {
-    alert("The value must be number (dot separated) or >= 0")
+    alert("The value of the " + params.colDef.field +" must be number (dot separated) or >= 0")
     return(Number(params.oldValue))
   }
 }
@@ -281,10 +276,10 @@ function setLineCsvData(keys, values) {
    console.log("result")
    console.log(result)
 
-   rowDefsDataLineDialog.push(result)
+   rowDefsLineLibrary.push(result)
 
- // gridOptionsLineDialog.api.setRowData([...rowDefsDataLineDialog, params]);
-    gridOptionsLineDialog.api.setRowData(rowDefsDataLineDialog);
+ // gridOptionsLineDialog.api.setRowData([...rowDefsLineLibrary, params]);
+    gridOptionsLineDialog.api.setRowData(rowDefsLineLibrary);
   
   /*
   params.api.refreshCells({
@@ -304,7 +299,7 @@ var gridOptionsLineDialog = {
   editType: "fullRow",
   rowSelection: "single",
     
-  rowData: rowDefsDataLineDialog,
+  rowData: rowDefsLineLibrary,
   columnDefs: columnDefsLineDialog,
   defaultColDef: {
     editable: true    

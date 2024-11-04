@@ -61,16 +61,17 @@ const rowDefsDataLineBaseDialog = [
       }
   ];
   
-  
-  
+   
   
   //***********sprawdzenia poprawnego formatowania wprowadzanych parametrów */
   
   function numberParser(params) {
+
     if(Number(params.newValue) >= 0) {
       return(Number(params.newValue))
     }else {
-      alert("The value must be number (dot separated) and >= 0")
+      
+      alert("The value "+ params +" must be number (dot separated) and >= 0")
       return(Number(params.oldValue))
     }
   }
@@ -79,10 +80,11 @@ const rowDefsDataLineBaseDialog = [
     //***********sprawdzenia poprawnego formatowania wprowadzanych parametrów */
   
   function negativeNumberParser(params) {
+   
       if(Number(params.newValue) <= 0) {
         return(Number(params.newValue))
       }else {
-        alert("The value must be number (dot separated) and <= 0")
+        alert("The value "+ params +" must be number (dot separated) and <= 0")
         return(Number(params.oldValue))
       }
   }
