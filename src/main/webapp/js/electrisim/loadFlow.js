@@ -120,7 +120,7 @@ function loadFlowPandaPower(a, b, c) {
 
                     var key_value = cellsArray[i].getStyle().split(";").map(pair => pair.split("="));
                     const result = Object.fromEntries(key_value);
-                    console.log(result.shapeELXXX)
+                    
 
                     //wybierz obiekty typu Ext_grid
                     if (result.shapeELXXX == "External Grid") {
@@ -890,15 +890,49 @@ function loadFlowPandaPower(a, b, c) {
 
                     //wybierz obiekty typu Line
                     if (result.shapeELXXX == "Line") {
+                      
+
                         //zrób plik json i wyślij do backend
                         var line = new Object();
                         line.typ = "Line" + lineNo
 
                         line.name = cellsArray[i].mxObjectId.replace('#', '_')//id.replaceAll('-', '___')
                         line.id = cellsArray[i].id
+
+
+                        //powiadom o błędzie jeśli linia nie będzie podłączona do bus i oznacz linię kolorem czerwonym 
+                        try {
+
+                            if (!cellsArray[i].source || !cellsArray[i].source.mxObjectId) {
+                                throw new Error(`Error: cellsArray[${i}].source or its mxObjectId is null or undefined`);
+                            }
+                            if (!cellsArray[i].target || !cellsArray[i].target.mxObjectId) {
+                                throw new Error(`Error: cellsArray[${i}].target or its mxObjectId is null or undefined`);
+                            }
+
+                            var style=b.getModel().getStyle(cellsArray[i]);
+                            var newStyle=mxUtils.setStyle(style,mxConstants.STYLE_STROKECOLOR,'black');
+                            var cs= new Array();
+                            cs[0]=cellsArray[i];
+                            b.setCellStyle(newStyle,cs); 
+
+                            line.busFrom = cellsArray[i].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].source.mxObjectId.replace('#', '')                        
+                            line.busTo = cellsArray[i].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].target.mxObjectId.replace('#', '')
+    
+                            
+                        }catch (error) {
+                            console.error(error.message);                       
+                            
+                            var style=b.getModel().getStyle(cellsArray[i]);
+                            var newStyle=mxUtils.setStyle(style,mxConstants.STYLE_STROKECOLOR,'red');
+                            var cs= new Array();
+                            cs[0]=cellsArray[i];
+                            b.setCellStyle(newStyle,cs); 
+
+                            alert('The line is not connected to the bus. Please check the line highlighted in red and connect it to the appropriate bus.')
+
+                        }
                        
-                        line.busFrom = cellsArray[i].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].source.mxObjectId.replace('#', '')                        
-                        line.busTo = cellsArray[i].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].target.mxObjectId.replace('#', '')
 
                         line.length_km = cellsArray[i].value.attributes[2].nodeValue
                         line.parallel = cellsArray[i].value.attributes[3].nodeValue
@@ -927,74 +961,103 @@ function loadFlowPandaPower(a, b, c) {
 
                 }
             }
-
-            console.log(transformerArray)
+            
             //OKREŚLENIE HV BUSBAR
             for (var i = 0; i < transformerArray.length; i++) {
                 var twoWindingBusbarArray = [];
-                console.log("busbarArray")
-                console.log(busbarArray)
+              
+                var transformerCell = b.getModel().getCell(transformerArray[i].id)
+                var style=b.getModel().getStyle(transformerCell);                
 
-                console.log("transformerArray")
-                console.log(transformerArray)
+                try{
 
-                bus1 = busbarArray.find(element => element.name == transformerArray[i].hv_bus);
-                bus2 = busbarArray.find(element => element.name == transformerArray[i].lv_bus);
+                   var newStyle=mxUtils.setStyle(style,mxConstants.STYLE_STROKECOLOR,'black');
+                   var cs= new Array();
+                   cs[0]=transformerCell;
+                   b.setCellStyle(newStyle,cs); 
+                   bus1 = busbarArray.find(element => element.name == transformerArray[i].hv_bus);
+                   bus2 = busbarArray.find(element => element.name == transformerArray[i].lv_bus);
 
+                    twoWindingBusbarArray.push(bus1)
+                    twoWindingBusbarArray.push(bus2)
 
-                twoWindingBusbarArray.push(bus1)
-                twoWindingBusbarArray.push(bus2)
-
-
-                var busbarWithHighestVoltage = twoWindingBusbarArray.reduce(
-                    (prev, current) => {
-
-                        return parseFloat(prev.vn_kv) > parseFloat(current.vn_kv) ? prev : current
-                    }
-                );
-                var busbarWithLowestVoltage = twoWindingBusbarArray.reduce(
+                    var busbarWithHighestVoltage = twoWindingBusbarArray.reduce(
+                        (prev, current) => {
+                            return parseFloat(prev.vn_kv) > parseFloat(current.vn_kv) ? prev : current
+                        }
+                    );
+                    var busbarWithLowestVoltage = twoWindingBusbarArray.reduce(
                     (prev, current) => {
                         return parseFloat(prev.vn_kv) < parseFloat(current.vn_kv) ? prev : current
-                    }
-                );
+                        }
+                    );
 
-                transformerArray[i].hv_bus = busbarWithHighestVoltage.name
-                transformerArray[i].lv_bus = busbarWithLowestVoltage.name 
-            }            
+                    transformerArray[i].hv_bus = busbarWithHighestVoltage.name
+                    transformerArray[i].lv_bus = busbarWithLowestVoltage.name
 
+                }catch (error) {
+                    console.error(error.message);
+                    var newStyle=mxUtils.setStyle(style,mxConstants.STYLE_STROKECOLOR,'red');
+                    var cs= new Array();
+                    cs[0]=transformerCell;
+                    b.setCellStyle(newStyle,cs); 
+                    alert('The transformer is not connected to the bus. Please check the transformer highlighted in red and connect it to the appropriate bus.')
+                }            
+            }
             //zamień w threeWindingTransformerArray kolejności busbar (hv, mv, lv)
             //porównaj trzy napięcia i dzięki temu określ który jest HV, MV i LV
            
 
             for (var i = 0; i < threeWindingTransformerArray.length; i++) {
-                var threeWindingBusbarArray = [];
+                var threeWindingBusbarArray = [];   
                 
+                var threeWindingTransformerCell = b.getModel().getCell(threeWindingTransformerArray[i].id)
+                var style=b.getModel().getStyle(threeWindingTransformerCell);  
+                
+                try{   
+                    var newStyle=mxUtils.setStyle(style,mxConstants.STYLE_STROKECOLOR,'black');
+                    var cs= new Array();
+                    cs[0]=threeWindingTransformerCell;
+                    b.setCellStyle(newStyle,cs);
 
-                bus1 = busbarArray.find(element => element.name == threeWindingTransformerArray[i].hv_bus);
-                bus2 = busbarArray.find(element => element.name == threeWindingTransformerArray[i].mv_bus);
-                bus3 = busbarArray.find(element => element.name == threeWindingTransformerArray[i].lv_bus);
-                threeWindingBusbarArray.push(bus1)
-                threeWindingBusbarArray.push(bus2)
-                threeWindingBusbarArray.push(bus3)
-                console.log(threeWindingBusbarArray)
+                    bus1 = busbarArray.find(element => element.name == threeWindingTransformerArray[i].hv_bus);
+                    bus2 = busbarArray.find(element => element.name == threeWindingTransformerArray[i].mv_bus);
+                    bus3 = busbarArray.find(element => element.name == threeWindingTransformerArray[i].lv_bus);
+                    threeWindingBusbarArray.push(bus1)
+                    threeWindingBusbarArray.push(bus2)
+                    threeWindingBusbarArray.push(bus3)
+                    console.log(threeWindingBusbarArray)
 
-                var busbarWithHighestVoltage = threeWindingBusbarArray.reduce(
-                    (prev, current) => {
+                    var busbarWithHighestVoltage = threeWindingBusbarArray.reduce(
+                        (prev, current) => {
 
-                        return parseFloat(prev.vn_kv) > parseFloat(current.vn_kv) ? prev : current
-                    }
-                );
-                var busbarWithLowestVoltage = threeWindingBusbarArray.reduce(
-                    (prev, current) => {
-                        return parseFloat(prev.vn_kv) < parseFloat(current.vn_kv) ? prev : current
-                    }
-                );
+                            return parseFloat(prev.vn_kv) > parseFloat(current.vn_kv) ? prev : current
+                        }
+                    );
+                    var busbarWithLowestVoltage = threeWindingBusbarArray.reduce(
+                        (prev, current) => {
+                            return parseFloat(prev.vn_kv) < parseFloat(current.vn_kv) ? prev : current
+                        }
+                    );
 
-                var busbarWithMiddleVoltage = threeWindingBusbarArray.find(element => element.name != busbarWithHighestVoltage.name && element.name != busbarWithLowestVoltage.name);
+                    var busbarWithMiddleVoltage = threeWindingBusbarArray.find(element => element.name != busbarWithHighestVoltage.name && element.name != busbarWithLowestVoltage.name);
 
-                threeWindingTransformerArray[i].hv_bus = busbarWithHighestVoltage.name
-                threeWindingTransformerArray[i].mv_bus = busbarWithMiddleVoltage.name
-                threeWindingTransformerArray[i].lv_bus = busbarWithLowestVoltage.name
+                    threeWindingTransformerArray[i].hv_bus = busbarWithHighestVoltage.name
+                    threeWindingTransformerArray[i].mv_bus = busbarWithMiddleVoltage.name
+                    threeWindingTransformerArray[i].lv_bus = busbarWithLowestVoltage.name
+
+                }catch (error) {
+                    console.error(error.message);
+                    var newStyle=mxUtils.setStyle(style,mxConstants.STYLE_STROKECOLOR,'red');
+                    var cs= new Array();
+                    cs[0]=threeWindingTransformerCell;
+                    b.setCellStyle(newStyle,cs); 
+                    alert('The three-winding transformer is not connected to the bus. Please check the three-winding transformer highlighted in red and connect it to the appropriate bus.')
+                    
+
+                }
+
+                
             }
 
             array = dataToBackendArray.concat(simulationParametersArray)
@@ -1227,8 +1290,9 @@ function loadFlowPandaPower(a, b, c) {
 
                           
                             var resultCell = b.getModel().getCell(resultId)
-                            var linia = b.getModel().getCell(resultId)                             
-                            
+                            var linia = b.getModel().getCell(resultId)    
+
+                        
                             
                             var resultString  = linia.value.attributes[6].nodeValue +
                             "\n P_from[MW]: " + dataJson.lines[i].p_from_mw.toFixed(3) +
@@ -1252,35 +1316,8 @@ function loadFlowPandaPower(a, b, c) {
                             b.orderCells(true, [labelka]); //edge wyświetla się 'pod' linią                 
                                                    
 
-                            /*
-                            b.insertVertex(resultCell, null, 'P[MW]: ' + dataJson.lines[i].p_from_mw.toFixed(3), -0.8, 43, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');  
-                            b.insertVertex(resultCell, null, 'Q[MVar]: ' + dataJson.lines[i].q_from_mvar.toFixed(3), -0.7, 43, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');  
-                            b.insertVertex(resultCell, null, 'i[kA]: ' + dataJson.lines[i].i_from_ka.toFixed(3), -0.6, 43, 0, 0, 'labelstyle', true).setStyle('shapeELXXX=Result');    
-                            */                      
-
-                            /*
-                            if (dataJson.parameter[i] == 'i_ka') {
-                                var label12 = b.insertVertex(resultCell, null, 'I[kA]: ' + dataJson.value[i].toFixed(3), -0.4, 43, 0, 0, 'labelstyle', true);
-                            }
-                            
-                            if (dataJson.parameter[i] == 'pl_mw') {
-                                var label12 = b.insertVertex(resultCell, null, 'Pl[MW]: ' + dataJson.value[i].toFixed(3), -0.2, 43, 0, 0, 'labelstyle', true);
-                            }
-                            if (dataJson.parameter[i] == 'ql_mvar') {
-                                var label12 = b.insertVertex(resultCell, null, 'Ql[MVar]: ' + dataJson.value[i].toFixed(3), -0.1, 43, 0, 0, 'labelstyle', true);
-                            } */
-
-                            /*
-                            var label12 = b.insertVertex(resultCell, null, 'Loading[%]: ' + dataJson.lines[i].loading_percent.toFixed(1), -0.3, 43, 0, 0, 'labelstyle', true);
-                            label12.setStyle('shapeELXXX=Result')
-                            label12.setAttribute('idELXXX', 'lineLoadingId')
-                            */
-
                             //zmiana kolorów przy przekroczeniu obciążenia linii
-                            if(dataJson.lines[i].loading_percent.toFixed(1) > 100){
-                    
-                                
-                    
+                            if(dataJson.lines[i].loading_percent.toFixed(1) > 100){                                       
                                 var style=grafka.getModel().getStyle(linia);
                                 var newStyle=mxUtils.setStyle(style,mxConstants.STYLE_STROKECOLOR,'red');
                                 var cs= new Array();
@@ -1289,8 +1326,7 @@ function loadFlowPandaPower(a, b, c) {
                                 
                             }
                             if(dataJson.lines[i].loading_percent.toFixed(1) > 80 && dataJson.lines[i].loading_percent.toFixed(1) <= 100){
-                    
-                                                 
+                                              
                                 var style=grafka.getModel().getStyle(linia);
                                 var newStyle=mxUtils.setStyle(style,mxConstants.STYLE_STROKECOLOR,'orange');
                                 var cs= new Array();
@@ -2576,15 +2612,11 @@ function loadFlowOpenDss(a, b, c) {
                 }
             }
 
-            console.log(transformerArray)
+            
             //OKREŚLENIE HV BUSBAR
             for (var i = 0; i < transformerArray.length; i++) {
                 var twoWindingBusbarArray = [];
-                console.log("busbarArray")
-                console.log(busbarArray)
-
-                console.log("transformerArray")
-                console.log(transformerArray)
+                
 
                 bus1 = busbarArray.find(element => element.name == transformerArray[i].hv_bus);
                 bus2 = busbarArray.find(element => element.name == transformerArray[i].lv_bus);
@@ -2868,7 +2900,7 @@ function loadFlowOpenDss(a, b, c) {
                             csvContent += row + "\r\n";
 
                             var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
-                           
+                          
                             
                             var linia = b.getModel().getCell(resultId)  
                          
@@ -3017,8 +3049,7 @@ function loadFlowOpenDss(a, b, c) {
     
                             var labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1, 0, 0, 'shapeELXXX=Result', true) 
                             b.setCellStyles(mxConstants.STYLE_FONTSIZE, '6', [labelka])
-                            b.setCellStyles(mxConstants.STYLE_ALIGN, 'ALIGN_LEFT', [labelka])  
-                    
+                            b.setCellStyles(mxConstants.STYLE_ALIGN, 'ALIGN_LEFT', [labelka])                    
                         }
                     }
 
