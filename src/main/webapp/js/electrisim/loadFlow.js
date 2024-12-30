@@ -1281,7 +1281,7 @@ function loadFlowPandaPower(a, b, c) {
                         for (var i = 0; i < dataJson.lines.length; i++) {
 
                             resultId = dataJson.lines[i].id  //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
-                            dataJson.lines[i].name = dataJson.externalgrids[i].name.replace('_', '#')
+                            dataJson.lines[i].name = dataJson.lines[i].name.replace('_', '#')
                          
 
                             //for the csv file
@@ -1291,7 +1291,6 @@ function loadFlowPandaPower(a, b, c) {
                           
                             var resultCell = b.getModel().getCell(resultId)
                             var linia = b.getModel().getCell(resultId)    
-
                         
                             
                             var resultString  = linia.value.attributes[6].nodeValue +
