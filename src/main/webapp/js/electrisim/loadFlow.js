@@ -2293,6 +2293,7 @@ function loadFlowOpenDss(a, b, c) {
                         transformer.tap_step_percent = cellsArray[i].value.attributes[25].nodeValue
                         transformer.tap_step_degree = cellsArray[i].value.attributes[26].nodeValue
                         transformer.tap_phase_shifter = cellsArray[i].value.attributes[27].nodeValue
+                     
                         /*
                         transformer.max_loading_percent = cellsArray[i].value.attributes[26].nodeValue
                         transformer.df = cellsArray[i].value.attributes[27].nodeValue
