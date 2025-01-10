@@ -846,9 +846,50 @@ function shortCircuit(a, b, c) {
 
             //zamień w transformerArray kolejności busbar (hv, lv)
             //porównaj dwa napięcia i dzięki temu określ który jest HV i LV
-            var twoWindingBusbarArray = [];
+            
 
             for (var i = 0; i < transformerArray.length; i++) {
+                var twoWindingBusbarArray = [];
+
+                var transformerCell = b.getModel().getCell(transformerArray[i].id)
+                var style=b.getModel().getStyle(transformerCell);                
+
+                try{
+
+                   var newStyle=mxUtils.setStyle(style,mxConstants.STYLE_STROKECOLOR,'black');
+                   var cs= new Array();
+                   cs[0]=transformerCell;
+                   b.setCellStyle(newStyle,cs); 
+                   bus1 = busbarArray.find(element => element.name == transformerArray[i].hv_bus);
+                   bus2 = busbarArray.find(element => element.name == transformerArray[i].lv_bus);
+
+                    twoWindingBusbarArray.push(bus1)
+                    twoWindingBusbarArray.push(bus2)
+
+                    var busbarWithHighestVoltage = twoWindingBusbarArray.reduce(
+                        (prev, current) => {
+                            return parseFloat(prev.vn_kv) > parseFloat(current.vn_kv) ? prev : current
+                        }
+                    );
+                    var busbarWithLowestVoltage = twoWindingBusbarArray.reduce(
+                    (prev, current) => {
+                        return parseFloat(prev.vn_kv) < parseFloat(current.vn_kv) ? prev : current
+                        }
+                    );
+
+                    transformerArray[i].hv_bus = busbarWithHighestVoltage.name
+                    transformerArray[i].lv_bus = busbarWithLowestVoltage.name
+
+                }catch (error) {
+                    console.error(error.message);
+                    var newStyle=mxUtils.setStyle(style,mxConstants.STYLE_STROKECOLOR,'red');
+                    var cs= new Array();
+                    cs[0]=transformerCell;
+                    b.setCellStyle(newStyle,cs); 
+                    alert('The transformer is not connected to the bus. Please check the transformer highlighted in red and connect it to the appropriate bus.')
+                }            
+
+                /*
 
                 bus1 = busbarArray.find(element => element.name == transformerArray[i].hv_bus);
                 bus2 = busbarArray.find(element => element.name == transformerArray[i].lv_bus);
@@ -870,6 +911,7 @@ function shortCircuit(a, b, c) {
 
                 transformerArray[i].hv_bus = busbarWithHighestVoltage.name
                 transformerArray[i].lv_bus = busbarWithLowestVoltage.name
+                */
             }
 
             //zamień w threeWindingTransformerArray kolejności busbar (hv, mv, lv)
@@ -877,6 +919,56 @@ function shortCircuit(a, b, c) {
             var threeWindingBusbarArray = [];
 
             for (var i = 0; i < threeWindingTransformerArray.length; i++) {
+                var threeWindingBusbarArray = [];   
+                
+                var threeWindingTransformerCell = b.getModel().getCell(threeWindingTransformerArray[i].id)
+                var style=b.getModel().getStyle(threeWindingTransformerCell);  
+                
+                try{   
+                    var newStyle=mxUtils.setStyle(style,mxConstants.STYLE_STROKECOLOR,'black');
+                    var cs= new Array();
+                    cs[0]=threeWindingTransformerCell;
+                    b.setCellStyle(newStyle,cs);
+
+                    bus1 = busbarArray.find(element => element.name == threeWindingTransformerArray[i].hv_bus);
+                    bus2 = busbarArray.find(element => element.name == threeWindingTransformerArray[i].mv_bus);
+                    bus3 = busbarArray.find(element => element.name == threeWindingTransformerArray[i].lv_bus);
+                    threeWindingBusbarArray.push(bus1)
+                    threeWindingBusbarArray.push(bus2)
+                    threeWindingBusbarArray.push(bus3)
+                    console.log(threeWindingBusbarArray)
+
+                    var busbarWithHighestVoltage = threeWindingBusbarArray.reduce(
+                        (prev, current) => {
+
+                            return parseFloat(prev.vn_kv) > parseFloat(current.vn_kv) ? prev : current
+                        }
+                    );
+                    var busbarWithLowestVoltage = threeWindingBusbarArray.reduce(
+                        (prev, current) => {
+                            return parseFloat(prev.vn_kv) < parseFloat(current.vn_kv) ? prev : current
+                        }
+                    );
+
+                    var busbarWithMiddleVoltage = threeWindingBusbarArray.find(element => element.name != busbarWithHighestVoltage.name && element.name != busbarWithLowestVoltage.name);
+
+                    threeWindingTransformerArray[i].hv_bus = busbarWithHighestVoltage.name
+                    threeWindingTransformerArray[i].mv_bus = busbarWithMiddleVoltage.name
+                    threeWindingTransformerArray[i].lv_bus = busbarWithLowestVoltage.name
+
+                }catch (error) {
+                    console.error(error.message);
+                    var newStyle=mxUtils.setStyle(style,mxConstants.STYLE_STROKECOLOR,'red');
+                    var cs= new Array();
+                    cs[0]=threeWindingTransformerCell;
+                    b.setCellStyle(newStyle,cs); 
+                    alert('The three-winding transformer is not connected to the bus. Please check the three-winding transformer highlighted in red and connect it to the appropriate bus.')
+                    
+
+                }
+
+
+                /*
 
                 bus1 = busbarArray.find(element => element.name == threeWindingTransformerArray[i].hv_bus);
                 bus2 = busbarArray.find(element => element.name == threeWindingTransformerArray[i].mv_bus);
@@ -903,6 +995,7 @@ function shortCircuit(a, b, c) {
                 threeWindingTransformerArray[i].hv_bus = busbarWithHighestVoltage.name
                 threeWindingTransformerArray[i].mv_bus = busbarWithMiddleVoltage.name
                 threeWindingTransformerArray[i].lv_bus = busbarWithLowestVoltage.name
+                */
             }
 
             array = dataToBackendArray.concat(simulationParametersArray)
