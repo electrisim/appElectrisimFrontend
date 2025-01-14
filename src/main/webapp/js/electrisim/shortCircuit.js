@@ -101,7 +101,7 @@ function shortCircuit(a, b, c) {
 
 
             //*************** SCZYTYWANIE MODELU DO BACKEND ****************
-            //trzeba rozpoznawać po style - styleELXXX = np. Transformer
+        
             const regex = /^\d/g;
             for (var i = 0; i < cellsArray.length; i++) {
 
@@ -116,7 +116,7 @@ function shortCircuit(a, b, c) {
 
                     var key_value = cellsArray[i].getStyle().split(";").map(pair => pair.split("="));
                     const result = Object.fromEntries(key_value);
-                    console.log(result.shapeELXXX)
+                 
 
                     //wybierz obiekty typu Ext_grid
                     if (result.shapeELXXX == "External Grid") {
@@ -164,10 +164,7 @@ function shortCircuit(a, b, c) {
                         //var externalGridToBackend = JSON.stringify(externalGrid) //{"name":"External Grid 0","vm_pu":"0", "bus":"mxCell#34"}      
                         externalGridArray.push(externalGrid);
                     }
-
-
-
-                    //wybierz obiekty typu Generator
+                  
                     if (result.shapeELXXX == "Generator")//cellsArray[i].getStyle().match(/^Generator$/))//includes("Generator")) //(str1.match(/^abc$/))
                     {
 
@@ -308,8 +305,7 @@ function shortCircuit(a, b, c) {
 
                         //zrób plik json i wyślij do backend
                         var transformer = new Object();
-                        transformer.typ = "Transformer" + transformerNo
-                        
+                        transformer.typ = "Transformer" + transformerNo                        
                         transformer.name = cellsArray[i].mxObjectId.replace('#', '_')//cellsArray[i].id.replaceAll('-', '___')
                         transformer.id = cellsArray[i].id 
 
@@ -328,8 +324,7 @@ function shortCircuit(a, b, c) {
                             transformer.lv_bus = cellsArray[i].edges[1].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].edges[1].target.mxObjectId.replace('#', '')
                         }
 
-                        console.log("Transformer")
-                        console.log(cellsArray[i].value.attributes)
+             
 
                         //Load_flow_parameters    
                         transformer.sn_mva = cellsArray[i].value.attributes[4].nodeValue
@@ -461,9 +456,6 @@ function shortCircuit(a, b, c) {
                         }else{
                             shuntReactor.bus = cellsArray[i].edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
                         }
-
-                        console.log("Shunt reactor attributes")
-                        console.log(cellsArray[i].value.attributes)
 
 
                         //Load_flow_parameters
@@ -845,9 +837,8 @@ function shortCircuit(a, b, c) {
             }
 
             //zamień w transformerArray kolejności busbar (hv, lv)
-            //porównaj dwa napięcia i dzięki temu określ który jest HV i LV
-            
-
+            //porównaj dwa napięcia i dzięki temu określ który jest HV i LV            
+            //OKREŚLENIE HV BUSBAR            
             for (var i = 0; i < transformerArray.length; i++) {
                 var twoWindingBusbarArray = [];
 
@@ -912,11 +903,10 @@ function shortCircuit(a, b, c) {
                 transformerArray[i].hv_bus = busbarWithHighestVoltage.name
                 transformerArray[i].lv_bus = busbarWithLowestVoltage.name
                 */
-            }
+            } 
 
             //zamień w threeWindingTransformerArray kolejności busbar (hv, mv, lv)
-            //porównaj trzy napięcia i dzięki temu określ który jest HV, MV i LV
-            var threeWindingBusbarArray = [];
+            //porównaj trzy napięcia i dzięki temu określ który jest HV, MV i LV       
 
             for (var i = 0; i < threeWindingTransformerArray.length; i++) {
                 var threeWindingBusbarArray = [];   
@@ -962,8 +952,7 @@ function shortCircuit(a, b, c) {
                     var cs= new Array();
                     cs[0]=threeWindingTransformerCell;
                     b.setCellStyle(newStyle,cs); 
-                    alert('The three-winding transformer is not connected to the bus. Please check the three-winding transformer highlighted in red and connect it to the appropriate bus.')
-                    
+                    alert('The three-winding transformer is not connected to the bus. Please check the three-winding transformer highlighted in red and connect it to the appropriate bus.')                  
 
                 }
 
