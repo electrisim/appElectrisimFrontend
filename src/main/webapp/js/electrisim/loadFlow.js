@@ -104,7 +104,7 @@ function loadFlowPandaPower(a, b, c) {
 
 
             //*************** SCZYTYWANIE MODELU DO BACKEND ****************
-            //trzeba rozpoznawać po style - styleELXXX = np. Transformer
+          
             const regex = /^\d/g;
             for (var i = 0; i < cellsArray.length; i++) {
 
@@ -114,9 +114,7 @@ function loadFlowPandaPower(a, b, c) {
                     var celka = b.getModel().getCell(cellsArray[i].id)
                     b.getModel().remove(celka)
                 }
-
-                if (typeof (cellsArray[i].getStyle()) != undefined && cellsArray[i].getStyle() != null) {
-                    
+                if (typeof (cellsArray[i].getStyle()) != undefined && cellsArray[i].getStyle() != null) {                    
 
                     var key_value = cellsArray[i].getStyle().split(";").map(pair => pair.split("="));
                     const result = Object.fromEntries(key_value);
@@ -160,8 +158,6 @@ function loadFlowPandaPower(a, b, c) {
                         externalGridArray.push(externalGrid);
                     }
 
-
-
                     //wybierz obiekty typu Generator
                     if (result.shapeELXXX == "Generator")//cellsArray[i].getStyle().match(/^Generator$/))//includes("Generator")) //(str1.match(/^abc$/))
                     {
@@ -201,7 +197,7 @@ function loadFlowPandaPower(a, b, c) {
                         generatorArray.push(generator);
                     }
 
-                    //wybierz obiekty typu Static Generator
+                    
                     if (result.shapeELXXX == "Static Generator") {
 
 
@@ -240,7 +236,7 @@ function loadFlowPandaPower(a, b, c) {
 
                         staticGeneratorArray.push(staticGenerator);
                     }
-                    //wybierz obiekty typu Asymmetric Static Generator
+                    
                     if (result.shapeELXXX == "Asymmetric Static Generator") {
 
                         //zrób plik json i wyślij do backend
@@ -276,7 +272,7 @@ function loadFlowPandaPower(a, b, c) {
                     }
 
 
-                    //wybierz obiekty typu Bus 
+                   
                     if (result.shapeELXXX == "Bus") {
 
                         //zrób plik json i wyślij do backend
@@ -295,7 +291,7 @@ function loadFlowPandaPower(a, b, c) {
                     }
 
                     
-                    //wybierz obiekty typu Transformer
+                    
                     if (result.shapeELXXX == "Transformer") {
 
                         //zrób plik json i wyślij do backend
@@ -361,35 +357,8 @@ function loadFlowPandaPower(a, b, c) {
                         transformerArray.push(transformer);
                     }
 
-                    //zamień w transformerArray kolejności busbar (hv, lv)
-                    //porównaj dwa napięcia i dzięki temu określ który jest HV i LV dla danego transformatora
-                    //var twoWindingBusbarArray = [];
-
-                    /*for (var xx = 0; xx < transformerArray.length; i++) {
-
-                        bus1 = busbarArray.find(element => element.name == transformerArray[i].hv_bus);
-                        bus2 = busbarArray.find(element => element.name == transformerArray[i].lv_bus);
-                        twoWindingBusbarArray.push(bus1)
-                        twoWindingBusbarArray.push(bus2)
-
-
-                        var busbarWithHighestVoltage = twoWindingBusbarArray.reduce(
-                            (prev, current) => {
-
-                                return parseFloat(prev.vn_kv) > parseFloat(current.vn_kv) ? prev : current
-                            }
-                        );
-                        var busbarWithLowestVoltage = twoWindingBusbarArray.reduce(
-                            (prev, current) => {
-                                return parseFloat(prev.vn_kv) < parseFloat(current.vn_kv) ? prev : current
-                            }
-                        );
-
-                        transformerArray[i].hv_bus = busbarWithHighestVoltage.name
-                        transformerArray[i].lv_bus = busbarWithLowestVoltage.name
-                    } */
-
-                    //wybierz obiekty typu Three Winding Transformer
+                   
+                    
                     if (result.shapeELXXX == "Three Winding Transformer") {
 
                         //zrób plik json i wyślij do backend
@@ -522,7 +491,7 @@ function loadFlowPandaPower(a, b, c) {
                     }
 
 
-                    //wybierz obiekty typu Load
+                    
                     if (result.shapeELXXX == "Load") {
                         
                         //zrób plik json i wyślij do backend
@@ -962,6 +931,8 @@ function loadFlowPandaPower(a, b, c) {
                 }
             }
             
+            //zamień w transformerArray kolejności busbar (hv, lv)
+            //porównaj dwa napięcia i dzięki temu określ który jest HV i LV    
             //OKREŚLENIE HV BUSBAR
             for (var i = 0; i < transformerArray.length; i++) {
                 var twoWindingBusbarArray = [];
@@ -1003,9 +974,7 @@ function loadFlowPandaPower(a, b, c) {
                     b.setCellStyle(newStyle,cs); 
                     alert('The transformer is not connected to the bus. Please check the transformer highlighted in red and connect it to the appropriate bus.')
                 }            
-            }
-            //zamień w threeWindingTransformerArray kolejności busbar (hv, mv, lv)
-            //porównaj trzy napięcia i dzięki temu określ który jest HV, MV i LV
+            }           
            
 
             for (var i = 0; i < threeWindingTransformerArray.length; i++) {
@@ -2246,6 +2215,7 @@ function loadFlowOpenDss(a, b, c) {
                         //zrób plik json i wyślij do backend
                         var transformer = new Object();
                         transformer.typ = "Transformer" + transformerNo
+
                         transformer.name = cellsArray[i].mxObjectId.replace('#', '_')//cellsArray[i].id.replaceAll('-', '___')
                         transformer.id = cellsArray[i].id 
 
