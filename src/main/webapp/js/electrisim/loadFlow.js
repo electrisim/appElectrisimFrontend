@@ -733,11 +733,11 @@ function loadFlowPandaPower(a, b, c) {
                         SVC.name = cellsArray[i].mxObjectId.replace('#', '_')
                         SVC.id = cellsArray[i].id
 
-                        if(cellsArray[i].edges[0].target.mxObjectId != cellsArray[i].mxObjectId)
-                        {
-                            SVC.bus = cellsArray[i].edges[0].mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
-                        }else{
-                            SVC.bus = cellsArray[i].edges[0].mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
+                        if(cellsArray[i].edges[0].target.mxObjectId != cellsArray[i].mxObjectId){
+                            SVC.bus = cellsArray[i].edges[0].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
+                        }
+                        else{
+                            SVC.bus = cellsArray[i].edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].edges[0].target.mxObjectId.replace('#', '')
                         }
 
                         //Load_flow_parameters
@@ -842,7 +842,6 @@ function loadFlowPandaPower(a, b, c) {
                         }else{
                             dcLine.busTo = cellsArray[i].edges[1].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cellsArray[i].target.mxObjectId.replace('#', '')
                         }
-
 
                         //Load_flow_parameters
                         dcLine.p_mw = cellsArray[i].value.attributes[2].nodeValue
