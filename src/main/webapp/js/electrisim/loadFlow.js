@@ -2784,7 +2784,7 @@ function loadFlowOpenDss(a, b, c) {
 
 
                     //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Busbar
-                    let csvContent = "data:text/csv;charset=utf-8,Busbar Name,v_m, va_degree, p_mw, q_mvar, pf, q_p\n";
+                    //let csvContent = "data:text/csv;charset=utf-8,Busbar Name,v_m, va_degree, p_mw, q_mvar, pf, q_p\n";
                                        
                     for (var i = 0; i < dataJson.busbars.length; i++) {
                         resultId = dataJson.busbars[i].id                                        
@@ -2793,7 +2793,7 @@ function loadFlowOpenDss(a, b, c) {
 
                         //for the csv file
                         let row = Object.values(dataJson.busbars[i]).join(",")
-                        csvContent += row + "\r\n";
+                        //csvContent += row + "\r\n";
 
                         //create label
                         var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId                             
@@ -2857,7 +2857,7 @@ function loadFlowOpenDss(a, b, c) {
                     if(dataJson.lines != undefined)
                     {
                         //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Line
-                        csvContent += "Line Name, p_from_mw, q_from_mvar, p_to_mw, q_to_mvar, i_from_ka, i_to_ka, loading_percent \n";
+                        //csvContent += "Line Name, p_from_mw, q_from_mvar, p_to_mw, q_to_mvar, i_from_ka, i_to_ka, loading_percent \n";
                         for (var i = 0; i < dataJson.lines.length; i++) {
 
                             resultId = dataJson.lines[i].id                                        
@@ -2866,7 +2866,7 @@ function loadFlowOpenDss(a, b, c) {
 
                             //for the csv file
                             let row = Object.values(dataJson.lines[i]).join(",")
-                            csvContent += row + "\r\n";
+                            //csvContent += row + "\r\n";
 
                             var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
                           
@@ -2967,7 +2967,7 @@ function loadFlowOpenDss(a, b, c) {
                     if(dataJson.externalgrids != undefined)
                     {
                         //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy ExternalGrids
-                        csvContent += "data:text/csv;charset=utf-8,ExternalGrid Name, p_mw, q_mvar, pf, q_p\n";
+                        //csvContent += "data:text/csv;charset=utf-8,ExternalGrid Name, p_mw, q_mvar, pf, q_p\n";
 
                         for (var i = 0; i < dataJson.externalgrids.length; i++) {
                             resultId = dataJson.externalgrids[i].id  //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
@@ -2976,7 +2976,7 @@ function loadFlowOpenDss(a, b, c) {
 
                             //for the csv file
                             let row = Object.values(dataJson.externalgrids[i]).join(",")
-                            csvContent += row + "\r\n";
+                           // csvContent += row + "\r\n";
 
                             //create label
                             var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
@@ -2996,7 +2996,7 @@ function loadFlowOpenDss(a, b, c) {
                     if(dataJson.generators != undefined)
                     {
                         //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Generator
-                        csvContent += "data:text/csv;charset=utf-8,Generator Name, p_mw, q_mvar, va_degree, vm_pu \n";
+                        //csvContent += "data:text/csv;charset=utf-8,Generator Name, p_mw, q_mvar, va_degree, vm_pu \n";
 
                         for (var i = 0; i < dataJson.generators.length; i++) {
                             resultId = dataJson.generators[i].id
@@ -3005,7 +3005,7 @@ function loadFlowOpenDss(a, b, c) {
 
                             //for the csv file
                             let row = Object.values(dataJson.generators[i]).join(",")
-                            csvContent += row + "\r\n";
+                            //csvContent += row + "\r\n";
 
                             //create label
                             var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
@@ -3026,7 +3026,7 @@ function loadFlowOpenDss(a, b, c) {
                     if(dataJson.staticgenerators != undefined)
                     {
                         //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Static Generator
-                        csvContent += "data:text/csv;charset=utf-8, Static Generator Name, p_mw, q_mvar \n";
+                        //csvContent += "data:text/csv;charset=utf-8, Static Generator Name, p_mw, q_mvar \n";
 
                         for (var i = 0; i < dataJson.staticgenerators.length; i++) {
                             resultId = dataJson.staticgenerators[i].id
@@ -3035,7 +3035,7 @@ function loadFlowOpenDss(a, b, c) {
 
                             //for the csv file
                             let row = Object.values(dataJson.staticgenerators[i]).join(",")
-                            csvContent += row + "\r\n";
+                            //csvContent += row + "\r\n";
 
                             //create label
                             
@@ -3055,7 +3055,7 @@ function loadFlowOpenDss(a, b, c) {
                     if(dataJson.asymmetricstaticgenerators != undefined)
                     {
                         //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Asymmetric Static Generator
-                        csvContent += "data:text/csv;charset=utf-8, Asymmetric Static Generator Name, p_a_mw, q_a_mvar, p_b_mw, q_b_mvar, p_c_mw, q_c_mvar \n";
+                        //csvContent += "data:text/csv;charset=utf-8, Asymmetric Static Generator Name, p_a_mw, q_a_mvar, p_b_mw, q_b_mvar, p_c_mw, q_c_mvar \n";
 
                         for (var i = 0; i < dataJson.asymmetricstaticgenerators.length; i++) {
                             resultId = dataJson.asymmetricstaticgenerators[i].id
@@ -3064,7 +3064,7 @@ function loadFlowOpenDss(a, b, c) {
 
                             //for the csv file
                             let row = Object.values(dataJson.asymmetricstaticgenerators[i]).join(",")
-                            csvContent += row + "\r\n";
+                            //csvContent += row + "\r\n";
 
                             //create label
                             var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
@@ -3086,7 +3086,7 @@ function loadFlowOpenDss(a, b, c) {
                     if(dataJson.transformers != undefined)
                     {
                         //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Transformer
-                        csvContent += "data:text/csv;charset=utf-8, Transformer Name, p_hv_mw, q_hv_mvar, p_lv_mw, q_lv_mvar, pl_mw, ql_mvar, i_hv_ka, i_lv_ka, vm_hv_pu, vm_lv_pu, va_hv_degree, va_lv_degree, loading_percent \n";
+                        //csvContent += "data:text/csv;charset=utf-8, Transformer Name, p_hv_mw, q_hv_mvar, p_lv_mw, q_lv_mvar, pl_mw, ql_mvar, i_hv_ka, i_lv_ka, vm_hv_pu, vm_lv_pu, va_hv_degree, va_lv_degree, loading_percent \n";
 
                         for (var i = 0; i < dataJson.transformers.length; i++) {
                             resultId = dataJson.transformers[i].id
@@ -3095,7 +3095,7 @@ function loadFlowOpenDss(a, b, c) {
 
                             //for the csv file
                             let row = Object.values(dataJson.transformers[i]).join(",")
-                            csvContent += row + "\r\n";
+                            //csvContent += row + "\r\n";
 
                             //create label
                             var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
@@ -3168,7 +3168,7 @@ function loadFlowOpenDss(a, b, c) {
                     if(dataJson.transformers3W != undefined)
                     {
                         //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Transformer3W
-                        csvContent += "data:text/csv;charset=utf-8, Transformer3W Name, p_hv_mw, q_hv_mvar, p_mv_mw, q_mv_mvar, p_lv_mw, q_lv_mvar, pl_mw, ql_mvar, i_hv_ka, i_mv_ka, i_lv_ka, vm_hv_pu, vm_mv_pu, vm_lv_pu, va_hv_degree, va_mv_degree, va_lv_degree, loading_percent  \n";
+                        //csvContent += "data:text/csv;charset=utf-8, Transformer3W Name, p_hv_mw, q_hv_mvar, p_mv_mw, q_mv_mvar, p_lv_mw, q_lv_mvar, pl_mw, ql_mvar, i_hv_ka, i_mv_ka, i_lv_ka, vm_hv_pu, vm_mv_pu, vm_lv_pu, va_hv_degree, va_mv_degree, va_lv_degree, loading_percent  \n";
 
                         for (var i = 0; i < dataJson.transformers3W.length; i++) {
                             resultId = dataJson.transformers3W[i].id
@@ -3177,7 +3177,7 @@ function loadFlowOpenDss(a, b, c) {
 
                             //for the csv file
                             let row = Object.values(dataJson.transformers3W[i]).join(",")
-                            csvContent += row + "\r\n";
+                            //csvContent += row + "\r\n";
 
                             //create label
                             var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
@@ -3222,7 +3222,7 @@ function loadFlowOpenDss(a, b, c) {
                     if(dataJson.shunts != undefined)
                     {
                         //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Shunts
-                        csvContent += "data:text/csv;charset=utf-8,Shunt Reactor Name, p_mw, q_mvar, vm_pu\n";
+                        //csvContent += "data:text/csv;charset=utf-8,Shunt Reactor Name, p_mw, q_mvar, vm_pu\n";
 
                         for (var i = 0; i < dataJson.shunts.length; i++) {
                             resultId = dataJson.shunts[i].id
@@ -3231,7 +3231,7 @@ function loadFlowOpenDss(a, b, c) {
 
                             //for the csv file
                             let row = Object.values(dataJson.shunts[i]).join(",")
-                            csvContent += row + "\r\n";
+                            //csvContent += row + "\r\n";
 
                             //create label
                             var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
@@ -3253,7 +3253,7 @@ function loadFlowOpenDss(a, b, c) {
                     if(dataJson.capacitors != undefined)
                     {
                         //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Capacitors
-                        csvContent += "data:text/csv;charset=utf-8,Capacitor Name, p_mw, q_mvar, vm_pu\n";
+                        //csvContent += "data:text/csv;charset=utf-8,Capacitor Name, p_mw, q_mvar, vm_pu\n";
 
                         for (var i = 0; i < dataJson.capacitors.length; i++) {
                             
@@ -3264,7 +3264,7 @@ function loadFlowOpenDss(a, b, c) {
 
                             //for the csv file
                             let row = Object.values(dataJson.capacitors[i]).join(",")
-                            csvContent += row + "\r\n";
+                            //csvContent += row + "\r\n";
 
                             //create label
                             var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
@@ -3285,7 +3285,7 @@ function loadFlowOpenDss(a, b, c) {
                     if(dataJson.loads != undefined)
                     {
                         //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Loads
-                        csvContent += "data:text/csv;charset=utf-8,Load Name, p_mw, q_mvar\n";
+                        //csvContent += "data:text/csv;charset=utf-8,Load Name, p_mw, q_mvar\n";
 
                         for (var i = 0; i < dataJson.loads.length; i++) {
                             resultId = dataJson.loads[i].id                        
@@ -3293,7 +3293,7 @@ function loadFlowOpenDss(a, b, c) {
                             
                             //for the csv file
                             let row = Object.values(dataJson.loads[i]).join(",")
-                            csvContent += row + "\r\n";
+                            //csvContent += row + "\r\n";
 
                             //create label
                             var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
@@ -3313,7 +3313,7 @@ function loadFlowOpenDss(a, b, c) {
                     if(dataJson.asymmetricloads != undefined)
                     {
                         //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy AsymmetricLoads
-                        csvContent += "data:text/csv;charset=utf-8,Asymmetric Load Name, p_a_mw, q_a_mvar, p_b_mw, q_b_mvar, p_c_mw, q_c_mvar \n";
+                        //csvContent += "data:text/csv;charset=utf-8,Asymmetric Load Name, p_a_mw, q_a_mvar, p_b_mw, q_b_mvar, p_c_mw, q_c_mvar \n";
 
                         for (var i = 0; i < dataJson.asymmetricloads.length; i++) {
                             resultId = dataJson.asymmetricloads[i].id                        
@@ -3327,7 +3327,7 @@ function loadFlowOpenDss(a, b, c) {
 
                             //for the csv file
                             let row = Object.values(dataJson.asymmetricloads[i]).join(",")
-                            csvContent += row + "\r\n";
+                            //csvContent += row + "\r\n";
 
                             //create label
                             var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
@@ -3350,7 +3350,7 @@ function loadFlowOpenDss(a, b, c) {
                     if(dataJson.impedances != undefined)
                     {
                         //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Impedances
-                        csvContent += "data:text/csv;charset=utf-8,Impedance Name, p_from_mw, q_from_mvar, p_to_mw, q_to_mvar, pl_mw, ql_mvar, i_from_ka, i_to_ka \n";
+                        //csvContent += "data:text/csv;charset=utf-8,Impedance Name, p_from_mw, q_from_mvar, p_to_mw, q_to_mvar, pl_mw, ql_mvar, i_from_ka, i_to_ka \n";
 
                         for (var i = 0; i < dataJson.impedances.length; i++) {
                             resultId = dataJson.impedances[i].id                        
@@ -3358,7 +3358,7 @@ function loadFlowOpenDss(a, b, c) {
                             
                             //for the csv file
                             let row = Object.values(dataJson.impedances[i]).join(",")
-                            csvContent += row + "\r\n";
+                            //csvContent += row + "\r\n";
 
                             //create label
                             var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
@@ -3382,7 +3382,7 @@ function loadFlowOpenDss(a, b, c) {
                     if(dataJson.wards != undefined)
                     {
                         //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Wards
-                        csvContent += "data:text/csv;charset=utf-8,Ward Name, p_mw, q_mvar, vm_pu \n";
+                        //csvContent += "data:text/csv;charset=utf-8,Ward Name, p_mw, q_mvar, vm_pu \n";
 
                         for (var i = 0; i < dataJson.wards.length; i++) {
                             resultId = dataJson.wards[i].id                        
@@ -3390,7 +3390,7 @@ function loadFlowOpenDss(a, b, c) {
 
                             //for the csv file
                             let row = Object.values(dataJson.wards[i]).join(",")
-                            csvContent += row + "\r\n";
+                            //csvContent += row + "\r\n";
 
                             //create label
                             var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
@@ -3409,7 +3409,7 @@ function loadFlowOpenDss(a, b, c) {
                     if(dataJson.extendedwards != undefined)
                     {
                         //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Extended Wards
-                        csvContent += "data:text/csv;charset=utf-8,Extended Ward Name, p_mw, q_mvar, vm_pu \n";
+                        //csvContent += "data:text/csv;charset=utf-8,Extended Ward Name, p_mw, q_mvar, vm_pu \n";
 
                         for (var i = 0; i < dataJson.extendedwards.length; i++) {
                             resultId = dataJson.extendedwards[i].id                        
@@ -3417,7 +3417,7 @@ function loadFlowOpenDss(a, b, c) {
 
                             //for the csv file
                             let row = Object.values(dataJson.extendedwards[i]).join(",")
-                            csvContent += row + "\r\n";
+                            //csvContent += row + "\r\n";
 
                             //create label
                             var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
@@ -3438,7 +3438,7 @@ function loadFlowOpenDss(a, b, c) {
                     if(dataJson.motors != undefined)
                     {
                         //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Motors
-                        csvContent += "data:text/csv;charset=utf-8,Motor Name, p_mw, q_mvar \n";
+                        //csvContent += "data:text/csv;charset=utf-8,Motor Name, p_mw, q_mvar \n";
 
                         for (var i = 0; i < dataJson.motors.length; i++) {
                             resultId = dataJson.motors[i].id                        
@@ -3452,7 +3452,7 @@ function loadFlowOpenDss(a, b, c) {
 
                             //for the csv file
                             let row = Object.values(dataJson.motors[i]).join(",")
-                            csvContent += row + "\r\n";
+                            //csvContent += row + "\r\n";
 
                             //create label
                             var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
@@ -3471,7 +3471,7 @@ function loadFlowOpenDss(a, b, c) {
                     if(dataJson.storages != undefined)
                     {
                         //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Storages
-                        csvContent += "data:text/csv;charset=utf-8,Storage Name, p_mw, q_mvar \n";
+                        //csvContent += "data:text/csv;charset=utf-8,Storage Name, p_mw, q_mvar \n";
 
                         for (var i = 0; i < dataJson.storages.length; i++) {
                             resultId = dataJson.storages[i].id                        
@@ -3485,7 +3485,7 @@ function loadFlowOpenDss(a, b, c) {
 
                             //for the csv file
                             let row = Object.values(dataJson.storages[i]).join(",")
-                            csvContent += row + "\r\n";
+                            //csvContent += row + "\r\n";
 
                             //create label
                             var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
@@ -3504,7 +3504,7 @@ function loadFlowOpenDss(a, b, c) {
                     if(dataJson.SVC != undefined)
                     {
                         //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy DC lines
-                        csvContent += "data:text/csv;charset=utf-8,SVC Name, thyristor_firing_angle_degree, x_ohm, q_mvar, vm_pu, va_degree \n";
+                        //csvContent += "data:text/csv;charset=utf-8,SVC Name, thyristor_firing_angle_degree, x_ohm, q_mvar, vm_pu, va_degree \n";
 
                         for (var i = 0; i < dataJson.SVC.length; i++) {
                             resultId = dataJson.SVC[i].id                        
@@ -3512,7 +3512,7 @@ function loadFlowOpenDss(a, b, c) {
 
                             //for the csv file
                             let row = Object.values(dataJson.SVC[i]).join(",")
-                            csvContent += row + "\r\n";
+                            //csvContent += row + "\r\n";
 
                             //create label
                             var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
@@ -3535,7 +3535,7 @@ function loadFlowOpenDss(a, b, c) {
                     if(dataJson.TCSC != undefined)
                     {
                         //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy DC lines
-                        csvContent += "data:text/csv;charset=utf-8,TCSC Name, thyristor_firing_angle_degree, x_ohm, p_from_mw, q_from_mvar, p_to_mw, q_to_mvar, p_l_mw, q_l_mvar, vm_from_pu, va_from_degree, vm_to_pu, va_to_degree  \n";
+                        //csvContent += "data:text/csv;charset=utf-8,TCSC Name, thyristor_firing_angle_degree, x_ohm, p_from_mw, q_from_mvar, p_to_mw, q_to_mvar, p_l_mw, q_l_mvar, vm_from_pu, va_from_degree, vm_to_pu, va_to_degree  \n";
 
                         for (var i = 0; i < dataJson.TCSC.length; i++) {
                             resultId = dataJson.TCSC[i].id                        
@@ -3543,7 +3543,7 @@ function loadFlowOpenDss(a, b, c) {
 
                             //for the csv file
                             let row = Object.values(dataJson.TCSC[i]).join(",")
-                            csvContent += row + "\r\n";
+                            //csvContent += row + "\r\n";
 
                             //create label
                             var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
@@ -3573,7 +3573,7 @@ function loadFlowOpenDss(a, b, c) {
                     if(dataJson.SSC != undefined)
                     {
                         //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy DC lines
-                        csvContent += "data:text/csv;charset=utf-8,SSC Name, thyristor_firing_angle_degree, q_mvar, vm_internal_pu, va_internal_degree, vm_pu, va_degree  \n";
+                        //csvContent += "data:text/csv;charset=utf-8,SSC Name, thyristor_firing_angle_degree, q_mvar, vm_internal_pu, va_internal_degree, vm_pu, va_degree  \n";
 
                         for (var i = 0; i < dataJson.SSC.length; i++) {
                             resultId = dataJson.SSC[i].id                        
@@ -3581,7 +3581,7 @@ function loadFlowOpenDss(a, b, c) {
 
                             //for the csv file
                             let row = Object.values(dataJson.SSC[i]).join(",")
-                            csvContent += row + "\r\n";
+                            //csvContent += row + "\r\n";
 
                             //create label
                             var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
@@ -3606,7 +3606,7 @@ function loadFlowOpenDss(a, b, c) {
                     if(dataJson.dclines != undefined)
                     {
                         //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy DC lines
-                        csvContent += "data:text/csv;charset=utf-8,DCline Name, p_from_mw, q_from_mvar, p_to_mw, q_to_mvar, pl_mw, vm_from_pu, va_from_degree, vm_to_pu, va_to_degree \n";
+                        //csvContent += "data:text/csv;charset=utf-8,DCline Name, p_from_mw, q_from_mvar, p_to_mw, q_to_mvar, pl_mw, vm_from_pu, va_from_degree, vm_to_pu, va_to_degree \n";
 
                         for (var i = 0; i < dataJson.dclines.length; i++) {
                             resultId = dataJson.dclinesSSC[i].id                        
@@ -3614,7 +3614,7 @@ function loadFlowOpenDss(a, b, c) {
 
                             //for the csv file
                             let row = Object.values(dataJson.dclines[i]).join(",")
-                            csvContent += row + "\r\n";
+                           //csvContent += row + "\r\n";
 
                             //create label
                             var resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
@@ -3641,12 +3641,12 @@ function loadFlowOpenDss(a, b, c) {
 
 
                     //download to CSV
-                    var encodedUri = encodeURI(csvContent);
-                    var link = document.createElement("a");
-                    link.setAttribute("href", encodedUri);
-                    link.setAttribute("download", "Results.csv");
-                    document.body.appendChild(link); // Required for FF
-                    link.click();
+                    //var encodedUri = encodeURI(csvContent);
+                    //var link = document.createElement("a");
+                    //link.setAttribute("href", encodedUri);
+                    //link.setAttribute("download", "Results.csv");
+                    //document.body.appendChild(link); // Required for FF
+                    //link.click();
 
                 })
                 .catch(err => {

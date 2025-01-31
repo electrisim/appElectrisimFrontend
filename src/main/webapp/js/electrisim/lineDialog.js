@@ -28,15 +28,41 @@ rowDefsLineLibrary = [
   { name: "N2XS(FL)2Y 1x185 RM/35 64/110 kV", r_ohm_per_km: 0.099, x_ohm_per_km: 0.156, c_nf_per_km: 125.0, g_us_per_km: 0.0, max_i_ka: 0.457, type:"cs", r0_ohm_per_km:0.0, x0_ohm_per_km:0.0, c0_nf_per_km:0.0, endtemp_degree:250.0 },
   { name: "N2XS(FL)2Y 1x240 RM/35 64/110 kV", r_ohm_per_km: 0.075, x_ohm_per_km: 0.149, c_nf_per_km: 135.0, g_us_per_km: 0.0, max_i_ka: 0.526, type:"cs", r0_ohm_per_km:0.0, x0_ohm_per_km:0.0, c0_nf_per_km:0.0, endtemp_degree:250.0 },
   { name: "N2XS(FL)2Y 1x300 RM/35 64/110 kV", r_ohm_per_km: 0.06, x_ohm_per_km: 0.144, c_nf_per_km: 144.0, g_us_per_km: 0.0, max_i_ka: 0.588, type:"cs", r0_ohm_per_km:0.1, x0_ohm_per_km:0.0, c0_nf_per_km:0.0, endtemp_degree:250.0 },
-  { name: "Onshore - 1x1000 RM 275kV Al", r_ohm_per_km: 0.041, x_ohm_per_km: 0.221, c_nf_per_km: 179.0, g_us_per_km: 0.0, max_i_ka: 0.947, type:"cs", r0_ohm_per_km:0.1, x0_ohm_per_km:0.0, c0_nf_per_km:0.0, endtemp_degree:250.0 },
-  { name: "Onshore - 1x2500 RMS 275kV Cu", r_ohm_per_km: 0.014, x_ohm_per_km: 0.139, c_nf_per_km: 260.0, g_us_per_km: 0.0, max_i_ka: 0.893, type:"cs", r0_ohm_per_km:0.1, x0_ohm_per_km:0.0, c0_nf_per_km:0.0, endtemp_degree:250.0 }, 
-  { name: "Offshore - 3x800 RMS 275kV Cu", r_ohm_per_km: 0.032, x_ohm_per_km: 0.139, c_nf_per_km: 159.0, g_us_per_km: 0.0, max_i_ka: 0.832, type:"cs", r0_ohm_per_km:0.1, x0_ohm_per_km:0.0, c0_nf_per_km:0.0, endtemp_degree:250.0 },
-  { name: "Offshore - 3x1200 RMS 275kV Cu", r_ohm_per_km: 0.042, x_ohm_per_km: 0.117, c_nf_per_km: 186.0, g_us_per_km: 0.0, max_i_ka: 0.929, type:"cs", r0_ohm_per_km:0.1, x0_ohm_per_km:0.0, c0_nf_per_km:0.0, endtemp_degree:250.0 },
-  { name: "Offshore - 3x2500 RMS 275kV Cu", r_ohm_per_km: 0.0016, x_ohm_per_km: 0.130, c_nf_per_km: 256.0, g_us_per_km: 0.0, max_i_ka: 0.713, type:"cs", r0_ohm_per_km:0.1, x0_ohm_per_km:0.0, c0_nf_per_km:0.0, endtemp_degree:250.0 },
   
-  { name: "Offshore - 3x300 RM 66kV Al", r_ohm_per_km: 0.130, x_ohm_per_km: 0.122, c_nf_per_km: 228.0, g_us_per_km: 0.0, max_i_ka: 0.465, type:"cs", r0_ohm_per_km:0.1, x0_ohm_per_km:0.0, c0_nf_per_km:0.0, endtemp_degree:250.0 },
-  { name: "Offshore - 3x800 RM 66kV Al", r_ohm_per_km: 0.050, x_ohm_per_km: 0.106, c_nf_per_km: 333.0, g_us_per_km: 0.0, max_i_ka: 0.735, type:"cs", r0_ohm_per_km:0.1, x0_ohm_per_km:0.0, c0_nf_per_km:0.0, endtemp_degree:250.0 }, 
+  { name: "Onshore 275kV - 1x1000 RM Al", r_ohm_per_km: 0.041, x_ohm_per_km: 0.221, c_nf_per_km: 179.0, g_us_per_km: 0.0, max_i_ka: 0.947, type: "cs", r0_ohm_per_km: 0.0, x0_ohm_per_km: 0.0, c0_nf_per_km: 0.0, endtemp_degree: 250.0 },
+  { name: "Onshore 275kV - 1x1200 RM Al", r_ohm_per_km: 0.035, x_ohm_per_km: 0.260, c_nf_per_km: 185.0, g_us_per_km: 0.0, max_i_ka: 0.975, type: "cs", r0_ohm_per_km: 0.0, x0_ohm_per_km: 0.0, c0_nf_per_km: 0.0, endtemp_degree: 250.0 },
+  { name: "Onshore 275kV - 1x1400 RM Al", r_ohm_per_km: 0.030, x_ohm_per_km: 0.310, c_nf_per_km: 190.0, g_us_per_km: 0.0, max_i_ka: 0.990, type: "cs", r0_ohm_per_km: 0.0, x0_ohm_per_km: 0.0, c0_nf_per_km: 0.0, endtemp_degree: 250.0 },
+  { name: "Onshore 275kV - 1x1600 RM Al", r_ohm_per_km: 0.0241, x_ohm_per_km: 0.558, c_nf_per_km: 200.0, g_us_per_km: 0.0, max_i_ka: 1.00, type: "cs", r0_ohm_per_km: 0.0, x0_ohm_per_km: 0.0, c0_nf_per_km: 0.0, endtemp_degree: 250.0 },
+  { name: "Onshore 275kV - 1x1800 RM Al", r_ohm_per_km: 0.020, x_ohm_per_km: 0.590, c_nf_per_km: 210.0, g_us_per_km: 0.0, max_i_ka: 1.05, type: "cs", r0_ohm_per_km: 0.0, x0_ohm_per_km: 0.0, c0_nf_per_km: 0.0, endtemp_degree: 250.0 },
+  { name: "Onshore 275kV - 1x2000 RM Al", r_ohm_per_km: 0.018, x_ohm_per_km: 0.610, c_nf_per_km: 220.0, g_us_per_km: 0.0, max_i_ka: 1.10, type: "cs", r0_ohm_per_km: 0.0, x0_ohm_per_km: 0.0, c0_nf_per_km: 0.0, endtemp_degree: 250.0 },
   
+  { name: "Onshore 275kV - 1x2500 RMS Cu", r_ohm_per_km: 0.014, x_ohm_per_km: 0.139, c_nf_per_km: 260.0, g_us_per_km: 0.0, max_i_ka: 0.893, type:"cs", r0_ohm_per_km:0.0, x0_ohm_per_km:0.0, c0_nf_per_km:0.0, endtemp_degree:250.0 }, 
+  
+  { name: "Offshore 275kV - 3x800 RMS Cu", r_ohm_per_km: 0.032, x_ohm_per_km: 0.139, c_nf_per_km: 159.0, g_us_per_km: 0.0, max_i_ka: 0.832, type:"cs", r0_ohm_per_km:0.0, x0_ohm_per_km:0.0, c0_nf_per_km:0.0, endtemp_degree:250.0 },
+  { name: "Offshore 275kV - 3x1000 RMS Cu", r_ohm_per_km: 0.035, x_ohm_per_km: 0.125, c_nf_per_km: 166.0, g_us_per_km: 0.0, max_i_ka: 0.876, type:"cs", r0_ohm_per_km:0.0, x0_ohm_per_km:0.0, c0_nf_per_km:0.0, endtemp_degree:250.0 },
+  { name: "Offshore 275kV - 3x1200 RMS Cu", r_ohm_per_km: 0.029, x_ohm_per_km: 0.120, c_nf_per_km: 190.0, g_us_per_km: 0.0, max_i_ka: 0.920, type: "cs", r0_ohm_per_km: 0.0, x0_ohm_per_km: 0.0, c0_nf_per_km: 0.0, endtemp_degree: 250.0 },
+  { name: "Offshore 275kV - 3x1400 RMS Cu", r_ohm_per_km: 0.025, x_ohm_per_km: 0.118, c_nf_per_km: 200.0, g_us_per_km: 0.0, max_i_ka: 0.960, type: "cs", r0_ohm_per_km: 0.0, x0_ohm_per_km: 0.0, c0_nf_per_km: 0.0, endtemp_degree: 250.0 },
+  { name: "Offshore 275kV - 3x1600 RMS Cu", r_ohm_per_km: 0.021, x_ohm_per_km: 0.116, c_nf_per_km: 210.0, g_us_per_km: 0.0, max_i_ka: 1.000, type: "cs", r0_ohm_per_km: 0.0, x0_ohm_per_km: 0.0, c0_nf_per_km: 0.0, endtemp_degree: 250.0 },
+  { name: "Offshore 275kV - 3x1800 RMS Cu", r_ohm_per_km: 0.017, x_ohm_per_km: 0.114, c_nf_per_km: 220.0, g_us_per_km: 0.0, max_i_ka: 1.040, type: "cs", r0_ohm_per_km: 0.0, x0_ohm_per_km: 0.0, c0_nf_per_km: 0.0, endtemp_degree: 250.0 },
+  { name: "Offshore 275kV - 3x2000 RMS Cu", r_ohm_per_km: 0.012, x_ohm_per_km: 0.112, c_nf_per_km: 230.0, g_us_per_km: 0.0, max_i_ka: 1.080, type: "cs", r0_ohm_per_km: 0.0, x0_ohm_per_km: 0.0, c0_nf_per_km: 0.0, endtemp_degree: 250.0 },
+  { name: "Offshore 275kV - 3x2500 RMS Cu", r_ohm_per_km: 0.01, x_ohm_per_km: 0.10, c_nf_per_km: 256.0, g_us_per_km: 0.0, max_i_ka: 1110, type:"cs", r0_ohm_per_km:0.0, x0_ohm_per_km:0.0, c0_nf_per_km:0.0, endtemp_degree:250.0 },
+  
+  { name: "Offshore 66kV - 3x300 RM Al", r_ohm_per_km: 0.130, x_ohm_per_km: 0.122, c_nf_per_km: 228.0, g_us_per_km: 0.0, max_i_ka: 0.465, type: "cs", r0_ohm_per_km: 0.0, x0_ohm_per_km: 0.0, c0_nf_per_km: 0.0, endtemp_degree: 250.0 },
+  { name: "Offshore 66kV - 3x400 RM Al", r_ohm_per_km: 0.110, x_ohm_per_km: 0.116, c_nf_per_km: 250.0, g_us_per_km: 0.0, max_i_ka: 0.520, type: "cs", r0_ohm_per_km: 0.0, x0_ohm_per_km: 0.0, c0_nf_per_km: 0.0, endtemp_degree: 250.0 },
+  { name: "Offshore 66kV - 3x500 RM Al", r_ohm_per_km: 0.090, x_ohm_per_km: 0.114, c_nf_per_km: 270.0, g_us_per_km: 0.0, max_i_ka: 0.585, type: "cs", r0_ohm_per_km: 0.0, x0_ohm_per_km: 0.0, c0_nf_per_km: 0.0, endtemp_degree: 250.0 },
+  { name: "Offshore 66kV - 3x630 RM Al", r_ohm_per_km: 0.070, x_ohm_per_km: 0.110, c_nf_per_km: 300.0, g_us_per_km: 0.0, max_i_ka: 0.645, type: "cs", r0_ohm_per_km: 0.0, x0_ohm_per_km: 0.0, c0_nf_per_km: 0.0, endtemp_degree: 250.0 },
+  { name: "Offshore 66kV - 3x800 RM Al", r_ohm_per_km: 0.050, x_ohm_per_km: 0.106, c_nf_per_km: 333.0, g_us_per_km: 0.0, max_i_ka: 0.735, type: "cs", r0_ohm_per_km: 0.0, x0_ohm_per_km: 0.0, c0_nf_per_km: 0.0, endtemp_degree: 250.0 },
+  { name: "Offshore 66kV - 3x1000 RM Al", r_ohm_per_km: 0.045, x_ohm_per_km: 0.104, c_nf_per_km: 360.0, g_us_per_km: 0.0, max_i_ka: 0.800, type: "cs", r0_ohm_per_km: 0.0, x0_ohm_per_km: 0.0, c0_nf_per_km: 0.0, endtemp_degree: 250.0 },
+  { name: "Offshore 66kV - 3x1200 RM Al", r_ohm_per_km: 0.038, x_ohm_per_km: 0.090, c_nf_per_km: 389.0, g_us_per_km: 0.0, max_i_ka: 0.920, type: "cs", r0_ohm_per_km: 0.0, x0_ohm_per_km: 0.0, c0_nf_per_km: 0.0, endtemp_degree: 250.0 },
+
+  { name: "Offshore 66kV - 3x300 RM Cu", r_ohm_per_km: 0.079, x_ohm_per_km: 0.122, c_nf_per_km: 237.0, g_us_per_km: 0.0, max_i_ka: 0.465, type: "cs", r0_ohm_per_km: 0.0, x0_ohm_per_km: 0.0, c0_nf_per_km: 0.0, endtemp_degree: 250.0 },
+  { name: "Offshore 66kV - 3x400 RM Cu", r_ohm_per_km: 0.058, x_ohm_per_km: 0.115, c_nf_per_km: 265.0, g_us_per_km: 0.0, max_i_ka: 0.540, type: "cs", r0_ohm_per_km: 0.0, x0_ohm_per_km: 0.0, c0_nf_per_km: 0.0, endtemp_degree: 250.0 },
+  { name: "Offshore 66kV - 3x500 RM Cu", r_ohm_per_km: 0.046, x_ohm_per_km: 0.112, c_nf_per_km: 303.0, g_us_per_km: 0.0, max_i_ka: 0.610, type: "cs", r0_ohm_per_km: 0.0, x0_ohm_per_km: 0.0, c0_nf_per_km: 0.0, endtemp_degree: 250.0 },
+  { name: "Offshore 66kV - 3x630 RM Cu", r_ohm_per_km: 0.040, x_ohm_per_km: 0.108, c_nf_per_km: 330.0, g_us_per_km: 0.0, max_i_ka: 0.675, type: "cs", r0_ohm_per_km: 0.0, x0_ohm_per_km: 0.0, c0_nf_per_km: 0.0, endtemp_degree: 250.0 },
+  { name: "Offshore 66kV - 3x800 RM Cu", r_ohm_per_km: 0.036, x_ohm_per_km: 0.106, c_nf_per_km: 343.0, g_us_per_km: 0.0, max_i_ka: 0.735, type: "cs", r0_ohm_per_km: 0.0, x0_ohm_per_km: 0.0, c0_nf_per_km: 0.0, endtemp_degree: 250.0 },
+  { name: "Offshore 66kV - 3x1000 RM Cu", r_ohm_per_km: 0.032, x_ohm_per_km: 0.104, c_nf_per_km: 379.0, g_us_per_km: 0.0, max_i_ka: 0.800, type: "cs", r0_ohm_per_km: 0.0, x0_ohm_per_km: 0.0, c0_nf_per_km: 0.0, endtemp_degree: 250.0 },
+  { name: "Offshore 66kV - 3x1200 RM Cu", r_ohm_per_km: 0.028, x_ohm_per_km: 0.102, c_nf_per_km: 400.0, g_us_per_km: 0.0, max_i_ka: 0.865, type: "cs", r0_ohm_per_km: 0.0, x0_ohm_per_km: 0.0, c0_nf_per_km: 0.0, endtemp_degree: 250.0 },
+ 
   { name: "15-AL1/3-ST1A 0.4", r_ohm_per_km: 1.8769, x_ohm_per_km: 0.35, c_nf_per_km: 11.0, g_us_per_km: 0.0, max_i_ka: 0.105, type:"ol", r0_ohm_per_km:0.0, x0_ohm_per_km:0.0, c0_nf_per_km:0.0, endtemp_degree:250.0 },
   { name: "24-AL1/4-ST1A 0.4", r_ohm_per_km: 1.2012, x_ohm_per_km: 0.335, c_nf_per_km: 11.25, g_us_per_km: 0.0, max_i_ka: 0.14, type:"ol", r0_ohm_per_km:0.0, x0_ohm_per_km:0.0, c0_nf_per_km:0.0, endtemp_degree:250.0 },
   { name: "48-AL1/8-ST1A 0.4", r_ohm_per_km: 0.5939, x_ohm_per_km: 0.3, c_nf_per_km: 12.2, g_us_per_km: 0.0, max_i_ka: 0.21, type:"ol", r0_ohm_per_km:0.0, x0_ohm_per_km:0.0, c0_nf_per_km:0.0, endtemp_degree:250.0 },
@@ -134,6 +160,8 @@ const columnDefsLineDialog = [
 
 //edit, delete, update, cancel*********
 function onCellClicked(params) {
+  console.log('rowDefsLineLibrary w onCellClicked')
+  console.log(rowDefsLineLibrary)
 
   // Handle click event for action cells
   if (params.column.colId === "action" && params.event.target.dataset.action) {
