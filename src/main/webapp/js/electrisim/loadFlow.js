@@ -92,14 +92,12 @@ function loadFlowPandaPower(a, b, c) {
 
     //jeśli Linia to getConnectedBusId(cell, true)
     const getConnectedBusId = (cell, isLine = false) => {
-        if (isLine) {
-                 
-                return {            
-                    busFrom: cell.source?.mxObjectId?.replace('#', '_'),
-                    busTo: cell.target?.mxObjectId?.replace('#', '_')
-                };            
-        }
-        
+        if (isLine) {                 
+            return {            
+                busFrom: cell.source?.mxObjectId?.replace('#', '_'),
+                busTo: cell.target?.mxObjectId?.replace('#', '_')
+            };            
+        }        
         const edge = cell.edges[0];
             const bus = edge.target.mxObjectId !== cell.mxObjectId ?
                 edge.target.mxObjectId : edge.source.mxObjectId;
@@ -366,8 +364,6 @@ function loadFlowPandaPower(a, b, c) {
         }, currentStyle);
         b.setCellStyle(newStyle, [cell]);
     }
-
-
 
 
     //*********FROM BACKEND TO FRONTEND***************
@@ -745,16 +741,16 @@ function loadFlowPandaPower(a, b, c) {
                 processCellStyles(b, labelka);
             });
         },
-        SSC: (data, b) => {
+        sscs: (data, b) => {
+            
             data.forEach(cell => {
                 const resultCell = b.getModel().getCell(cell.id);
                 const resultString = `SSC
-            Firing angle[degree]: ${formatNumber(cell.thyristor_firing_angle_degree)}
-            q[MVar]: ${formatNumber(cell.q_mvar)}
-            vm_internal[pu]: ${formatNumber(cell.vm_internal_pu)}
-            va_internal[degree]: ${formatNumber(cell.va_internal_degree)}
-            vm[pu]: ${formatNumber(cell.vm_pu)}
-            va[degree]: ${formatNumber(cell.va_degree)}
+            q_mvar: ${formatNumber(cell.q_mvar)}
+            vm_internal_pu: ${formatNumber(cell.vm_internal_pu)}
+            va_internal_degree: ${formatNumber(cell.va_internal_degree)}
+            vm_pu: ${formatNumber(cell.vm_pu)}
+            va_degree: ${formatNumber(cell.va_degree)}            
             `;
 
                 const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.1, 0, 0, 'shapeELXXX=Result', true);
@@ -799,6 +795,8 @@ function loadFlowPandaPower(a, b, c) {
             }
 
             const dataJson = await response.json();
+            console.log('dataJson')
+            console.log(dataJson)
 
             // Handle errors first
             if (handleNetworkErrors(dataJson)) {
@@ -807,6 +805,8 @@ function loadFlowPandaPower(a, b, c) {
 
             // Process each type of network element
             Object.entries(elementProcessors).forEach(([type, processor]) => {
+                console.log('type')
+                console.log(type)
                 if (dataJson[type]) {
                     processor(dataJson[type], b, grafka);
                 }
@@ -1286,12 +1286,12 @@ function loadFlowPandaPower(a, b, c) {
                             bus: getConnectedBusId(cell),
                             ...getAttributesAsObject(cell, {
                                 // Load flow parameters                       
-                                r_ohm: 2,
-                                x_ohm: 3,
-                                set_vm_pu: 4,
-                                vm_internal_pu: 5,
-                                va_internal_degree: 6,
-                                controllable: 7     //do zmiany                  
+                                r_ohm: 1,
+                                x_ohm: 2,
+                                set_vm_pu: 3,
+                                vm_internal_pu: 4,
+                                va_internal_degree: 5,
+                                controllable: 6                 
                             })
                         };
                         componentArrays.SSC.push(SSC);
@@ -2968,12 +2968,11 @@ function loadFlowOpenDss(a, b, c) {
                             let resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
 
                             let resultString = 'SSC' +
-                                '\n Firing angle[degree]: ' + dataJson.SSC[i].thyristor_firing_angle_degree.toFixed(3) +
-                                '\n q[MVar]: ' + dataJson.SSC[i].q_mvar.toFixed(3) +
-                                '\n vm_internal[pu]: ' + dataJson.SSC[i].vm_internal_pu.toFixed(3) +
-                                '\n va_internal[degree]: ' + dataJson.SSC[i].va_internal_degree.toFixed(3) +
-                                '\n vm[pu]: ' + dataJson.SSC[i].vm_pu.toFixed(3) +
-                                '\n va[degree]: ' + dataJson.SSC[i].va_degree.toFixed(3)
+                                '\n q_mvar: ' + dataJson.SSC[i].q_mvar.toFixed(3) +
+                                '\n vm_internal_pu: ' + dataJson.SSC[i].vm_internal_pu.toFixed(3) +
+                                '\n va_internal_degree: ' + dataJson.SSC[i].va_internal_degree.toFixed(3) +
+                                '\n vm_pu: ' + dataJson.SSC[i].vm_pu.toFixed(3) +
+                                '\n va_degree: ' + dataJson.SSC[i].va_degree.toFixed(3)                               
 
 
                             let labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1, 0, 0, 'shapeELXXX=Result', true)
