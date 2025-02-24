@@ -532,7 +532,7 @@ function loadFlowPandaPower(a, b, c) {
             U[degree]: ${formatNumber(cell.va_degree)}
             Um[pu]: ${formatNumber(cell.vm_pu)}`;
 
-                const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.1, 0, 0, 'shapeELXXX=Result', true);
+                const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.7, 0, 0, 'shapeELXXX=Result', true);
                 processCellStyles(b, labelka);
             });
         },
@@ -543,7 +543,7 @@ function loadFlowPandaPower(a, b, c) {
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}`;
 
-                const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.1, 0, 0, 'shapeELXXX=Result', true);
+                const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.7, 0, 0, 'shapeELXXX=Result', true);
                 processCellStyles(b, labelka);
             });
         },
@@ -558,7 +558,7 @@ function loadFlowPandaPower(a, b, c) {
             P_C[MW]: ${formatNumber(cell.p_c_mw)}
             Q_C[MVar]: ${formatNumber(cell.q_c_mvar)}`;
 
-                const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.1, 0, 0, 'shapeELXXX=Result', true);
+                const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.7, 0, 0, 'shapeELXXX=Result', true);
                 processCellStyles(b, labelka);
             });
         },
@@ -599,7 +599,7 @@ function loadFlowPandaPower(a, b, c) {
             Q[MVar]: ${formatNumber(cell.q_mvar)}
             Um[pu]: ${formatNumber(cell.vm_pu)}`;
 
-                const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.1, 0, 0, 'shapeELXXX=Result', true);
+                const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.5, 0, 0, 'shapeELXXX=Result', true);
                 processCellStyles(b, labelka);
 
             });
@@ -612,7 +612,7 @@ function loadFlowPandaPower(a, b, c) {
             Q[MVar]: ${formatNumber(cell.q_mvar)}
             Um[pu]: ${formatNumber(cell.vm_pu)}`;
 
-                const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.1, 0, 0, 'shapeELXXX=Result', true);
+                const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.7, 0, 0, 'shapeELXXX=Result', true);
                 processCellStyles(b, labelka);
             });
         },
@@ -623,7 +623,7 @@ function loadFlowPandaPower(a, b, c) {
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}`;
 
-                const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.1, 0, 0, 'shapeELXXX=Result', true);
+                const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.7, 0, 0, 'shapeELXXX=Result', true);
                 processCellStyles(b, labelka);
             });
         },
@@ -638,7 +638,7 @@ function loadFlowPandaPower(a, b, c) {
             P_C[MW]: ${formatNumber(cell.p_c_mw)}
             Q_C[MVar]: ${formatNumber(cell.q_c_mvar)}`;
 
-                const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.1, 0, 0, 'shapeELXXX=Result', true);
+                const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.7, 0, 0, 'shapeELXXX=Result', true);
                 processCellStyles(b, labelka);
             });
         },
@@ -655,7 +655,7 @@ function loadFlowPandaPower(a, b, c) {
             i_from[kA]: ${formatNumber(cell.i_from_ka)}
             i_to[kA]: ${formatNumber(cell.i_to_ka)}`;
 
-                const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.1, 0, 0, 'shapeELXXX=Result', true);
+                const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.7, 0, 0, 'shapeELXXX=Result', true);
                 processCellStyles(b, labelka);
             });
         },
@@ -668,7 +668,7 @@ function loadFlowPandaPower(a, b, c) {
             Um[pu]: ${formatNumber(cell.p_to_mw)}
             `;
 
-                const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.1, 0, 0, 'shapeELXXX=Result', true);
+                const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.7, 0, 0, 'shapeELXXX=Result', true);
                 processCellStyles(b, labelka);
             });
         },
@@ -680,7 +680,7 @@ function loadFlowPandaPower(a, b, c) {
             Q[MVar]: ${formatNumber(cell.q_mvar)}
             Um[pu]: ${formatNumber(cell.p_to_mw)}`;
 
-                const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.1, 0, 0, 'shapeELXXX=Result', true);
+                const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.7, 0, 0, 'shapeELXXX=Result', true);
                 processCellStyles(b, labelka);
             });
         },
@@ -691,7 +691,7 @@ function loadFlowPandaPower(a, b, c) {
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}`;
 
-                const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.1, 0, 0, 'shapeELXXX=Result', true);
+                const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.7, 0, 0, 'shapeELXXX=Result', true);
                 processCellStyles(b, labelka);
             });
         },
@@ -702,11 +702,11 @@ function loadFlowPandaPower(a, b, c) {
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}`;
 
-                const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.1, 0, 0, 'shapeELXXX=Result', true);
+                const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.7, 0, 0, 'shapeELXXX=Result', true);
                 processCellStyles(b, labelka);
             });
         },
-        SVC: (data, b) => {
+        svc: (data, b) => {
             data.forEach(cell => {
                 const resultCell = b.getModel().getCell(cell.id);
                 const resultString = `SVC
@@ -716,11 +716,11 @@ function loadFlowPandaPower(a, b, c) {
             vm[pu]: ${formatNumber(cell.vm_pu)}
             va[degree]: ${formatNumber(cell.va_degree)}`;
 
-                const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.1, 0, 0, 'shapeELXXX=Result', true);
+                const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.7, 0, 0, 'shapeELXXX=Result', true);
                 processCellStyles(b, labelka);
             });
         },
-        TCSC: (data, b) => {
+        tcsc: (data, b) => {
             data.forEach(cell => {
                 const resultCell = b.getModel().getCell(cell.id);
                 const resultString = `TCSC
@@ -737,7 +737,7 @@ function loadFlowPandaPower(a, b, c) {
             vm_to[pu]: ${formatNumber(cell.vm_to_pu)}
             va_to[degree]: ${formatNumber(cell.va_to_degree)}`;
 
-                const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.1, 0, 0, 'shapeELXXX=Result', true);
+                const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.7, 0, 0, 'shapeELXXX=Result', true);
                 processCellStyles(b, labelka);
             });
         },
@@ -753,7 +753,7 @@ function loadFlowPandaPower(a, b, c) {
             va_degree: ${formatNumber(cell.va_degree)}            
             `;
 
-                const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.1, 0, 0, 'shapeELXXX=Result', true);
+                const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.7, 0, 0, 'shapeELXXX=Result', true);
                 processCellStyles(b, labelka);
             });
         },
