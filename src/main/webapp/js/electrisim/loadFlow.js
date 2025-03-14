@@ -442,7 +442,7 @@ function loadFlowPandaPower(a, b, c) {
             'bus': 'Bus',
             'ext_grid': 'External Grid',
             'trafo3w': 'Three-winding transformer: nominal voltage does not match',
-            'overload': 'One of the element is overloaded. The load flow did not converge.'
+            'overload': 'One of the element is overloaded. The load flow did not converge. Contact electrisim@electrisim.com'
         };
 
         if (!dataJson[0]) return false;
@@ -814,7 +814,7 @@ function loadFlowPandaPower(a, b, c) {
 
         } catch (err) {
             if (err.message === "server") return;
-            console.error('Error processing network data:', err);
+            console.error('Error processing network data. Contact electrisim@electrisim.com', err);
         } finally {
             if (typeof apka !== 'undefined' && apka.spinner) {
                 apka.spinner.stop();
