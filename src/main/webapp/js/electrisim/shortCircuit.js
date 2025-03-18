@@ -399,7 +399,7 @@ function shortCircuit(a, b, c) {
                         }
 
                         console.log("Three Winding Transformer attributes")
-                        console.log(cell.value.attributes)
+                       
 
                         //Load_flow_parameters
                         threeWindingTransformer.sn_hv_mva = cell.value.attributes[4].nodeValue
@@ -491,10 +491,7 @@ function shortCircuit(a, b, c) {
                         }else{
                             capacitor.bus = cell.edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.edges[0].target.mxObjectId.replace('#', '')
                         }
-
-
-                        console.log("Capacitor attributes")
-                        console.log(cell.value.attributes)
+           
 
                         //Load_flow_parameters
                         capacitor.q_mvar = cell.value.attributes[2].nodeValue
@@ -1005,10 +1002,6 @@ function shortCircuit(a, b, c) {
                 else document.write(arr);
             }
 
-            /*function zamiana(match, offset, string) {
-                console.log('zamiana')
-                return '-';//return (offset > 0 ? '-' : '') + match.toLowerCase();
-            } */
 
             //*************** KONIEC - SCZYTYWANIE MODELU DO BACKEND ****************
 
@@ -1187,11 +1180,11 @@ function shortCircuit(a, b, c) {
                     link.click();
 
                 })
-            /*
+            
             .catch(err => {
                 if (err === "server") return
-                console.log(err)
-            })*/
+                alert(err)
+            })
 
         }
     })
