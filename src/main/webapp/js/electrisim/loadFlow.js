@@ -204,7 +204,8 @@ function loadFlowPandaPower(a, b, c) {
                     lv_bus: lowVoltage
                 };
             } catch (error) {
-                console.error(`Error processing transformer ${transformer.id}:`, error.message);
+               
+                alert(`Error processing transformer ${transformer.id}:`, error.message)
                 return transformer; // Return original transformer data if processing fails
             }
         };
@@ -291,7 +292,7 @@ function loadFlowPandaPower(a, b, c) {
                 };
     
             } catch (error) {
-                console.error(`Error processing three-winding transformer ${transformer.id}:`, error.message);
+                console.log(`Error processing three-winding transformer ${transformer.id}:`, error.message);
                 
                 // Update transformer style to red (error state)
                 updateTransformerStyle(transformerCell, 'red');
@@ -805,8 +806,7 @@ function loadFlowPandaPower(a, b, c) {
 
             // Process each type of network element
             Object.entries(elementProcessors).forEach(([type, processor]) => {
-                console.log('type')
-                console.log(type)
+               
                 if (dataJson[type]) {
                     processor(dataJson[type], b, grafka);
                 }
@@ -814,7 +814,7 @@ function loadFlowPandaPower(a, b, c) {
 
         } catch (err) {
             if (err.message === "server") return;
-            console.error('Error processing network data. Contact electrisim@electrisim.com', err);
+            alert('Error processing network data.' + err+'\n \nCheck input data or contact electrisim@electrisim.com', );
         } finally {
             if (typeof apka !== 'undefined' && apka.spinner) {
                 apka.spinner.stop();
@@ -1507,8 +1507,7 @@ function loadFlowOpenDss(a, b, c) {
                     let excludedValues = ["Result", undefined, "External Grid", "Bus", "Line", "Load", "Transformer", "Capacitor", "Generator", "Storage"];
                     // Check if the property value is not in the array of excluded values
 
-                    console.log('result.shapeELXXX')
-                    console.log(result.shapeELXXX)
+                    
                     if (!excludedValues.includes(result.shapeELXXX)) {
                         alert("currently the Open-DSS can work with External Grid, Busbars, Lines, Loads, Transformers, Capacitors, Generators, Storages. All other elements will be excluded from calculation")
                     }
@@ -1712,9 +1711,6 @@ function loadFlowOpenDss(a, b, c) {
 
                         threeWindingTransformer.name = cell.mxObjectId.replace('#', '_')//.replaceAll('-', '___')
                         threeWindingTransformer.id = cell.id
-
-                        console.log('cellsArray')
-                        console.log(cell)
 
                         //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
                         if (cell.edges[2].target.mxObjectId != cell.mxObjectId) {
@@ -2023,8 +2019,7 @@ function loadFlowOpenDss(a, b, c) {
                 bus3 = busbarArray.find(element => element.name == threeWindingTransformerArray[i].lv_bus);
                 threeWindingBusbarArray.push(bus1)
                 threeWindingBusbarArray.push(bus2)
-                threeWindingBusbarArray.push(bus3)
-                console.log(threeWindingBusbarArray)
+                threeWindingBusbarArray.push(bus3)               
 
                 let busbarWithHighestVoltage = threeWindingBusbarArray.reduce(
                     (prev, current) => {
@@ -2062,7 +2057,6 @@ function loadFlowOpenDss(a, b, c) {
             ];
 
 
-
             let obj = Object.assign({}, array);
             console.log(JSON.stringify(obj))
 
@@ -2076,10 +2070,7 @@ function loadFlowOpenDss(a, b, c) {
                 else document.write(arr);
             }
 
-            /*function zamiana(match, offset, string) {
-                console.log('zamiana')
-                return '-';//return (offset > 0 ? '-' : '') + match.toLowerCase();
-            } */
+           
 
             //*************** KONIEC - SCZYTYWANIE MODELU DO BACKEND ****************
 
@@ -2149,7 +2140,7 @@ function loadFlowOpenDss(a, b, c) {
                             //}
                         }
                         if (dataJson[0] == "overload") {
-                            alert("One of the element is overloaded. The load flow did not converge.")
+                            alert("One of the element is overloaded. The load flow did not converge. Change the input parameters or contact electrisim@electrisim.com for further support. ")
 
                         }
                     }
@@ -3030,7 +3021,7 @@ function loadFlowOpenDss(a, b, c) {
                 })
                 .catch(err => {
                     if (err === "server") return
-                    console.log(err)
+                    alert(err)
                 })
 
         }
