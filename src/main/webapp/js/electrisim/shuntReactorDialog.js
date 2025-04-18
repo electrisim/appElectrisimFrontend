@@ -1,10 +1,10 @@
 const  rowDefsShuntReactor = [
-    { name: "Generator", p_mw:0.0,  q_mvar: 0.0, vn_kv: 0.0, step: 0.0, max_step: 0.0},
+    { givenname: "Generator", p_mw:0.0,  q_mvar: 0.0, vn_kv: 0.0, step: 0.0, max_step: 0.0},
     
   ];  
   const columnDefsShuntReactor = [  
     {
-      field: "name",
+      field: "givenname",
     },
     {
       field: "p_mw",

@@ -1,10 +1,10 @@
 const  rowDefsSVC = [
-    { name: "SVC", x_l_ohm:0.0,  x_cvar_ohm: 0.0, set_vm_pu: 0.0, thyristor_firing_angle_degree: 0.0, controllable:'True', min_angle_degree:90, max_angle_degree:180},
+    { givenname: "SVC", x_l_ohm:0.0,  x_cvar_ohm: 0.0, set_vm_pu: 0.0, thyristor_firing_angle_degree: 0.0, controllable:'True', min_angle_degree:90, max_angle_degree:180},
     
   ];  
   const columnDefsSVC = [  
     {
-      field: "name",
+      field: "givenname",
     },
     {
       field: "x_l_ohm",

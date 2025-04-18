@@ -82,13 +82,6 @@ function loadFlowPandaPower(a, b, c) {
         line: []
     };
 
-    // Helper function to get connected bus ID
-    /*const getConnectedBusId = (cell) => {
-        const edge = cell.edges[0];
-        const connectedId = edge.target.mxObjectId !== cell.mxObjectId ?
-            edge.target.mxObjectId : edge.source.mxObjectId;
-        return connectedId.replace('#', '_');
-    };*/
 
     //jeśli Linia to getConnectedBusId(cell, true)
     const getConnectedBusId = (cell, isLine = false) => {
@@ -114,12 +107,32 @@ function loadFlowPandaPower(a, b, c) {
     // Helper function to get attributes as object
     const getAttributesAsObject = (cell, attributeIndices) => {
         const result = {};
+        console.log('cell in getAttributes', cell);
+        
         for (const [key, index] of Object.entries(attributeIndices)) {
-            result[key] = cell.value.attributes[index].nodeValue;
+            // Check if index is a simple number or an object with optional flag
+            const isOptional = typeof index === 'object' && index.optional;
+            const actualIndex = typeof index === 'object' ? index.index : index;
+            
+            console.log(`Processing attribute ${key} at index ${actualIndex}, optional: ${isOptional}`);
+            
+            // Check if cell.value and attributes exist
+            if (cell && cell.value && cell.value.attributes && 
+                cell.value.attributes[actualIndex]) {
+                result[key] = cell.value.attributes[actualIndex].nodeValue;
+            } else if (!isOptional) {
+                // For non-optional attributes, provide a default value or null
+                console.warn(`Missing required attribute ${key} at index ${actualIndex}`);
+                result[key] = null;
+            }
+            // Skip optional attributes if they don't exist
         }
+        
+        console.log('result in getAttributes', result);
         return result;
     };
 
+   
     // Add helper function for transformer bus connections
     const getTransformerConnections = (cell) => {
         const hvEdge = cell.edges[0];
@@ -472,7 +485,7 @@ function loadFlowPandaPower(a, b, c) {
                 const resultCell = b.getModel().getCell(cell.id);
                 cell.name = replaceUnderscores(cell.name);
 
-                const resultString = `Bus
+                const resultString = `${resultCell.value.attributes[0].nodeValue}
             U[pu]: ${formatNumber(cell.vm_pu)}
             U[degree]: ${formatNumber(cell.va_degree)}
             P[MW]: ${formatNumber(cell.p_mw)}
@@ -513,7 +526,8 @@ function loadFlowPandaPower(a, b, c) {
         externalgrids: (data, b) => {
             data.forEach(cell => {
                 const resultCell = b.getModel().getCell(cell.id);
-                const resultString = `External Grid
+                const resultString = `${resultCell.value.attributes[0].nodeValue}
+            
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}
             PF: ${formatNumber(cell.pf)}
@@ -527,7 +541,7 @@ function loadFlowPandaPower(a, b, c) {
         generators: (data, b) => {
             data.forEach(cell => {
                 const resultCell = b.getModel().getCell(cell.id);
-                const resultString = `Generator
+                const resultString = `${resultCell.value.attributes[0].nodeValue}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}
             U[degree]: ${formatNumber(cell.va_degree)}
@@ -540,7 +554,7 @@ function loadFlowPandaPower(a, b, c) {
         staticgenerators: (data, b) => {
             data.forEach(cell => {
                 const resultCell = b.getModel().getCell(cell.id);
-                const resultString = `Static Generator
+                const resultString = `${resultCell.value.attributes[0].nodeValue}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}`;
 
@@ -551,7 +565,7 @@ function loadFlowPandaPower(a, b, c) {
         asymmetricstaticgenerators: (data, b) => {
             data.forEach(cell => {
                 const resultCell = b.getModel().getCell(cell.id);
-                const resultString = `Asymmetric Static Generator
+                const resultString = `${resultCell.value.attributes[0].nodeValue}
             P_A[MW]: ${formatNumber(cell.p_a_mw)}
             Q_A[MVar]: ${formatNumber(cell.q_a_mvar)}
             P_B[MW]: ${formatNumber(cell.p_b_mw)}
@@ -567,7 +581,7 @@ function loadFlowPandaPower(a, b, c) {
             data.forEach(cell => {
                 const resultCell = b.getModel().getCell(cell.id);
 
-                const resultString = `Transformer
+                const resultString = `${resultCell.value.attributes[0].nodeValue}
             i_HV[kA]: ${formatNumber(cell.i_hv_ka)}
             i_LV[kA]: ${formatNumber(cell.i_lv_ka)}
             loading[%]: ${formatNumber(cell.loading_percent)}
@@ -581,7 +595,7 @@ function loadFlowPandaPower(a, b, c) {
         transformers3W: (data, b) => {
             data.forEach(cell => {
                 const resultCell = b.getModel().getCell(cell.id);
-                const resultString = `3WTransformer
+                const resultString = `${resultCell.value.attributes[0].nodeValue}
             i_HV[kA]: ${formatNumber(cell.i_hv_ka)}
             i_MV[kA]: ${formatNumber(cell.i_mv_ka)}
             i_LV[kA]: ${formatNumber(cell.i_lv_ka)}
@@ -595,7 +609,7 @@ function loadFlowPandaPower(a, b, c) {
         shunts: (data, b) => {
             data.forEach(cell => {
                 const resultCell = b.getModel().getCell(cell.id);
-                const resultString = `Shunt reactor
+                const resultString = `${resultCell.value.attributes[0].nodeValue}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}
             Um[pu]: ${formatNumber(cell.vm_pu)}`;
@@ -608,7 +622,7 @@ function loadFlowPandaPower(a, b, c) {
         capacitors: (data, b) => {
             data.forEach(cell => {
                 const resultCell = b.getModel().getCell(cell.id);
-                const resultString = `Capacitor
+                const resultString = `${resultCell.value.attributes[0].nodeValue}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}
             Um[pu]: ${formatNumber(cell.vm_pu)}`;
@@ -620,7 +634,7 @@ function loadFlowPandaPower(a, b, c) {
         loads: (data, b) => {
             data.forEach(cell => {
                 const resultCell = b.getModel().getCell(cell.id);
-                const resultString = `Capacitor
+                const resultString = `${resultCell.value.attributes[0].nodeValue}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}`;
 
@@ -631,7 +645,7 @@ function loadFlowPandaPower(a, b, c) {
         asymmetricloads: (data, b) => {
             data.forEach(cell => {
                 const resultCell = b.getModel().getCell(cell.id);
-                const resultString = `Asymmetric Load
+                const resultString = `${resultCell.value.attributes[0].nodeValue}
             P_A[MW]: ${formatNumber(cell.p_a_mw)}
             Q_A[MVar]: ${formatNumber(cell.q_a_mvar)}
             P_B[MW]: ${formatNumber(cell.p_b_mw)}
@@ -646,7 +660,7 @@ function loadFlowPandaPower(a, b, c) {
         impedances: (data, b) => {
             data.forEach(cell => {
                 const resultCell = b.getModel().getCell(cell.id);
-                const resultString = `Impedance
+                const resultString = `${resultCell.value.attributes[0].nodeValue}
             P_from[MW]: ${formatNumber(cell.p_from_mw)}
             Q_from[MVar]: ${formatNumber(cell.q_from_mvar)}
             P_to[MW]: ${formatNumber(cell.p_to_mw)}
@@ -663,7 +677,7 @@ function loadFlowPandaPower(a, b, c) {
         wards: (data, b) => {
             data.forEach(cell => {
                 const resultCell = b.getModel().getCell(cell.id);
-                const resultString = `Ward
+                const resultString = `${resultCell.value.attributes[0].nodeValue}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}
             Um[pu]: ${formatNumber(cell.p_to_mw)}
@@ -676,7 +690,7 @@ function loadFlowPandaPower(a, b, c) {
         extendedwards: (data, b) => {
             data.forEach(cell => {
                 const resultCell = b.getModel().getCell(cell.id);
-                const resultString = `Extended Ward
+                const resultString = `${resultCell.value.attributes[0].nodeValue}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}
             Um[pu]: ${formatNumber(cell.p_to_mw)}`;
@@ -688,7 +702,7 @@ function loadFlowPandaPower(a, b, c) {
         motors: (data, b) => {
             data.forEach(cell => {
                 const resultCell = b.getModel().getCell(cell.id);
-                const resultString = `Motors
+                const resultString = `${resultCell.value.attributes[0].nodeValue}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}`;
 
@@ -699,7 +713,7 @@ function loadFlowPandaPower(a, b, c) {
         storages: (data, b) => {
             data.forEach(cell => {
                 const resultCell = b.getModel().getCell(cell.id);
-                const resultString = `Storage
+                const resultString = `${resultCell.value.attributes[0].nodeValue}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}`;
 
@@ -710,7 +724,7 @@ function loadFlowPandaPower(a, b, c) {
         svc: (data, b) => {
             data.forEach(cell => {
                 const resultCell = b.getModel().getCell(cell.id);
-                const resultString = `SVC
+                const resultString = `${resultCell.value.attributes[0].nodeValue}
             Firing angle[degree]: ${formatNumber(cell.thyristor_firing_angle_degree)}
             x[Ohm]: ${formatNumber(cell.x_ohm)}
             q[MVar]: ${formatNumber(cell.q_mvar)}
@@ -724,7 +738,7 @@ function loadFlowPandaPower(a, b, c) {
         tcsc: (data, b) => {
             data.forEach(cell => {
                 const resultCell = b.getModel().getCell(cell.id);
-                const resultString = `TCSC
+                const resultString = `${resultCell.value.attributes[0].nodeValue}
             Firing angle[degree]: ${formatNumber(cell.thyristor_firing_angle_degree)}
             x[Ohm]: ${formatNumber(cell.x_ohm)}
             p_from[MW]: ${formatNumber(cell.p_from_mw)}
@@ -746,7 +760,7 @@ function loadFlowPandaPower(a, b, c) {
             
             data.forEach(cell => {
                 const resultCell = b.getModel().getCell(cell.id);
-                const resultString = `SSC
+                const resultString = `${resultCell.value.attributes[0].nodeValue}
             q_mvar: ${formatNumber(cell.q_mvar)}
             vm_internal_pu: ${formatNumber(cell.vm_internal_pu)}
             va_internal_degree: ${formatNumber(cell.va_internal_degree)}
@@ -761,7 +775,7 @@ function loadFlowPandaPower(a, b, c) {
         dclines: (data, b) => {
             data.forEach(cell => {
                 const resultCell = b.getModel().getCell(cell.id);
-                const resultString = `DC line
+                const resultString = `${resultCell.value.attributes[0].nodeValue}
             P_from[MW]: ${formatNumber(cell.p_from_mw)}
             Q_from[MVar]: ${formatNumber(cell.q_mvar)}
             P_to[MW]: ${formatNumber(cell.p_to_mw)}
@@ -822,9 +836,7 @@ function loadFlowPandaPower(a, b, c) {
         }
     }
 
-    //a - App
-    //b - Graph
-    //c - Editor
+    
     let apka = a
     let grafka = b
 
@@ -878,7 +890,7 @@ function loadFlowPandaPower(a, b, c) {
                         const externalGrid = {
                             ...baseData,
                             typ: `External Grid${counters.externalGrid++}`,
-                            ...getAttributesAsObject(cell, {
+                            ...getAttributesAsObject(cell, {                                
                                 vm_pu: 2,
                                 va_degree: 3,
                                 s_sc_max_mva: 5,
@@ -1337,10 +1349,10 @@ function loadFlowPandaPower(a, b, c) {
                                 type: 13,
 
                                 // Short circuit parameters
-                                r0_ohm_per_km: 15,
-                                x0_ohm_per_km: 16,
-                                c0_nf_per_km: 17,
-                                endtemp_degree: 18
+                                r0_ohm_per_km: { index: 15, optional: true },
+                                x0_ohm_per_km: { index: 16, optional: true },
+                                c0_nf_per_km: { index: 17, optional: true },
+                                endtemp_degree: { index: 18, optional: true }
                             })
                         };
 

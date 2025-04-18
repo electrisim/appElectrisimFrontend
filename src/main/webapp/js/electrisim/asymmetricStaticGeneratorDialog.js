@@ -1,10 +1,10 @@
 const  rowDefsAsymmetricStaticGenerator = [
-    { name: "Asymmetric Static Generator", p_a_mw:0.0,  p_b_mw: 0.0, p_c_mw: 0.0, q_a_mvar: 0.0, q_b_mvar: 0.0, q_c_mvar:0.0, sn_mva:0.0, scaling: 0.0, type: 'Wye'},
+    { givenname: "Asymmetric Static Generator", p_a_mw:0.0,  p_b_mw: 0.0, p_c_mw: 0.0, q_a_mvar: 0.0, q_b_mvar: 0.0, q_c_mvar:0.0, sn_mva:0.0, scaling: 0.0, type: 'Wye'},
     
   ];  
   const columnDefsAsymmetricStaticGenerator = [  
     {
-      field: "name",
+      field: "givenname",
     },
     {
       field: "p_a_mw",

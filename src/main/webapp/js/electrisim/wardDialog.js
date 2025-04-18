@@ -1,10 +1,10 @@
 const  rowDefsWard = [
-    { name: "Ward", ps_mw:0.0,  qs_mvar: 0.0, pz_mw: 0.0, qz_mvar: 0.0},
+    { givenname: "Ward", ps_mw:0.0,  qs_mvar: 0.0, pz_mw: 0.0, qz_mvar: 0.0},
     
   ];  
   const columnDefsWard = [  
     {
-      field: "name",
+      field: "givenname",
     },
     {
       field: "ps_mw",
