@@ -1,10 +1,10 @@
 const rowDefsDataLineBaseDialog = [
-    { givenname: "Line", length_km: 0.0, r_ohm_per_km: 0.0, x_ohm_per_km: 0.0, c_nf_per_km: 0.0, g_us_per_km: 0.0, max_i_ka: 0.0, type:"cs", r0_ohm_per_km:0.0, x0_ohm_per_km:0.0, c0_nf_per_km:0.0, endtemp_degree:0.0},
+    { name: "Line", length_km: 0.0, r_ohm_per_km: 0.0, x_ohm_per_km: 0.0, c_nf_per_km: 0.0, g_us_per_km: 0.0, max_i_ka: 0.0, type:"cs", r0_ohm_per_km:0.0, x0_ohm_per_km:0.0, c0_nf_per_km:0.0, endtemp_degree:0.0},
      ]; 
   
   const columnDefsLineBaseDialog = [
       
-      { field: "givenname", minWidth: 300 },
+      { field: "name", minWidth: 300 },
       { field: "length_km",
         headerTooltip: "The line length in km",
         maxWidth: 140,

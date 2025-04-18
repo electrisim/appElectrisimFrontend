@@ -1,10 +1,10 @@
 const  rowDefsTCSC = [
-    { givenname: "TCSC", x_l_ohm:0.0,  x_cvar_ohm: 0.0, set_p_to_mw: 0.0, thyristor_firing_angle_degree: 0.0,  controllable: 'True',  min_angle_degree: 90,  max_angle_degree: 180},
+    { name: "TCSC", x_l_ohm:0.0,  x_cvar_ohm: 0.0, set_p_to_mw: 0.0, thyristor_firing_angle_degree: 0.0,  controllable: 'True',  min_angle_degree: 90,  max_angle_degree: 180},
     
   ];  
   const columnDefsTCSC = [  
     {
-      field: "givenname",
+      field: "name",
     },
     {
       field: "x_l_ohm",

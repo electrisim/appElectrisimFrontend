@@ -1,10 +1,10 @@
 const  rowDefsStorage = [
-    { givenname: "Storage", p_mw:0.0,  max_e_mwh: 0.0, q_mvar: 0.0, sn_mva: 0.0, soc_percent: 0.0, min_e_mwh:0.0, scaling:0.0, type: 0.0},
+    { name: "Storage", p_mw:0.0,  max_e_mwh: 0.0, q_mvar: 0.0, sn_mva: 0.0, soc_percent: 0.0, min_e_mwh:0.0, scaling:0.0, type: 0.0},
     
   ];  
   const columnDefsStorage = [  
     {
-      field: "givenname",
+      field: "name",
     },
     {
       field: "p_mw",

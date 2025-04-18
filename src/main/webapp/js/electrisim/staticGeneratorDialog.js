@@ -1,10 +1,10 @@
 const  rowDefsStaticGenerator = [
-    { givenname: "Static Generator", p_mw:0.0,  q_mvar: 0.0, sn_mva: 0.0, scaling: 0.0, type: 'Wye', k:0.0, rx:0.0, generator_type: 'async', lrc_pu: 0.0, max_ik_ka: 0.0, kappa: 0.0, current_source: true},
+    { name: "Static Generator", p_mw:0.0,  q_mvar: 0.0, sn_mva: 0.0, scaling: 0.0, type: 'Wye', k:0.0, rx:0.0, generator_type: 'async', lrc_pu: 0.0, max_ik_ka: 0.0, kappa: 0.0, current_source: true},
     
   ];  
   const columnDefsStaticGenerator = [  
     {
-      field: "givenname",
+      field: "name",
     },
     {
       field: "p_mw",

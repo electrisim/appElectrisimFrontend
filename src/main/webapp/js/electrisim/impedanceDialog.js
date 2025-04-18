@@ -1,10 +1,10 @@
 const  rowDefsImpedance = [
-    { givenname: "Impedance", r_pu:0.0,  x_pu: 0.0, sn_mva: 0.0},
+    { name: "Impedance", r_pu:0.0,  x_pu: 0.0, sn_mva: 0.0},
     
   ];  
   const columnDefsImpedance = [  
     {
-      field: "givenname",
+      field: "name",
     },
     {
       field: "r_pu",

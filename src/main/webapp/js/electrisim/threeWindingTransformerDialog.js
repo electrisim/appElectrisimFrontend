@@ -1,7 +1,7 @@
   rowDefsDataThreeWindingTransformer = [
-    { givenname: "63/25/38 MVA 110/20/10 kV", sn_hv_mva: 63, sn_mv_mva: 25, sn_lv_mva: 38, vn_hv_kv: 110, vn_mv_kv: 20, vn_lv_kv:10, vk_hv_percent:10.4, vk_mv_percent:10.4, vk_lv_percent:10.4, vkr_hv_percent:0.28, vkr_mv_percent:0.32, vkr_lv_percent:0.35, pfe_kw:35, i0_percent:0.89, shift_mv_degree:0, shift_lv_degree:0, tap_step_percent:1.2, tap_pos:0, tap_min:-10, tap_max:10},//, vk0_hv_percent:1.0,vk0_mv_percent:1.0,vk0_lv_percent:1.0,vkr0_hv_percent:1.0,vkr0_mv_percent:1.0,vkr0_lv_percent:1.0,vector_group:1.0 },
-    { givenname: "63/25/38 MVA 110/10/10 kV", sn_hv_mva: 63, sn_mv_mva: 25, sn_lv_mva: 38, vn_hv_kv: 110, vn_mv_kv: 10, vn_lv_kv:10, vk_hv_percent:10.4, vk_mv_percent:10.4, vk_lv_percent:10.4, vkr_hv_percent:0.28, vkr_mv_percent:0.32, vkr_lv_percent:0.35, pfe_kw:35, i0_percent:0.89, shift_mv_degree:0, shift_lv_degree:0, tap_step_percent:1.2, tap_pos:0, tap_min:-10, tap_max:10},//, vk0_hv_percent:1.0,vk0_mv_percent:1.0,vk0_lv_percent:1.0,vkr0_hv_percent:1.0,vkr0_mv_percent:1.0,vkr0_lv_percent:1.0,vector_group:1.0 },
-    { givenname: "350/350/10 MVA 400/275/15 kV", sn_hv_mva: 350, sn_mv_mva: 350, sn_lv_mva: 10, vn_hv_kv: 400, vn_mv_kv: 275, vn_lv_kv:15, vk_hv_percent:11, vk_mv_percent:11, vk_lv_percent:10.4, vkr_hv_percent:0, vkr_mv_percent:0, vkr_lv_percent:0, pfe_kw:140, i0_percent:0, shift_mv_degree:0, shift_lv_degree:0, tap_step_percent:1.5, tap_pos:0, tap_min:-10, tap_max:10},//, vk0_hv_percent:1.0,vk0_mv_percent:1.0,vk0_lv_percent:1.0,vkr0_hv_percent:1.0,vkr0_mv_percent:1.0,vkr0_lv_percent:1.0,vector_group:1.0 },
+    { name: "63/25/38 MVA 110/20/10 kV", sn_hv_mva: 63, sn_mv_mva: 25, sn_lv_mva: 38, vn_hv_kv: 110, vn_mv_kv: 20, vn_lv_kv:10, vk_hv_percent:10.4, vk_mv_percent:10.4, vk_lv_percent:10.4, vkr_hv_percent:0.28, vkr_mv_percent:0.32, vkr_lv_percent:0.35, pfe_kw:35, i0_percent:0.89, shift_mv_degree:0, shift_lv_degree:0, tap_step_percent:1.2, tap_pos:0, tap_min:-10, tap_max:10},//, vk0_hv_percent:1.0,vk0_mv_percent:1.0,vk0_lv_percent:1.0,vkr0_hv_percent:1.0,vkr0_mv_percent:1.0,vkr0_lv_percent:1.0,vector_group:1.0 },
+    { name: "63/25/38 MVA 110/10/10 kV", sn_hv_mva: 63, sn_mv_mva: 25, sn_lv_mva: 38, vn_hv_kv: 110, vn_mv_kv: 10, vn_lv_kv:10, vk_hv_percent:10.4, vk_mv_percent:10.4, vk_lv_percent:10.4, vkr_hv_percent:0.28, vkr_mv_percent:0.32, vkr_lv_percent:0.35, pfe_kw:35, i0_percent:0.89, shift_mv_degree:0, shift_lv_degree:0, tap_step_percent:1.2, tap_pos:0, tap_min:-10, tap_max:10},//, vk0_hv_percent:1.0,vk0_mv_percent:1.0,vk0_lv_percent:1.0,vkr0_hv_percent:1.0,vkr0_mv_percent:1.0,vkr0_lv_percent:1.0,vector_group:1.0 },
+    { name: "350/350/10 MVA 400/275/15 kV", sn_hv_mva: 350, sn_mv_mva: 350, sn_lv_mva: 10, vn_hv_kv: 400, vn_mv_kv: 275, vn_lv_kv:15, vk_hv_percent:11, vk_mv_percent:11, vk_lv_percent:10.4, vkr_hv_percent:0, vkr_mv_percent:0, vkr_lv_percent:0, pfe_kw:140, i0_percent:0, shift_mv_degree:0, shift_lv_degree:0, tap_step_percent:1.5, tap_pos:0, tap_min:-10, tap_max:10},//, vk0_hv_percent:1.0,vk0_mv_percent:1.0,vk0_lv_percent:1.0,vkr0_hv_percent:1.0,vkr0_mv_percent:1.0,vkr0_lv_percent:1.0,vector_group:1.0 },
   ];     
   
   const columnDefsThreeWindingTransformer = [
@@ -12,7 +12,7 @@
         editable: false,
         colId: "action"
       },
-      { field: "givenname", minWidth: 300 },
+      { field: "name", minWidth: 300 },
       { field: "sn_hv_mva",
         headerTooltip: "rated apparent power on high voltage side",
         maxWidth: 110,

@@ -1,10 +1,10 @@
 const  rowDefsDCLine = [
-    { givenname: "DC line", p_mw:0.0,  loss_percent: 0.0, loss_mw: 0.0, vm_from_pu: 0.0, vm_to_pu: 0.0},
+    { name: "DC line", p_mw:0.0,  loss_percent: 0.0, loss_mw: 0.0, vm_from_pu: 0.0, vm_to_pu: 0.0},
     
   ];  
   const columnDefsDCLine = [  
     {
-      field: "givenname",
+      field: "name",
     },
     {
       field: "p_mw",
