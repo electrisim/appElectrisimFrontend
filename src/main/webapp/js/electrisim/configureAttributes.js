@@ -5,7 +5,7 @@ function configureExternalGridAttributes(grafka, vertex, options = {}) {
     // Create XML document
     var g = mxUtils.createXmlDocument().createElement("object");
     
-    g.setAttribute("givenname", "External Grid");
+    g.setAttribute("name", "External Grid");
     g.setAttribute("Load_flow_parameters", "");
     g.setAttribute("vm_pu", options.vm_pu || "0");
     g.setAttribute("va_degree", options.va_degree || "0");
@@ -19,7 +19,7 @@ function configureExternalGridAttributes(grafka, vertex, options = {}) {
     g.setAttribute("rx_min", "0");
     g.setAttribute("r0x0_max", "0");
     g.setAttribute("x0x_max", "0");
-   // g.setAttribute("givenname", "External Grid  ");
+
 
     //Optimal Power Flow
     /*
@@ -44,7 +44,7 @@ function configureGeneratorAttributes(grafka, vertex, options = {}) {
 
     // Create XML document
     var g = mxUtils.createXmlDocument().createElement("object");
-    g.setAttribute("givenname", "Generator");                
+    g.setAttribute("name", "Generator");                
     g.setAttribute("Load_flow_parameters", "");
     g.setAttribute("p_mw", options.p_mw || "0");
     g.setAttribute("vm_pu", options.vm_pu || "0");
@@ -84,7 +84,7 @@ function configureStaticGeneratorAttributes(grafka, vertex, options = {}) {
 
 
     var g = mxUtils.createXmlDocument().createElement("object");
-    g.setAttribute("givenname", "Static Generator");
+    g.setAttribute("name", "Static Generator");
     g.setAttribute("Load_flow_parameters", "");
     g.setAttribute("p_mw", options.p_mw || "0");
     g.setAttribute("q_mvar", options.q_mvar ||  "0");
@@ -122,7 +122,7 @@ function configureStaticGeneratorAttributes(grafka, vertex, options = {}) {
 function configureAsymmetricStaticGeneratorAttributes(grafka, vertex, options = {}) {
     
     var g = mxUtils.createXmlDocument().createElement("object");
-    g.setAttribute("givenname", "Asymmetric Static Generator");
+    g.setAttribute("name", "Asymmetric Static Generator");
     g.setAttribute("Load_flow_parameters", "");
     g.setAttribute("p_a_mw", options.p_a_mw || "0");
     g.setAttribute("p_b_mw", options.p_b_mw || "0");
@@ -152,7 +152,7 @@ function configureBusAttributes(grafka, vertex, options = {}) {
  
     g.setAttribute("Load_flow_parameters", "");
     g.setAttribute("vn_kv", options.vn_kv || "0");
-    g.setAttribute("givenname", "Bus");  
+     
     //g.setAttribute("type", "b");
     //g.setAttribute("in_service", true); //in_service nie działa
 
@@ -171,7 +171,7 @@ function configureTransformerAttributes(grafka, vertex, options = {}) {
 
     var g = mxUtils.createXmlDocument().createElement("object");
 
-    g.setAttribute("givenname", "Transformer");
+    g.setAttribute("name", "Transformer");
 
     g.setAttribute("parameters", true);  //na potrzeby wyboru elementu z biblioteki
     g.setAttribute("name", options.name ||"-");
@@ -223,7 +223,7 @@ function configureTransformerAttributes(grafka, vertex, options = {}) {
 
 function configureThreeWindingTransformerAttributes(grafka, vertex, options = {}) {
     var g = mxUtils.createXmlDocument().createElement("object");
-    g.setAttribute("givenname", "Three winding transformer");
+    g.setAttribute("name", "Three winding transformer");
 
     g.setAttribute("parameters", true);  //na potrzeby wyboru elementu z biblioteki
 
@@ -288,7 +288,7 @@ function configureThreeWindingTransformerAttributes(grafka, vertex, options = {}
 function configureShuntReactorAttributes(grafka, vertex, options = {}) {
   
     var g = mxUtils.createXmlDocument().createElement("object");
-    g.setAttribute("givenname", "Shunt Reactor");
+    g.setAttribute("name", "Shunt Reactor");
 
     //INPUT
     g.setAttribute("Load_flow_parameters", "");
@@ -311,7 +311,7 @@ function configureShuntReactorAttributes(grafka, vertex, options = {}) {
 function configureCapacitorAttributes(grafka, vertex, options = {}) {            
 
     var g = mxUtils.createXmlDocument().createElement("object");
-    g.setAttribute("givenname", "Capacitor");
+    g.setAttribute("name", "Capacitor");
 
     //INPUT     
     g.setAttribute("Load_flow_parameters", "");
@@ -333,7 +333,7 @@ function configureCapacitorAttributes(grafka, vertex, options = {}) {
 function configureLoadAttributes(grafka, vertex, options = {}) {
 
     var g = mxUtils.createXmlDocument().createElement("object");
-    g.setAttribute("givenname", "Load");
+    g.setAttribute("name", "Load");
 
     //OPTIONAL
     g.setAttribute("Load_flow_parameters", "");
@@ -361,7 +361,7 @@ function configureAsymmetricLoadAttributes(grafka, vertex, options = {}) {
     var parametry = grafka.getModel().getValue(vertex);
 
     var g = mxUtils.createXmlDocument().createElement("object");
-    g.setAttribute("givenname", "Asymmetric Load");
+    g.setAttribute("name", "Asymmetric Load");
 
     //OPTIONAL
     g.setAttribute("Load_flow_parameters", "");
@@ -384,7 +384,7 @@ function configureAsymmetricLoadAttributes(grafka, vertex, options = {}) {
 function configureImpedanceAttributes(grafka, vertex, options = {}) {
 
     var g = mxUtils.createXmlDocument().createElement("object");
-    g.setAttribute("givenname", "Impedance");
+    g.setAttribute("name", "Impedance");
 
     //INPUT
     g.setAttribute("Load_flow_parameters", "");
@@ -397,7 +397,7 @@ function configureImpedanceAttributes(grafka, vertex, options = {}) {
 
 function configureWardAttributes(grafka, vertex, options = {}) {
     var g = mxUtils.createXmlDocument().createElement("object");
-    g.setAttribute("givenname", "Ward");
+    g.setAttribute("name", "Ward");
 
     //INPUT
     g.setAttribute("Load_flow_parameters", "");  
@@ -412,7 +412,7 @@ function configureWardAttributes(grafka, vertex, options = {}) {
 function configureExtendedWardAttributes(grafka, vertex, options = {}) {
     
     var g = mxUtils.createXmlDocument().createElement("object");
-    g.setAttribute("givenname", "Extended Ward");
+    g.setAttribute("name", "Extended Ward");
 
     //INPUT
     g.setAttribute("Load_flow_parameters", "");
@@ -434,7 +434,7 @@ function configureExtendedWardAttributes(grafka, vertex, options = {}) {
 function configureMotorAttributes(grafka, vertex, options = {}) {
    
     var g = mxUtils.createXmlDocument().createElement("object");
-    g.setAttribute("givenname", "Ward");
+    g.setAttribute("name", "Ward");
 
     //g.setAttribute("parameters", true);  //na potrzeby wyboru elementu z biblioteki
 
@@ -464,7 +464,7 @@ function configureMotorAttributes(grafka, vertex, options = {}) {
 function configureStorageAttributes(grafka, vertex, options = {}) {
 
     var g = mxUtils.createXmlDocument().createElement("object");
-    g.setAttribute("givenname", "Storage");
+    g.setAttribute("name", "Storage");
 
     //INPUT
     g.setAttribute("Load_flow_parameters", "");
@@ -496,7 +496,7 @@ function configureStorageAttributes(grafka, vertex, options = {}) {
 function configureSVCAttributes(grafka, vertex, options = {}) {
 
     var g = mxUtils.createXmlDocument().createElement("object");
-    g.setAttribute("givenname", "SVC");
+    g.setAttribute("name", "SVC");
 
     //INPUT                
     g.setAttribute("x_l_ohm", options.x_l_ohm || "0");
@@ -515,7 +515,7 @@ function configureSVCAttributes(grafka, vertex, options = {}) {
 function configureTCSCAttributes(grafka, vertex, options = {}) {
 
     var g = mxUtils.createXmlDocument().createElement("object");
-    g.setAttribute("givenname", "TCSC");
+    g.setAttribute("name", "TCSC");
 
     //INPUT                
     g.setAttribute("x_l_ohm", options.x_l_ohm ||"0");
@@ -535,7 +535,7 @@ function configureSSCAttributes(grafka, vertex, options = {}) {
     var parametry = grafka.getModel().getValue(vertex);
 
     var g = mxUtils.createXmlDocument().createElement("object");
-    g.setAttribute("givenname", "SSC");
+    g.setAttribute("name", "SSC");
 
     //INPUT                
     g.setAttribute("r_ohm", options.r_ohm || "0");
@@ -554,7 +554,7 @@ function configureDCLineAttributes(grafka, vertex, options = {}) {
     var parametry = grafka.getModel().getValue(vertex);
 
     var g = mxUtils.createXmlDocument().createElement("object");
-    g.setAttribute("givenname", "DC Line");
+    g.setAttribute("name", "DC Line");
 
     //INPUT
     g.setAttribute("Load_flow_parameters", "");  
@@ -604,7 +604,7 @@ function configureLineAttributes(grafka, vertex, options = {}) {
     g.setAttribute("g_us_per_km", options.g_us_per_km || "0");
     g.setAttribute("max_i_ka", options.max_i_ka || "0");
     g.setAttribute("type", options.type || "cs");
-    g.setAttribute("givenname", "DCLine");   
+  
 
 
     grafka.getModel().setValue(vertex, g) 

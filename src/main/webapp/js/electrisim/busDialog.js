@@ -1,10 +1,10 @@
 const  rowDefsBus = [
-    { givenname: "Bus", vn_kv:0.0},
+    { name: "Bus", vn_kv:0.0},
     
   ];  
   const columnDefsBus = [  
     {
-      field: "givenname",
+      field: "name",
     },
     {
       field: "vn_kv",

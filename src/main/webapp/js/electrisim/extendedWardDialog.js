@@ -1,10 +1,10 @@
 const  rowDefsExtendedWard = [
-    { givenname: "Extended Ward", ps_mw:0.0,  qs_mvar: 0.0, pz_mw: 0.0, qz_mvar: 0.0, r_ohm: 0.0, x_ohm:0.0, vm_pu:0.0},
+    { name: "Extended Ward", ps_mw:0.0,  qs_mvar: 0.0, pz_mw: 0.0, qz_mvar: 0.0, r_ohm: 0.0, x_ohm:0.0, vm_pu:0.0},
     
   ];  
   const columnDefsExtendedWard = [  
     {
-      field: "givenname",
+      field: "name",
     },
     {
       field: "ps_mw",
