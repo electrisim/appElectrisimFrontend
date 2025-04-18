@@ -1,10 +1,10 @@
 const  rowDefsSSC = [
-    { name: "SSC(STATCOM)", r_ohm:0.0,  x_ohm: 0.0, set_vm_pu: 0.0, vm_internal_pu: 0.0, va_internal_degree: 0.0, controllable: 'True'  },
+    { givenname: "SSC(STATCOM)", r_ohm:0.0,  x_ohm: 0.0, set_vm_pu: 0.0, vm_internal_pu: 0.0, va_internal_degree: 0.0, controllable: 'True'  },
     
   ];  
   const columnDefsSSC = [  
     {
-      field: "name",
+      field: "givenname",
     },
     {
       field: "r_ohm",

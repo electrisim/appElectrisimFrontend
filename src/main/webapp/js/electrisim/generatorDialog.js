@@ -1,10 +1,10 @@
 const  rowDefsGenerator = [
-    { name: "Generator", p_mw:0.0,  vm_pu: 0.0, sn_mva: 0.0, scaling: 0.0, vn_kv: 0.0, xdss_pu:0.0, rdss_ohm:0.0, cos_phi: 0.0, pg_percent: 0.0, power_station_trafo: 0.0},
+    { givenname: "Generator", p_mw:0.0,  vm_pu: 0.0, sn_mva: 0.0, scaling: 0.0, vn_kv: 0.0, xdss_pu:0.0, rdss_ohm:0.0, cos_phi: 0.0, pg_percent: 0.0, power_station_trafo: 0.0},
     
   ];  
   const columnDefsGenerator = [  
     {
-      field: "name",
+      field: "givenname",
     },
     {
       field: "p_mw",

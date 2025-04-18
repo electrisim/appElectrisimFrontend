@@ -1,10 +1,10 @@
 const  rowDefsCapacitor = [
-    { name: "Capacitor", q_mvar:0.0,  loss_factor: 0.0, vn_kv: 0.0, step: 0.0, max_step: 0.0},
+    { givenname: "Capacitor", q_mvar:0.0,  loss_factor: 0.0, vn_kv: 0.0, step: 0.0, max_step: 0.0},
     
   ];  
   const columnDefsCapacitor= [  
     {
-      field: "name",
+      field: "givenname",
     },
     {
       field: "q_mvar",

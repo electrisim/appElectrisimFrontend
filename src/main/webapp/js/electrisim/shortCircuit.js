@@ -399,7 +399,7 @@ function shortCircuit(a, b, c) {
                         }
 
                         console.log("Three Winding Transformer attributes")
-                        console.log(cell.value.attributes)
+                       
 
                         //Load_flow_parameters
                         threeWindingTransformer.sn_hv_mva = cell.value.attributes[4].nodeValue
@@ -491,10 +491,7 @@ function shortCircuit(a, b, c) {
                         }else{
                             capacitor.bus = cell.edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.edges[0].target.mxObjectId.replace('#', '')
                         }
-
-
-                        console.log("Capacitor attributes")
-                        console.log(cell.value.attributes)
+           
 
                         //Load_flow_parameters
                         capacitor.q_mvar = cell.value.attributes[2].nodeValue
@@ -1005,10 +1002,6 @@ function shortCircuit(a, b, c) {
                 else document.write(arr);
             }
 
-            /*function zamiana(match, offset, string) {
-                console.log('zamiana')
-                return '-';//return (offset > 0 ? '-' : '') + match.toLowerCase();
-            } */
 
             //*************** KONIEC - SCZYTYWANIE MODELU DO BACKEND ****************
 
@@ -1099,7 +1092,7 @@ function shortCircuit(a, b, c) {
                     });*/
 
                     //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Line
-                    let csvContent = "data:text/csv;charset=utf-8,Busbar Name,ikss_ka, ip_ka, ith_ka, rk_ohm, xk_ohm\n";
+                    //let csvContent = "data:text/csv;charset=utf-8,Busbar Name,ikss_ka, ip_ka, ith_ka, rk_ohm, xk_ohm\n";
 
 
                     for (let i = 0; i < dataJson.busbars.length; i++) {
@@ -1110,8 +1103,8 @@ function shortCircuit(a, b, c) {
 
 
                         //for the csv file
-                        let row = Object.values(dataJson.busbars[i]).join(",")
-                        csvContent += row + "\r\n";
+                        //let row = Object.values(dataJson.busbars[i]).join(",")
+                        //csvContent += row + "\r\n";
 
                         //create label
                         let resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
@@ -1179,19 +1172,19 @@ function shortCircuit(a, b, c) {
 
                     } */
                     //download to CSV
-                    let encodedUri = encodeURI(csvContent);
-                    let link = document.createElement("a");
-                    link.setAttribute("href", encodedUri);
-                    link.setAttribute("download", "Results.csv");
-                    document.body.appendChild(link); // Required for FF
-                    link.click();
+                    //let encodedUri = encodeURI(csvContent);
+                    //let link = document.createElement("a");
+                    //link.setAttribute("href", encodedUri);
+                    //link.setAttribute("download", "Results.csv");
+                    //document.body.appendChild(link); // Required for FF
+                    //link.click();
 
                 })
-            /*
+            
             .catch(err => {
                 if (err === "server") return
-                console.log(err)
-            })*/
+                alert(err)
+            })
 
         }
     })

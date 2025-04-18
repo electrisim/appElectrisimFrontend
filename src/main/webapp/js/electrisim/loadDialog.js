@@ -1,10 +1,10 @@
 const  rowDefsLoad = [
-    { name: "Load", p_mw:0.0,  q_mvar: 0.0, const_z_percent: 0.0, const_i_percent: 0.0, sn_mva: 0.0, scaling:0.0, type:'Wye'},
+    { givenname: "Load", p_mw:0.0,  q_mvar: 0.0, const_z_percent: 0.0, const_i_percent: 0.0, sn_mva: 0.0, scaling:0.0, type:'Wye'},
     
   ];  
   const columnDefsLoad = [  
     {
-      field: "name",
+      field: "givenname",
     },
     {
       field: "p_mw",

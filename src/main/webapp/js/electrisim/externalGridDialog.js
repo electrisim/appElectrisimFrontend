@@ -1,11 +1,11 @@
 const  rowDefsExternalGrid = [
-    { name: "External Grid", vm_pu:0.0,  va_degree: 0.0, s_sc_max_mva: 1000000.0, s_sc_min_mva: 0.0, rx_max: 0.0, rx_min:0.0, r0x0_max:0.0, x0x_max: 0.0},
+    { givenname: "External Grid", vm_pu:0.0,  va_degree: 0.0, s_sc_max_mva: 1000000.0, s_sc_min_mva: 0.0, rx_max: 0.0, rx_min:0.0, r0x0_max:0.0, x0x_max: 0.0},
     
   ];  
   const columnDefsExternalGrid = [  
   
     {
-      field: "name",
+      field: "givenname",
     },
     {
       field: "vm_pu",

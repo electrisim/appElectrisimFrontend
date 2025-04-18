@@ -1,10 +1,10 @@
 const rowDefsMotor = [
-  { name: "Motor", pn_mech_mw: 0.0, cos_phi: 0.0, cos_phi_n: 0.0, efficiency_n_percent: 0.0, lrc_pu: 0.0, rx: 0.0, vn_kv: 0.0, efficiency_percent: 0.0, loading_percent: 0.0, scaling: 0.0 },
+  { givenname: "Motor", pn_mech_mw: 0.0, cos_phi: 0.0, cos_phi_n: 0.0, efficiency_n_percent: 0.0, lrc_pu: 0.0, rx: 0.0, vn_kv: 0.0, efficiency_percent: 0.0, loading_percent: 0.0, scaling: 0.0 },
 
 ];
 const columnDefsMotor = [
   {
-    field: "name",
+    field: "givenname",
   },
   {
     field: "pn_mech_mw",
