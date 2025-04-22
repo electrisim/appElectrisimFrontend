@@ -1109,7 +1109,7 @@ function shortCircuit(a, b, c) {
                         //create label
                         let resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
 
-                        var label12 = b.insertVertex(resultCell, null, 'Bus', 0.2, 1.4, 0, 0, 'labelstyle', true);
+                        var label12 = b.insertVertex(resultCell, null, resultCell.value.attributes[0].nodeValue, 0.2, 1.4, 0, 0, 'labelstyle', true);
                         label12.setStyle('shapeELXXX=Result')
 
                         var label12 = b.insertVertex(resultCell, null, 'ikss[kA]: ' + dataJson.busbars[i].ikss_ka.toFixed(3), 0.2, 2.6, 0, 0, 'labelstyle', true);
