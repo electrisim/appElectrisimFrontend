@@ -604,6 +604,12 @@ function configureLineAttributes(grafka, vertex, options = {}) {
     g.setAttribute("g_us_per_km", options.g_us_per_km || "0");
     g.setAttribute("max_i_ka", options.max_i_ka || "0");
     g.setAttribute("type", options.type || "cs");
+
+    //Short circuit parameters
+    g.setAttribute("r0_ohm_per_km", "0");
+    g.setAttribute("x0_ohm_per_km", "0");
+    g.setAttribute("c0_nf_per_km", "0");
+    g.setAttribute("endtemp_degree", "0");
   
 
 

@@ -821,10 +821,10 @@ function shortCircuit(a, b, c) {
                         //line.in_service = cell.value.attributes[13].nodeValue
 
                         //Short_circuit_parameters
-                        line.r0_ohm_per_km = cell.value.attributes[15].nodeValue ////w specyfikacji PandaPower jako nan
-                        line.x0_ohm_per_km = cell.value.attributes[16].nodeValue //w specyfikacji PandaPower jako nan
-                        line.c0_nf_per_km = cell.value.attributes[17].nodeValue //w specyfikacji PandaPower jako nan
-                        line.endtemp_degree = cell.value.attributes[18].nodeValue //w specyfikacji PandaPower jako nan
+                        line.r0_ohm_per_km = cell.value.attributes[14].nodeValue ////w specyfikacji PandaPower jako nan
+                        line.x0_ohm_per_km = cell.value.attributes[15].nodeValue //w specyfikacji PandaPower jako nan
+                        line.c0_nf_per_km = cell.value.attributes[16].nodeValue //w specyfikacji PandaPower jako nan
+                        line.endtemp_degree = cell.value.attributes[17].nodeValue //w specyfikacji PandaPower jako nan
 
                         lineNo++
 
