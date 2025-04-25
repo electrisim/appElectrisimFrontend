@@ -83,18 +83,39 @@ function loadFlowPandaPower(a, b, c) {
     };
 
 
-    //jeśli Linia to getConnectedBusId(cell, true)
+    //define buses to which the cell is connected
     const getConnectedBusId = (cell, isLine = false) => {
+        console.log('cell in getConnectedBusId', cell);
+
         if (isLine) {                 
             return {            
                 busFrom: cell.source?.mxObjectId?.replace('#', '_'),
                 busTo: cell.target?.mxObjectId?.replace('#', '_')
             };            
-        }        
+        }
+        const edge = cell.edges[0];
+        // First check if edge exists
+        if (!edge) {
+            return null; // or some default value
+        }
+
+        // Then check if both target and source exist before accessing their properties
+        if (!edge.target && !edge.source) {
+            return null; // or some default value
+        }
+
+        // Make sure we're not accessing mxObjectId from a null object
+        const bus = edge.target && edge.target.mxObjectId !== cell.mxObjectId ?
+            (edge.target ? edge.target.mxObjectId : null) : 
+            (edge.source ? edge.source.mxObjectId : null);
+
+        // Only try to replace if bus is not null
+        return bus ? bus.replace('#', '_') : null;
+        /*        
         const edge = cell.edges[0];
             const bus = edge.target.mxObjectId !== cell.mxObjectId ?
                 edge.target.mxObjectId : edge.source.mxObjectId;
-        return bus.replace('#', '_');
+        return bus.replace('#', '_');*/
     };
 
     // Helper function to parse cell style
@@ -105,30 +126,42 @@ function loadFlowPandaPower(a, b, c) {
     };
 
     // Helper function to get attributes as object
-    const getAttributesAsObject = (cell, attributeIndices) => {
+    const getAttributesAsObject = (cell, attributeMap) => {
         const result = {};
         console.log('cell in getAttributes', cell);
         
-        for (const [key, index] of Object.entries(attributeIndices)) {
-            // Check if index is a simple number or an object with optional flag
-            const isOptional = typeof index === 'object' && index.optional;
-            const actualIndex = typeof index === 'object' ? index.index : index;
-            
-            console.log(`Processing attribute ${key} at index ${actualIndex}, optional: ${isOptional}`);
-            
-            // Check if cell.value and attributes exist
-            if (cell && cell.value && cell.value.attributes && 
-                cell.value.attributes[actualIndex]) {
-                result[key] = cell.value.attributes[actualIndex].nodeValue;
-            } else if (!isOptional) {
-                // For non-optional attributes, provide a default value or null
-                console.warn(`Missing required attribute ${key} at index ${actualIndex}`);
-                result[key] = null;
-            }
-            // Skip optional attributes if they don't exist
+        // Make sure cell has all the required properties
+        if (!cell || !cell.value || !cell.value.attributes) {
+            console.warn('Cell is missing required properties');
+            return result;
         }
         
-        console.log('result in getAttributes', result);
+        // Get all available attributes
+        const attributes = cell.value.attributes;
+        
+        // Process each requested attribute by name instead of index
+        for (const [key, config] of Object.entries(attributeMap)) {
+            const isOptional = typeof config === 'object' && config.optional;
+            const attributeName = typeof config === 'object' ? config.name : config;
+            
+            console.log(`Looking for attribute ${key} with name ${attributeName}, optional: ${isOptional}`);
+            
+            // Find the attribute by name in the attributes collection
+            let found = false;
+            for (let i = 0; i < attributes.length; i++) {
+                if (attributes[i].nodeName === attributeName) {
+                    result[key] = attributes[i].nodeValue;
+                    found = true;
+                    break;
+                }
+            }
+            
+            if (!found && !isOptional) {
+                console.warn(`Missing required attribute ${key} with name ${attributeName}`);
+                result[key] = null;
+            }
+        }
+        
         return result;
     };
 
@@ -891,14 +924,14 @@ function loadFlowPandaPower(a, b, c) {
                             ...baseData,
                             typ: `External Grid${counters.externalGrid++}`,
                             ...getAttributesAsObject(cell, {                                
-                                vm_pu: 2,
-                                va_degree: 3,
-                                s_sc_max_mva: 5,
-                                s_sc_min_mva: 6,
-                                rx_max: 7,
-                                rx_min: 8,
-                                r0x0_max: 9,
-                                x0x_max: 10
+                                vm_pu: 'vm_pu',
+                                va_degree: 'va_degree',
+                                s_sc_max_mva: 's_sc_max_mva',
+                                s_sc_min_mva: 's_sc_min_mva',
+                                rx_max: 'rx_max',
+                                rx_min: 'rx_min',
+                                r0x0_max: 'r0x0_max',
+                                x0x_max: 'x0x_max'
                             })
                         };
                         componentArrays.externalGrid.push(externalGrid);
@@ -909,16 +942,16 @@ function loadFlowPandaPower(a, b, c) {
                             ...baseData,
                             typ: "Generator",
                             ...getAttributesAsObject(cell, {
-                                p_mw: 2,
-                                vm_pu: 3,
-                                sn_mva: 4,
-                                scaling: 5,
-                                vn_kv: 7,
-                                xdss_pu: 8,
-                                rdss_ohm: 9,
-                                cos_phi: 10,
-                                pg_percent: 11,
-                                power_station_trafo: 12
+                                p_mw: 'p_mw',
+                                vm_pu: 'vm_pu',
+                                sn_mva: 'sn_mva',
+                                scaling: 'scaling',
+                                vn_kv: 'vn_kv',
+                                xdss_pu: 'xdss_pu',
+                                rdss_ohm: 'rdss_ohm',
+                                cos_phi: 'cos_phi',
+                                pg_percent: 'pg_percent',
+                                power_station_trafo: 'power_station_trafo'
                             })
                         };
                         componentArrays.generator.push(generator);
@@ -930,18 +963,18 @@ function loadFlowPandaPower(a, b, c) {
                             ...baseData,
                             typ: "Static Generator",
                             ...getAttributesAsObject(cell, {
-                                p_mw: 2,
-                                q_mvar: 3,
-                                sn_mva: 4,
-                                scaling: 5,
-                                type: 6,
-                                k: 8,
-                                rx: 9,
-                                generator_type: 10,
-                                lrc_pu: 11,
-                                max_ik_ka: 12,
-                                kappa: 13,
-                                current_source: 14
+                                p_mw: 'p_mw',
+                                q_mvar: 'q_mvar',
+                                sn_mva: 'sn_mva',
+                                scaling: 'scaling',
+                                type: 'type',
+                                k: 'k',
+                                rx: 'rx',
+                                generator_type: 'generator_type',
+                                lrc_pu: 'lrc_pu',
+                                max_ik_ka: 'max_ik_ka',
+                                kappa: 'kappa',
+                                current_source: 'current_source'
                             })
                         };
                         componentArrays.staticGenerator.push(staticGenerator);
@@ -953,15 +986,15 @@ function loadFlowPandaPower(a, b, c) {
                             ...baseData,
                             typ: `Asymmetric Static Generator${counters.asymmetricGenerator++}`,
                             ...getAttributesAsObject(cell, {
-                                p_a_mw: 2,
-                                p_b_mw: 3,
-                                p_c_mw: 4,
-                                q_a_mvar: 5,
-                                q_b_mvar: 6,
-                                q_c_mvar: 7,
-                                sn_mva: 8,
-                                scaling: 9,
-                                type: 10
+                                p_a_mw: 'p_a_mw',
+                                p_b_mw: 'p_b_mw',
+                                p_c_mw: 'p_c_mw',
+                                q_a_mvar: 'q_a_mvar',
+                                q_b_mvar: 'q_b_mvar',
+                                q_c_mvar: 'q_c_mvar',
+                                sn_mva: 'sn_mva',
+                                scaling: 'scaling',
+                                type: 'type'
                             })
                         };
                         componentArrays.asymmetricGenerator.push(asymmetricGenerator);
@@ -987,32 +1020,32 @@ function loadFlowPandaPower(a, b, c) {
                             lv_bus,
                             ...getAttributesAsObject(cell, {
                                 // Load flow parameters
-                                sn_mva: 4,
-                                vn_hv_kv: 5,
-                                vn_lv_kv: 6,
+                                sn_mva: 'sn_mva',
+                                vn_hv_kv: 'vn_hv_kv',
+                                vn_lv_kv: 'vn_lv_kv',
 
                                 // Short circuit parameters
-                                vkr_percent: 8,
-                                vk_percent: 9,
-                                pfe_kw: 10,
-                                i0_percent: 11,
-                                vector_group: 12,
-                                vk0_percent: 13,
-                                vkr0_percent: 14,
-                                mag0_percent: 15,
-                                si0_hv_partial: 16,
+                                vkr_percent: 'vkr_percent',
+                                vk_percent: 'vk_percent',
+                                pfe_kw: 'pfe_kw',
+                                i0_percent: 'i0_percent',
+                                vector_group: 'vector_group',
+                                vk0_percent: 'vk0_percent',
+                                vkr0_percent: 'vkr0_percent',
+                                mag0_percent: 'mag0_percent',
+                                si0_hv_partial: 'si0_hv_partial',
 
                                 // Optional parameters
-                                parallel: 18,
-                                shift_degree: 19,
-                                tap_side: 20,
-                                tap_pos: 21,
-                                tap_neutral: 22,
-                                tap_max: 23,
-                                tap_min: 24,
-                                tap_step_percent: 25,
-                                tap_step_degree: 26,
-                                tap_phase_shifter: 27
+                                parallel: { name: 'parallel', optional: true },
+                                shift_degree: { name: 'shift_degree', optional: true },
+                                tap_side: { name: 'tap_side', optional: true },
+                                tap_pos: { name: 'tap_pos', optional: true },
+                                tap_neutral: { name: 'tap_neutral', optional: true },
+                                tap_max: { name: 'tap_max', optional: true },
+                                tap_min: { name: 'tap_min', optional: true },
+                                tap_step_percent: { name: 'tap_step_percent', optional: true },
+                                tap_step_degree: { name: 'tap_step_degree', optional: true },
+                                tap_phase_shifter: { name: 'tap_phase_shifter', optional: true }
                             })
                         };
                         componentArrays.transformer.push(transformer);
@@ -1027,40 +1060,40 @@ function loadFlowPandaPower(a, b, c) {
                             ...connections,
                             ...getAttributesAsObject(cell, {
                                 // Load flow parameters
-                                sn_hv_mva: 4,
-                                sn_mv_mva: 5,
-                                sn_lv_mva: 6,
-                                vn_hv_kv: 7,
-                                vn_mv_kv: 8,
-                                vn_lv_kv: 9,
-                                vk_hv_percent: 10,
-                                vk_mv_percent: 11,
-                                vk_lv_percent: 12,
+                                sn_hv_mva: 'sn_hv_mva',
+                                sn_mv_mva: 'sn_mv_mva',
+                                sn_lv_mva: 'sn_lv_mva',
+                                vn_hv_kv: 'vn_hv_kv',
+                                vn_mv_kv: 'vn_mv_kv',
+                                vn_lv_kv: 'vn_lv_kv',
+                                vk_hv_percent: 'vk_hv_percent',
+                                vk_mv_percent: 'vk_mv_percent',
+                                vk_lv_percent: 'vk_lv_percent',
 
                                 // Short circuit parameters
-                                vkr_hv_percent: 14,
-                                vkr_mv_percent: 15,
-                                vkr_lv_percent: 16,
-                                pfe_kw: 17,
-                                i0_percent: 18,
-                                vk0_hv_percent: 19,
-                                vk0_mv_percent: 20,
-                                vk0_lv_percent: 21,
-                                vkr0_hv_percent: 22,
-                                vkr0_mv_percent: 23,
-                                vkr0_lv_percent: 24,
-                                vector_group: 25,
+                                vkr_hv_percent: 'vkr_hv_percent',
+                                vkr_mv_percent: 'vkr_mv_percent',
+                                vkr_lv_percent: 'vkr_lv_percent',
+                                pfe_kw: 'pfe_kw',
+                                i0_percent: 'i0_percent',
+                                vk0_hv_percent: 'vk0_hv_percent',
+                                vk0_mv_percent: 'vk0_mv_percent',
+                                vk0_lv_percent: 'vk0_lv_percent',
+                                vkr0_hv_percent: 'vkr0_hv_percent',
+                                vkr0_mv_percent: 'vkr0_mv_percent',
+                                vkr0_lv_percent: 'vkr0_lv_percent',
+                                vector_group: 'vector_group',
 
                                 // Optional parameters
-                                shift_mv_degree: 27,
-                                shift_lv_degree: 28,
-                                tap_step_percent: 29,
-                                tap_side: 30,
-                                tap_neutral: 31,
-                                tap_min: 32,
-                                tap_max: 33,
-                                tap_pos: 34,
-                                tap_at_star_point: 35
+                                shift_mv_degree: { name: 'shift_mv_degree', optional: true },
+                                shift_lv_degree: { name: 'shift_lv_degree', optional: true },
+                                tap_step_percent: { name: 'tap_step_percent', optional: true },
+                                tap_side: { name: 'tap_side', optional: true },
+                                tap_neutral: { name: 'tap_neutral', optional: true },
+                                tap_min: { name: 'tap_min', optional: true },
+                                tap_max: { name: 'tap_max', optional: true },
+                                tap_pos: { name: 'tap_pos', optional: true },
+                                tap_at_star_point: { name: 'tap_at_star_point', optional: true }
                             })
                         };
                         componentArrays.threeWindingTransformer.push(threeWindingTransformer);
@@ -1074,12 +1107,12 @@ function loadFlowPandaPower(a, b, c) {
                             bus: getConnectedBusId(cell),
                             ...getAttributesAsObject(cell, {
                                 // Load flow parameters
-                                p_mw: 2,
-                                q_mvar: 3,
-                                vn_kv: 4,
+                                p_mw: 'p_mw',
+                                q_mvar: 'q_mvar',
+                                vn_kv: 'vn_kv',
                                 // Optional parameters
-                                step: 6,
-                                max_step: 7
+                                step: { name: 'step', optional: true },
+                                max_step: { name: 'max_step', optional: true }
                             })
                         };
                         componentArrays.shuntReactor.push(shuntReactor);
@@ -1093,12 +1126,12 @@ function loadFlowPandaPower(a, b, c) {
                             bus: getConnectedBusId(cell),
                             ...getAttributesAsObject(cell, {
                                 // Load flow parameters
-                                q_mvar: 2,
-                                loss_factor: 3,
-                                vn_kv: 4,
+                                q_mvar: 'q_mvar',
+                                loss_factor: 'loss_factor',
+                                vn_kv: 'vn_kv',
                                 // Optional parameters
-                                step: 6,
-                                max_step: 7
+                                step: { name: 'step', optional: true },
+                                max_step: { name: 'max_step', optional: true }
                             })
                         };
                         componentArrays.capacitor.push(capacitor);
@@ -1111,13 +1144,13 @@ function loadFlowPandaPower(a, b, c) {
                             bus: getConnectedBusId(cell),
                             ...getAttributesAsObject(cell, {
                                 // Load flow parameters
-                                p_mw: 2,
-                                q_mvar: 3,
-                                const_z_percent: 4,
-                                const_i_percent: 5,
-                                sn_mva: 6,
-                                scaling: 7,
-                                type: 8
+                                p_mw: 'p_mw',
+                                q_mvar: 'q_mvar',
+                                const_z_percent: 'const_z_percent',
+                                const_i_percent: 'const_i_percent',
+                                sn_mva: 'sn_mva',
+                                scaling: 'scaling',
+                                type: 'type'
                             })
                         };
                         componentArrays.load.push(load);
@@ -1131,15 +1164,15 @@ function loadFlowPandaPower(a, b, c) {
                             bus: getConnectedBusId(cell),
                             ...getAttributesAsObject(cell, {
                                 // Load flow parameters
-                                p_a_mw: 2,
-                                p_b_mw: 3,
-                                p_c_mw: 4,
-                                q_a_mvar: 5,
-                                q_b_mvar: 6,
-                                q_c_mvar: 7,
-                                sn_mva: 8,
-                                scaling: 9,
-                                type: 10
+                                p_a_mw: 'p_a_mw',
+                                p_b_mw: 'p_b_mw',
+                                p_c_mw: 'p_c_mw',
+                                q_a_mvar: 'q_a_mvar',
+                                q_b_mvar: 'q_b_mvar',
+                                q_c_mvar: 'q_c_mvar',
+                                sn_mva: 'sn_mva',
+                                scaling: 'scaling',
+                                type: 'type'
                             })
                         };
                         componentArrays.asymmetricLoad.push(asymmetricLoad);
@@ -1154,9 +1187,9 @@ function loadFlowPandaPower(a, b, c) {
                                 ...getImpedanceConnections(cell),
                                 ...getAttributesAsObject(cell, {
                                     // Load flow parameters
-                                    rft_pu: 2,
-                                    xft_pu: 3,
-                                    sn_mva: 4
+                                    rft_pu: 'rft_pu',
+                                    xft_pu: 'xft_pu',
+                                    sn_mva: 'sn_mva'
                                 })
                             };
                             componentArrays.impedance.push(impedance);
@@ -1173,10 +1206,10 @@ function loadFlowPandaPower(a, b, c) {
                             bus: getConnectedBusId(cell),
                             ...getAttributesAsObject(cell, {
                                 // Load flow parameters
-                                ps_mw: 2,
-                                qs_mvar: 3,
-                                pz_mw: 4,
-                                qz_mvar: 5
+                                ps_mw: 'ps_mw',
+                                qs_mvar: 'qs_mvar',
+                                pz_mw: 'pz_mw',
+                                qz_mvar: 'qz_mvar'
                             })
                         };
                         componentArrays.ward.push(ward);
@@ -1190,13 +1223,13 @@ function loadFlowPandaPower(a, b, c) {
                             bus: getConnectedBusId(cell),
                             ...getAttributesAsObject(cell, {
                                 // Load flow parameters
-                                ps_mw: 2,
-                                qs_mvar: 3,
-                                pz_mw: 4,
-                                qz_mvar: 5,
-                                r_ohm: 6,
-                                x_ohm: 7,
-                                vm_pu: 8
+                                ps_mw: 'ps_mw',
+                                qs_mvar: 'qs_mvar',
+                                pz_mw: 'pz_mw',
+                                qz_mvar: 'qz_mvar',
+                                r_ohm: 'r_ohm',
+                                x_ohm: 'x_ohm',
+                                vm_pu: 'vm_pu'
                             })
                         };
                         componentArrays.extendedWard.push(extendedWard);
@@ -1210,19 +1243,19 @@ function loadFlowPandaPower(a, b, c) {
                             bus: getConnectedBusId(cell),
                             ...getAttributesAsObject(cell, {
                                 // Load flow parameters
-                                pn_mech_mw: 2,
-                                cos_phi: 3,
-                                efficiency_percent: 4,
-                                loading_percent: 5,
-                                scaling: 6,
-                                cos_phi_n: 8,
-                                efficiency_n_percent: 9,
-                                Irc_pu: 10,
-                                rx: 11,
-                                vn_kv: 12,
-                                efficiency_percent: 14,
-                                loading_percent: 15,
-                                scaling: 16
+                                pn_mech_mw: 'pn_mech_mw',
+                                cos_phi: 'cos_phi',
+                                efficiency_percent: 'efficiency_percent',
+                                loading_percent: 'loading_percent',
+                                scaling: 'scaling',
+                                cos_phi_n: 'cos_phi_n',
+                                efficiency_n_percent: 'efficiency_n_percent',
+                                Irc_pu: 'Irc_pu',
+                                rx: 'rx',
+                                vn_kv: 'vn_kv',
+                                efficiency_percent: 'efficiency_percent',
+                                loading_percent: 'loading_percent',
+                                scaling: 'scaling'
                             })
                         };
                         componentArrays.motor.push(motor);
@@ -1236,15 +1269,14 @@ function loadFlowPandaPower(a, b, c) {
                             bus: getConnectedBusId(cell),
                             ...getAttributesAsObject(cell, {
                                 // Load flow parameters
-                                p_mw: 2,
-                                max_e_mwh: 3,
-                                q_mvar: 4,
-                                sn_mva: 5,
-                                soc_percent: 6,
-                                min_e_mwh: 7,
-                                scaling: 8,
-                                type: 9
-
+                                p_mw: 'p_mw',
+                                max_e_mwh: 'max_e_mwh',
+                                q_mvar: 'q_mvar',
+                                sn_mva: 'sn_mva',
+                                soc_percent: 'soc_percent',
+                                min_e_mwh: 'min_e_mwh',
+                                scaling: 'scaling',
+                                type: 'type'
                             })
                         };
                         componentArrays.storage.push(storage);
@@ -1258,13 +1290,13 @@ function loadFlowPandaPower(a, b, c) {
                             bus: getConnectedBusId(cell),
                             ...getAttributesAsObject(cell, {
                                 // Load flow parameters
-                                x_l_ohm: 1,
-                                x_cvar_ohm: 2,
-                                set_vm_pu: 3,
-                                thyristor_firing_angle_degree: 4,
-                                controllable: 5,
-                                min_angle_degree: 6,
-                                max_angle_degree: 7
+                                x_l_ohm: 'x_l_ohm',
+                                x_cvar_ohm: 'x_cvar_ohm',
+                                set_vm_pu: 'set_vm_pu',
+                                thyristor_firing_angle_degree: 'thyristor_firing_angle_degree',
+                                controllable: 'controllable',
+                                min_angle_degree: 'min_angle_degree',
+                                max_angle_degree: 'max_angle_degree'
                             })
                         };
                         componentArrays.SVC.push(SVC);
@@ -1278,13 +1310,13 @@ function loadFlowPandaPower(a, b, c) {
                             bus: getConnectedBusId(cell),
                             ...getAttributesAsObject(cell, {
                                 // Load flow parameters
-                                x_l_ohm: 1,
-                                x_cvar_ohm: 2,
-                                set_p_to_mw: 3,
-                                thyristor_firing_angle_degree: 4,
-                                controllable: 5,
-                                min_angle_degree: 6,
-                                max_angle_degree: 7
+                                x_l_ohm: 'x_l_ohm',
+                                x_cvar_ohm: 'x_cvar_ohm',
+                                set_p_to_mw: 'set_p_to_mw',
+                                thyristor_firing_angle_degree: 'thyristor_firing_angle_degree',
+                                controllable: 'controllable',
+                                min_angle_degree: 'min_angle_degree',
+                                max_angle_degree: 'max_angle_degree'
                             })
                         };
                         componentArrays.TCSC.push(TCSC);
@@ -1298,12 +1330,12 @@ function loadFlowPandaPower(a, b, c) {
                             bus: getConnectedBusId(cell),
                             ...getAttributesAsObject(cell, {
                                 // Load flow parameters                       
-                                r_ohm: 1,
-                                x_ohm: 2,
-                                set_vm_pu: 3,
-                                vm_internal_pu: 4,
-                                va_internal_degree: 5,
-                                controllable: 6                 
+                                r_ohm: 'r_ohm',
+                                x_ohm: 'x_ohm',
+                                set_vm_pu: 'set_vm_pu',
+                                vm_internal_pu: 'vm_internal_pu',
+                                va_internal_degree: 'va_internal_degree',
+                                controllable: 'controllable'                 
                             })
                         };
                         componentArrays.SSC.push(SSC);
@@ -1318,11 +1350,11 @@ function loadFlowPandaPower(a, b, c) {
                             bus: getConnectedBusId(cell),
                             ...getAttributesAsObject(cell, {
                                 // Load flow parameters                       
-                                p_mw: 2,
-                                loss_percent: 3,
-                                loss_mw: 4,
-                                vm_from_pu: 5,
-                                vm_to_pu: 6
+                                p_mw: 'p_mw',
+                                loss_percent: 'loss_percent',
+                                loss_mw: 'loss_mw',
+                                vm_from_pu: 'vm_from_pu',
+                                vm_to_pu: 'vm_to_pu'
                             })
                         };
                         componentArrays.dcLine.push(dcLine);
@@ -1336,23 +1368,24 @@ function loadFlowPandaPower(a, b, c) {
                             ...getConnectedBuses(cell),
                             ...getAttributesAsObject(cell, {
                                 // Basic parameters
-                                length_km: 2,
-                                parallel: 3,
-                                df: 4,
+                                length_km: 'length_km',
+                                parallel: 'parallel',
+                                df: 'df',
 
                                 // Load flow parameters
-                                r_ohm_per_km: 8,
-                                x_ohm_per_km: 9,
-                                c_nf_per_km: 10,
-                                g_us_per_km: 11,
-                                max_i_ka: 12,
-                                type: 13,
+                                r_ohm_per_km: 'r_ohm_per_km',
+                                x_ohm_per_km: 'x_ohm_per_km',
+                                c_nf_per_km: 'c_nf_per_km',
+                                g_us_per_km: 'g_us_per_km',
+                                max_i_ka: 'max_i_ka',
+                                type: 'type',
 
                                 // Short circuit parameters
-                                r0_ohm_per_km: { index: 15, optional: true },
-                                x0_ohm_per_km: { index: 16, optional: true },
-                                c0_nf_per_km: { index: 17, optional: true },
-                                endtemp_degree: { index: 18, optional: true }
+                                
+                                r0_ohm_per_km: { name: 'r0_ohm_per_km', optional: true },
+                                x0_ohm_per_km: { name: 'x0_ohm_per_km', optional: true },
+                                c0_nf_per_km: { name: 'c0_nf_per_km', optional: true },
+                                endtemp_degree: { name: 'endtemp_degree', optional: true },
                             })
                         };
 
