@@ -1,1191 +1,753 @@
-
-//a - App
-//b - Graph
-//c - Editor
-
-function shortCircuit(a, b, c) {
-
-
-    let apka = a
-
-    b.isEnabled() && !b.isCellLocked(b.getDefaultParent()) && a.showShortCircuitDialog("", "Calculate", function (a, c) {
-
-        apka.spinner.spin(document.body, "Waiting for results...")
-
-
-        //a - parametry obliczeń rozpływowych                
-        //b = graph
-
-        //jeśli parametry zostały wpisane policz rozpływ
-
-        if (0 < a.length) {
-
-            //liczba obiektów    
-            let cellsArray = []
-            cellsArray = b.getModel().getDescendants()
-
-
-            let busbarNo = 0
-            let externalGridNo = 0
-            let generatorNo = 0
-            let staticGeneratorNo = 0
-            let asymmetricStaticGeneratorNo = 0
-
-
-            let loadNo = 0
-            let asymmetricLoadNo = 0
-            let impedanceNo = 0
-            let wardNo = 0
-            let extendedWardNo = 0
-
-            let transformerNo = 0
-            let threeWindingTransformerNo = 0
-
-            let shuntReactorNo = 0
-            let capacitorNo = 0
-
-            let motorNo = 0
-
-            let lineNo = 0
-            let dcLineNo = 0
-
-            let storageNo = 0
-
-            //Arrays
-            let simulationParametersArray = [];
-
-            let busbarArray = [];
-
-            let externalGridArray = [];
-            let generatorArray = [];
-            let staticGeneratorArray = [];
-            let asymmetricStaticGeneratorArray = [];
-
-            let loadArray = [];
-            let asymmetricLoadArray = [];
-            let impedanceArray = [];
-            let wardArray = [];
-            let extendedWardArray = [];
-
-            let transformerArray = [];
-            let threeWindingTransformerArray = [];
-
-            let shuntReactorArray = [];
-            let capacitorArray = [];
-
-            let motorArray = [];
-
-            let lineArray = [];
-            let dcLineArray = [];
-
-            let storageArray = [];
-
-            let dataToBackendArray = [];
-
-
-            //***************SCZYTYWANIE PARAMETRÓW ZWARĆ****************
-            let shorCircuitParameters = new Object();
-            shorCircuitParameters.typ = "ShortCircuitPandaPower Parameters"
-            shorCircuitParameters.fault = a[0]
-            shorCircuitParameters.case = a[1]
-            shorCircuitParameters.lv_tol_percent = a[2]
-            //shorCircuitParameters.ip = a[3]
-            //shorCircuitParameters.ith = a[4]
-            shorCircuitParameters.topology = a[3]
-            shorCircuitParameters.tk_s = a[4]
-            shorCircuitParameters.r_fault_ohm = a[5]
-            shorCircuitParameters.x_fault_ohm = a[6]
-            shorCircuitParameters.inverse_y = a[7]
-
-            simulationParametersArray.push(shorCircuitParameters)
-
-
-            //*************** SCZYTYWANIE MODELU DO BACKEND ****************
-        
-            const regex = /^\d/g;
-            
-            for(let cell of cellsArray){
-
-                //usun wyniki poprzednich obliczen
-                if (typeof (cell.getStyle()) != undefined && cell.getStyle() != null && cell.getStyle().includes("Result")) {
-
-                    let celka = b.getModel().getCell(cell.id)
-                    b.getModel().remove(celka)
-                }
-
-                if (typeof (cell.getStyle()) != undefined && cell.getStyle() != null) {
-
-                    let key_value = cell.getStyle().split(";").map(pair => pair.split("="));
-                    const result = Object.fromEntries(key_value);
-                 
-
-                    //wybierz obiekty typu Ext_grid
-                    if (result.shapeELXXX == "External Grid") {
-
-                        //zrób plik json i wyślij do backend
-                        let externalGrid = new Object();
-                        externalGrid.typ = "External Grid" + externalGridNo
-                        
-                        externalGrid.name = cell.mxObjectId.replace('#', '_')//.replaceAll('-', '___')
-                        externalGrid.id = cell.id                        
-                      
-                        //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
-                        if(cell.edges[0].target.mxObjectId != cell.mxObjectId){ 
-                            externalGrid.bus = cell.edges[0].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___') //cell.edges[0].target.mxObjectId.replace('#', '') //id do ktorego jest dolaczony busbar
-                           
-                        }else{
-                            externalGrid.bus = cell.edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___') //cell.edges[0].target.mxObjectId.replace('#', '') //id do ktorego jest dolaczony busbar
-                        }
-
-                        //Load_flow_parameters 
-                        externalGrid.vm_pu = cell.value.attributes[2].nodeValue
-                        externalGrid.va_degree = cell.value.attributes[3].nodeValue
-                        //externalGrid.in_service = cell.value.attributes[3].nodeValue
-
-                        //Short_circuit_parameters 
-                        externalGrid.s_sc_max_mva = cell.value.attributes[5].nodeValue
-                        externalGrid.s_sc_min_mva = cell.value.attributes[6].nodeValue
-                        externalGrid.rx_max = cell.value.attributes[7].nodeValue
-                        externalGrid.rx_min = cell.value.attributes[8].nodeValue
-                        externalGrid.r0x0_max = cell.value.attributes[9].nodeValue
-                        externalGrid.x0x_max = cell.value.attributes[10].nodeValue
-
-
-                        //Optimal Power Flow
-                        //externalGrid.max_p_mw = cell.value.attributes[8].nodeValue
-                        //externalGrid.min_p_mw = cell.value.attributes[9].nodeValue
-                        //externalGrid.max_q_mvar = cell.value.attributes[10].nodeValue
-                        //externalGrid.min_q_mvar = cell.value.attributes[11].nodeValue
-
-                        //externalGrid.slack_weight = cell.value.attributes[14].nodeValue
-                        //externalGrid.controllable = cell.value.attributes[15].nodeValue
-
-                        externalGridNo++
-
-                        //let externalGridToBackend = JSON.stringify(externalGrid) //{"name":"External Grid 0","vm_pu":"0", "bus":"mxCell#34"}      
-                        externalGridArray.push(externalGrid);
-                    }
-                  
-                    if (result.shapeELXXX == "Generator")//cell.getStyle().match(/^Generator$/))//includes("Generator")) //(str1.match(/^abc$/))
-                    {
-
-                        //zrób plik json i wyślij do backend
-                        let generator = new Object();
-                        generator.typ = "Generator"
-                       
-                        generator.name = cell.mxObjectId.replace('#', '_')//.replaceAll('-', '___')
-                        generator.id = cell.id                        
-                      
-                        //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
-                        if(cell.edges[0].target.mxObjectId != cell.mxObjectId){ 
-                            generator.bus = cell.edges[0].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___') //cell.edges[0].target.mxObjectId.replace('#', '') //id do ktorego jest dolaczony busbar
-                           
-                        }else{
-                            generator.bus = cell.edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___') //cell.edges[0].target.mxObjectId.replace('#', '') //id do ktorego jest dolaczony busbar
-                        }
-
-            
-                        //Load_flow_parameters 
-                        generator.p_mw = cell.value.attributes[2].nodeValue
-                        generator.vm_pu = cell.value.attributes[3].nodeValue
-                        generator.sn_mva = cell.value.attributes[4].nodeValue
-                        generator.scaling = cell.value.attributes[5].nodeValue
-
-                        //Short_circuit_parameters 
-                        generator.vn_kv = cell.value.attributes[7].nodeValue
-                        generator.xdss_pu = cell.value.attributes[8].nodeValue
-                        generator.rdss_ohm = cell.value.attributes[9].nodeValue
-                        generator.cos_phi = cell.value.attributes[10].nodeValue
-                        generator.pg_percent = cell.value.attributes[11].nodeValue
-                        generator.power_station_trafo = cell.value.attributes[12].nodeValue
-
-                        generatorNo++
-
-                        generatorArray.push(generator);
-                    }
-
-                    //wybierz obiekty typu Static Generator
-                    if (result.shapeELXXX == "Static Generator") {
-
-
-                        //zrób plik json i wyślij do backend
-                        let staticGenerator = new Object();
-                        staticGenerator.typ = "Static Generator"
-
-                        staticGenerator.name = cell.mxObjectId.replace('#', '_')//.replaceAll('-', '___')
-                        staticGenerator.id = cell.id                        
-                      
-                        //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
-                        if(cell.edges[0].target.mxObjectId != cell.mxObjectId){ 
-                             staticGenerator.bus = cell.edges[0].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___') //cell.edges[0].target.mxObjectId.replace('#', '') //id do ktorego jest dolaczony busbar
-                           
-                        }else{
-                            staticGenerator.bus = cell.edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___') //cell.edges[0].target.mxObjectId.replace('#', '') //id do ktorego jest dolaczony busbar
-                        }                        
-
-                        //Load_flow_parameters
-                        staticGenerator.p_mw = cell.value.attributes[2].nodeValue
-                        staticGenerator.q_mvar = cell.value.attributes[3].nodeValue
-                        staticGenerator.sn_mva = cell.value.attributes[4].nodeValue
-                        staticGenerator.scaling = cell.value.attributes[5].nodeValue
-                        staticGenerator.type = cell.value.attributes[6].nodeValue
-
-                        //Short_circuit_parameters
-                        staticGenerator.k = cell.value.attributes[8].nodeValue
-                        staticGenerator.rx = cell.value.attributes[9].nodeValue
-                        staticGenerator.generator_type = cell.value.attributes[10].nodeValue
-                        staticGenerator.lrc_pu = cell.value.attributes[11].nodeValue
-                        staticGenerator.max_ik_ka = cell.value.attributes[12].nodeValue
-                        staticGenerator.kappa = cell.value.attributes[13].nodeValue
-                        staticGenerator.current_source = cell.value.attributes[14].nodeValue
-
-                        staticGeneratorNo++
-
-                        staticGeneratorArray.push(staticGenerator);
-                    }
-                    //wybierz obiekty typu Asymmetric Static Generator
-                    if (result.shapeELXXX == "Asymmetric Static Generator") {
-
-                        //zrób plik json i wyślij do backend
-                        let asymmetricStaticGenerator = new Object();
-                        asymmetricStaticGenerator.typ = "Asymmetric Static Generator" + generatorNo
-                        
-                        asymmetricStaticGenerator.name = cell.mxObjectId.replace('#', '_')//.replaceAll('-', '___')
-                        asymmetricStaticGenerator.id = cell.id                        
-                      
-                        //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
-                        if(cell.edges[0].target.mxObjectId != cell.mxObjectId){ 
-                            asymmetricStaticGenerator.bus = cell.edges[0].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___') //cell.edges[0].target.mxObjectId.replace('#', '') //id do ktorego jest dolaczony busbar
-                           
-                        }else{
-                            asymmetricStaticGenerator.bus = cell.edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___') //cell.edges[0].target.mxObjectId.replace('#', '') //id do ktorego jest dolaczony busbar
-                        }    
-
-                        console.log("Asymmetric Static Generator attributes")
-                        console.log(cell.value.attributes)
-
-                        //Load_flow_parameters
-                        asymmetricStaticGenerator.p_a_mw = cell.value.attributes[2].nodeValue
-                        asymmetricStaticGenerator.p_b_mw = cell.value.attributes[3].nodeValue
-                        asymmetricStaticGenerator.p_c_mw = cell.value.attributes[4].nodeValue
-
-                        asymmetricStaticGenerator.q_a_mvar = cell.value.attributes[5].nodeValue
-                        asymmetricStaticGenerator.q_b_mvar = cell.value.attributes[6].nodeValue
-                        asymmetricStaticGenerator.q_c_mvar = cell.value.attributes[7].nodeValue
-
-                        asymmetricStaticGenerator.sn_mva = cell.value.attributes[8].nodeValue
-                        asymmetricStaticGenerator.scaling = cell.value.attributes[9].nodeValue
-                        asymmetricStaticGenerator.type = cell.value.attributes[10].nodeValue
-
-                        asymmetricStaticGeneratorNo++
-
-                        asymmetricStaticGeneratorArray.push(asymmetricStaticGenerator);
-                    }
-
-
-                    //wybierz obiekty typu Bus 
-                    if (result.shapeELXXX == "Bus") {
-
-                        //zrób plik json i wyślij do backend
-                        let busbar = new Object();
-                        busbar.typ = "Bus" + busbarNo
-                        busbar.name = cell.mxObjectId.replace('#', '_')//.replaceAll('-', '___') //mxObjectId.replace('#', '_')//cell.id.replaceAll('-', '_') //zamień wszystkie - na _ żeby można byłoby w pythonie obrabiać  //cell.mxObjectId.replace('#', '')
-                        busbar.id = cell.id    
-        
-                        //Load_flow_parameters
-                        busbar.vn_kv = cell.value.attributes[2].nodeValue
-                        //busbar.type = cell.value.attributes[3].nodeValue
-                        //busbar.in_service = cell.value.attributes[3].nodeValue
-                        busbarNo++
-
-                        busbarArray.push(busbar);
-                    }
-
-                    //wybierz obiekty typu Transformer
-                    if (result.shapeELXXX == "Transformer") {
-
-                        //zrób plik json i wyślij do backend
-                        let transformer = new Object();
-                        transformer.typ = "Transformer" + transformerNo                        
-                        transformer.name = cell.mxObjectId.replace('#', '_')//cell.id.replaceAll('-', '___')
-                        transformer.id = cell.id 
-
-                        //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
-                        if(cell.edges[0].target.mxObjectId != cell.mxObjectId){                             
-                            transformer.hv_bus = cell.edges[0].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.edges[0].target.mxObjectId.replace('#', '')
-                        } else{                            
-                            transformer.hv_bus = cell.edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.edges[0].target.mxObjectId.replace('#', '')
-                        }
-                        
-
-                        //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
-                        if(cell.edges[1].target.mxObjectId != cell.mxObjectId){                          
-                            transformer.lv_bus = cell.edges[1].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.edges[1].target.mxObjectId.replace('#', '')
-                        } else{                            
-                            transformer.lv_bus = cell.edges[1].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.edges[1].target.mxObjectId.replace('#', '')
-                        }
-
-             
-
-                        //Load_flow_parameters    
-                        transformer.sn_mva = cell.value.attributes[4].nodeValue
-                        transformer.vn_hv_kv = cell.value.attributes[5].nodeValue
-                        transformer.vn_lv_kv = cell.value.attributes[6].nodeValue
-
-                        //Short_circuit_parameters
-                        transformer.vkr_percent = cell.value.attributes[8].nodeValue
-                        transformer.vk_percent = cell.value.attributes[9].nodeValue
-                        transformer.pfe_kw = cell.value.attributes[10].nodeValue
-                        transformer.i0_percent = cell.value.attributes[11].nodeValue
-                        transformer.vector_group = cell.value.attributes[12].nodeValue
-                        transformer.vk0_percent = cell.value.attributes[13].nodeValue
-                        transformer.vkr0_percent = cell.value.attributes[14].nodeValue
-                        transformer.mag0_percent = cell.value.attributes[15].nodeValue
-                        transformer.si0_hv_partial = cell.value.attributes[16].nodeValue
-                        //transformer.in_service = cell.value.attributes[15].nodeValue
-
-                        //Optional_parameters
-                        transformer.parallel = cell.value.attributes[18].nodeValue
-                        transformer.shift_degree = cell.value.attributes[19].nodeValue
-                        transformer.tap_side = cell.value.attributes[20].nodeValue
-                        transformer.tap_pos = cell.value.attributes[21].nodeValue
-                        transformer.tap_neutral = cell.value.attributes[22].nodeValue
-                        transformer.tap_max = cell.value.attributes[23].nodeValue
-                        transformer.tap_min = cell.value.attributes[24].nodeValue
-                        transformer.tap_step_percent = cell.value.attributes[25].nodeValue
-                        transformer.tap_step_degree = cell.value.attributes[26].nodeValue
-                        transformer.tap_phase_shifter = cell.value.attributes[27].nodeValue
-                        /*
-                        transformer.max_loading_percent = cell.value.attributes[26].nodeValue
-                        transformer.df = cell.value.attributes[27].nodeValue
-                        transformer.oltc = cell.value.attributes[28].nodeValue
-                        transformer.xn_ohm = cell.value.attributes[29].nodeValue */
-
-                        transformerNo++
-
-                        //let transformerToBackend = JSON.stringify(transformer) //{"name":"Transformer 0","p_mw":"0","busFrom":"mxCell#34","busTo":"mxCell#33"}                            
-                        transformerArray.push(transformer);
-                    }
-
-                    //wybierz obiekty typu Three Winding Transformer
-                    if (result.shapeELXXX == "Three Winding Transformer") {
-
-                        //zrób plik json i wyślij do backend
-                        let threeWindingTransformer = new Object();
-                        threeWindingTransformer.typ = "Three Winding Transformer" + threeWindingTransformerNo
-                    
-                        threeWindingTransformer.name = cell.mxObjectId.replace('#', '_')//.replaceAll('-', '___')
-                        threeWindingTransformer.id = cell.id 
-
-                             
-                        //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
-                        if(cell.edges[2].target.mxObjectId != cell.mxObjectId){ 
-                            threeWindingTransformer.hv_bus = cell.edges[2].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.edges[0].target.mxObjectId.replace('#', '')
-                        }
-                        else{
-                            threeWindingTransformer.hv_bus = cell.edges[2].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.edges[0].target.mxObjectId.replace('#', '')
-                        }    
-
-                        if(cell.edges[1].target.mxObjectId != cell.mxObjectId){ 
-                            threeWindingTransformer.mv_bus = cell.edges[1].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.edges[1].target.mxObjectId.replace('#', '')
-                        }else{
-                            threeWindingTransformer.mv_bus = cell.edges[1].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.edges[1].target.mxObjectId.replace('#', '')
-                        }
-
-                        if(cell.edges[0].target.mxObjectId != cell.mxObjectId){
-                            threeWindingTransformer.lv_bus = cell.edges[0].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.edges[1].target.mxObjectId.replace('#', '')
-                        }else{
-                            threeWindingTransformer.lv_bus = cell.edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.edges[1].target.mxObjectId.replace('#', '')
-                        }
-
-                        console.log("Three Winding Transformer attributes")
-                       
-
-                        //Load_flow_parameters
-                        threeWindingTransformer.sn_hv_mva = cell.value.attributes[4].nodeValue
-                        threeWindingTransformer.sn_mv_mva = cell.value.attributes[5].nodeValue
-                        threeWindingTransformer.sn_lv_mva = cell.value.attributes[6].nodeValue
-                        threeWindingTransformer.vn_hv_kv = cell.value.attributes[7].nodeValue
-                        threeWindingTransformer.vn_mv_kv = cell.value.attributes[8].nodeValue
-                        threeWindingTransformer.vn_lv_kv = cell.value.attributes[9].nodeValue
-                        threeWindingTransformer.vk_hv_percent = cell.value.attributes[10].nodeValue
-                        threeWindingTransformer.vk_mv_percent = cell.value.attributes[11].nodeValue
-                        threeWindingTransformer.vk_lv_percent = cell.value.attributes[12].nodeValue
-
-                        //Short_circuit_parameters [13]
-                        threeWindingTransformer.vkr_hv_percent = cell.value.attributes[14].nodeValue
-                        threeWindingTransformer.vkr_mv_percent = cell.value.attributes[15].nodeValue
-                        threeWindingTransformer.vkr_lv_percent = cell.value.attributes[16].nodeValue
-                        threeWindingTransformer.pfe_kw = cell.value.attributes[17].nodeValue
-                        threeWindingTransformer.i0_percent = cell.value.attributes[18].nodeValue
-                        threeWindingTransformer.vk0_hv_percent = cell.value.attributes[19].nodeValue
-                        threeWindingTransformer.vk0_mv_percent = cell.value.attributes[20].nodeValue
-                        threeWindingTransformer.vk0_lv_percent = cell.value.attributes[21].nodeValue
-                        threeWindingTransformer.vkr0_hv_percent = cell.value.attributes[22].nodeValue
-                        threeWindingTransformer.vkr0_mv_percent = cell.value.attributes[23].nodeValue
-                        threeWindingTransformer.vkr0_lv_percent = cell.value.attributes[24].nodeValue
-                        threeWindingTransformer.vector_group = cell.value.attributes[25].nodeValue
-
-                        //Optional_parameters [26]
-                        threeWindingTransformer.shift_mv_degree = cell.value.attributes[27].nodeValue
-                        threeWindingTransformer.shift_lv_degree = cell.value.attributes[28].nodeValue
-                        threeWindingTransformer.tap_step_percent = cell.value.attributes[29].nodeValue
-                        threeWindingTransformer.tap_side = cell.value.attributes[30].nodeValue
-                        threeWindingTransformer.tap_neutral = cell.value.attributes[31].nodeValue
-                        threeWindingTransformer.tap_min = cell.value.attributes[32].nodeValue
-                        threeWindingTransformer.tap_max = cell.value.attributes[33].nodeValue
-                        threeWindingTransformer.tap_pos = cell.value.attributes[34].nodeValue
-                        threeWindingTransformer.tap_at_star_point = cell.value.attributes[35].nodeValue
-
-                        threeWindingTransformerNo++
-
-                        //let transformerToBackend = JSON.stringify(transformer) //{"name":"Transformer 0","p_mw":"0","busFrom":"mxCell#34","busTo":"mxCell#33"}                            
-                        threeWindingTransformerArray.push(threeWindingTransformer);
-                    }
-
-                    if (result.shapeELXXX == "Shunt Reactor") {
-                        //zrób plik json i wyślij do backend
-                        let shuntReactor = new Object();
-                        shuntReactor.typ = "Shunt Reactor" + shuntReactorNo
-
-                        shuntReactor.name = cell.mxObjectId.replace('#', '_')//.replaceAll('-', '___')                                
-                        shuntReactor.id = cell.id   
-
-                        //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
-                        if(cell.edges[0].target.mxObjectId != cell.mxObjectId){ 
-                            shuntReactor.bus = cell.edges[0].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.edges[0].target.mxObjectId.replace('#', '')
-                        }else{
-                            shuntReactor.bus = cell.edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.edges[0].target.mxObjectId.replace('#', '')
-                        }
-
-
-                        //Load_flow_parameters
-                        shuntReactor.p_mw = cell.value.attributes[2].nodeValue
-                        shuntReactor.q_mvar = cell.value.attributes[3].nodeValue
-                        shuntReactor.vn_kv = cell.value.attributes[4].nodeValue
-
-                        //Optional_parameters
-                        
-                        shuntReactor.step = cell.value.attributes[6].nodeValue
-                        shuntReactor.max_step = cell.value.attributes[7].nodeValue
-
-                        shuntReactorNo++
-
-                        //let transformerToBackend = JSON.stringify(transformer) //{"name":"Transformer 0","p_mw":"0","busFrom":"mxCell#34","busTo":"mxCell#33"}                            
-                        shuntReactorArray.push(shuntReactor);
-
-                    }
-
-                    if (result.shapeELXXX == "Capacitor") {
-
-                        //zrób plik json i wyślij do backend
-                        let capacitor = new Object();
-                        capacitor.typ = "Capacitor" + capacitorNo
-
-                        capacitor.name = cell.mxObjectId.replace('#', '_')//.replaceAll('-', '___')                                                 
-                        capacitor.id = cell.id
-
-                        //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
-                        if(cell.edges[0].target.mxObjectId != cell.mxObjectId){                        
-                            capacitor.bus = cell.edges[0].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.edges[0].target.mxObjectId.replace('#', '')
-                        }else{
-                            capacitor.bus = cell.edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.edges[0].target.mxObjectId.replace('#', '')
-                        }
-           
-
-                        //Load_flow_parameters
-                        capacitor.q_mvar = cell.value.attributes[2].nodeValue
-                        capacitor.loss_factor = cell.value.attributes[3].nodeValue
-                        capacitor.vn_kv = cell.value.attributes[4].nodeValue
-                        
-                        //Optional_parameters                        
-                        capacitor.step = cell.value.attributes[6].nodeValue
-                        capacitor.max_step = cell.value.attributes[7].nodeValue
-
-                        capacitorNo++
-
-                        //let transformerToBackend = JSON.stringify(transformer) //{"name":"Transformer 0","p_mw":"0","busFrom":"mxCell#34","busTo":"mxCell#33"}                            
-                        capacitorArray.push(capacitor);
-                    }
-
-
-                    //wybierz obiekty typu Load
-                    if (result.shapeELXXX == "Load") {
-                        //zrób plik json i wyślij do backend
-                        let load = new Object();
-                        load.typ = "Load" + loadNo
-                        load.name =  cell.mxObjectId.replace('#', '_')//.replaceAll('-', '___')
-                        load.id = cell.id                            
-                                               
-                        //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
-                        if(cell.edges[0].target.mxObjectId != cell.mxObjectId){                        
-                            load.bus = cell.edges[0].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.edges[0].target.mxObjectId.replace('#', '')
-          
-                        }
-                        else{
-                            load.bus = cell.edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.edges[0].target.mxObjectId.replace('#', '')
-                        }
-
-                        console.log("cell.value.attributes: ")
-                        console.log(cell.value.attributes)
-
-                        console.log("Load attributes")
-                        console.log(cell.value.attributes)
-
-                        //Load_flow_parameters
-                        load.p_mw = cell.value.attributes[2].nodeValue
-                        load.q_mvar = cell.value.attributes[3].nodeValue
-                        load.const_z_percent = cell.value.attributes[4].nodeValue
-                        load.const_i_percent = cell.value.attributes[5].nodeValue
-                        load.sn_mva = cell.value.attributes[6].nodeValue
-                        load.scaling = cell.value.attributes[7].nodeValue
-                        load.type = cell.value.attributes[8].nodeValue
-
-                        loadNo++
-
-                        loadArray.push(load);
-                    }
-
-
-                    if (result.shapeELXXX == "Asymmetric Load") {
-                        //zrób plik json i wyślij do backend
-                        let asymmetricLoad = new Object();
-                        asymmetricLoad.typ = "Asymmetric Load" + asymmetricLoadNo
-                        asymmetricLoad.name = cell.mxObjectId.replace('#', '_')//.replaceAll('-', '___')
-                        asymmetricLoad.id = cell.id
-                    
-                        //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
-                        if(cell.edges[0].target.mxObjectId != cell.mxObjectId){   
-                            asymmetricLoad.bus = cell.edges[0].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.edges[0].target.mxObjectId.replace('#', '')
-                        }else{
-                            asymmetricLoad.bus = cell.edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.edges[0].target.mxObjectId.replace('#', '')
-                        }
-
-                        console.log("Asymmetric Load attributes")
-                        console.log(cell.value.attributes)
-
-                        //Load_flow_parameters
-                        asymmetricLoad.p_a_mw = cell.value.attributes[2].nodeValue
-                        asymmetricLoad.p_b_mw = cell.value.attributes[3].nodeValue
-                        asymmetricLoad.p_c_mw = cell.value.attributes[4].nodeValue
-                        asymmetricLoad.q_a_mvar = cell.value.attributes[5].nodeValue
-                        asymmetricLoad.q_b_mvar = cell.value.attributes[6].nodeValue
-                        asymmetricLoad.q_c_mvar = cell.value.attributes[7].nodeValue
-                        asymmetricLoad.sn_mva = cell.value.attributes[8].nodeValue
-                        asymmetricLoad.scaling = cell.value.attributes[9].nodeValue
-                        asymmetricLoad.type = cell.value.attributes[10].nodeValue
-
-                        asymmetricLoadNo++
-
-                        asymmetricLoadArray.push(asymmetricLoad);
-                    }
-
-
-                    if (result.shapeELXXX == "Impedance") {
-                        //zrób plik json i wyślij do backend
-                        let impedance = new Object();
-                        impedance.typ = "Impedance" + impedanceNo
-                        impedance.name = cell.mxObjectId.replace('#', '_')//.replaceAll('-', '___')
-                        impedance.id = cell.id 
-
-                        try {
-                            //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
-                            if(cell.edges[0].target.mxObjectId != cell.mxObjectId){
-                                impedance.busFrom = cell.edges[0].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.source.mxObjectId.replace('#', '')
-                           
-                            }else{
-                                impedance.busFrom = cell.edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.source.mxObjectId.replace('#', '')
-                         
-                            }
-
-                            //w zależności od kolejności przyłączenia odpowiednio ustalaj ID dla busbar do ktorego się przyłączamy
-                            if(cell.edges[1].target.mxObjectId != cell.mxObjectId){
-                                impedance.busTo = cell.edges[1].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.target.mxObjectId.replace('#', '')
-                           
-                            }else{
-                                impedance.busTo = cell.edges[1].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.target.mxObjectId.replace('#', '')
-              
-                            }
-
-                            //Load_flow_parameters
-                            impedance.rft_pu = cell.value.attributes[2].nodeValue
-                            impedance.xft_pu = cell.value.attributes[3].nodeValue
-                            impedance.sn_mva = cell.value.attributes[4].nodeValue
-
-                            impedanceNo++
-
-                            impedanceArray.push(impedance);
-                        } catch { //impedancja musi mieć dwa połączenia
-                            alert("Connect an impedance's 'in' and 'out' to other element in the model. The impedance has not been taken into account in the simulation.")
-                        }
-                    }
-
-                    if (result.shapeELXXX == "Ward") {
-                        //zrób plik json i wyślij do backend
-                        let ward = new Object();
-                        ward.typ = "Ward" + wardNo
-                        ward.name = cell.mxObjectId.replace('#', '_')
-                        ward.id = cell.id                       
-
-                        if(cell.edges[0].target.mxObjectId != cell.mxObjectId)
-                        {
-                            ward.bus = cell.edges[0].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.edges[0].target.mxObjectId.replace('#', '')
-                        
-                        }else{
-                            ward.bus = cell.edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.edges[0].target.mxObjectId.replace('#', '')
-                         
-                        }
-
-                        //Load_flow_parameters
-                        ward.ps_mw = cell.value.attributes[2].nodeValue
-                        ward.qs_mvar = cell.value.attributes[3].nodeValue
-                        ward.pz_mw = cell.value.attributes[4].nodeValue
-                        ward.qz_mvar = cell.value.attributes[5].nodeValue
-
-                        wardNo++
-
-                        wardArray.push(ward);
-                    }
-
-                    if (result.shapeELXXX == "Extended Ward") {
-                        //zrób plik json i wyślij do backend
-                        let extendedWard = new Object();
-                        extendedWard.typ = "Extended Ward" + extendedWardNo
-
-                        extendedWard.name = cell.mxObjectId.replace('#', '_')
-                        extendedWard.id = cell.id                       
-
-                        if(cell.edges[0].target.mxObjectId != cell.mxObjectId)
-                        {
-                            extendedWard.bus = cell.edges[0].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.edges[0].target.mxObjectId.replace('#', '')
-                          
-                        }
-                        else{
-                            extendedWard.bus = cell.edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.edges[0].target.mxObjectId.replace('#', '')
-                        }
-
-                     
-                        //Load_flow_parameters
-                        extendedWard.ps_mw = cell.value.attributes[2].nodeValue
-                        extendedWard.qs_mvar = cell.value.attributes[3].nodeValue
-                        extendedWard.pz_mw = cell.value.attributes[4].nodeValue
-                        extendedWard.qz_mvar = cell.value.attributes[5].nodeValue
-                        extendedWard.r_ohm = cell.value.attributes[6].nodeValue
-                        extendedWard.x_ohm = cell.value.attributes[7].nodeValue
-                        extendedWard.vm_pu = cell.value.attributes[8].nodeValue
-
-                        extendedWardNo++
-
-                        extendedWardArray.push(extendedWard);
-                    }
-
-                    if (result.shapeELXXX == "Motor") {
-                        //zrób plik json i wyślij do backend
-                        let motor = new Object();
-                        motor.typ = "Motor" + motorNo
-                        motor.name = cell.mxObjectId.replace('#', '_')
-                        motor.id = cell.id 
-
-                        if(cell.edges[0].target.mxObjectId != cell.mxObjectId)
-                        {
-                            motor.bus = cell.edges[0].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.edges[0].target.mxObjectId.replace('#', '')
-                        }else{
-                            motor.bus = cell.edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.edges[0].target.mxObjectId.replace('#', '                            
-                        }
-
-                        console.log("Motor attributes")
-                        console.log(cell.value.attributes)
-
-
-                        //Load_flow_parameters
-                        motor.pn_mech_mw = cell.value.attributes[2].nodeValue
-                        motor.cos_phi = cell.value.attributes[3].nodeValue
-                        motor.efficiency_percent = cell.value.attributes[4].nodeValue
-                        motor.loading_percent = cell.value.attributes[5].nodeValue
-                        motor.scaling = cell.value.attributes[6].nodeValue
-
-                        //Short_circuit_parameters
-                        motor.cos_phi_n = cell.value.attributes[8].nodeValue
-                        motor.efficiency_n_percent = cell.value.attributes[9].nodeValue
-                        motor.Irc_pu = cell.value.attributes[10].nodeValue
-                        motor.rx = cell.value.attributes[11].nodeValue
-                        motor.vn_kv = cell.value.attributes[12].nodeValue
-
-                        //Optional_parameters
-                        motor.efficiency_percent = cell.value.attributes[14].nodeValue
-                        motor.loading_percent = cell.value.attributes[15].nodeValue
-                        motor.scaling = cell.value.attributes[16].nodeValue
-
-                        motorNo++
-
-                        motorArray.push(motor);
-                    }
-
-                    if (result.shapeELXXX == "Storage") {
-                        //zrób plik json i wyślij do backend
-                        let storage = new Object();
-                        storage.typ = "Storage" + storageNo
-                        storage.name = cell.mxObjectId.replace('#', '_')
-                        storage.id = cell.id 
-                     
-                        if(cell.edges[0].target.mxObjectId != cell.mxObjectId)
-                        {
-                            storage.bus = cell.edges[0].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.edges[0].target.mxObjectId.replace('#', '')
-                        }else{
-                            storage.bus = cell.edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.edges[0].target.mxObjectId.replace('#', '')
-                        }
-
-        
-                        //Load_flow_parameters
-                        storage.p_mw = cell.value.attributes[2].nodeValue
-                        storage.max_e_mwh = cell.value.attributes[3].nodeValue
-
-                        //Optional_parameters
-                        storage.q_mvar = cell.value.attributes[4].nodeValue
-                        storage.sn_mva = cell.value.attributes[5].nodeValue
-                        storage.soc_percent = cell.value.attributes[6].nodeValue
-                        storage.min_e_mwh = cell.value.attributes[7].nodeValue
-                        storage.scaling = cell.value.attributes[8].nodeValue
-                        storage.type = cell.value.attributes[9].nodeValue
-
-                        storageNo++
-
-                        storageArray.push(storage);
-                    }
-
-                    //NIE MA SVC 
-                    //NIE MA TCSC
-                    //NIE MA SSC
-
-                    if (result.shapeELXXX == "DC Line") {
-                        //zrób plik json i wyślij do backend
-                        let dcLine = new Object();
-                        dcLine.typ = "DC Line" + dcLineNo
-
-                        dcLine.name = cell.mxObjectId.replace('#', '_')//.replaceAll('-', '___')
-                        dcLine.id = cell.id                
-
-                        if(cell.edges[0].target.mxObjectId != cell.mxObjectId)
-                        {
-                            dcLine.busFrom = cell.edges[0].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.source.mxObjectId.replace('#', '')
-                        }else{
-                            dcLine.busFrom = cell.edges[0].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.source.mxObjectId.replace('#', '')
-                        }
-                        
-                        if(cell.edges[1].target.mxObjectId != cell.mxObjectId)
-                        {
-                            dcLine.busTo = cell.edges[1].target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.target.mxObjectId.replace('#', '')
-                        }else{
-                            dcLine.busTo = cell.edges[1].source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.target.mxObjectId.replace('#', '')
-                        }
-
-                        console.log("DC line attributes")
-                        console.log(cell.value.attributes)
-
-                        //Load_flow_parameters
-                        dcLine.p_mw = cell.value.attributes[2].nodeValue
-                        dcLine.loss_percent = cell.value.attributes[3].nodeValue
-                        dcLine.loss_mw = cell.value.attributes[4].nodeValue
-                        dcLine.vm_from_pu = cell.value.attributes[5].nodeValue
-                        dcLine.vm_to_pu = cell.value.attributes[6].nodeValue
-
-                        dcLineNo++
-
-                        dcLineArray.push(dcLine);
-                    }
-
-
-                    //wybierz obiekty typu Line
-                    if (result.shapeELXXX == "Line") {
-                        //zrób plik json i wyślij do backend
-                        let line = new Object();
-                        line.typ = "Line" + lineNo
-                        line.name = cell.mxObjectId.replace('#', '_')//id.replaceAll('-', '___')
-                        line.id = cell.id
-                       
-                        line.busFrom = cell.source.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.source.mxObjectId.replace('#', '')                        
-                        line.busTo = cell.target.mxObjectId.replace('#', '_')//.replaceAll('-', '___')//cell.target.mxObjectId.replace('#', '')
-
-                        line.length_km = cell.value.attributes[2].nodeValue
-                        line.parallel = cell.value.attributes[3].nodeValue
-                        line.df = cell.value.attributes[4].nodeValue
-
-                        //Load_flow_parameters
-                        line.r_ohm_per_km = cell.value.attributes[8].nodeValue
-                        line.x_ohm_per_km = cell.value.attributes[9].nodeValue
-                        line.c_nf_per_km = cell.value.attributes[10].nodeValue
-                        line.g_us_per_km = cell.value.attributes[11].nodeValue
-                        line.max_i_ka = cell.value.attributes[12].nodeValue
-                        line.type = cell.value.attributes[13].nodeValue
-
-                        //line.in_service = cell.value.attributes[13].nodeValue
-
-                        //Short_circuit_parameters
-                        line.r0_ohm_per_km = cell.value.attributes[14].nodeValue ////w specyfikacji PandaPower jako nan
-                        line.x0_ohm_per_km = cell.value.attributes[15].nodeValue //w specyfikacji PandaPower jako nan
-                        line.c0_nf_per_km = cell.value.attributes[16].nodeValue //w specyfikacji PandaPower jako nan
-                        line.endtemp_degree = cell.value.attributes[17].nodeValue //w specyfikacji PandaPower jako nan
-
-                        lineNo++
-
-                        lineArray.push(line);
-                    }
-
-                }
+function shortCircuitPandaPower(a, b, c) {
+    let apka = a;
+    let grafka = b;
+
+    // Create counters object
+    const counters = {
+        externalGrid: 0,
+        generator: 0,
+        staticGenerator: 0,
+        asymmetricGenerator: 0,
+        busbar: 0,
+        transformer: 0,
+        threeWindingTransformer: 0,
+        shuntReactor: 0,
+        capacitor: 0,
+        load: 0,
+        asymmetricLoad: 0,
+        impedance: 0,
+        ward: 0,
+        extendedWard: 0,
+        motor: 0,
+        storage: 0,
+        SVC: 0,
+        TCSC: 0,
+        SSC: 0,
+        dcLine: 0,
+        line: 0
+    };
+
+    // Create arrays for different components
+    const componentArrays = {
+        simulationParameters: [],
+        externalGrid: [],
+        generator: [],
+        staticGenerator: [],
+        asymmetricGenerator: [],
+        busbar: [],
+        transformer: [],
+        threeWindingTransformer: [],
+        shuntReactor: [],
+        capacitor: [],
+        load: [],
+        asymmetricLoad: [],
+        impedance: [],
+        ward: [],
+        extendedWard: [],
+        motor: [],
+        storage: [],
+        SVC: [],
+        TCSC: [],
+        SSC: [],
+        dcLine: [],
+        line: []
+    };
+
+    // Cache styles and configurations
+    const STYLES = {
+        label: {
+            [mxConstants.STYLE_FONTSIZE]: '6',
+            [mxConstants.STYLE_ALIGN]: 'ALIGN_LEFT'
+        },
+        line: {
+            [mxConstants.STYLE_FONTSIZE]: '6',
+            [mxConstants.STYLE_STROKE_OPACITY]: '0',
+            [mxConstants.STYLE_STROKECOLOR]: 'white',
+            [mxConstants.STYLE_STROKEWIDTH]: '0',
+            [mxConstants.STYLE_OVERFLOW]: 'hidden'
+        }
+    };
+
+    // Helper function to format numbers
+    const formatNumber = (num, decimals = 3) => num.toFixed(decimals);
+    const replaceUnderscores = name => name.replace('_', '#');
+
+    // Error handler
+    function handleNetworkErrors(dataJson) {
+        const errorTypes = {
+            'line': 'Line',
+            'bus': 'Bus',
+            'ext_grid': 'External Grid',
+            'trafo3w': 'Three-winding transformer: nominal voltage does not match',
+            'overload': 'One of the element is overloaded. The load flow did not converge. Contact electrisim@electrisim.com'
+        };
+
+        if (!dataJson[0]) return false;
+
+        const errorType = Array.isArray(dataJson[0]) ? dataJson[0][0] : dataJson[0];
+
+        if (errorType === 'trafo3w' || errorType === 'overload') {
+            alert(errorTypes[errorType]);
+            return true;
+        }
+
+        if (errorTypes[errorType]) {
+            for (let i = 1; i < dataJson.length; i++) {
+                alert(`${errorTypes[errorType]}${dataJson[i][0]} ${dataJson[i][1]} = ${dataJson[i][2]} (restriction: ${dataJson[i][3]})\nPower Flow did not converge`);
             }
+            return true;
+        }
 
-            //zamień w transformerArray kolejności busbar (hv, lv)
-            //porównaj dwa napięcia i dzięki temu określ który jest HV i LV            
-            //OKREŚLENIE HV BUSBAR            
-            for (let i = 0; i < transformerArray.length; i++) {
-                let twoWindingBusbarArray = [];
-
-                let transformerCell = b.getModel().getCell(transformerArray[i].id)
-                let style=b.getModel().getStyle(transformerCell);                
-
-                try{
-
-                   let newStyle=mxUtils.setStyle(style,mxConstants.STYLE_STROKECOLOR,'black');
-                   let cs= new Array();
-                   cs[0]=transformerCell;
-                   b.setCellStyle(newStyle,cs); 
-                   bus1 = busbarArray.find(element => element.name == transformerArray[i].hv_bus);
-                   bus2 = busbarArray.find(element => element.name == transformerArray[i].lv_bus);
-
-                    twoWindingBusbarArray.push(bus1)
-                    twoWindingBusbarArray.push(bus2)
-
-                    let busbarWithHighestVoltage = twoWindingBusbarArray.reduce(
-                        (prev, current) => {
-                            return parseFloat(prev.vn_kv) > parseFloat(current.vn_kv) ? prev : current
-                        }
-                    );
-                    let busbarWithLowestVoltage = twoWindingBusbarArray.reduce(
-                    (prev, current) => {
-                        return parseFloat(prev.vn_kv) < parseFloat(current.vn_kv) ? prev : current
-                        }
-                    );
-
-                    transformerArray[i].hv_bus = busbarWithHighestVoltage.name
-                    transformerArray[i].lv_bus = busbarWithLowestVoltage.name
-
-                }catch (error) {
-                    console.error(error.message);
-                    let newStyle=mxUtils.setStyle(style,mxConstants.STYLE_STROKECOLOR,'red');
-                    let cs= new Array();
-                    cs[0]=transformerCell;
-                    b.setCellStyle(newStyle,cs); 
-                    alert('The transformer is not connected to the bus. Please check the transformer highlighted in red and connect it to the appropriate bus.')
-                }            
-
-        
-            } 
-
-            //zamień w threeWindingTransformerArray kolejności busbar (hv, mv, lv)
-            //porównaj trzy napięcia i dzięki temu określ który jest HV, MV i LV       
-
-            for (let i = 0; i < threeWindingTransformerArray.length; i++) {
-                let threeWindingBusbarArray = [];   
-                
-                let threeWindingTransformerCell = b.getModel().getCell(threeWindingTransformerArray[i].id)
-                let style=b.getModel().getStyle(threeWindingTransformerCell);  
-                
-                try{   
-                    let newStyle=mxUtils.setStyle(style,mxConstants.STYLE_STROKECOLOR,'black');
-                    let cs= new Array();
-                    cs[0]=threeWindingTransformerCell;
-                    b.setCellStyle(newStyle,cs);
-
-                    bus1 = busbarArray.find(element => element.name == threeWindingTransformerArray[i].hv_bus);
-                    bus2 = busbarArray.find(element => element.name == threeWindingTransformerArray[i].mv_bus);
-                    bus3 = busbarArray.find(element => element.name == threeWindingTransformerArray[i].lv_bus);
-                    threeWindingBusbarArray.push(bus1)
-                    threeWindingBusbarArray.push(bus2)
-                    threeWindingBusbarArray.push(bus3)
-                    console.log(threeWindingBusbarArray)
-
-                    let busbarWithHighestVoltage = threeWindingBusbarArray.reduce(
-                        (prev, current) => {
-
-                            return parseFloat(prev.vn_kv) > parseFloat(current.vn_kv) ? prev : current
-                        }
-                    );
-                    let busbarWithLowestVoltage = threeWindingBusbarArray.reduce(
-                        (prev, current) => {
-                            return parseFloat(prev.vn_kv) < parseFloat(current.vn_kv) ? prev : current
-                        }
-                    );
-
-                    let busbarWithMiddleVoltage = threeWindingBusbarArray.find(element => element.name != busbarWithHighestVoltage.name && element.name != busbarWithLowestVoltage.name);
-
-                    threeWindingTransformerArray[i].hv_bus = busbarWithHighestVoltage.name
-                    threeWindingTransformerArray[i].mv_bus = busbarWithMiddleVoltage.name
-                    threeWindingTransformerArray[i].lv_bus = busbarWithLowestVoltage.name
-
-                }catch (error) {
-                    console.error(error.message);
-                    let newStyle=mxUtils.setStyle(style,mxConstants.STYLE_STROKECOLOR,'red');
-                    let cs= new Array();
-                    cs[0]=threeWindingTransformerCell;
-                    b.setCellStyle(newStyle,cs); 
-                    alert('The three-winding transformer is not connected to the bus. Please check the three-winding transformer highlighted in red and connect it to the appropriate bus.')                  
-
-                }
+        return false;
+    }
 
 
-                /*
+    // Network element processors (FROM BACKEND TO FRONTEND)
+    const elementProcessors = {
+        busbars: (data, b, grafka) => {
+            data.forEach(cell => {
+                const resultCell = b.getModel().getCell(cell.id);
+                cell.name = replaceUnderscores(cell.name);
 
-                bus1 = busbarArray.find(element => element.name == threeWindingTransformerArray[i].hv_bus);
-                bus2 = busbarArray.find(element => element.name == threeWindingTransformerArray[i].mv_bus);
-                bus3 = busbarArray.find(element => element.name == threeWindingTransformerArray[i].lv_bus);
-                threeWindingBusbarArray.push(bus1)
-                threeWindingBusbarArray.push(bus2)
-                threeWindingBusbarArray.push(bus3)
-                console.log(threeWindingBusbarArray)
+                const resultString = `${resultCell.value.attributes[0].nodeValue}
+                ikss[kA]: ${formatNumber(cell.ikss_ka)}
+                ip[kA]: ${formatNumber(cell.ip_ka)}
+                ith[kA]: ${formatNumber(cell.ith_ka)}
+                rk[ohm]: ${formatNumber(cell.rk_ohm)}
+                xk[ohm]: ${formatNumber(cell.xk_ohm)}`;
 
-                let busbarWithHighestVoltage = threeWindingBusbarArray.reduce(
-                    (prev, current) => {
+                const labelka = b.insertVertex(resultCell, null, resultString, 0.2, 4.5, 0, 0, 'shapeELXXX=Result', true);
+                //processCellStyles(b, labelka);
+            });
+        },
 
-                        return parseFloat(prev.vn_kv) > parseFloat(current.vn_kv) ? prev : current
-                    }
-                );
-                let busbarWithLowestVoltage = threeWindingBusbarArray.reduce(
-                    (prev, current) => {
-                        return parseFloat(prev.vn_kv) < parseFloat(current.vn_kv) ? prev : current
-                    }
-                );
+    };
 
-                let busbarWithMiddleVoltage = threeWindingBusbarArray.find(element => element.name != busbarWithHighestVoltage.name && element.name != busbarWithLowestVoltage.name);
+    // Main processing function (FROM BACKEND TO FRONTEND)
+    async function processNetworkData(url, obj, b, grafka) {
+        try {
+            // Initialize styles once
+            b.getStylesheet().putCellStyle('labelstyle', STYLES.label);
+            b.getStylesheet().putCellStyle('lineStyle', STYLES.line);
 
-                threeWindingTransformerArray[i].hv_bus = busbarWithHighestVoltage.name
-                threeWindingTransformerArray[i].mv_bus = busbarWithMiddleVoltage.name
-                threeWindingTransformerArray[i].lv_bus = busbarWithLowestVoltage.name
-                */
-            }
-
-
-            array = [
-                ...dataToBackendArray, 
-                ...simulationParametersArray,
-                ...externalGridArray,
-                ...generatorArray,
-                ...staticGeneratorArray,
-                ...asymmetricStaticGeneratorArray,
-                ...busbarArray,
-                ...transformerArray,
-                ...threeWindingTransformerArray,
-                ...shuntReactorArray,
-                ...capacitorArray,
-                ...loadArray,
-                ...asymmetricLoadArray,
-                ...impedanceArray,
-                ...wardArray,
-                ...extendedWardArray,
-                ...motorArray,
-                ...storageArray,
-                ...dcLineArray,
-                ...lineArray
-            ];
-
-          
-
-            let obj = Object.assign({}, array);
-            console.log(JSON.stringify(obj))
-
-
-            let printArray = function (arr) {
-                if (typeof (arr) == "object") {
-                    for (let i = 0; i < arr.length; i++) {
-                        printArray(arr[i]);
-                    }
-                }
-                else document.write(arr);
-            }
-
-
-            //*************** KONIEC - SCZYTYWANIE MODELU DO BACKEND ****************
-
-            //wysyłanie do backend i otrzymywanie wyników
-            let dataReceived = "";
-
-            // this.createVertexTemplateEntry("line;strokeWidth=2;html=1;shapeELXXX=Bus;", 160, 10, "", "Bus"),
-
-
-            //bootstrap button with spinner
-            // this.ui.spinner.stop();
-            fetch("https://03dht3kc-5000.euw.devtunnels.ms/", { //  http://127.0.0.1:5000/ https://electrisim-0fe342b90b0c.herokuapp.com/
-                mode: "cors", 
+            const response = await fetch(url, {
+                mode: "cors",
                 method: "post",
                 headers: {
                     "Content-Type": "application/json",
-                                                    
                 },
                 body: JSON.stringify(obj)
-            })
+            });
 
-                //.then(response => console.log(response))
+            if (response.status !== 200) {
+                throw new Error("server");
+            }
 
+            const dataJson = await response.json();
+            console.log('dataJson')
+            console.log(dataJson)
 
-                .then(response => {
-                    apka.spinner.stop();
+            // Handle errors first
+            if (handleNetworkErrors(dataJson)) {
+                return;
+            }
 
-                    if (response.status === 200) {                  
-                        return response.json()
-                    } else {        
-                        return Promise.reject("server")
-                    }
-                })
-                .then(dataJson => {
-         
+            // Process each type of network element
+            Object.entries(elementProcessors).forEach(([type, processor]) => {
+                if (dataJson[type]) {
+                    processor(dataJson[type], b, grafka);
+                }
+            });
 
-                    if (dataJson[0] != undefined) {
-                        if (dataJson[0] == "line") {
-                            //rozpływ się nie udał, output z diagnostic_function
-                            for (let i = 1; i < dataJson.length; i++) {
-                             
-                                alert("Line" + dataJson[i][0] + " " + dataJson[i][1] + " = " + dataJson[i][2] + " (restriction: " + dataJson[i][3] + ")\n Power Flow did not converge")
-                            }
-                        }
-                        if (dataJson[0] == "bus") {
-                            //rozpływ się nie udał, output z diagnostic_function
-                            for (let i = 1; i < dataJson.length; i++) {
-                      
-                                alert("Bus" + dataJson[i][0] + " " + dataJson[i][1] + " = " + dataJson[i][2] + " (restriction: " + dataJson[i][3] + ")\n Power Flow did not converge")
-                            }
-                        }
-                        if (dataJson[0] == "ext_grid") {
-                            //rozpływ się nie udał, output z diagnostic_function
-                            for (let i = 1; i < dataJson.length; i++) {
-                           
-                                alert("External Grid" + dataJson[i][0] + " " + dataJson[i][1] + " = " + dataJson[i][2] + " (restriction: " + dataJson[i][3] + ")\n Power Flow did not converge")
-                            }
-                        }
-                        if (dataJson[0][0] == "trafo3w") {
-
-                            alert("Three-winding transformer: nominal voltage does not match")
-                            //rozpływ się nie udał, output z diagnostic_function
-                            //for (let i = 1; i < dataJson.length; i++) {
-                            //    console.log(dataJson[i])
-                            //    alert("Three Winding Transformer"+dataJson[i][0]+" " + dataJson[i][1] + " = " + dataJson[i][2] + " (restriction: " + dataJson[i][3] + ")\n Power Flow did not converge")
-                            //}
-                        }
-                        if (dataJson[0] == "overload") {
-                            alert("One of the element is overloaded. The load flow did not converge.")
-                        }
-                    }
-
-
-                    //*************** SHOWING RESULTS ON DIAGRAM ****************
-                    let csvArray = []
-                    let oneBusbarArray = []
-
-                    let style = new Object();
-                    style[mxConstants.STYLE_FONTSIZE] = '8';
-                    //style[mxConstants.STYLE_SHAPE] = 'box';
-                    //style[mxConstants.STYLE_STROKECOLOR] = '#000000';
-                    //style[mxConstants.STYLE_FONTCOLOR] = '#000000';                        
-                    b.getStylesheet().putCellStyle('labelstyle', style);
-
-                    /*dataJson.lines.forEach(function(arrayTen) {
-                        let row = dataJson.lines.join(",");
-                        csvContent += row + "\r\n";
-                    });*/
-
-                    //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Line
-                    //let csvContent = "data:text/csv;charset=utf-8,Busbar Name,ikss_ka, ip_ka, ith_ka, rk_ohm, xk_ohm\n";
-
-
-                    for (let i = 0; i < dataJson.busbars.length; i++) {
-
-                        resultId = dataJson.busbars[i].id
-
-                        dataJson.busbars[i].name = dataJson.busbars[i].name.replace('_', '#')
-
-
-                        //for the csv file
-                        //let row = Object.values(dataJson.busbars[i]).join(",")
-                        //csvContent += row + "\r\n";
-
-                        //create label
-                        let resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
-
-                        var label12 = b.insertVertex(resultCell, null, resultCell.value.attributes[0].nodeValue, 0.2, 1.4, 0, 0, 'labelstyle', true);
-                        label12.setStyle('shapeELXXX=Result')
-
-                        var label12 = b.insertVertex(resultCell, null, 'ikss[kA]: ' + dataJson.busbars[i].ikss_ka.toFixed(3), 0.2, 2.6, 0, 0, 'labelstyle', true);
-                        label12.setStyle('shapeELXXX=Result')
-
-
-                        if (dataJson.busbars[i].ip_ka != "NaN") {
-
-                            let label12 = b.insertVertex(resultCell, null, 'ip[kA]: ' + dataJson.busbars[i].ip_ka.toFixed(3), 0.2, 3.8, 0, 0, 'labelstyle', true);
-                            label12.setStyle('shapeELXXX=Result')
-                        }
-
-                        if (dataJson.busbars[i].ith_ka != "NaN") {
-                            let label12 = b.insertVertex(resultCell, null, 'ith[kA]: ' + dataJson.busbars[i].ith_ka.toFixed(3), 0.2, 5, 0, 0, 'labelstyle', true);
-                            label12.setStyle('shapeELXXX=Result')
-                        }
-
-                        var label12 = b.insertVertex(resultCell, null, 'rk[ohm]: ' + dataJson.busbars[i].rk_ohm.toFixed(3), 0.2, 6.2, 0, 0, 'labelstyle', true);
-                        label12.setStyle('shapeELXXX=Result')
-
-                        var label12 = b.insertVertex(resultCell, null, 'xk[ohm]: ' + dataJson.busbars[i].xk_ohm.toFixed(3), 0.2, 7.4, 0, 0, 'labelstyle', true);
-                        label12.setStyle('shapeELXXX=Result')
-
-                    }
-
-                    /*
-
-                    //kolejność zgodnie z kolejnością w python przy tworzeniu Klasy Line
-                    csvContent += "Line Name, ikss_ka, ip_ka, ith_ka\n";
-                    for (let i = 0; i < dataJson.lines.length; i++) {
-
-                        resultId = dataJson.lines[i].name
-
-                        resultId = resultId.replace('NUMBER', dataJson.lines[i].name)
-
-                        //sprawdz na jakich pozycjach był znak '-'
-                        //podmien w tyc pozycjach znaki
-                        resultId = resultId.replaceAll('___', '-')
-
-                        dataJson.lines[i].name = resultId
-
-                        //for the csv file
-                        let row = Object.values(dataJson.lines[i]).join(",")
-                        csvContent += row + "\r\n";
-
-                        let resultCell = b.getModel().getCell(resultId) //musisz używać id a nie mxObjectId bo nie ma metody GetCell dla mxObjectId
-
-                        let label12 = b.insertVertex(resultCell, null, 'ikss[kA]: ' + dataJson.lines[i].ikss.toFixed(3), -0.3, 43, 0, 0, 'labelstyle', true);
-                        label12.setStyle('shapeELXXX=Result')
-
-                        let label12 = b.insertVertex(resultCell, null, 'ip[kA]: ' + dataJson.lines[i].ip.toFixed(3), -0.4, 43, 0, 0, 'labelstyle', true);
-                        label12.setStyle('shapeELXXX=Result')
-
-                        let label12 = b.insertVertex(resultCell, null, 'ith[kA]: ' + dataJson.lines[i].ith.toFixed(3), -0.5, 43, 0, 0, 'labelstyle', true);
-                        label12.setStyle('shapeELXXX=Result')
-
-                        let label12 = b.insertVertex(resultCell, null, 'Loading[%]: ' + dataJson.lines[i].loading_percent.toFixed(1), -0.3, 43, 0, 0, 'labelstyle', true);
-                        label12.setStyle('shapeELXXX=Result')
-
-
-                    } */
-                    //download to CSV
-                    //let encodedUri = encodeURI(csvContent);
-                    //let link = document.createElement("a");
-                    //link.setAttribute("href", encodedUri);
-                    //link.setAttribute("download", "Results.csv");
-                    //document.body.appendChild(link); // Required for FF
-                    //link.click();
-
-                })
-            
-            .catch(err => {
-                if (err === "server") return
-                alert(err)
-            })
-
+        } catch (err) {
+            if (err.message === "server") return;
+            alert('Error processing network data.' + err + '\n \nCheck input data or contact electrisim@electrisim.com');
+        } finally {
+            if (typeof apka !== 'undefined' && apka.spinner) {
+                apka.spinner.stop();
+            }
         }
-    })
+    }
+
+    // Main function execution
+    b.isEnabled() && !b.isCellLocked(b.getDefaultParent()) && a.showShortCircuitDialog("", "Calculate", function (a, c) {
+        // Cache commonly used functions and values
+        const getModel = b.getModel.bind(b);
+        const model = getModel();
+        const cellsArray = model.getDescendants();
+
+        apka.spinner.spin(document.body, "Waiting for results...")
+
+        if (a.length > 0) {
+            // Initialize short circuit parameters
+            componentArrays.simulationParameters.push({
+                typ: "ShortCircuitPandaPower Parameters",
+                fault: a[0],
+                case: a[1],
+                lv_tol_percent: a[2],
+                topology: a[3],
+                tk_s: a[4],
+                r_fault_ohm: a[5],
+                x_fault_ohm: a[6],
+                inverse_y: a[7]
+            });
+
+            // Process cells
+            cellsArray.forEach(cell => {
+                // Remove previous results
+                if (cell.getStyle()?.includes("Result")) {
+                    model.remove(model.getCell(cell.id));
+                    return;
+                }
+
+                const style = parseCellStyle(cell.getStyle());
+                if (!style) return;
+
+                const componentType = style.shapeELXXX;
+                if (!componentType) return;
+
+                if (!componentType || componentType == 'NotEditableLine') return;
+
+                // Create base data for component
+                let baseData;
+                if (componentType === 'Line' || componentType === 'DCLine') {
+                    baseData = {
+                        name: cell.mxObjectId.replace('#', '_'),
+                        id: cell.id,
+                        bus: getConnectedBusId(cell, true)
+                    };
+                } else {
+                    baseData = {
+                        name: cell.mxObjectId.replace('#', '_'),
+                        id: cell.id,
+                        bus: getConnectedBusId(cell)
+                    };
+                }
+
+                // Process each component type
+                switch (componentType) {
+                    case COMPONENT_TYPES.EXTERNAL_GRID:
+                        const externalGrid = {
+                            ...baseData,
+                            typ: `External Grid${counters.externalGrid++}`,
+                            ...getAttributesAsObject(cell, {
+                                vm_pu: 'vm_pu',
+                                va_degree: 'va_degree',
+                                s_sc_max_mva: 's_sc_max_mva',
+                                s_sc_min_mva: 's_sc_min_mva',
+                                rx_max: 'rx_max',
+                                rx_min: 'rx_min',
+                                r0x0_max: 'r0x0_max',
+                                x0x_max: 'x0x_max'
+                            })
+                        };
+                        componentArrays.externalGrid.push(externalGrid);
+                        break;
+
+                    case COMPONENT_TYPES.GENERATOR:
+                        const generator = {
+                            ...baseData,
+                            typ: "Generator",
+                            ...getAttributesAsObject(cell, {
+                                p_mw: 'p_mw',
+                                vm_pu: 'vm_pu',
+                                sn_mva: 'sn_mva',
+                                scaling: 'scaling',
+                                vn_kv: 'vn_kv',
+                                xdss_pu: 'xdss_pu',
+                                rdss_ohm: 'rdss_ohm',
+                                cos_phi: 'cos_phi',
+                                pg_percent: 'pg_percent',
+                                power_station_trafo: 'power_station_trafo'
+                            })
+                        };
+                        componentArrays.generator.push(generator);
+                        counters.generator++;
+                        break;
+
+                    case COMPONENT_TYPES.STATIC_GENERATOR:
+                        const staticGenerator = {
+                            ...baseData,
+                            typ: "Static Generator",
+                            ...getAttributesAsObject(cell, {
+                                p_mw: 'p_mw',
+                                q_mvar: 'q_mvar',
+                                sn_mva: 'sn_mva',
+                                scaling: 'scaling',
+                                type: 'type',
+                                k: 'k',
+                                rx: 'rx',
+                                generator_type: 'generator_type',
+                                lrc_pu: 'lrc_pu',
+                                max_ik_ka: 'max_ik_ka',
+                                kappa: 'kappa',
+                                current_source: 'current_source'
+                            })
+                        };
+                        componentArrays.staticGenerator.push(staticGenerator);
+                        counters.staticGenerator++;
+                        break;
+                    case COMPONENT_TYPES.ASYMMETRIC_STATIC_GENERATOR:
+                        const asymmetricGenerator = {
+                            ...baseData,
+                            typ: `Asymmetric Static Generator${counters.asymmetricGenerator++}`,
+                            ...getAttributesAsObject(cell, {
+                                p_a_mw: 'p_a_mw',
+                                p_b_mw: 'p_b_mw',
+                                p_c_mw: 'p_c_mw',
+                                q_a_mvar: 'q_a_mvar',
+                                q_b_mvar: 'q_b_mvar',
+                                q_c_mvar: 'q_c_mvar',
+                                sn_mva: 'sn_mva',
+                                scaling: 'scaling',
+                                type: 'type'
+                            })
+                        };
+                        componentArrays.asymmetricGenerator.push(asymmetricGenerator);
+                        break;
+
+                    case COMPONENT_TYPES.BUS:
+                        const busbar = {
+                            typ: `Bus${counters.busbar++}`,
+                            name: cell.mxObjectId.replace('#', '_'),
+                            id: cell.id,
+                            vn_kv: cell.value.attributes[2].nodeValue
+                        };
+                        componentArrays.busbar.push(busbar);
+                        break;
+
+                    case COMPONENT_TYPES.TRANSFORMER:
+                        const { hv_bus, lv_bus } = getTransformerConnections(cell);
+                        const transformer = {
+                            typ: `Transformer${counters.transformer++}`,
+                            name: cell.mxObjectId.replace('#', '_'),
+                            id: cell.id,
+                            hv_bus,
+                            lv_bus,
+                            ...getAttributesAsObject(cell, {
+                                // Load flow parameters
+                                sn_mva: 'sn_mva',
+                                vn_hv_kv: 'vn_hv_kv',
+                                vn_lv_kv: 'vn_lv_kv',
+
+                                // Short circuit parameters
+                                vkr_percent: 'vkr_percent',
+                                vk_percent: 'vk_percent',
+                                pfe_kw: 'pfe_kw',
+                                i0_percent: 'i0_percent',
+                                vector_group: 'vector_group',
+                                vk0_percent: 'vk0_percent',
+                                vkr0_percent: 'vkr0_percent',
+                                mag0_percent: 'mag0_percent',
+                                si0_hv_partial: 'si0_hv_partial',
+
+                                // Optional parameters
+                                parallel: { name: 'parallel', optional: true },
+                                shift_degree: { name: 'shift_degree', optional: true },
+                                tap_side: { name: 'tap_side', optional: true },
+                                tap_pos: { name: 'tap_pos', optional: true },
+                                tap_neutral: { name: 'tap_neutral', optional: true },
+                                tap_max: { name: 'tap_max', optional: true },
+                                tap_min: { name: 'tap_min', optional: true },
+                                tap_step_percent: { name: 'tap_step_percent', optional: true },
+                                tap_step_degree: { name: 'tap_step_degree', optional: true },
+                                tap_phase_shifter: { name: 'tap_phase_shifter', optional: true }
+                            })
+                        };
+                        componentArrays.transformer.push(transformer);
+                        break;
+
+                    case COMPONENT_TYPES.THREE_WINDING_TRANSFORMER:
+                        const connections = getThreeWindingConnections(cell);
+                        const threeWindingTransformer = {
+                            typ: `Three Winding Transformer${counters.threeWindingTransformer++}`,
+                            name: cell.mxObjectId.replace('#', '_'),
+                            id: cell.id,
+                            ...connections,
+                            ...getAttributesAsObject(cell, {
+                                // Load flow parameters
+                                sn_hv_mva: 'sn_hv_mva',
+                                sn_mv_mva: 'sn_mv_mva',
+                                sn_lv_mva: 'sn_lv_mva',
+                                vn_hv_kv: 'vn_hv_kv',
+                                vn_mv_kv: 'vn_mv_kv',
+                                vn_lv_kv: 'vn_lv_kv',
+                                vk_hv_percent: 'vk_hv_percent',
+                                vk_mv_percent: 'vk_mv_percent',
+                                vk_lv_percent: 'vk_lv_percent',
+
+                                // Short circuit parameters
+                                vkr_hv_percent: 'vkr_hv_percent',
+                                vkr_mv_percent: 'vkr_mv_percent',
+                                vkr_lv_percent: 'vkr_lv_percent',
+                                pfe_kw: 'pfe_kw',
+                                i0_percent: 'i0_percent',
+                                vk0_hv_percent: 'vk0_hv_percent',
+                                vk0_mv_percent: 'vk0_mv_percent',
+                                vk0_lv_percent: 'vk0_lv_percent',
+                                vkr0_hv_percent: 'vkr0_hv_percent',
+                                vkr0_mv_percent: 'vkr0_mv_percent',
+                                vkr0_lv_percent: 'vkr0_lv_percent',
+                                vector_group: 'vector_group',
+
+                                // Optional parameters
+                                shift_mv_degree: { name: 'shift_mv_degree', optional: true },
+                                shift_lv_degree: { name: 'shift_lv_degree', optional: true },
+                                tap_step_percent: { name: 'tap_step_percent', optional: true },
+                                tap_side: { name: 'tap_side', optional: true },
+                                tap_neutral: { name: 'tap_neutral', optional: true },
+                                tap_min: { name: 'tap_min', optional: true },
+                                tap_max: { name: 'tap_max', optional: true },
+                                tap_pos: { name: 'tap_pos', optional: true },
+                                tap_at_star_point: { name: 'tap_at_star_point', optional: true }
+                            })
+                        };
+                        componentArrays.threeWindingTransformer.push(threeWindingTransformer);
+                        break;
+
+                    case COMPONENT_TYPES.SHUNT_REACTOR:
+                        const shuntReactor = {
+                            typ: `Shunt Reactor${counters.shuntReactor++}`,
+                            name: cell.mxObjectId.replace('#', '_'),
+                            id: cell.id,
+                            bus: getConnectedBusId(cell),
+                            ...getAttributesAsObject(cell, {
+                                // Load flow parameters
+                                p_mw: 'p_mw',
+                                q_mvar: 'q_mvar',
+                                vn_kv: 'vn_kv',
+                                // Optional parameters
+                                step: { name: 'step', optional: true },
+                                max_step: { name: 'max_step', optional: true }
+                            })
+                        };
+                        componentArrays.shuntReactor.push(shuntReactor);
+                        break;
+
+                    case COMPONENT_TYPES.CAPACITOR:
+                        const capacitor = {
+                            typ: `Capacitor${counters.capacitor++}`,
+                            name: cell.mxObjectId.replace('#', '_'),
+                            id: cell.id,
+                            bus: getConnectedBusId(cell),
+                            ...getAttributesAsObject(cell, {
+                                // Load flow parameters
+                                q_mvar: 'q_mvar',
+                                loss_factor: 'loss_factor',
+                                vn_kv: 'vn_kv',
+                                // Optional parameters
+                                step: { name: 'step', optional: true },
+                                max_step: { name: 'max_step', optional: true }
+                            })
+                        };
+                        componentArrays.capacitor.push(capacitor);
+                        break;
+                    case COMPONENT_TYPES.LOAD:
+                        const load = {
+                            typ: `Load${counters.load++}`,
+                            name: cell.mxObjectId.replace('#', '_'),
+                            id: cell.id,
+                            bus: getConnectedBusId(cell),
+                            ...getAttributesAsObject(cell, {
+                                // Load flow parameters
+                                p_mw: 'p_mw',
+                                q_mvar: 'q_mvar',
+                                const_z_percent: 'const_z_percent',
+                                const_i_percent: 'const_i_percent',
+                                sn_mva: 'sn_mva',
+                                scaling: 'scaling',
+                                type: 'type'
+                            })
+                        };
+                        componentArrays.load.push(load);
+                        break;
+
+                    case COMPONENT_TYPES.ASYMMETRIC_LOAD:
+                        const asymmetricLoad = {
+                            typ: `Asymmetric Load${counters.asymmetricLoad++}`,
+                            name: cell.mxObjectId.replace('#', '_'),
+                            id: cell.id,
+                            bus: getConnectedBusId(cell),
+                            ...getAttributesAsObject(cell, {
+                                // Load flow parameters
+                                p_a_mw: 'p_a_mw',
+                                p_b_mw: 'p_b_mw',
+                                p_c_mw: 'p_c_mw',
+                                q_a_mvar: 'q_a_mvar',
+                                q_b_mvar: 'q_b_mvar',
+                                q_c_mvar: 'q_c_mvar',
+                                sn_mva: 'sn_mva',
+                                scaling: 'scaling',
+                                type: 'type'
+                            })
+                        };
+                        componentArrays.asymmetricLoad.push(asymmetricLoad);
+                        break;
+
+                    case COMPONENT_TYPES.IMPEDANCE:
+                        try {
+                            const impedance = {
+                                typ: `Impedance${counters.impedance++}`,
+                                name: cell.mxObjectId.replace('#', '_'),
+                                id: cell.id,
+                                ...getImpedanceConnections(cell),
+                                ...getAttributesAsObject(cell, {
+                                    // Load flow parameters
+                                    rft_pu: 'rft_pu',
+                                    xft_pu: 'xft_pu',
+                                    sn_mva: 'sn_mva'
+                                })
+                            };
+                            componentArrays.impedance.push(impedance);
+                        } catch (error) {
+                            alert(error.message);
+                        }
+                        break;
+
+                    case COMPONENT_TYPES.WARD:
+                        const ward = {
+                            typ: `Ward${counters.ward++}`,
+                            name: cell.mxObjectId.replace('#', '_'),
+                            id: cell.id,
+                            bus: getConnectedBusId(cell),
+                            ...getAttributesAsObject(cell, {
+                                // Load flow parameters
+                                ps_mw: 'ps_mw',
+                                qs_mvar: 'qs_mvar',
+                                pz_mw: 'pz_mw',
+                                qz_mvar: 'qz_mvar'
+                            })
+                        };
+                        componentArrays.ward.push(ward);
+                        break;
+
+                    case COMPONENT_TYPES.EXTENDED_WARD:
+                        const extendedWard = {
+                            typ: `Extended Ward${counters.extendedWard++}`,
+                            name: cell.mxObjectId.replace('#', '_'),
+                            id: cell.id,
+                            bus: getConnectedBusId(cell),
+                            ...getAttributesAsObject(cell, {
+                                // Load flow parameters
+                                ps_mw: 'ps_mw',
+                                qs_mvar: 'qs_mvar',
+                                pz_mw: 'pz_mw',
+                                qz_mvar: 'qz_mvar',
+                                r_ohm: 'r_ohm',
+                                x_ohm: 'x_ohm',
+                                vm_pu: 'vm_pu'
+                            })
+                        };
+                        componentArrays.extendedWard.push(extendedWard);
+                        break;
+
+                    case COMPONENT_TYPES.MOTOR:
+                        const motor = {
+                            typ: `Motor${counters.motor++}`,
+                            name: cell.mxObjectId.replace('#', '_'),
+                            id: cell.id,
+                            bus: getConnectedBusId(cell),
+                            ...getAttributesAsObject(cell, {
+                                // Load flow parameters
+                                pn_mech_mw: 'pn_mech_mw',
+                                cos_phi: 'cos_phi',
+                                efficiency_percent: 'efficiency_percent',
+                                loading_percent: 'loading_percent',
+                                scaling: 'scaling',
+                                cos_phi_n: 'cos_phi_n',
+                                efficiency_n_percent: 'efficiency_n_percent',
+                                Irc_pu: 'Irc_pu',
+                                rx: 'rx',
+                                vn_kv: 'vn_kv',
+                                efficiency_percent: 'efficiency_percent',
+                                loading_percent: 'loading_percent',
+                                scaling: 'scaling'
+                            })
+                        };
+                        componentArrays.motor.push(motor);
+                        break;
+
+                    case COMPONENT_TYPES.STORAGE:
+                        const storage = {
+                            typ: `Storage${counters.storage++}`,
+                            name: cell.mxObjectId.replace('#', '_'),
+                            id: cell.id,
+                            bus: getConnectedBusId(cell),
+                            ...getAttributesAsObject(cell, {
+                                // Load flow parameters
+                                p_mw: 'p_mw',
+                                max_e_mwh: 'max_e_mwh',
+                                q_mvar: 'q_mvar',
+                                sn_mva: 'sn_mva',
+                                soc_percent: 'soc_percent',
+                                min_e_mwh: 'min_e_mwh',
+                                scaling: 'scaling',
+                                type: 'type'
+                            })
+                        };
+                        componentArrays.storage.push(storage);
+                        break;
+
+                    case COMPONENT_TYPES.SVC:
+                        const SVC = {
+                            typ: `SVC${counters.SVC++}`,
+                            name: cell.mxObjectId.replace('#', '_'),
+                            id: cell.id,
+                            bus: getConnectedBusId(cell),
+                            ...getAttributesAsObject(cell, {
+                                // Load flow parameters
+                                x_l_ohm: 'x_l_ohm',
+                                x_cvar_ohm: 'x_cvar_ohm',
+                                set_vm_pu: 'set_vm_pu',
+                                thyristor_firing_angle_degree: 'thyristor_firing_angle_degree',
+                                controllable: 'controllable',
+                                min_angle_degree: 'min_angle_degree',
+                                max_angle_degree: 'max_angle_degree'
+                            })
+                        };
+                        componentArrays.SVC.push(SVC);
+                        break;
+
+                    case COMPONENT_TYPES.TCSC:
+                        const TCSC = {
+                            typ: `TCSC${counters.TCSC++}`,
+                            name: cell.mxObjectId.replace('#', '_'),
+                            id: cell.id,
+                            bus: getConnectedBusId(cell),
+                            ...getAttributesAsObject(cell, {
+                                // Load flow parameters
+                                x_l_ohm: 'x_l_ohm',
+                                x_cvar_ohm: 'x_cvar_ohm',
+                                set_p_to_mw: 'set_p_to_mw',
+                                thyristor_firing_angle_degree: 'thyristor_firing_angle_degree',
+                                controllable: 'controllable',
+                                min_angle_degree: 'min_angle_degree',
+                                max_angle_degree: 'max_angle_degree'
+                            })
+                        };
+                        componentArrays.TCSC.push(TCSC);
+                        break;
+
+                    case COMPONENT_TYPES.SSC:
+                        const SSC = {
+                            typ: `SSC${counters.SSC++}`,
+                            name: cell.mxObjectId.replace('#', '_'),
+                            id: cell.id,
+                            bus: getConnectedBusId(cell),
+                            ...getAttributesAsObject(cell, {
+                                // Load flow parameters                       
+                                r_ohm: 'r_ohm',
+                                x_ohm: 'x_ohm',
+                                set_vm_pu: 'set_vm_pu',
+                                vm_internal_pu: 'vm_internal_pu',
+                                va_internal_degree: 'va_internal_degree',
+                                controllable: 'controllable'
+                            })
+                        };
+                        componentArrays.SSC.push(SSC);
+                        break;
+
+                    case COMPONENT_TYPES.DC_LINE:
+                        const dcLine = {
+                            typ: `DC Line${counters.dcLine++}`,
+                            name: cell.mxObjectId.replace('#', '_'),
+                            id: cell.id,
+                            bus: getConnectedBusId(cell),
+                            ...getAttributesAsObject(cell, {
+                                // Load flow parameters                       
+                                p_mw: 'p_mw',
+                                loss_percent: 'loss_percent',
+                                loss_mw: 'loss_mw',
+                                vm_from_pu: 'vm_from_pu',
+                                vm_to_pu: 'vm_to_pu'
+                            })
+                        };
+                        componentArrays.dcLine.push(dcLine);
+                        break;
+
+                    case COMPONENT_TYPES.LINE:
+                        const line = {
+                            typ: `Line${counters.line++}`,
+                            name: cell.mxObjectId.replace('#', '_'),
+                            id: cell.id,
+                            ...getConnectedBuses(cell),
+                            ...getAttributesAsObject(cell, {
+                                // Basic parameters
+                                length_km: 'length_km',
+                                parallel: 'parallel',
+                                df: 'df',
+
+                                // Load flow parameters
+                                r_ohm_per_km: 'r_ohm_per_km',
+                                x_ohm_per_km: 'x_ohm_per_km',
+                                c_nf_per_km: 'c_nf_per_km',
+                                g_us_per_km: 'g_us_per_km',
+                                max_i_ka: 'max_i_ka',
+                                type: 'type',
+
+                                // Short circuit parameters
+
+                                r0_ohm_per_km: { name: 'r0_ohm_per_km', optional: true },
+                                x0_ohm_per_km: { name: 'x0_ohm_per_km', optional: true },
+                                c0_nf_per_km: { name: 'c0_nf_per_km', optional: true },
+                                endtemp_degree: { name: 'endtemp_degree', optional: true },
+                            })
+                        };
+
+                        // Validate bus connections
+                        try {
+                            validateBusConnections(cell);
+                            //setCellStyle(cell, { strokeColor: 'black' });
+                        } catch (error) {
+                            console.error(error.message);
+                            //setCellStyle(cell, { strokeColor: 'red' });
+                            alert('The line is not connected to the bus. Please check the line highlighted in red and connect it to the appropriate bus.');
+                        }
+
+                        componentArrays.line.push(line);
+                        break;
+                }
+            });
+
+            //b - graphModel 
+            if (componentArrays.transformer.length > 0) {
+                componentArrays.transformer = updateTransformerBusConnections(componentArrays.transformer, componentArrays.busbar, b);
+            }
+            if (componentArrays.threeWindingTransformer.length > 0) {
+                componentArrays.threeWindingTransformer = updateThreeWindingTransformerConnections(componentArrays.threeWindingTransformer, componentArrays.busbar, b);
+            }
+
+            // Combine all arrays
+            const array = [
+                ...componentArrays.simulationParameters,
+                ...componentArrays.externalGrid,
+                ...componentArrays.generator,
+                ...componentArrays.staticGenerator,
+                ...componentArrays.asymmetricGenerator,
+                ...componentArrays.busbar,
+                ...componentArrays.transformer,
+                ...componentArrays.threeWindingTransformer,
+                ...componentArrays.shuntReactor,
+                ...componentArrays.capacitor,
+                ...componentArrays.load,
+                ...componentArrays.asymmetricLoad,
+                ...componentArrays.impedance,
+                ...componentArrays.ward,
+                ...componentArrays.extendedWard,
+                ...componentArrays.SSC,
+                ...componentArrays.SVC,
+                ...componentArrays.TCSC,
+                ...componentArrays.line
+            ];
+
+            const obj = Object.assign({}, array);
+            console.log(JSON.stringify(obj));
+
+            // Process network data
+            processNetworkData("https://03dht3kc-5000.euw.devtunnels.ms/", obj, b, grafka);
+        }
+    });
 }
+
+
+
