@@ -26,7 +26,7 @@ function handleUnauthenticated() {
         
         if (shouldRedirect) {
             // Redirect to login page (adjust the URL to your login page)
-            window.location.href = '/src/main/webapp/login.html'; //
+            window.location.href = '/login.html'; //
         }
         
        // return false;
