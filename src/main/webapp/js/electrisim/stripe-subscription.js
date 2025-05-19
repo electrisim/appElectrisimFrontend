@@ -1,8 +1,5 @@
 // stripe-subscription.js - Manages subscription-related functionality
 
-// Update redirect URLs and API base URL
-const API_BASE_URL = 'https://customers-production-16f8.up.railway.app/api';
-
 // Function to get auth token from various storage options
 function getAuthToken() {
     // Try different storage mechanisms
@@ -18,14 +15,28 @@ function getAuthToken() {
 
 // Function to handle unauthenticated users
 function handleUnauthenticated() {
-    const shouldRedirect = confirm('You need to log in before subscribing. Go to login page?');
-    if (shouldRedirect) {
-        window.location.href = 'https://app.electrisim.com/login.html';
-    }
+    console.log('User not authenticated. Showing login modal...');
+    
+    // Check if we have the authHandler functionality available
+    /*if (window.authHandler && window.authHandler.showLoginModal) {
+        return window.authHandler.showLoginModal();
+    } else {*/
+        // Fallback if authHandler is not available
+        const shouldRedirect = confirm('You need to log in before subscribing. Go to login page?');
+        
+        if (shouldRedirect) {
+            // Redirect to login page (adjust the URL to your login page)
+            window.location.href = '/src/main/webapp/login.html'; //
+        }
+        
+       // return false;
+   //}
 }
 
 // Function to check if user has an active subscription
 async function checkSubscriptionStatus() {
+    const API_BASE_URL = 'https://customers-production-16f8.up.railway.app/api';
+    
     try {
         // Get the JWT token from localStorage
         const token = getAuthToken();
@@ -58,6 +69,8 @@ async function checkSubscriptionStatus() {
 
 // Function to redirect to Stripe Checkout
 async function redirectToStripeCheckout() {    
+    const API_BASE_URL = 'https://customers-production-16f8.up.railway.app/api';
+
     // Check if stripe is initialized
     if (!window.stripe) {
         console.error('Stripe has not been initialized');
@@ -74,8 +87,8 @@ async function redirectToStripeCheckout() {
             return handleUnauthenticated();
         }
         
-        // Update the API endpoint path
-        const response = await fetch(`${API_BASE_URL}/stripe/create-checkout-session`, {
+        // Call your backend to create a Checkout Session
+        const response = await fetch(`${API_BASE_URL}/create-checkout-session`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -83,7 +96,8 @@ async function redirectToStripeCheckout() {
             },
             body: JSON.stringify({
                 priceId: 'price_1RMDAEAd4ULYw2Nb9nhh8Wf2'  // Replace with your actual Stripe price ID
-            })
+            }),
+            credentials: 'include'
         });
 
         if (!response.ok) {
@@ -118,6 +132,8 @@ async function redirectToStripeCheckout() {
 
 // Function to redirect to Customer Portal for managing subscription
 async function redirectToCustomerPortal() {
+    const API_BASE_URL = 'https://customers-production-16f8.up.railway.app/api';
+    
     try {
         // Get the JWT token
         const token = getAuthToken();
@@ -288,6 +304,138 @@ window.addEventListener('message', function(event) {
     }
 });
 
+const SubscriptionManager = {
+    async checkSubscriptionStatus() {
+        const API_BASE_URL = 'https://customers-production-16f8.up.railway.app/api';
+        
+        try {
+            const token = getAuthToken();
+            
+            if (!token) {
+                console.error('No authentication token found');
+                return false;
+            }
+            
+            const response = await fetch(`${API_BASE_URL}/stripe/check-subscription`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                console.error('Subscription check failed:', response.status);
+                return false;
+            }
+            
+            const data = await response.json();
+            return data.hasActiveSubscription;
+        } catch (error) {
+            console.error('Error checking subscription status:', error);
+            return false;
+        }
+    },
+    
+    showSubscriptionModal() {
+        // Create modal overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'subscription-overlay';
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.backgroundColor = 'rgba(0,0,0,0.7)';
+        overlay.style.display = 'flex';
+        overlay.style.justifyContent = 'center';
+        overlay.style.alignItems = 'center';
+        overlay.style.zIndex = '1000';
+
+        // Create modal content
+        const modal = document.createElement('div');
+        modal.className = 'subscription-modal';
+        modal.style.backgroundColor = 'white';
+        modal.style.borderRadius = '8px';
+        modal.style.padding = '30px';
+        modal.style.width = '480px';
+        modal.style.maxWidth = '90%';
+        modal.style.textAlign = 'center';
+
+        // Modal header
+        const header = document.createElement('h2');
+        header.textContent = 'Subscription Required';
+        header.style.marginBottom = '20px';
+        
+        // Modal message
+        const message = document.createElement('p');
+        message.textContent = 'To use the Simulation feature, a monthly subscription is required.';
+        message.style.marginBottom = '30px';
+        
+        // Price display
+        const priceInfo = document.createElement('div');
+        priceInfo.innerHTML = '<strong>Monthly Subscription:</strong> $5.00/month';
+        priceInfo.style.marginBottom = '30px';
+        
+        // Subscribe button
+        const subscribeBtn = document.createElement('button');
+        subscribeBtn.textContent = 'Subscribe Now';
+        subscribeBtn.style.backgroundColor = '#4CAF50';
+        subscribeBtn.style.color = 'white';
+        subscribeBtn.style.border = 'none';
+        subscribeBtn.style.padding = '12px 24px';
+        subscribeBtn.style.borderRadius = '4px';
+        subscribeBtn.style.cursor = 'pointer';
+        subscribeBtn.style.fontSize = '16px';
+        subscribeBtn.style.marginRight = '15px';
+        
+        // Cancel button
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.style.backgroundColor = '#f44336';
+        cancelBtn.style.color = 'white';
+        cancelBtn.style.border = 'none';
+        cancelBtn.style.padding = '12px 24px';
+        cancelBtn.style.borderRadius = '4px';
+        cancelBtn.style.cursor = 'pointer';
+        cancelBtn.style.fontSize = '16px';
+        
+        // Add event listeners
+        subscribeBtn.addEventListener('click', async () => {
+            overlay.remove();
+            // Check if user is authenticated first
+            const token = getAuthToken();
+            if (!token) {
+                const authenticated = await handleUnauthenticated();
+                if (authenticated) {
+                    redirectToStripeCheckout();
+                }
+            } else {
+                redirectToStripeCheckout();
+            }
+        });
+        
+        cancelBtn.addEventListener('click', () => {
+            overlay.remove();
+        });
+        
+        // Assemble modal
+        modal.appendChild(header);
+        modal.appendChild(message);
+        modal.appendChild(priceInfo);
+        modal.appendChild(subscribeBtn);
+        modal.appendChild(cancelBtn);
+        overlay.appendChild(modal);
+        
+        // Add to body
+        document.body.appendChild(overlay);
+    }
+    // ... other functions ...
+};
+
+// Make it globally available
+window.SubscriptionManager = SubscriptionManager;
+
 // Make functions available globally
 window.subscriptionHandler = {
     checkSubscriptionStatus,
@@ -295,3 +443,39 @@ window.subscriptionHandler = {
     showSubscriptionModal,
     redirectToCustomerPortal
 };
+
+// Make function globally available
+window.checkSubscriptionStatus = async function() {
+    const API_BASE_URL = 'https://customers-production-16f8.up.railway.app/api';
+    
+    try {
+        const token = getAuthToken();
+        
+        if (!token) {
+            console.error('No authentication token found');
+            return false;
+        }
+        
+        const response = await fetch(`${API_BASE_URL}/stripe/check-subscription`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            console.error('Subscription check failed:', response.status);
+            return false;
+        }
+        
+        const data = await response.json();
+        return data.hasActiveSubscription;
+    } catch (error) {
+        console.error('Error checking subscription status:', error);
+        return false;
+    }
+};
+
+// Make other necessary functions global
+window.showSubscriptionModal = showSubscriptionModal;
