@@ -71,15 +71,7 @@ async function checkSubscriptionStatus() {
 async function redirectToStripeCheckout() {    
     const API_BASE_URL = 'https://customers-production-16f8.up.railway.app/api';
 
-    // Check if stripe is initialized
-    if (!window.stripe) {
-        console.error('Stripe has not been initialized');
-        alert('Payment system is not ready. Please try again in a moment.');
-        return;
-    }
-
     try {
-        // Get the JWT token
         const token = getAuthToken();
         
         if (!token) {
@@ -87,42 +79,35 @@ async function redirectToStripeCheckout() {
             return handleUnauthenticated();
         }
         
-        // Call your backend to create a Checkout Session
-        const response = await fetch(`${API_BASE_URL}/create-checkout-session`, {
+        // Remove credentials: 'include'
+        const response = await fetch(`${API_BASE_URL}/stripe/create-checkout-session`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
-                priceId: 'price_1RMDAEAd4ULYw2Nb9nhh8Wf2'  // Replace with your actual Stripe price ID
-            }),
-            credentials: 'include'
+                priceId: 'price_1RMDAEAd4ULYw2Nb9nhh8Wf2'
+            })
         });
 
         if (!response.ok) {
             const errorData = await response.json();
-            console.error('Server error:', errorData);
-            alert('Server error: ' + (errorData.error || 'Unknown error'));
-            return;
+            throw new Error(errorData.error || 'Failed to create checkout session');
         }
 
         const session = await response.json();
         
         if (!session.id) {
-            console.error('No session ID received from server', session);
-            alert('Error: No session ID received from server');
-            return;
+            throw new Error('No session ID received');
         }
         
-        // Redirect to Stripe Checkout
         const result = await stripe.redirectToCheckout({
             sessionId: session.id
         });
 
         if (result.error) {
-            console.error('Error redirecting to checkout:', result.error.message);
-            alert('Error redirecting to payment page: ' + result.error.message);
+            throw new Error(result.error.message);
         }
     } catch (error) {
         console.error('Error creating checkout session:', error);
