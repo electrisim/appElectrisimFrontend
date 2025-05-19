@@ -128,13 +128,13 @@ async function redirectToCustomerPortal() {
             return handleUnauthenticated();
         }
         
-        const response = await fetch(`${API_BASE_URL}/create-customer-portal-session`, {
+        const response = await fetch(`${API_BASE_URL}/stripe/create-customer-portal-session`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
-            },
-            credentials: 'include'
+            }
+            // Remove credentials: 'include'
         });
 
         if (!response.ok) {
