@@ -61,19 +61,23 @@ async function login(email, password) {
 // Function to handle registration
 async function register(email, password, name) {
     try {
-        const data = await apiCall('/routes/register', {
+        const data = await apiCall('/auth/register', {  // Changed from '/routes/register'
             method: 'POST',
             body: JSON.stringify({ email, password, name })
         });
 
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        
-        document.dispatchEvent(new CustomEvent('userLoggedIn', { 
-            detail: { user: data.user } 
-        }));
-        
-        return data;
+        if (data.token) {
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('user', JSON.stringify(data.user));
+            
+            document.dispatchEvent(new CustomEvent('userLoggedIn', { 
+                detail: { user: data.user } 
+            }));
+            
+            return data;
+        } else {
+            throw new Error('Invalid response from server');
+        }
     } catch (error) {
         throw new Error('Registration failed: ' + error.message);
     }
@@ -134,7 +138,7 @@ function createLoginForm(container) {
             const email = form.querySelector('#email').value;
             const password = form.querySelector('#password').value;
             await login(email, password);
-            window.location.href = '/';
+            window.location.href = '/index.html';
         } catch (error) {
             errorElement.textContent = error.message;
         } finally {
@@ -201,11 +205,14 @@ function createRegisterForm(container) {
 
 // Function to handle successful authentication
 function handleSuccessfulAuth(userData) {
+    // Store auth data
     localStorage.setItem('token', userData.token);
     if (userData.user) {
         localStorage.setItem('user', JSON.stringify(userData.user));
     }
-    window.location.href = 'https://app.electrisim.com/electrisim.html';
+    
+    // Redirect to main application
+    window.location.href = '/src/main/webapp/index.html'; //CHANGE IN PRODUCTION
 }
 
 // Make functions available globally
