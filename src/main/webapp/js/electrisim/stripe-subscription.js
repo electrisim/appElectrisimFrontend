@@ -79,13 +79,13 @@ async function redirectToStripeCheckout() {
             return handleUnauthenticated();
         }
         
-        // Remove credentials: 'include'
         const response = await fetch(`${API_BASE_URL}/stripe/create-checkout-session`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
             },
+            // Remove credentials: 'include'
             body: JSON.stringify({
                 priceId: 'price_1RMDAEAd4ULYw2Nb9nhh8Wf2'
             })
@@ -97,18 +97,7 @@ async function redirectToStripeCheckout() {
         }
 
         const session = await response.json();
-        
-        if (!session.id) {
-            throw new Error('No session ID received');
-        }
-        
-        const result = await stripe.redirectToCheckout({
-            sessionId: session.id
-        });
-
-        if (result.error) {
-            throw new Error(result.error.message);
-        }
+        window.location.href = session.url;
     } catch (error) {
         console.error('Error creating checkout session:', error);
         alert('Error creating checkout session. Please try again.');
