@@ -242,8 +242,18 @@
 		{
 			//ELXXX
 			mxscript('js/ag-grid-community.min.js')
+
+			mxscript('https://js.stripe.com/v3/') // Load Stripe.js from CDN first
+			mxscript('js/stripe.js')			
+			mxscript('js/electrisim/auth-handler.js')
+			mxscript('js/electrisim/stripe-subscription.js')
 			
-			mxscript('js/electrisim/select-cell-renderer.js')	
+			
+
+			
+			mxscript('js/electrisim/select-cell-renderer.js')
+
+
 			mxscript('js/electrisim/lineBaseDialog.js')	
 			mxscript('js/electrisim/lineDialog.js')		
 			mxscript('js/electrisim/externalGridDialog.js')
@@ -313,6 +323,7 @@
 		{
 			if (mxScriptsLoaded && mxWinLoaded)
 			{
+			
 				
 				App.main();				
 			}
@@ -375,10 +386,13 @@
 									
 				function loadAppJS()				
 				{
+
+					//mxscript('js/electrisim/stripe-subscription.js')
 					//mxscript('js/electrisim/select-cell-renderer.js')
 					//mxscript('js/electrisim/transformerBaseDialog.js')
 					mxscript('js/app.min.js', function()
-					{
+					{	
+
 						mxScriptsLoaded = true;
 						
 						checkAllLoaded();

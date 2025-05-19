@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subscription Page</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .subscription-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            transition: transform 0.3s ease;
+        }
+        .subscription-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .price {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #333;
+        }
+        .period {
+            color: #666;
+            font-size: 1rem;
+        }
+        .feature-list {
+            margin: 20px 0;
+            padding-left: 0;
+            list-style-type: none;
+        }
+        .feature-list li {
+            padding: 5px 0;
+        }
+        .feature-list li::before {
+            content: "✓";
+            color: #28a745;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">Your App Name</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#">Subscriptions</a>
+                    </li>
+                </ul>
+                <div class="d-flex">
+                    <button id="manage-subscription" onclick="manageSubscription()" class="btn btn-outline-light me-2">
+                        Manage Subscription
+                    </button>
+                    <button id="logout-button" onclick="logout()" class="btn btn-outline-light">
+                        Logout
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Subscription Plans Section -->
+    <div class="container py-5">
+        <h1 class="text-center mb-5">Choose Your Subscription Plan</h1>
+        
+        <div class="row">
+            <!-- Basic Plan -->
+            <div class="col-md-4">
+                <div class="subscription-card h-100">
+                    <h3>Basic Plan</h3>
+                    <div class="price">$9.99 <span class="period">/month</span></div>
+                    <ul class="feature-list">
+                        <li>Access to basic features</li>
+                        <li>Limited storage</li>
+                        <li>Email support</li>
+                    </ul>
+                    <button onclick="handleSubscriptionClick('price_basic')" data-price-id="price_basic" class="btn btn-primary w-100">
+                        Subscribe Now
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Pro Plan -->
+            <div class="col-md-4">
+                <div class="subscription-card h-100 border-primary">
+                    <div class="ribbon bg-primary text-white px-2 position-absolute top-0 end-0">Popular</div>
+                    <h3>Pro Plan</h3>
+                    <div class="price">$19.99 <span class="period">/month</span></div>
+                    <ul class="feature-list">
+                        <li>All Basic features</li>
+                        <li>Increased storage</li>
+                        <li>Priority support</li>
+                        <li>Advanced analytics</li>
+                    </ul>
+                    <button onclick="handleSubscriptionClick('price_pro')" data-price-id="price_pro" class="btn btn-primary w-100">
+                        Subscribe Now
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Enterprise Plan -->
+            <div class="col-md-4">
+                <div class="subscription-card h-100">
+                    <h3>Enterprise Plan</h3>
+                    <div class="price">$49.99 <span class="period">/month</span></div>
+                    <ul class="feature-list">
+                        <li>All Pro features</li>
+                        <li>Unlimited storage</li>
+                        <li>24/7 phone support</li>
+                        <li>Dedicated account manager</li>
+                        <li>Custom integrations</li>
+                    </ul>
+                    <button onclick="handleSubscriptionClick('price_enterprise')" data-price-id="price_enterprise" class="btn btn-primary w-100">
+                        Subscribe Now
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-dark text-white py-4">
+        <div class="container text-center">
+            <p>&copy; 2025 Your App Name. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://js.stripe.com/v3/"></script>
+    <script src="stripe-subscription.js"></script>
+    <script>
+        // Check if user is logged in
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!localStorage.getItem('authToken')) {
+                window.location.href = '/login.html';
+            }
+            
+            // Check subscription status
+            checkSubscriptionStatus();
+        });
+        
+        // Function to check subscription status
+        async function checkSubscriptionStatus() {
+            try {
+                const response = await fetch('/api/stripe/check-subscription', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.hasActiveSubscription) {
+                    // Update UI for subscribers
+                    document.querySelectorAll('.subscription-card button').forEach(button => {
+                        if (data.subscription && data.subscription.plan && 
+                            button.dataset.priceId === data.subscription.plan.id) {
+                            button.textContent = 'Current Plan';
+                            button.classList.remove('btn-primary');
+                            button.classList.add('btn-success');
+                            button.disabled = true;
+                        } else {
+                            button.textContent = 'Change Plan';
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Error checking subscription:', error);
+            }
+        }
+        
+        // Logout function
+        function logout() {
+            localStorage.removeItem('authToken');
+            window.location.href = '/login.html';
+        }
+    </script>
+</body>
+</html>
