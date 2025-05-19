@@ -79,28 +79,34 @@ async function redirectToStripeCheckout() {
             return handleUnauthenticated();
         }
         
+        console.log('Creating checkout session...');
+        
         const response = await fetch(`${API_BASE_URL}/stripe/create-checkout-session`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
             },
-            // Remove credentials: 'include'
             body: JSON.stringify({
-                priceId: 'price_1RMDAEAd4ULYw2Nb9nhh8Wf2'
+                priceId: 'price_1RLjivAd4ULYw2Nb6oGrb9P1' // Make sure this price ID exists in your Stripe account
             })
         });
 
+        const responseData = await response.json();
+        
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to create checkout session');
+            throw new Error(responseData.error || responseData.details || 'Failed to create checkout session');
         }
 
-        const session = await response.json();
-        window.location.href = session.url;
+        if (!responseData.url) {
+            throw new Error('No checkout URL received from server');
+        }
+
+        // Redirect to Stripe Checkout
+        window.location.href = responseData.url;
     } catch (error) {
         console.error('Error creating checkout session:', error);
-        alert('Error creating checkout session. Please try again.');
+        alert(`Checkout error: ${error.message}`);
     }
 }
 
