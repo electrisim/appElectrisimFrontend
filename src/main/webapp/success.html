@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Subscription Success</title>
+    <script src="js/electrisim/stripe-subscription.js"></script>
+</head>
+<body>
+    <h1>Subscription Successful!</h1>
+    <p>Thank you for subscribing to Electrisim.</p>
+    <script>
+        // Get session ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const sessionId = urlParams.get('session_id');
+
+        if (sessionId) {
+            // Notify the parent window
+            window.opener && window.opener.postMessage(
+                { type: 'subscription_success', sessionId }, 
+                '*'
+            );
+        }
+
+        // Redirect after 3 seconds
+        setTimeout(() => {
+            window.location.href = '/src/main/webapp/index.html';
+        }, 3000);
+    </script>
+</body>
+</html>

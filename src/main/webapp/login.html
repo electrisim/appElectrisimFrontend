@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - ElectriSim</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        
+        .auth-container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            width: 400px;
+            max-width: 90%;
+        }
+        
+        h2 {
+            margin-top: 0;
+            color: #333;
+            text-align: center;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+        }
+        
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 12px;
+            width: 100%;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+        }
+        
+        p {
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        a {
+            color: #4CAF50;
+            text-decoration: none;
+        }
+        
+        a:hover {
+            text-decoration: underline;
+        }
+        
+        .error-message {
+            color: #f44336;
+            margin-top: 10px;
+            text-align: center;
+        }
+        
+        .success-message {
+            color: #4CAF50;
+            margin-top: 10px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container" id="auth-container">
+        <!-- Auth form will be inserted here by auth-handler.js -->
+    </div>
+    
+    <!-- <script src="js/stripe.js"></script>-->
+    <script src="js/electrisim/auth-handler.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const authContainer = document.getElementById('auth-container');
+            createLoginForm(authContainer);
+            
+            // If login successful, redirect to home page
+            document.addEventListener('userLoggedIn', (e) => {
+                // Show success message
+                const successMsg = document.createElement('div');
+                successMsg.className = 'success-message';
+                successMsg.textContent = 'Login successful! Redirecting...';
+                authContainer.appendChild(successMsg);
+                
+                // Redirect after a short delay
+                setTimeout(() => {
+                    window.location.href = '/src/main/webapp/index.html'; // Adjust this to your home page
+                }, 1500);
+            });
+        });
+    </script>
+</body>
+</html>
