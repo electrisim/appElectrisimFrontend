@@ -96,7 +96,7 @@ function isAuthenticated() {
 }
 
 // Function to get current user
-function getCurrentUser() {
+function getCurrentUser() { 
     const userStr = localStorage.getItem('user');
     return userStr ? JSON.parse(userStr) : null;
 }
