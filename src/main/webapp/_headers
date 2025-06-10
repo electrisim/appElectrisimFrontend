@@ -1,0 +1,43 @@
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer-when-downgrade
+
+/*.js
+  Content-Type: application/javascript
+
+/*.mjs
+  Content-Type: application/javascript
+
+/*.json
+  Content-Type: application/json
+
+/*.css
+  Content-Type: text/css
+
+/*.html
+  Content-Type: text/html
+
+/*.png
+  Content-Type: image/png
+
+/*.jpg
+  Content-Type: image/jpeg
+
+/*.svg
+  Content-Type: image/svg+xml
+
+/*.ico
+  Content-Type: image/x-icon
+
+/*.woff
+  Content-Type: font/woff
+
+/*.woff2
+  Content-Type: font/woff2
+
+/*.ttf
+  Content-Type: font/ttf
+
+/*.eot
+  Content-Type: application/vnd.ms-fontobject 
