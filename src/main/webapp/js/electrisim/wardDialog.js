@@ -1,8 +1,10 @@
-const  rowDefsWard = [
+import { numberParser, actionCellRenderer } from './utils/gridUtils.js';
+
+export const rowDefsWard = [
     { name: "Ward", ps_mw:0.0,  qs_mvar: 0.0, pz_mw: 0.0, qz_mvar: 0.0},
     
   ];  
-  const columnDefsWard = [  
+export const columnDefsWard = [  
     {
       field: "name",
     },
@@ -29,11 +31,11 @@ const  rowDefsWard = [
       field: "qz_mvar",
       headerTooltip: "reactive power of the impedance load in MVar at 1.pu voltage",
       maxWidth: 120,
-      
+      valueParser: numberParser,
     }
   ];
   
-  var gridOptionsWard = {
+export const gridOptionsWard = {
     columnDefs: columnDefsWard,
     defaultColDef: {  
         minWidth: 100,
@@ -43,6 +45,11 @@ const  rowDefsWard = [
     singleClickEdit: true,
     stopEditingWhenGridLosesFocus: true, //musi być żeby przy naciśnięciu Apply zapisywała się wartość 
   };     
+
+// Make them globally available
+globalThis.rowDefsWard = rowDefsWard;
+globalThis.columnDefsWard = columnDefsWard;
+globalThis.gridOptionsWard = gridOptionsWard;
   
   
   

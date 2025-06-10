@@ -645,11 +645,6 @@
 	<shape aspect="variable" h="58" name="Voltage Regulator" strokewidth="inherit" w="70">
 		<connections>
 			<constraint name="control" perimeter="0" x="0.5" y="1"/>
-			<!--ELXXX
-			<constraint name="in" perimeter="0" x="0" y="0.395"/>
-			<constraint name="out" perimeter="0" x="1" y="0.395"/>
-			-->
-			
 		</connections>
 		<background>
 			<rect h="46" w="52" x="9" y="0"/>
@@ -657,18 +652,8 @@
 		<foreground>
 			<fillstroke/>
 			<path>
-				<!-- ELXXX
-				<move x="0" y="23"/>
-				<line x="9" y="23"/>
-				-->
-
 				<move x="35" y="58"/>
 				<line x="35" y="46"/>
-
-				<!-- ELXXX
-				<move x="61" y="23"/>
-				<line x="70" y="23"/>
-				-->
 			</path>
 			<stroke/>
 		</foreground>

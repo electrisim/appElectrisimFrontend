@@ -1,0 +1,91 @@
+div.mxRubberband {
+    position: absolute;
+    overflow: hidden;
+    border-style: solid;
+    border-width: 1px;
+    border-color: #0000FF;
+    background: #0077FF;
+}
+.mxCellEditor {
+    background: url(data:image/gif;base64,R0lGODlhMAAwAIAAAP///wAAACH5BAEAAAAALAAAAAAwADAAAAIxhI+py+0Po5y02ouz3rz7D4biSJbmiabqyrbuC8fyTNf2jef6zvf+DwwKh8Si8egpAAA7);
+    border-color: transparent;
+    border-style: solid;
+    display: inline-block;
+    position: absolute;
+    overflow: visible;
+    word-wrap: normal;
+    border-width: 0;
+    min-width: 1px;
+    resize: none;
+    padding: 0px;
+    margin: 0px;
+}
+.mxPlainTextEditor * {
+    padding: 0px;
+    margin: 0px;
+}
+div.mxWindow {
+    -webkit-box-shadow: 3px 3px 12px #C0C0C0;
+    -moz-box-shadow: 3px 3px 12px #C0C0C0;
+    box-shadow: 3px 3px 12px #C0C0C0;
+    background: url(data:image/gif;base64,R0lGODlhGgAUAIAAAOzs7PDw8CH5BAAAAAAALAAAAAAaABQAAAIijI+py70Ao5y02lud3lzhD4ZUR5aPiKajyZbqq7YyB9dhAQA7);
+    border:1px solid #c3c3c3;
+    position: absolute;
+    overflow: hidden;
+    z-index: 1;
+}
+table.mxWindow {
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-family: Arial;
+    font-size: 8pt;
+}
+td.mxWindowTitle {
+    background: url(data:image/gif;base64,R0lGODlhFwAXAMQAANfX18rKyuHh4c7OzsDAwMHBwc/Pz+Li4uTk5NHR0dvb2+jo6O/v79/f3/n5+dnZ2dbW1uPj44yMjNPT0+Dg4N3d3ebm5szMzAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACH5BAAAAAAALAAAAAAXABcAAAWQICESxWiW5Ck6bOu+MMvMdG3f86LvfO/rlqBwSCwaj8ikUohoOp/QaDNCrVqvWKpgezhsv+AwmEIum89ocmPNbrvf64p8Tq/b5Yq8fs/v9/t+gIGCg4SFhoeIiYqLjI2Oj5CRkpOUlZaXmJmam5ydnp+goaKjpKWmp6ipqqusra6vsLGys7S1tre4ubq7vL2+v8DBwsPExQA7);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: center;
+    font-weight: bold;
+    overflow: hidden;
+    height: 13px;
+    padding: 2px;
+    padding-top: 4px;
+    padding-bottom: 3px;
+    color: black;
+}
+td.mxWindowPane {
+    vertical-align: top;
+    padding: 0px;
+}
+div.mxWindowPane {
+    overflow: hidden;
+    position: relative;
+}
+td.mxWindowPane td {
+    font-family: Arial;
+    font-size: 8pt;
+}
+td.mxWindowPane input, td.mxWindowPane select, td.mxWindowPane textarea, td.mxWindowPane radio {
+    border-color: #8C8C8C;
+    border-style: solid;
+    border-width: 1px;
+    font-family: Arial;
+    font-size: 8pt;
+    padding: 1px;
+}
+td.mxWindowPane button {
+    background: url(data:image/gif;base64,R0lGODlhCgATALMAAP7+/t7e3vj4+Ojo6OXl5e/v7/n5+fb29vPz8/39/ff39/Hx8fv7+/T09P///wAAACH5BAAAAAAALAAAAAAKABMAAAQ2MMlJhb0Y6c2X/2AhjiRjnqiirizqMkEsz0Rt30Ou7y8K/ouDcEg0GI9IgHLJbDif0Kh0SkIAOw==);
+    font-family: Arial;
+    font-size: 8pt;
+    padding: 2px;
+    float: left;
+}
+.mxResizeHandle {
+    border-style: solid;
+    border-width: 1px;
+    border-color: black;
+    background-color: white;
+    position: absolute;
+    width: 7px;
+    height: 7px;
+} 

@@ -1,8 +1,10 @@
-const  rowDefsAsymmetricStaticGenerator = [
+import { numberParser, actionCellRenderer } from './utils/gridUtils.js';
+
+export const rowDefsAsymmetricStaticGenerator = [
     { name: "Asymmetric Static Generator", p_a_mw:0.0,  p_b_mw: 0.0, p_c_mw: 0.0, q_a_mvar: 0.0, q_b_mvar: 0.0, q_c_mvar:0.0, sn_mva:0.0, scaling: 0.0, type: 'Wye'},
     
   ];  
-  const columnDefsAsymmetricStaticGenerator = [  
+export const columnDefsAsymmetricStaticGenerator = [  
     {
       field: "name",
     },
@@ -63,7 +65,7 @@ const  rowDefsAsymmetricStaticGenerator = [
     }
   ];
   
-  var gridOptionsAsymmetricStaticGenerator = {
+export const gridOptionsAsymmetricStaticGenerator = {
     columnDefs: columnDefsAsymmetricStaticGenerator,
     defaultColDef: {  
         minWidth: 100,
@@ -73,7 +75,11 @@ const  rowDefsAsymmetricStaticGenerator = [
     singleClickEdit: true,
     stopEditingWhenGridLosesFocus: true, //musi być żeby przy naciśnięciu Apply zapisywała się wartość 
   };     
-  
+
+// Make them globally available
+globalThis.rowDefsAsymmetricStaticGenerator = rowDefsAsymmetricStaticGenerator;
+globalThis.columnDefsAsymmetricStaticGenerator = columnDefsAsymmetricStaticGenerator;
+globalThis.gridOptionsAsymmetricStaticGenerator = gridOptionsAsymmetricStaticGenerator;
   
   
   

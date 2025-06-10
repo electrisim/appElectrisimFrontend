@@ -1,5 +1,19 @@
-let globalPandaPowerData = null;
+// Use existing globalPandaPowerData if it exists, otherwise create it
+if (typeof globalPandaPowerData === 'undefined') {
+    window.globalPandaPowerData = null;
+}
 
+// Helper function to safely parse JSON or return empty array if data doesn't exist
+if (typeof safeJsonParse === 'undefined') {
+    window.safeJsonParse = (jsonData) => {
+        try {
+            return jsonData ? JSON.parse(jsonData) : [];
+        } catch (error) {
+            console.warn("Error parsing JSON:", error);
+            return [];
+        }
+    };
+}
 
 /*
 function fetchPandaPowerData() {
@@ -98,15 +112,6 @@ function findVertexByBusId(grafka, parent, busName) {
     return null;
 }
 
-// Helper function to safely parse JSON or return empty array if data doesn't exist
-const safeJsonParse = (jsonData) => {
-    try {
-        return jsonData ? JSON.parse(jsonData) : [];
-    } catch (error) {
-        console.warn("Error parsing JSON:", error);
-        return [];
-    }
-};
 //używane tylko dla PandaPowerNet
 function useDataToInsertOnGraph(grafka, a, target, point) {
     waitForData().then(data => {
@@ -521,20 +526,12 @@ function useDataToInsertOnGraph(grafka, a, target, point) {
                 bus = busData.data[bus_no]
                 bus_name = bus[0]
 
-
-                //console.log("bus_no");
-                //console.log(bus_no);
-
-                //console.log("bus_name");
-                //console.log(bus_name);
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
-
-
 
                 const vertexX = busVertex.geometry.x + 60  // Position based on bus index
                 const vertexY = busVertex.geometry.y - 60;  // Position over buses
 
-                const styleExternalGrid = "verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.abstract.voltage_regulator;shapeELXXX=External Grid"
+                const styleExternalGrid = "verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=externalGrid;shapeELXXX=External Grid"
 
                 const vertex = grafka.insertVertex(
                     parent,

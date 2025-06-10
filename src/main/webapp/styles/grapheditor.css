@@ -871,7 +871,7 @@ table.geProperties tr td {
 }
 .geTempDlgSearchBox {
     color:#888888;
-    background:url("/images/icon-search.svg") no-repeat;
+    background:url("../images/icon-search.svg") no-repeat;
 	background-color: #FFFFFF;
 	background-position: 15px;
 	height: 40px;
@@ -953,7 +953,7 @@ table.geProperties tr td {
 }
 
 .geTempDlgCreateBtnBusy {
-	background-image: url(/images/aui-wait.gif);
+	background-image: url(../images/aui-wait.gif);
     background-repeat: no-repeat;
     background-position: 62px 7px;
 }
@@ -1217,13 +1217,13 @@ table.geProperties tr td {
 }
 
 .geTempDlgDiagramTileImgLoading {
-	background-image: url(/images/aui-wait.gif);
+	background-image: url(../images/aui-wait.gif);
     background-repeat: no-repeat;
     background-position: center;
 }
 
 .geTempDlgDiagramTileImgError {
-	background-image: url(/images/broken.png);
+	background-image: url(../images/broken.png);
     background-repeat: no-repeat;
     background-position: center;
     background-color: #be3730;

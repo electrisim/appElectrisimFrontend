@@ -1,8 +1,10 @@
-const  rowDefsExtendedWard = [
+import { numberParser, actionCellRenderer } from './utils/gridUtils.js';
+
+export const rowDefsExtendedWard = [
     { name: "Extended Ward", ps_mw:0.0,  qs_mvar: 0.0, pz_mw: 0.0, qz_mvar: 0.0, r_ohm: 0.0, x_ohm:0.0, vm_pu:0.0},
     
   ];  
-  const columnDefsExtendedWard = [  
+export const columnDefsExtendedWard = [  
     {
       field: "name",
     },
@@ -51,7 +53,7 @@ const  rowDefsExtendedWard = [
     }
   ];
   
-  var gridOptionsExtendedWard = {
+export const gridOptionsExtendedWard = {
     columnDefs: columnDefsExtendedWard,
     defaultColDef: {  
         minWidth: 100,
@@ -61,6 +63,11 @@ const  rowDefsExtendedWard = [
     singleClickEdit: true,
     stopEditingWhenGridLosesFocus: true, //musi być żeby przy naciśnięciu Apply zapisywała się wartość 
   };     
+
+// Make them globally available
+globalThis.rowDefsExtendedWard = rowDefsExtendedWard;
+globalThis.columnDefsExtendedWard = columnDefsExtendedWard;
+globalThis.gridOptionsExtendedWard = gridOptionsExtendedWard;
   
   
   

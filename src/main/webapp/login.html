@@ -64,6 +64,50 @@
         button:hover {
             background-color: #45a049;
         }
+
+        .google-btn {
+            background-color: #fff;
+            color: #757575;
+            border: 1px solid #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .google-btn:hover {
+            background-color: #f8f8f8;
+        }
+
+        .google-btn img {
+            width: 18px;
+            height: 18px;
+        }
+
+        .divider {
+            margin: 20px 0;
+            text-align: center;
+            position: relative;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            width: 45%;
+            height: 1px;
+            background-color: #ddd;
+        }
+
+        .divider::before {
+            left: 0;
+        }
+
+        .divider::after {
+            right: 0;
+        }
         
         p {
             text-align: center;
@@ -97,14 +141,15 @@
         <!-- Auth form will be inserted here by auth-handler.js -->
     </div>
     
-    <!-- <script src="js/stripe.js"></script>-->
-    <script src="js/electrisim/auth-handler.js"></script>
-    <script>
+    <!-- Add these scripts in order with type="module" -->
+    <script type="module">
+        import { authHandler } from './js/electrisim/loginsubscription/auth-handler.js';
+        
         document.addEventListener('DOMContentLoaded', () => {
             const authContainer = document.getElementById('auth-container');
-            createLoginForm(authContainer);
+            authHandler.createLoginForm(authContainer);
             
-            // If login successful, redirect to home page
+            // If login successful, redirect to previous page or home
             document.addEventListener('userLoggedIn', (e) => {
                 // Show success message
                 const successMsg = document.createElement('div');
@@ -112,11 +157,27 @@
                 successMsg.textContent = 'Login successful! Redirecting...';
                 authContainer.appendChild(successMsg);
                 
+                // Get redirect URL from query parameters
+                const params = new URLSearchParams(window.location.search);
+                const redirectUrl = params.get('redirect') || '/src/main/webapp/index.html';
+                
                 // Redirect after a short delay
                 setTimeout(() => {
-                    window.location.href = '/src/main/webapp/index.html'; // Adjust this to your home page
+                    window.location.href = decodeURIComponent(redirectUrl);
                 }, 1500);
             });
+
+            // Handle error parameter
+            const params = new URLSearchParams(window.location.search);
+            const error = params.get('error');
+            if (error) {
+                const errorMsg = document.createElement('div');
+                errorMsg.className = 'error-message';
+                errorMsg.textContent = error === 'auth_failed' 
+                    ? 'Authentication failed. Please try again.' 
+                    : 'An error occurred. Please try again.';
+                authContainer.appendChild(errorMsg);
+            }
         });
     </script>
 </body>

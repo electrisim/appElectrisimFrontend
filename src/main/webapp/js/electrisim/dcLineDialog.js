@@ -1,8 +1,10 @@
-const  rowDefsDCLine = [
+import { numberParser, actionCellRenderer } from './utils/gridUtils.js';
+
+export const rowDefsDCLine = [
     { name: "DC line", p_mw:0.0,  loss_percent: 0.0, loss_mw: 0.0, vm_from_pu: 0.0, vm_to_pu: 0.0},
     
   ];  
-  const columnDefsDCLine = [  
+export const columnDefsDCLine = [  
     {
       field: "name",
     },
@@ -39,7 +41,7 @@ const  rowDefsDCLine = [
     }
   ];
   
-  var gridOptionsDCLine = {
+export const gridOptionsDCLine = {
     columnDefs: columnDefsDCLine,
     defaultColDef: {  
         minWidth: 100,
@@ -49,6 +51,11 @@ const  rowDefsDCLine = [
     singleClickEdit: true,
     stopEditingWhenGridLosesFocus: true, //musi być żeby przy naciśnięciu Apply zapisywała się wartość 
   };     
+
+// Make them globally available
+globalThis.rowDefsDCLine = rowDefsDCLine;
+globalThis.columnDefsDCLine = columnDefsDCLine;
+globalThis.gridOptionsDCLine = gridOptionsDCLine;
   
   
   

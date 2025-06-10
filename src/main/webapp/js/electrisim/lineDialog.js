@@ -1,4 +1,7 @@
-rowDefsLineLibrary = [
+import { numberParser, actionCellRenderer } from './utils/gridUtils.js';
+
+// Define the row data
+export const rowDefsLineLibrary = [
   { name: "NAYY 4x50 SE", r_ohm_per_km: 0.642, x_ohm_per_km: 0.083, c_nf_per_km: 210.0, g_us_per_km: 0.0, max_i_ka: 0.142, type:"cs", r0_ohm_per_km:0.0, x0_ohm_per_km:0.0, c0_nf_per_km:0.0, endtemp_degree:250.0},
   { name: "NAYY 4x120 SE", r_ohm_per_km: 0.225, x_ohm_per_km: 0.08, c_nf_per_km: 264.0, g_us_per_km: 0.0, max_i_ka: 0.242, type:"cs", r0_ohm_per_km:0.0, x0_ohm_per_km:0.0, c0_nf_per_km:0.0, endtemp_degree:250.0},
   { name: "NAYY 4x150 SE", r_ohm_per_km: 0.208, x_ohm_per_km: 0.08, c_nf_per_km: 261.0, g_us_per_km: 0.0, max_i_ka: 0.27, type:"cs", r0_ohm_per_km:0.0, x0_ohm_per_km:0.0, c0_nf_per_km:0.0, endtemp_degree:250.0},
@@ -96,10 +99,12 @@ rowDefsLineLibrary = [
   { name: "490-AL1/64-ST1A 380.0", r_ohm_per_km: 0.059, x_ohm_per_km: 0.253, c_nf_per_km: 11.0, g_us_per_km: 0.0, max_i_ka: 0.96, type:"ol", r0_ohm_per_km:0.0, x0_ohm_per_km:0.0, c0_nf_per_km:0.0, endtemp_degree:250.0 },  
   { name: "679-AL1/86-ST1A 380.0", r_ohm_per_km: 0.042, x_ohm_per_km: 0.25, c_nf_per_km: 14.6, g_us_per_km: 0.0, max_i_ka: 1.15, type:"ol", r0_ohm_per_km:0.0, x0_ohm_per_km:0.0, c0_nf_per_km:0.0, endtemp_degree:250.0 }
 ];
-const columnDefsLineDialog = [
+
+// Define the column definitions
+export const columnDefsLineDialog = [
     {
       headerName: "Action",
-      minWidth: 100,
+      minWidth: 200,
       cellRenderer: actionCellRenderer,      
       editable: false,
       colId: "action",
@@ -157,8 +162,7 @@ const columnDefsLineDialog = [
     }
 ];
 
-
-//edit, delete, update, cancel*********
+// Define all functions first
 function onCellClicked(params) {
   console.log('rowDefsLineLibrary w onCellClicked')
   console.log(rowDefsLineLibrary)
@@ -209,8 +213,8 @@ function onCellClicked(params) {
     }
   }
 }
-function onRowEditingStarted(params) {
 
+function onRowEditingStarted(params) {
   rowDefsLineLibrary.push(params.node.data)
 
   params.api.refreshCells({
@@ -219,6 +223,7 @@ function onRowEditingStarted(params) {
     force: true
   });
 }
+
 function onRowEditingStopped(params) { 
  console.log(params)  
  // let newRow = params.data;   
@@ -231,125 +236,52 @@ function onRowEditingStopped(params) {
     force: true
   });
 }
-function actionCellRenderer(params) {
-//function actionCellRenderer(params) {
-    let eGui = document.createElement("div");
-  
-    let editingCells = params.api.getEditingCells();
-    // checks if the rowIndex matches in at least one of the editing cells
-    let isCurrentRowEditing = editingCells.some((cell) => {
-      return cell.rowIndex === params.node.rowIndex;
-    });
-  
-    if (isCurrentRowEditing) {
-      eGui.innerHTML = `
-          <button  
-            class="action-button update"
-            data-action="update">
-                 update  
-          </button>
-          <button  
-            class="action-button cancel"
-            data-action="cancel">
-                 cancel
-          </button>          
-          `;
-    } else {
-      eGui.innerHTML = `
-          <button 
-            class="action-button edit"  
-            data-action="edit">
-               edit 
-            </button>
-          <button 
-            class="action-button delete"
-            data-action="delete">
-               delete
-          </button>
-          <button  
-            class="action-button update"
-            data-action="add">
-                 add
-          </button>
-          `;
-    }
-  
-    return eGui;
-}
-//**************************************
-
-
-//***********sprawdzenia poprawnego formatowania wprowadzanych parametrów */
-
-function numberParser(params) {
-  
- 
-  if(Number(params.newValue) >= 0) {
-    return(Number(params.newValue))
-  }else {
-    alert("The value of the " + params.colDef.field +" must be number (dot separated) or >= 0")
-    return(Number(params.oldValue))
-  }
-}
-/*********************************************** */
-
-/* wczytywanie pliku CSV */
-function setLineCsvData(keys, values) {
-
-  console.log("jestem w setCsvData")
-  
-  var result = {}; 
-  keys.forEach((key, index) => {
-    if (key != "Action"  && index != 0 ){
-        result[key.toLowerCase()] = values[index];
-    }                    
-   });
-   console.log("result")
-   console.log(result)
-
-   rowDefsLineLibrary.push(result)
-
- // gridOptionsLineDialog.api.setRowData([...rowDefsLineLibrary, params]);
-    gridOptionsLineDialog.api.setRowData(rowDefsLineLibrary);
-  
-  /*
-  params.api.refreshCells({
-    columns: ["action"],
-    rowNodes: [params.node],
-    force: true
-  });*/
-  
-}
 
 function onFirstDataRendered(params) {
   params.api.sizeColumnsToFit();
 }
 
-var gridOptionsLineDialog = {
-  suppressClickEdit: true, //edit, delete, update, cancel
+function setLineCsvData(keys, values) {
+  console.log("jestem w setCsvData")
+  
+  var result = {}; 
+  keys.forEach((key, index) => {
+    if (key != "Action" && index != 0) {
+      result[key.toLowerCase()] = values[index];
+    }                    
+  });
+  
+  rowDefsLineLibrary.push(result);
+  gridOptionsLineDialog.api.setRowData(rowDefsLineLibrary);
+}
+
+// Define the grid options after all functions are defined
+export const gridOptionsLineDialog = {
+  suppressClickEdit: true,
   editType: "fullRow",
   rowSelection: "single",
-    
-  rowData: rowDefsLineLibrary,
   columnDefs: columnDefsLineDialog,
-  defaultColDef: {
-    editable: true    
+  defaultColDef: {  
+    minWidth: 100,
+    editable: true,
   },
-
-  //dopasuj kolumny do wyświetlanego dialogu
-  //onFirstDataRendered: onFirstDataRendered,
-
-  //edit, delete, update, cancel*****************
-  onCellClicked: onCellClicked,   
-  onRowEditingStarted: onRowEditingStarted, 
+  rowData: rowDefsLineLibrary,
+  singleClickEdit: true,
+  stopEditingWhenGridLosesFocus: true,
+  onCellClicked: onCellClicked,
+  onRowEditingStarted: onRowEditingStarted,
   onRowEditingStopped: onRowEditingStopped,
-  onSelectionChanged: () => {
-    const selectedData = gridOptionsLineDialog.api.getSelectedRows();
-    //console.log('Selection Changed', selectedData);
-  },
-  //*********************************************
-  
+  onFirstDataRendered: onFirstDataRendered
 };
+
+// Make them globally available after everything is defined
+globalThis.rowDefsLineLibrary = rowDefsLineLibrary;
+globalThis.columnDefsLineDialog = columnDefsLineDialog;
+globalThis.gridOptionsLineDialog = gridOptionsLineDialog;
+globalThis.onCellClicked = onCellClicked;
+globalThis.onRowEditingStarted = onRowEditingStarted;
+globalThis.onRowEditingStopped = onRowEditingStopped;
+globalThis.setLineCsvData = setLineCsvData;
 
 
 

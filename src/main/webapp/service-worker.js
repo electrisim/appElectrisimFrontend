@@ -549,7 +549,7 @@ if (workbox)
     "revision": "fefa1a03d92ebad25c88dca94a0b63db"
   },
   {
-    "url": "images/aui-wait.gif",
+    "url": "./images/aui-wait.gif",
     "revision": "5a474bcbd8d2f2826f03d10ea44bf60e"
   },
   {

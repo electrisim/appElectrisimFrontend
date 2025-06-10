@@ -1,8 +1,10 @@
-const rowDefsMotor = [
+import { numberParser, actionCellRenderer } from './utils/gridUtils.js';
+
+export const rowDefsMotor = [
   { name: "Motor", pn_mech_mw: 0.0, cos_phi: 0.0, cos_phi_n: 0.0, efficiency_n_percent: 0.0, lrc_pu: 0.0, rx: 0.0, vn_kv: 0.0, efficiency_percent: 0.0, loading_percent: 0.0, scaling: 0.0 },
 
 ];
-const columnDefsMotor = [
+export const columnDefsMotor = [
   {
     field: "name",
   },
@@ -69,7 +71,7 @@ const columnDefsMotor = [
  
 ];
 
-var gridOptionsMotor = {
+export const gridOptionsMotor = {
   columnDefs: columnDefsMotor,
   defaultColDef: {
     minWidth: 100,
@@ -79,6 +81,11 @@ var gridOptionsMotor = {
   singleClickEdit: true,
   stopEditingWhenGridLosesFocus: true, //musi być żeby przy naciśnięciu Apply zapisywała się wartość 
 };
+
+// Make them globally available
+globalThis.rowDefsMotor = rowDefsMotor;
+globalThis.columnDefsMotor = columnDefsMotor;
+globalThis.gridOptionsMotor = gridOptionsMotor;
 
 
 

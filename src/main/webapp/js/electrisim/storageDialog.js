@@ -1,8 +1,10 @@
-const  rowDefsStorage = [
+import { numberParser, actionCellRenderer } from './utils/gridUtils.js';
+
+export const rowDefsStorage = [
     { name: "Storage", p_mw:0.0,  max_e_mwh: 0.0, q_mvar: 0.0, sn_mva: 0.0, soc_percent: 0.0, min_e_mwh:0.0, scaling:0.0, type: 0.0},
     
   ];  
-  const columnDefsStorage = [  
+export const columnDefsStorage = [  
     {
       field: "name",
     },
@@ -57,7 +59,7 @@ const  rowDefsStorage = [
     }
   ];
   
-  var gridOptionsStorage = {
+export const gridOptionsStorage = {
     columnDefs: columnDefsStorage,
     defaultColDef: {  
         minWidth: 100,
@@ -67,6 +69,11 @@ const  rowDefsStorage = [
     singleClickEdit: true,
     stopEditingWhenGridLosesFocus: true, //musi być żeby przy naciśnięciu Apply zapisywała się wartość 
   };     
+
+// Make them globally available
+globalThis.rowDefsStorage = rowDefsStorage;
+globalThis.columnDefsStorage = columnDefsStorage;
+globalThis.gridOptionsStorage = gridOptionsStorage;
   
   
   

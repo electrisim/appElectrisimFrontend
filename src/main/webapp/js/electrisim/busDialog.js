@@ -1,8 +1,10 @@
-const  rowDefsBus = [
+import { numberParser, actionCellRenderer } from './utils/gridUtils.js';
+
+export const rowDefsBus = [
     { name: "Bus", vn_kv:0.0},
-    
-  ];  
-  const columnDefsBus = [  
+];  
+
+export const columnDefsBus = [  
     {
       field: "name",
     },
@@ -11,11 +13,10 @@ const  rowDefsBus = [
       headerTooltip: "The grid voltage level",
       maxWidth: 100,
       valueParser: numberParser,
-  
     }
-  ];
+];
   
-  var gridOptionsBus = {
+export const gridOptionsBus = {
     columnDefs: columnDefsBus,
     defaultColDef: {  
         minWidth: 100,
@@ -23,8 +24,13 @@ const  rowDefsBus = [
     },
     rowData: rowDefsBus,
     singleClickEdit: true,
-    stopEditingWhenGridLosesFocus: true, //musi być żeby przy naciśnięciu Apply zapisywała się wartość 
-  };     
+    stopEditingWhenGridLosesFocus: true,
+};
+
+// Make them globally available for backward compatibility
+globalThis.rowDefsBus = rowDefsBus;
+globalThis.columnDefsBus = columnDefsBus;
+globalThis.gridOptionsBus = gridOptionsBus;
   
   
   

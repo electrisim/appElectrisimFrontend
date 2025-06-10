@@ -1,8 +1,10 @@
-const  rowDefsLoad = [
+import { numberParser, actionCellRenderer } from './utils/gridUtils.js';
+
+export const rowDefsLoad = [
     { name: "Load", p_mw:0.0,  q_mvar: 0.0, const_z_percent: 0.0, const_i_percent: 0.0, sn_mva: 0.0, scaling:0.0, type:'Wye'},
     
   ];  
-  const columnDefsLoad = [  
+export const columnDefsLoad = [  
     {
       field: "name",
     },
@@ -16,7 +18,7 @@ const  rowDefsLoad = [
       field: "q_mvar",
       headerTooltip: "The reactive power of the load",
       maxWidth: 100,
-      
+      valueParser: numberParser,
     },
     {
       field: "const_z_percent",
@@ -49,7 +51,7 @@ const  rowDefsLoad = [
     }
   ];
   
-  var gridOptionsLoad = {
+export const gridOptionsLoad = {
     columnDefs: columnDefsLoad,
     defaultColDef: {  
         minWidth: 100,
@@ -59,6 +61,11 @@ const  rowDefsLoad = [
     singleClickEdit: true,
     stopEditingWhenGridLosesFocus: true, //musi być żeby przy naciśnięciu Apply zapisywała się wartość 
   };     
+
+// Make them globally available
+globalThis.rowDefsLoad = rowDefsLoad;
+globalThis.columnDefsLoad = columnDefsLoad;
+globalThis.gridOptionsLoad = gridOptionsLoad;
   
   
   

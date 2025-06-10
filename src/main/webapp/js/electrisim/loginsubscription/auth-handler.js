@@ -1,31 +1,22 @@
-// auth-handler.js - Handles authentication for your app
+// auth-handler.js - Handles authentication for  app
 
-// Base URL for API calls
-const API_BASE_URL = 'https://customers-production-16f8.up.railway.app/api';
+import config from '../config/environment.js';
+
+const API_BASE_URL = config.apiBaseUrl;
 
 // Helper function for API calls
 async function apiCall(endpoint, options = {}) {
-    const defaultOptions = {
-        mode: 'cors',
-        cache: 'no-cache',
-        headers: {
-            'Content-Type': 'application/json'
-        }
-    };
-
     try {
         const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-            ...defaultOptions,
             ...options,
             headers: {
-                ...defaultOptions.headers,
+                'Content-Type': 'application/json',
                 ...options.headers
             }
         });
 
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
 
         return await response.json();
@@ -91,9 +82,9 @@ function logout() {
 }
 
 // Function to check if user is authenticated
-function isAuthenticated() {
+const isAuthenticated = () => {
     return !!localStorage.getItem('token');
-}
+};
 
 // Function to get current user
 function getCurrentUser() { 
@@ -121,6 +112,11 @@ function createLoginForm(container) {
             <input type="password" id="password" name="password" required>
         </div>
         <button type="submit" class="submit-btn">Login</button>
+        <div class="divider">or</div>
+        <button type="button" class="google-btn">
+            <img src="https://www.google.com/favicon.ico" alt="Google" />
+            Sign in with Google
+        </button>
         <p>Don't have an account? <a href="#" id="register-link">Register</a></p>
         <div id="login-error" class="error-message"></div>
     `;
@@ -138,13 +134,24 @@ function createLoginForm(container) {
             const email = form.querySelector('#email').value;
             const password = form.querySelector('#password').value;
             await login(email, password);
-            window.location.href = '/index.html';
+            const baseUrl = config.isDevelopment 
+                ? '/src/main/webapp/index.html'
+                : '/index.html';
+            window.location.href = baseUrl;
         } catch (error) {
             errorElement.textContent = error.message;
         } finally {
             submitBtn.disabled = false;
             submitBtn.textContent = 'Login';
         }
+    });
+
+    // Handle Google login
+    form.querySelector('.google-btn').addEventListener('click', () => {
+        const baseUrl = config.isDevelopment
+            ? 'http://localhost:3000'
+            : 'https://api.electrisim.com';
+        window.location.href = `${baseUrl}/api/auth/google`;
     });
     
     container.innerHTML = '';
@@ -175,6 +182,11 @@ function createRegisterForm(container) {
             <input type="password" id="password" name="password" required>
         </div>
         <button type="submit">Register</button>
+        <div class="divider">or</div>
+        <button type="button" class="google-btn">
+            <img src="https://www.google.com/favicon.ico" alt="Google" />
+            Sign up with Google
+        </button>
         <p>Already have an account? <a href="#" id="login-link">Login</a></p>
         <div id="register-error" class="error-message"></div>
     `;
@@ -192,7 +204,16 @@ function createRegisterForm(container) {
             const errorElement = form.querySelector('#register-error');
             errorElement.textContent = error.message;
         }
-    });    
+    });
+
+    // Handle Google login
+    form.querySelector('.google-btn').addEventListener('click', () => {
+        const baseUrl = config.isDevelopment
+            ? 'http://localhost:3000'
+            : 'https://api.electrisim.com';
+        window.location.href = `${baseUrl}/api/auth/google`;
+    });
+    
     container.innerHTML = '';
     container.appendChild(form);
     
@@ -211,12 +232,37 @@ function handleSuccessfulAuth(userData) {
         localStorage.setItem('user', JSON.stringify(userData.user));
     }
     
+    // Get base URL from config
+    const baseUrl = config.isDevelopment 
+        ? '/src/main/webapp/index.html'  // Development path
+        : '/index.html';                 // Production path
+    
     // Redirect to main application
-    window.location.href = '/src/main/webapp/index.html'; //CHANGE IN PRODUCTION
+    window.location.href = baseUrl;
 }
 
-// Make functions available globally
-window.authHandler = {
+// Create the authHandler object first
+const authHandler = {
+    login,
+    register,
+    logout,
+    isAuthenticated,
+    getCurrentUser,
+    getAuthToken,
+    createLoginForm,
+    createRegisterForm,
+    handleSuccessfulAuth
+};
+
+// Make functions available globally BEFORE exports
+window.isAuthenticated = isAuthenticated;
+window.authHandler = authHandler;
+
+// Export all functions
+export { authHandler };
+
+// Also export individual functions for direct import
+export {
     login,
     register,
     logout,

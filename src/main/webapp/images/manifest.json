@@ -4,19 +4,19 @@
     "description": "electrisim.com",
     "icons": [
         {
-            "src": "/images/android-chrome-196x196.png",
+            "src": "./logo_Electrisim_removebg-preview.png",
             "sizes": "196x196",
             "type": "image/png",
-     		"purpose": "any maskable"
+            "purpose": "any maskable"
         },
         {
-            "src": "/images/android-chrome-512x512.png",
+            "src": "./logo_Electrisim_removebg-preview.png",
             "sizes": "512x512",
             "type": "image/png"
         }
     ],
-    "theme_color": "#DF6C0C",
-    "background_color": "#DF6C0C",
+    "theme_color": "#48d800",
+    "background_color": "#ffffff",
     "display": "fullscreen",
-    "start_url": "/index.html"
+    "start_url": "../index.html"
 }
