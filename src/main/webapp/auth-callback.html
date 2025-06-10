@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication Callback - ElectriSim</title>
+</head>
+<body>
+    <script type="module">
+        document.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const token = params.get('token');
+            const error = params.get('error');
+
+            if (token) {
+                // Store the token
+                localStorage.setItem('token', token);
+
+                // Get user info from token
+                const tokenData = JSON.parse(atob(token.split('.')[1]));
+                localStorage.setItem('user', JSON.stringify({
+                    id: tokenData.id,
+                    email: tokenData.email,
+                    stripeCustomerId: tokenData.stripeCustomerId
+                }));
+
+                // Dispatch login event
+                document.dispatchEvent(new CustomEvent('userLoggedIn', {
+                    detail: { user: tokenData }
+                }));
+
+                // Redirect to home page
+                const baseUrl = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost'
+                    ? '/src/main/webapp/index.html'
+                    : '/index.html';
+                window.location.href = baseUrl;
+            } else if (error) {
+                // Handle error
+                window.location.href = '/login.html?error=' + error;
+            }
+        });
+    </script>
+</body>
+</html> 

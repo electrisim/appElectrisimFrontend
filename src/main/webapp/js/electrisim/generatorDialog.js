@@ -1,8 +1,10 @@
-const  rowDefsGenerator = [
+import { numberParser, actionCellRenderer } from './utils/gridUtils.js';
+
+export const rowDefsGenerator = [
     { name: "Generator", p_mw:0.0,  vm_pu: 0.0, sn_mva: 0.0, scaling: 0.0, vn_kv: 0.0, xdss_pu:0.0, rdss_ohm:0.0, cos_phi: 0.0, pg_percent: 0.0, power_station_trafo: 0.0},
     
   ];  
-  const columnDefsGenerator = [  
+export const columnDefsGenerator = [  
     {
       field: "name",
     },
@@ -69,7 +71,7 @@ const  rowDefsGenerator = [
     }
   ];
   
-  var gridOptionsGenerator = {
+export const gridOptionsGenerator = {
     columnDefs: columnDefsGenerator,
     defaultColDef: {  
         minWidth: 100,
@@ -79,6 +81,11 @@ const  rowDefsGenerator = [
     singleClickEdit: true,
     stopEditingWhenGridLosesFocus: true, //musi być żeby przy naciśnięciu Apply zapisywała się wartość 
   };     
+
+// Make them globally available
+globalThis.rowDefsGenerator = rowDefsGenerator;
+globalThis.columnDefsGenerator = columnDefsGenerator;
+globalThis.gridOptionsGenerator = gridOptionsGenerator;
   
   
   

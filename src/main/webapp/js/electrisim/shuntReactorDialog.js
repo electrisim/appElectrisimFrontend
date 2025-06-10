@@ -1,8 +1,10 @@
-const  rowDefsShuntReactor = [
+import { numberParser, actionCellRenderer } from './utils/gridUtils.js';
+
+export const rowDefsShuntReactor = [
     { name: "Generator", p_mw:0.0,  q_mvar: 0.0, vn_kv: 0.0, step: 0.0, max_step: 0.0},
     
   ];  
-  const columnDefsShuntReactor = [  
+export const columnDefsShuntReactor = [  
     {
       field: "name",
     },
@@ -38,7 +40,7 @@ const  rowDefsShuntReactor = [
     }
   ];
   
-  var gridOptionsShuntReactor = {
+export const gridOptionsShuntReactor = {
     columnDefs: columnDefsShuntReactor,
     defaultColDef: {  
         minWidth: 100,
@@ -48,6 +50,11 @@ const  rowDefsShuntReactor = [
     singleClickEdit: true,
     stopEditingWhenGridLosesFocus: true, //musi być żeby przy naciśnięciu Apply zapisywała się wartość 
   };     
+
+// Make them globally available
+globalThis.rowDefsShuntReactor = rowDefsShuntReactor;
+globalThis.columnDefsShuntReactor = columnDefsShuntReactor;
+globalThis.gridOptionsShuntReactor = gridOptionsShuntReactor;
   
   
   

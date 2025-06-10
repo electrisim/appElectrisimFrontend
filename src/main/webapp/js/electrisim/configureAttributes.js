@@ -1,6 +1,6 @@
+// Export all configure functions and make them globally available
 
-
-function configureExternalGridAttributes(grafka, vertex, options = {}) {
+export function configureExternalGridAttributes(grafka, vertex, options = {}) {
     
     // Create XML document
     var g = mxUtils.createXmlDocument().createElement("object");
@@ -40,7 +40,7 @@ function configureExternalGridAttributes(grafka, vertex, options = {}) {
             
 }
 
-function configureGeneratorAttributes(grafka, vertex, options = {}) {
+export function configureGeneratorAttributes(grafka, vertex, options = {}) {
 
     // Create XML document
     var g = mxUtils.createXmlDocument().createElement("object");
@@ -80,7 +80,7 @@ function configureGeneratorAttributes(grafka, vertex, options = {}) {
     grafka.insertVertex(vertex, null, 'Generator', 0.5, 1.1, 0, 0, null, true);
 }
 
-function configureStaticGeneratorAttributes(grafka, vertex, options = {}) {
+export function configureStaticGeneratorAttributes(grafka, vertex, options = {}) {
 
 
     var g = mxUtils.createXmlDocument().createElement("object");
@@ -119,7 +119,7 @@ function configureStaticGeneratorAttributes(grafka, vertex, options = {}) {
     
 }
 
-function configureAsymmetricStaticGeneratorAttributes(grafka, vertex, options = {}) {
+export function configureAsymmetricStaticGeneratorAttributes(grafka, vertex, options = {}) {
     
     var g = mxUtils.createXmlDocument().createElement("object");
     g.setAttribute("name", "Asymmetric Static Generator");
@@ -142,7 +142,7 @@ function configureAsymmetricStaticGeneratorAttributes(grafka, vertex, options = 
 
 }
 
-function configureBusAttributes(grafka, vertex, options = {}) {
+export function configureBusAttributes(grafka, vertex, options = {}) {
     // Create XML document
     var g = mxUtils.createXmlDocument().createElement("object");
 
@@ -167,7 +167,7 @@ function configureBusAttributes(grafka, vertex, options = {}) {
     grafka.insertVertex(vertex, null, options.name || "Bus" , 0, -0.5, 0, 0, null, true);   
 }
 
-function configureTransformerAttributes(grafka, vertex, options = {}) {
+export function configureTransformerAttributes(grafka, vertex, options = {}) {
 
     var g = mxUtils.createXmlDocument().createElement("object");
 
@@ -221,13 +221,13 @@ function configureTransformerAttributes(grafka, vertex, options = {}) {
     // grafka.insertVertex(umieszczonaCell, null, 'Transformer', -0.25, 0, 0, 0, null, true);
 }
 
-function configureThreeWindingTransformerAttributes(grafka, vertex, options = {}) {
+export function configureThreeWindingTransformerAttributes(grafka, vertex, options = {}) {
     var g = mxUtils.createXmlDocument().createElement("object");
     g.setAttribute("name", "Three winding transformer");
 
     g.setAttribute("parameters", true);  //na potrzeby wyboru elementu z biblioteki
 
-    g.setAttribute("name", "-"); //threeWindingTransformerDialog
+    g.setAttribute("name", "-"); 
 
     //INPUT
     g.setAttribute("Load_flow_parameters", "");
@@ -285,7 +285,7 @@ function configureThreeWindingTransformerAttributes(grafka, vertex, options = {}
 
 }
 
-function configureShuntReactorAttributes(grafka, vertex, options = {}) {
+export function configureShuntReactorAttributes(grafka, vertex, options = {}) {
   
     var g = mxUtils.createXmlDocument().createElement("object");
     g.setAttribute("name", "Shunt Reactor");
@@ -308,7 +308,7 @@ function configureShuntReactorAttributes(grafka, vertex, options = {}) {
     // grafka.insertVertex(umieszczonaCell, null, 'Shunt Reactor', -0.25, 0, 0, 0, null, true);
 }
 
-function configureCapacitorAttributes(grafka, vertex, options = {}) {            
+export function configureCapacitorAttributes(grafka, vertex, options = {}) {            
 
     var g = mxUtils.createXmlDocument().createElement("object");
     g.setAttribute("name", "Capacitor");
@@ -330,7 +330,7 @@ function configureCapacitorAttributes(grafka, vertex, options = {}) {
     //this.currentGraph.insertVertex(umieszczonaCell, null, 'Capacitor', -0.25, 0, 0, 0, null, true);
 }
 
-function configureLoadAttributes(grafka, vertex, options = {}) {
+export function configureLoadAttributes(grafka, vertex, options = {}) {
 
     var g = mxUtils.createXmlDocument().createElement("object");
     g.setAttribute("name", "Load");
@@ -357,7 +357,7 @@ function configureLoadAttributes(grafka, vertex, options = {}) {
     grafka.getModel().setValue(vertex, g)
 }
 
-function configureAsymmetricLoadAttributes(grafka, vertex, options = {}) {
+export function configureAsymmetricLoadAttributes(grafka, vertex, options = {}) {
     var parametry = grafka.getModel().getValue(vertex);
 
     var g = mxUtils.createXmlDocument().createElement("object");
@@ -381,7 +381,7 @@ function configureAsymmetricLoadAttributes(grafka, vertex, options = {}) {
     grafka.getModel().setValue(vertex, g)
 }
 
-function configureImpedanceAttributes(grafka, vertex, options = {}) {
+export function configureImpedanceAttributes(grafka, vertex, options = {}) {
 
     var g = mxUtils.createXmlDocument().createElement("object");
     g.setAttribute("name", "Impedance");
@@ -395,7 +395,7 @@ function configureImpedanceAttributes(grafka, vertex, options = {}) {
     grafka.getModel().setValue(vertex, g)
 }
 
-function configureWardAttributes(grafka, vertex, options = {}) {
+export function configureWardAttributes(grafka, vertex, options = {}) {
     var g = mxUtils.createXmlDocument().createElement("object");
     g.setAttribute("name", "Ward");
 
@@ -409,7 +409,7 @@ function configureWardAttributes(grafka, vertex, options = {}) {
     grafka.getModel().setValue(vertex, g)
 }
 
-function configureExtendedWardAttributes(grafka, vertex, options = {}) {
+export function configureExtendedWardAttributes(grafka, vertex, options = {}) {
     
     var g = mxUtils.createXmlDocument().createElement("object");
     g.setAttribute("name", "Extended Ward");
@@ -431,7 +431,7 @@ function configureExtendedWardAttributes(grafka, vertex, options = {}) {
     grafka.getModel().setValue(vertex, g)
 }
 
-function configureMotorAttributes(grafka, vertex, options = {}) {
+export function configureMotorAttributes(grafka, vertex, options = {}) {
    
     var g = mxUtils.createXmlDocument().createElement("object");
     g.setAttribute("name", "Ward");
@@ -461,7 +461,7 @@ function configureMotorAttributes(grafka, vertex, options = {}) {
     grafka.getModel().setValue(vertex, g)
 }
 
-function configureStorageAttributes(grafka, vertex, options = {}) {
+export function configureStorageAttributes(grafka, vertex, options = {}) {
 
     var g = mxUtils.createXmlDocument().createElement("object");
     g.setAttribute("name", "Storage");
@@ -493,7 +493,7 @@ function configureStorageAttributes(grafka, vertex, options = {}) {
     grafka.getModel().setValue(vertex, g)
 }
 
-function configureSVCAttributes(grafka, vertex, options = {}) {
+export function configureSVCAttributes(grafka, vertex, options = {}) {
 
     var g = mxUtils.createXmlDocument().createElement("object");
     g.setAttribute("name", "SVC");
@@ -512,7 +512,7 @@ function configureSVCAttributes(grafka, vertex, options = {}) {
     grafka.getModel().setValue(vertex, g)
 }
 
-function configureTCSCAttributes(grafka, vertex, options = {}) {
+export function configureTCSCAttributes(grafka, vertex, options = {}) {
 
     var g = mxUtils.createXmlDocument().createElement("object");
     g.setAttribute("name", "TCSC");
@@ -531,7 +531,7 @@ function configureTCSCAttributes(grafka, vertex, options = {}) {
     grafka.getModel().setValue(vertex, g)
 }
 
-function configureSSCAttributes(grafka, vertex, options = {}) {
+export function configureSSCAttributes(grafka, vertex, options = {}) {
     var parametry = grafka.getModel().getValue(vertex);
 
     var g = mxUtils.createXmlDocument().createElement("object");
@@ -550,7 +550,7 @@ function configureSSCAttributes(grafka, vertex, options = {}) {
     grafka.getModel().setValue(vertex, g)
 }
 
-function configureDCLineAttributes(grafka, vertex, options = {}) {
+export function configureDCLineAttributes(grafka, vertex, options = {}) {
     var parametry = grafka.getModel().getValue(vertex);
 
     var g = mxUtils.createXmlDocument().createElement("object");
@@ -581,7 +581,7 @@ function configureDCLineAttributes(grafka, vertex, options = {}) {
 }
 
 
-function configureLineAttributes(grafka, vertex, options = {}) {
+export function configureLineAttributes(grafka, vertex, options = {}) {
     var parametry = grafka.getModel().getValue(vertex);
 
     var g = mxUtils.createXmlDocument().createElement("object");
@@ -614,6 +614,31 @@ function configureLineAttributes(grafka, vertex, options = {}) {
 
 
     grafka.getModel().setValue(vertex, g) 
+}
+
+// Make all configure functions globally available for app.min.js
+if (typeof window !== 'undefined') {
+    window.configureExternalGridAttributes = configureExternalGridAttributes;
+    window.configureGeneratorAttributes = configureGeneratorAttributes;
+    window.configureStaticGeneratorAttributes = configureStaticGeneratorAttributes;
+    window.configureAsymmetricStaticGeneratorAttributes = configureAsymmetricStaticGeneratorAttributes;
+    window.configureBusAttributes = configureBusAttributes;
+    window.configureTransformerAttributes = configureTransformerAttributes;
+    window.configureThreeWindingTransformerAttributes = configureThreeWindingTransformerAttributes;
+    window.configureShuntReactorAttributes = configureShuntReactorAttributes;
+    window.configureCapacitorAttributes = configureCapacitorAttributes;
+    window.configureLoadAttributes = configureLoadAttributes;
+    window.configureAsymmetricLoadAttributes = configureAsymmetricLoadAttributes;
+    window.configureImpedanceAttributes = configureImpedanceAttributes;
+    window.configureWardAttributes = configureWardAttributes;
+    window.configureExtendedWardAttributes = configureExtendedWardAttributes;
+    window.configureMotorAttributes = configureMotorAttributes;
+    window.configureStorageAttributes = configureStorageAttributes;
+    window.configureSVCAttributes = configureSVCAttributes;
+    window.configureTCSCAttributes = configureTCSCAttributes;
+    window.configureSSCAttributes = configureSSCAttributes;
+    window.configureDCLineAttributes = configureDCLineAttributes;
+    window.configureLineAttributes = configureLineAttributes;
 }
 
 

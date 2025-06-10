@@ -1,6 +1,6 @@
 //define buses to which the cell is connected
 const getConnectedBusId = (cell, isLine = false) => {
-    console.log('cell in getConnectedBusId', cell);
+    //console.log('cell in getConnectedBusId', cell);
 
     if (isLine) {                 
         return {            
@@ -43,7 +43,7 @@ const getConnectedBusId = (cell, isLine = false) => {
 // Helper function to get attributes as object
 const getAttributesAsObject = (cell, attributeMap) => {
     const result = {};
-    console.log('cell in getAttributes', cell);
+    //console.log('cell in getAttributes', cell);
 
     // Make sure cell has all the required properties
     if (!cell || !cell.value || !cell.value.attributes) {
@@ -59,7 +59,6 @@ const getAttributesAsObject = (cell, attributeMap) => {
         const isOptional = typeof config === 'object' && config.optional;
         const attributeName = typeof config === 'object' ? config.name : config;
 
-        console.log(`Looking for attribute ${key} with name ${attributeName}, optional: ${isOptional}`);
 
         // Find the attribute by name in the attributes collection
         let found = false;
@@ -343,7 +342,17 @@ const COMPONENT_TYPES = {
     LINE: 'Line'
 };
 
+import { DIALOG_STYLES } from './utils/dialogStyles.js';
+import { LoadFlowDialog } from './dialogs/LoadFlowDialog.js';
 
+// Update the showLoadFlowDialogPandaPower function
+window.showLoadFlowDialogPandaPower = function(title, okButtonText, callback) {
+    const dialog = new LoadFlowDialog();
+    dialog.show(callback);
+}
+
+// Export for ES modules
+export const showLoadFlowDialogPandaPower = window.showLoadFlowDialogPandaPower;
 
 function loadFlowPandaPower(a, b, c) {
 
@@ -862,7 +871,7 @@ function loadFlowPandaPower(a, b, c) {
 
         } catch (err) {
             if (err.message === "server") return;
-            alert('Error processing network data.' + err+'\n \nCheck input data or contact electrisim@electrisim.com', );
+           // alert('Error processing network data.' + err+'\n \nCheck input data or contact electrisim@electrisim.com', );
         } finally {
             if (typeof apka !== 'undefined' && apka.spinner) {
                 apka.spinner.stop();
@@ -1442,3 +1451,9 @@ function loadFlowPandaPower(a, b, c) {
         } 
     })
 }
+
+// Make loadFlowPandaPower available globally
+globalThis.loadFlowPandaPower = loadFlowPandaPower;
+
+// Export for module usage
+export { loadFlowPandaPower };

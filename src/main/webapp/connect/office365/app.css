@@ -30,7 +30,7 @@ body {
 }
 
 #notification-message #notification-message-close {
-    background-image: url("/images/close.png");
+    background-image: url("../../images/close.png");
     background-repeat: no-repeat;
     background-size: 12px;
     width: 12px;
@@ -368,7 +368,7 @@ ul.ordered-list {
 
 #odSearchBox {
     color:#888888;
-    background:url("/images/icon-search.svg") no-repeat;
+    background:url("../../images/icon-search.svg") no-repeat;
 	background-color: #FFFFFF;
 	background-position: 15px;
 	height: 30px;

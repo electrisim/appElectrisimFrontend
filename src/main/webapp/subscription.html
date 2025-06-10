@@ -79,13 +79,13 @@
             <div class="col-md-4">
                 <div class="subscription-card h-100">
                     <h3>Basic Plan</h3>
-                    <div class="price">$9.99 <span class="period">/month</span></div>
+                    <div class="price">$5.00 <span class="period">/month</span></div>
                     <ul class="feature-list">
-                        <li>Access to basic features</li>
-                        <li>Limited storage</li>
-                        <li>Email support</li>
+                        <li>Access to all simulations</li>
+                        <li>Basic support</li>
+                        <li>Community access</li>
                     </ul>
-                    <button onclick="handleSubscriptionClick('price_basic')" data-price-id="price_basic" class="btn btn-primary w-100">
+                    <button onclick="handleSubscriptionClick(isProd ? 'price_1RLjivAd4ULYw2Nb6oGrb9P1' : 'price_1RMDAEAd4ULYw2Nb9nhh8Wf2')" class="btn btn-primary w-100">
                         Subscribe Now
                     </button>
                 </div>
@@ -99,11 +99,11 @@
                     <div class="price">$19.99 <span class="period">/month</span></div>
                     <ul class="feature-list">
                         <li>All Basic features</li>
-                        <li>Increased storage</li>
                         <li>Priority support</li>
                         <li>Advanced analytics</li>
+                        <li>Custom simulations</li>
                     </ul>
-                    <button onclick="handleSubscriptionClick('price_pro')" data-price-id="price_pro" class="btn btn-primary w-100">
+                    <button onclick="handleSubscriptionClick(isProd ? 'price_1RLjivAd4ULYw2Nb6oGrb9P1' : 'price_1RMDAEAd4ULYw2Nb9nhh8Wf2')" class="btn btn-primary w-100">
                         Subscribe Now
                     </button>
                 </div>
@@ -116,12 +116,12 @@
                     <div class="price">$49.99 <span class="period">/month</span></div>
                     <ul class="feature-list">
                         <li>All Pro features</li>
-                        <li>Unlimited storage</li>
-                        <li>24/7 phone support</li>
+                        <li>24/7 priority support</li>
                         <li>Dedicated account manager</li>
                         <li>Custom integrations</li>
+                        <li>Team collaboration</li>
                     </ul>
-                    <button onclick="handleSubscriptionClick('price_enterprise')" data-price-id="price_enterprise" class="btn btn-primary w-100">
+                    <button onclick="handleSubscriptionClick(isProd ? 'price_1RLjivAd4ULYw2Nb6oGrb9P1' : 'price_1RMDAEAd4ULYw2Nb9nhh8Wf2')" class="btn btn-primary w-100">
                         Subscribe Now
                     </button>
                 </div>
@@ -139,52 +139,72 @@
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://js.stripe.com/v3/"></script>
-    <script src="stripe-subscription.js"></script>
-    <script>
+    <script type="module">
+        import { authHandler } from './js/electrisim/loginsubscription/auth-handler.js';
+        import { subscriptionHandler } from './js/electrisim/loginsubscription/stripe-subscription.js';
+        
         // Check if user is logged in
-        document.addEventListener('DOMContentLoaded', function() {
-            if (!localStorage.getItem('authToken')) {
-                window.location.href = '/login.html';
+        document.addEventListener('DOMContentLoaded', async function() {
+            if (!localStorage.getItem('token')) {
+                window.location.href = 'login.html';
+                return;
             }
             
             // Check subscription status
-            checkSubscriptionStatus();
+            await checkSubscriptionStatus();
         });
+        
+        // Make functions available to HTML onclick handlers
+        window.logout = () => {
+            authHandler.logout();
+            window.location.href = 'login.html';
+        };
+        
+        // Add environment check
+        const isProd = window.location.hostname === 'app.electrisim.com';
+        
+        window.handleSubscriptionClick = async (priceId) => {
+            try {
+                const handler = new StripeSubscriptionHandler();
+                console.log('Starting subscription process for price:', priceId);
+                await handler.redirectToStripeCheckout(priceId);
+            } catch (error) {
+                console.error('Error in subscription process:', error);
+                alert('An error occurred during the subscription process. Please try again.');
+            }
+        };
+        
+        window.manageSubscription = async () => {
+            try {
+                await subscriptionHandler.redirectToCustomerPortal();
+            } catch (error) {
+                console.error('Error accessing customer portal:', error);
+                alert('Failed to access subscription management. Please try again.');
+            }
+        };
         
         // Function to check subscription status
         async function checkSubscriptionStatus() {
             try {
-                const response = await fetch('/api/stripe/check-subscription', {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-                    }
-                });
-                
-                const data = await response.json();
-                
-                if (data.hasActiveSubscription) {
-                    // Update UI for subscribers
+                const status = await subscriptionHandler.checkSubscriptionStatus();
+                if (status && status.hasActiveSubscription) {
+                    // Show manage subscription button
+                    document.getElementById('manage-subscription').style.display = 'block';
+                    
+                    // Update subscription buttons
                     document.querySelectorAll('.subscription-card button').forEach(button => {
-                        if (data.subscription && data.subscription.plan && 
-                            button.dataset.priceId === data.subscription.plan.id) {
-                            button.textContent = 'Current Plan';
-                            button.classList.remove('btn-primary');
-                            button.classList.add('btn-success');
-                            button.disabled = true;
-                        } else {
-                            button.textContent = 'Change Plan';
-                        }
+                        button.textContent = 'Current Plan';
+                        button.classList.remove('btn-primary');
+                        button.classList.add('btn-success');
+                        button.disabled = true;
                     });
+                } else {
+                    // Hide manage subscription button if no active subscription
+                    document.getElementById('manage-subscription').style.display = 'none';
                 }
             } catch (error) {
                 console.error('Error checking subscription:', error);
             }
-        }
-        
-        // Logout function
-        function logout() {
-            localStorage.removeItem('authToken');
-            window.location.href = '/login.html';
         }
     </script>
 </body>

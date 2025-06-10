@@ -1,4 +1,19 @@
-function shortCircuitPandaPower(a, b, c) {
+// Import COMPONENT_TYPES from the utils
+import { COMPONENT_TYPES } from './utils/componentTypes.js';
+import { getAttributesAsObject } from './utils/attributeUtils.js';
+import { ShortCircuitDialog } from './dialogs/ShortCircuitDialog.js';
+
+// Make the dialog function available globally
+window.showShortCircuitDialog = function(title, okButtonText, callback) {
+    const dialog = new ShortCircuitDialog();
+    dialog.show(callback);
+}
+
+// Also export it as a module
+export const showShortCircuitDialog = window.showShortCircuitDialog;
+
+// Make the shortCircuit function available globally
+window.shortCircuitPandaPower = function(a, b, c) {
     let apka = a;
     let grafka = b;
 
@@ -666,45 +681,56 @@ function shortCircuitPandaPower(a, b, c) {
                         break;
 
                     case COMPONENT_TYPES.LINE:
-                        const line = {
-                            typ: `Line${counters.line++}`,
-                            name: cell.mxObjectId.replace('#', '_'),
-                            id: cell.id,
-                            ...getConnectedBuses(cell),
-                            ...getAttributesAsObject(cell, {
-                                // Basic parameters
-                                length_km: 'length_km',
-                                parallel: 'parallel',
-                                df: 'df',
-
-                                // Load flow parameters
-                                r_ohm_per_km: 'r_ohm_per_km',
-                                x_ohm_per_km: 'x_ohm_per_km',
-                                c_nf_per_km: 'c_nf_per_km',
-                                g_us_per_km: 'g_us_per_km',
-                                max_i_ka: 'max_i_ka',
-                                type: 'type',
-
-                                // Short circuit parameters
-
-                                r0_ohm_per_km: { name: 'r0_ohm_per_km', optional: true },
-                                x0_ohm_per_km: { name: 'x0_ohm_per_km', optional: true },
-                                c0_nf_per_km: { name: 'c0_nf_per_km', optional: true },
-                                endtemp_degree: { name: 'endtemp_degree', optional: true },
-                            })
-                        };
-
-                        // Validate bus connections
                         try {
-                            validateBusConnections(cell);
-                            //setCellStyle(cell, { strokeColor: 'black' });
+                            console.log('Processing line:', cell.mxObjectId);
+                            console.log('Line edges:', cell.edges?.length || 0);
+                            console.log('Line connections:', cell.edges?.map(edge => ({
+                                source: edge.source?.mxObjectId,
+                                target: edge.target?.mxObjectId
+                            })));
+                            
+                            const line = {
+                                typ: `Line${counters.line++}`,
+                                name: cell.mxObjectId.replace('#', '_'),
+                                id: cell.id,
+                                ...getConnectedBuses(cell),
+                                ...getAttributesAsObject(cell, {
+                                    // Basic parameters
+                                    length_km: 'length_km',
+                                    parallel: 'parallel',
+                                    df: 'df',
+
+                                    // Load flow parameters
+                                    r_ohm_per_km: 'r_ohm_per_km',
+                                    x_ohm_per_km: 'x_ohm_per_km',
+                                    c_nf_per_km: 'c_nf_per_km',
+                                    g_us_per_km: 'g_us_per_km',
+                                    max_i_ka: 'max_i_ka',
+                                    type: 'type',
+
+                                    // Short circuit parameters
+                                    r0_ohm_per_km: { name: 'r0_ohm_per_km', optional: true },
+                                    x0_ohm_per_km: { name: 'x0_ohm_per_km', optional: true },
+                                    c0_nf_per_km: { name: 'c0_nf_per_km', optional: true },
+                                    endtemp_degree: { name: 'endtemp_degree', optional: true },
+                                })
+                            };
+
+                            // Validate bus connections
+                            try {
+                                validateBusConnections(cell);
+                                //setCellStyle(cell, { strokeColor: 'black' });
+                            } catch (error) {
+                                console.error(error.message);
+                                //setCellStyle(cell, { strokeColor: 'red' });
+                                alert('The line is not connected to the bus. Please check the line highlighted in red and connect it to the appropriate bus.');
+                            }
+
+                            componentArrays.line.push(line);
                         } catch (error) {
                             console.error(error.message);
-                            //setCellStyle(cell, { strokeColor: 'red' });
-                            alert('The line is not connected to the bus. Please check the line highlighted in red and connect it to the appropriate bus.');
+                            alert('Error processing line. Please check the console for more details.');
                         }
-
-                        componentArrays.line.push(line);
                         break;
                 }
             });
@@ -748,6 +774,9 @@ function shortCircuitPandaPower(a, b, c) {
         }
     });
 }
+
+// Also export it as a module
+export const shortCircuitPandaPower = window.shortCircuitPandaPower;
 
 
 

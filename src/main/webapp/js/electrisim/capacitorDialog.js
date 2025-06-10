@@ -1,8 +1,10 @@
-const  rowDefsCapacitor = [
+import { numberParser, actionCellRenderer } from './utils/gridUtils.js';
+
+export const rowDefsCapacitor = [
     { name: "Capacitor", q_mvar:0.0,  loss_factor: 0.0, vn_kv: 0.0, step: 0.0, max_step: 0.0},
-    
-  ];  
-  const columnDefsCapacitor= [  
+];  
+
+export const columnDefsCapacitor = [  
     {
       field: "name",
     },
@@ -10,8 +12,7 @@ const  rowDefsCapacitor = [
       field: "q_mvar",
       headerTooltip: "reactive power of the capacitor bank at rated voltage",
       maxWidth: 100,
-      
-  
+      valueParser: numberParser,
     },
     {
       field: "loss_factor",
@@ -37,9 +38,9 @@ const  rowDefsCapacitor = [
       maxWidth: 120,
       valueParser: numberParser,
     }    
-  ];
+];
   
-  var gridOptionsCapacitor = {
+export const gridOptionsCapacitor = {
     columnDefs: columnDefsCapacitor,
     defaultColDef: {  
         minWidth: 100,
@@ -47,8 +48,13 @@ const  rowDefsCapacitor = [
     },
     rowData: rowDefsCapacitor,
     singleClickEdit: true,
-    stopEditingWhenGridLosesFocus: true, //musi być żeby przy naciśnięciu Apply zapisywała się wartość 
-  };     
+    stopEditingWhenGridLosesFocus: true,
+};     
+
+// Make them globally available for backward compatibility
+globalThis.rowDefsCapacitor = rowDefsCapacitor;
+globalThis.columnDefsCapacitor = columnDefsCapacitor;
+globalThis.gridOptionsCapacitor = gridOptionsCapacitor;
   
   
   

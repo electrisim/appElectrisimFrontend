@@ -1,0 +1,55 @@
+/* Add fallback for missing images */
+img {
+    min-height: 24px;
+    min-width: 24px;
+}
+
+img:before {
+    content: ' ';
+    display: block;
+    position: absolute;
+    height: 24px;
+    width: 24px;
+    background: #f0f0f0;
+}
+
+img:after {
+    content: '🖼️';
+    display: block;
+    font-size: 16px;
+    font-style: normal;
+    font-family: system-ui;
+    color: #888;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+/* Add fallback for loading states */
+.loading {
+    position: relative;
+    min-height: 24px;
+    min-width: 24px;
+}
+
+.loading:after {
+    content: '';
+    display: block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid #48d800;
+    border-radius: 50%;
+    border-top-color: transparent;
+    animation: spin 1s linear infinite;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+@keyframes spin {
+    to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* ... existing styles ... */ 

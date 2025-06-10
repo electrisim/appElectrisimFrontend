@@ -1,8 +1,10 @@
-const  rowDefsStaticGenerator = [
+import { numberParser, actionCellRenderer } from './utils/gridUtils.js';
+
+export const rowDefsStaticGenerator = [
     { name: "Static Generator", p_mw:0.0,  q_mvar: 0.0, sn_mva: 0.0, scaling: 0.0, type: 'Wye', k:0.0, rx:0.0, generator_type: 'async', lrc_pu: 0.0, max_ik_ka: 0.0, kappa: 0.0, current_source: true},
     
   ];  
-  const columnDefsStaticGenerator = [  
+export const columnDefsStaticGenerator = [  
     {
       field: "name",
     },
@@ -51,25 +53,25 @@ const  rowDefsStaticGenerator = [
     },
     {
       field: "generator_type",
-      headerTooltip: "can be one of “current_source” (full size converter), “async” (asynchronous generator), or “async_doubly_fed” (doubly fed asynchronous generator, DFIG). Represents the type of the static generator in the context of the short-circuit calculations of wind power station units. If None, other short-circuit-related parameters are not set",
+      headerTooltip: 'can be one of "current_source" (full size converter), "async" (asynchronous generator), or "async_doubly_fed" (doubly fed asynchronous generator, DFIG). Represents the type of the static generator in the context of the short-circuit calculations of wind power station units. If None, other short-circuit-related parameters are not set',
       maxWidth: 120,
     
     },
     {
       field: "lrc_pu",
-      headerTooltip: "locked rotor current in relation to the rated generator current. Relevant if the generator_type is “async”.",
+      headerTooltip: 'locked rotor current in relation to the rated generator current. Relevant if the generator_type is "async".',
       maxWidth: 100,
       valueParser: numberParser,
     },
     {
       field: "max_ik_ka",
-      headerTooltip: "the highest instantaneous short-circuit value in case of a three-phase short-circuit (provided by the manufacturer). Relevant if the generator_type is “async_doubly_fed”.",
+      headerTooltip: 'the highest instantaneous short-circuit value in case of a three-phase short-circuit (provided by the manufacturer). Relevant if the generator_type is "async_doubly_fed".',
       maxWidth: 100,
       valueParser: numberParser,
     },
     {
       field: "kappa",
-      headerTooltip: "the factor for the calculation of the peak short-circuit current, referred to the high-voltage side (provided by the manufacturer). Relevant if the generator_type is “async_doubly_fed”.",
+      headerTooltip: 'the factor for the calculation of the peak short-circuit current, referred to the high-voltage side (provided by the manufacturer). Relevant if the generator_type is "async_doubly_fed".',
       maxWidth: 100,
       valueParser: numberParser,
     },
@@ -81,7 +83,7 @@ const  rowDefsStaticGenerator = [
     }
   ];
   
-  var gridOptionsStaticGenerator = {
+export const gridOptionsStaticGenerator = {
     columnDefs: columnDefsStaticGenerator,
     defaultColDef: {  
         minWidth: 100,
@@ -91,6 +93,11 @@ const  rowDefsStaticGenerator = [
     singleClickEdit: true,
     stopEditingWhenGridLosesFocus: true, //musi być żeby przy naciśnięciu Apply zapisywała się wartość 
   };     
+
+// Make them globally available
+globalThis.rowDefsStaticGenerator = rowDefsStaticGenerator;
+globalThis.columnDefsStaticGenerator = columnDefsStaticGenerator;
+globalThis.gridOptionsStaticGenerator = gridOptionsStaticGenerator;
   
   
   

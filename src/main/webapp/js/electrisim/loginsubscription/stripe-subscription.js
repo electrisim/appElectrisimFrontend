@@ -1,5 +1,10 @@
 // stripe-subscription.js - Manages subscription-related functionality
 
+import config from '../config/environment.js';
+import { DIALOG_STYLES } from '../utils/dialogStyles.js';
+
+const API_BASE_URL = config.apiBaseUrl;
+
 // Function to get auth token from various storage options
 function getAuthToken() {
     // Try different storage mechanisms
@@ -10,43 +15,40 @@ function getAuthToken() {
     const sessionJwt = sessionStorage.getItem('jwt');
     
     // Use the first available token
-    return localToken || localJwt || localAuthToken || sessionToken || sessionJwt;
+    const token = localToken || localJwt || localAuthToken || sessionToken || sessionJwt;
+    
+    if (!token) {
+        console.log('No authentication token found');
+        return null;
+    }
+    
+    return token;
 }
 
 // Function to handle unauthenticated users
 function handleUnauthenticated() {
     console.log('User not authenticated. Showing login modal...');
     
-    // Check if we have the authHandler functionality available
-    /*if (window.authHandler && window.authHandler.showLoginModal) {
-        return window.authHandler.showLoginModal();
-    } else {*/
-        // Fallback if authHandler is not available
-        const shouldRedirect = confirm('You need to log in before subscribing. Go to login page?');
-        
-        if (shouldRedirect) {
-            // Redirect to login page (adjust the URL to your login page)
-            window.location.href = '/login.html'; //
-        }
-        
-       // return false;
-   //}
+    // Clear any existing tokens
+    localStorage.removeItem('token');
+    localStorage.removeItem('jwt');
+    localStorage.removeItem('authToken');
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('jwt');
+    
+    // Redirect to login page
+    window.location.href = 'login.html';
 }
 
 // Function to check if user has an active subscription
 async function checkSubscriptionStatus() {
-    const API_BASE_URL = 'https://customers-production-16f8.up.railway.app/api';
-    
     try {
-        // Get the JWT token from localStorage
         const token = getAuthToken();
-        
         if (!token) {
-            console.error('No authentication token found');
-            return false;
+            return handleUnauthenticated();
         }
         
-        const response = await fetch(`${API_BASE_URL}/stripe/check-subscription`, {  // Updated path
+        const response = await fetch(`${API_BASE_URL}/stripe/check-subscription`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
@@ -54,8 +56,13 @@ async function checkSubscriptionStatus() {
             }
         });
 
+        if (response.status === 401) {
+            console.log('Token expired or invalid');
+            return handleUnauthenticated();
+        }
+
         if (!response.ok) {
-            console.error('Subscription check failed:', response.status, response.statusText);
+            console.error('Subscription check failed:', response.status);
             return false;
         }
         
@@ -68,18 +75,18 @@ async function checkSubscriptionStatus() {
 }
 
 // Function to redirect to Stripe Checkout
-async function redirectToStripeCheckout() {    
-    const API_BASE_URL = 'https://customers-production-16f8.up.railway.app/api';
-
+async function redirectToStripeCheckout(priceId) {
     try {
         const token = getAuthToken();
         
         if (!token) {
-            console.error('No authentication token found');
             return handleUnauthenticated();
         }
+
+        const isProd = window.location.hostname === 'app.electrisim.com';
+        const defaultPriceId = isProd ? 'price_1RLjivAd4ULYw2Nb6oGrb9P1' : 'price_1RMDAEAd4ULYw2Nb9nhh8Wf2';
         
-        console.log('Creating checkout session...');
+        console.log('Creating checkout session with price:', priceId || defaultPriceId);
         
         const response = await fetch(`${API_BASE_URL}/stripe/create-checkout-session`, {
             method: 'POST',
@@ -88,32 +95,46 @@ async function redirectToStripeCheckout() {
                 'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
-                priceId: 'price_1RLjivAd4ULYw2Nb6oGrb9P1' // Make sure this price ID exists in your Stripe account
-            })
+                priceId: priceId || defaultPriceId
+            }),
         });
 
-        const responseData = await response.json();
-        
+        if (response.status === 401) {
+            console.log('Token expired or invalid');
+            return handleUnauthenticated();
+        }
+
         if (!response.ok) {
-            throw new Error(responseData.error || responseData.details || 'Failed to create checkout session');
+            const errorData = await response.json().catch(e => ({ error: 'Failed to parse error response' }));
+            console.error('Checkout session creation failed:', {
+                status: response.status,
+                statusText: response.statusText,
+                errorData
+            });
+            throw new Error(errorData.error || `Failed to create checkout session: ${response.status}`);
         }
 
-        if (!responseData.url) {
-            throw new Error('No checkout URL received from server');
+        const data = await response.json();
+        
+        if (!data.url) {
+            console.error('No checkout URL in response:', data);
+            throw new Error('No checkout URL received');
         }
 
-        // Redirect to Stripe Checkout
-        window.location.href = responseData.url;
+        // Redirect to checkout URL
+        window.location.href = data.url;
+        
     } catch (error) {
-        console.error('Error creating checkout session:', error);
-        alert(`Checkout error: ${error.message}`);
+        console.error('Error in redirectToStripeCheckout:', error);
+        if (error.message.includes('Token expired')) {
+            return handleUnauthenticated();
+        }
+        throw error;
     }
 }
 
 // Function to redirect to Customer Portal for managing subscription
 async function redirectToCustomerPortal() {
-    const API_BASE_URL = 'https://customers-production-16f8.up.railway.app/api';
-    
     try {
         // Get the JWT token
         const token = getAuthToken();
@@ -159,94 +180,120 @@ async function redirectToCustomerPortal() {
 function showSubscriptionModal() {
     // Create modal overlay
     const overlay = document.createElement('div');
-    overlay.className = 'subscription-overlay';
-    overlay.style.position = 'fixed';
-    overlay.style.top = '0';
-    overlay.style.left = '0';
-    overlay.style.width = '100%';
-    overlay.style.height = '100%';
-    overlay.style.backgroundColor = 'rgba(0,0,0,0.7)';
-    overlay.style.display = 'flex';
-    overlay.style.justifyContent = 'center';
-    overlay.style.alignItems = 'center';
-    overlay.style.zIndex = '1000';
+    Object.assign(overlay.style, DIALOG_STYLES.overlay);
 
     // Create modal content
     const modal = document.createElement('div');
-    modal.className = 'subscription-modal';
-    modal.style.backgroundColor = 'white';
-    modal.style.borderRadius = '8px';
-    modal.style.padding = '30px';
-    modal.style.width = '480px';
-    modal.style.maxWidth = '90%';
-    modal.style.textAlign = 'center';
+    Object.assign(modal.style, DIALOG_STYLES.container);
 
     // Modal header
     const header = document.createElement('h2');
+    Object.assign(header.style, DIALOG_STYLES.header);
     header.textContent = 'Subscription Required';
-    header.style.marginBottom = '20px';
     
     // Modal message
     const message = document.createElement('p');
+    Object.assign(message.style, DIALOG_STYLES.info);
     message.textContent = 'To use the Simulation feature, a monthly subscription is required.';
-    message.style.marginBottom = '30px';
     
     // Price display
     const priceInfo = document.createElement('div');
+    Object.assign(priceInfo.style, DIALOG_STYLES.resultItem);
     priceInfo.innerHTML = '<strong>Monthly Subscription:</strong> $5.00/month';
-    priceInfo.style.marginBottom = '30px';
+    
+    // Features list
+    const featuresList = document.createElement('ul');
+    Object.assign(featuresList.style, {
+        listStyle: 'none',
+        padding: '0',
+        margin: '20px 0'
+    });
+    
+    const features = [
+        'Unlimited simulations',
+        'Priority support',
+        'Access to all features',
+        'Regular updates'
+    ];
+    
+    features.forEach(feature => {
+        const li = document.createElement('li');
+        Object.assign(li.style, {
+            marginBottom: '10px',
+            display: 'flex',
+            alignItems: 'center'
+        });
+        li.innerHTML = `
+            <span style="color: #48d800; margin-right: 10px;">✓</span>
+            ${feature}
+        `;
+        featuresList.appendChild(li);
+    });
     
     // Subscribe button
-    const subscribeBtn = document.createElement('button');
-    subscribeBtn.textContent = 'Subscribe Now';
-    subscribeBtn.style.backgroundColor = '#4CAF50';
-    subscribeBtn.style.color = 'white';
-    subscribeBtn.style.border = 'none';
-    subscribeBtn.style.padding = '12px 24px';
-    subscribeBtn.style.borderRadius = '4px';
-    subscribeBtn.style.cursor = 'pointer';
-    subscribeBtn.style.fontSize = '16px';
-    subscribeBtn.style.marginRight = '15px';
+    const subscribeButton = document.createElement('button');
+    Object.assign(subscribeButton.style, DIALOG_STYLES.button);
+    subscribeButton.textContent = 'Subscribe Now';
     
     // Cancel button
-    const cancelBtn = document.createElement('button');
-    cancelBtn.textContent = 'Cancel';
-    cancelBtn.style.backgroundColor = '#f44336';
-    cancelBtn.style.color = 'white';
-    cancelBtn.style.border = 'none';
-    cancelBtn.style.padding = '12px 24px';
-    cancelBtn.style.borderRadius = '4px';
-    cancelBtn.style.cursor = 'pointer';
-    cancelBtn.style.fontSize = '16px';
+    const cancelButton = document.createElement('button');
+    Object.assign(cancelButton.style, {
+        ...DIALOG_STYLES.button,
+        ...DIALOG_STYLES.buttonSecondary,
+        marginTop: '10px'
+    });
+    cancelButton.textContent = 'Cancel';
     
     // Add event listeners
-    subscribeBtn.addEventListener('click', async () => {
-        overlay.remove();
-        // Check if user is authenticated first
-        const token = getAuthToken();
-        if (!token) {
-            const authenticated = await handleUnauthenticated();
-            if (authenticated) {
-                redirectToStripeCheckout();
-            }
-        } else {
-            redirectToStripeCheckout();
+    subscribeButton.addEventListener('click', async () => {
+        try {
+            subscribeButton.disabled = true;
+            subscribeButton.textContent = 'Processing...';
+            await redirectToStripeCheckout();
+        } catch (error) {
+            console.error('Subscription error:', error);
+            const errorMsg = document.createElement('div');
+            Object.assign(errorMsg.style, DIALOG_STYLES.error);
+            errorMsg.textContent = 'An error occurred. Please try again.';
+            modal.appendChild(errorMsg);
+        } finally {
+            subscribeButton.disabled = false;
+            subscribeButton.textContent = 'Subscribe Now';
         }
     });
     
-    cancelBtn.addEventListener('click', () => {
-        overlay.remove();
+    cancelButton.addEventListener('click', () => {
+        document.body.removeChild(overlay);
+    });
+    
+    // Add hover effects
+    [subscribeButton, cancelButton].forEach(button => {
+        button.addEventListener('mouseover', () => {
+            if (button === subscribeButton) {
+                Object.assign(button.style, DIALOG_STYLES.buttonHover);
+            } else {
+                button.style.backgroundColor = '#f8f9fa';
+            }
+        });
+        
+        button.addEventListener('mouseout', () => {
+            if (button === subscribeButton) {
+                button.style.backgroundColor = DIALOG_STYLES.button.backgroundColor;
+            } else {
+                button.style.backgroundColor = DIALOG_STYLES.buttonSecondary.backgroundColor;
+            }
+        });
     });
     
     // Assemble modal
     modal.appendChild(header);
     modal.appendChild(message);
     modal.appendChild(priceInfo);
-    modal.appendChild(subscribeBtn);
-    modal.appendChild(cancelBtn);
-    overlay.appendChild(modal);
+    modal.appendChild(featuresList);
+    modal.appendChild(subscribeButton);
+    modal.appendChild(cancelButton);
     
-    // Add to body
+    overlay.appendChild(modal);
     document.body.appendChild(overlay);
 }
 
@@ -286,8 +333,6 @@ window.addEventListener('message', function(event) {
 
 const SubscriptionManager = {
     async checkSubscriptionStatus() {
-        const API_BASE_URL = 'https://customers-production-16f8.up.railway.app/api';
-        
         try {
             const token = getAuthToken();
             
@@ -320,94 +365,120 @@ const SubscriptionManager = {
     showSubscriptionModal() {
         // Create modal overlay
         const overlay = document.createElement('div');
-        overlay.className = 'subscription-overlay';
-        overlay.style.position = 'fixed';
-        overlay.style.top = '0';
-        overlay.style.left = '0';
-        overlay.style.width = '100%';
-        overlay.style.height = '100%';
-        overlay.style.backgroundColor = 'rgba(0,0,0,0.7)';
-        overlay.style.display = 'flex';
-        overlay.style.justifyContent = 'center';
-        overlay.style.alignItems = 'center';
-        overlay.style.zIndex = '1000';
+        Object.assign(overlay.style, DIALOG_STYLES.overlay);
 
         // Create modal content
         const modal = document.createElement('div');
-        modal.className = 'subscription-modal';
-        modal.style.backgroundColor = 'white';
-        modal.style.borderRadius = '8px';
-        modal.style.padding = '30px';
-        modal.style.width = '480px';
-        modal.style.maxWidth = '90%';
-        modal.style.textAlign = 'center';
+        Object.assign(modal.style, DIALOG_STYLES.container);
 
         // Modal header
         const header = document.createElement('h2');
+        Object.assign(header.style, DIALOG_STYLES.header);
         header.textContent = 'Subscription Required';
-        header.style.marginBottom = '20px';
         
         // Modal message
         const message = document.createElement('p');
+        Object.assign(message.style, DIALOG_STYLES.info);
         message.textContent = 'To use the Simulation feature, a monthly subscription is required.';
-        message.style.marginBottom = '30px';
         
         // Price display
         const priceInfo = document.createElement('div');
+        Object.assign(priceInfo.style, DIALOG_STYLES.resultItem);
         priceInfo.innerHTML = '<strong>Monthly Subscription:</strong> $5.00/month';
-        priceInfo.style.marginBottom = '30px';
+        
+        // Features list
+        const featuresList = document.createElement('ul');
+        Object.assign(featuresList.style, {
+            listStyle: 'none',
+            padding: '0',
+            margin: '20px 0'
+        });
+        
+        const features = [
+            'Unlimited simulations',
+            'Priority support',
+            'Access to all features',
+            'Regular updates'
+        ];
+        
+        features.forEach(feature => {
+            const li = document.createElement('li');
+            Object.assign(li.style, {
+                marginBottom: '10px',
+                display: 'flex',
+                alignItems: 'center'
+            });
+            li.innerHTML = `
+                <span style="color: #48d800; margin-right: 10px;">✓</span>
+                ${feature}
+            `;
+            featuresList.appendChild(li);
+        });
         
         // Subscribe button
-        const subscribeBtn = document.createElement('button');
-        subscribeBtn.textContent = 'Subscribe Now';
-        subscribeBtn.style.backgroundColor = '#4CAF50';
-        subscribeBtn.style.color = 'white';
-        subscribeBtn.style.border = 'none';
-        subscribeBtn.style.padding = '12px 24px';
-        subscribeBtn.style.borderRadius = '4px';
-        subscribeBtn.style.cursor = 'pointer';
-        subscribeBtn.style.fontSize = '16px';
-        subscribeBtn.style.marginRight = '15px';
+        const subscribeButton = document.createElement('button');
+        Object.assign(subscribeButton.style, DIALOG_STYLES.button);
+        subscribeButton.textContent = 'Subscribe Now';
         
         // Cancel button
-        const cancelBtn = document.createElement('button');
-        cancelBtn.textContent = 'Cancel';
-        cancelBtn.style.backgroundColor = '#f44336';
-        cancelBtn.style.color = 'white';
-        cancelBtn.style.border = 'none';
-        cancelBtn.style.padding = '12px 24px';
-        cancelBtn.style.borderRadius = '4px';
-        cancelBtn.style.cursor = 'pointer';
-        cancelBtn.style.fontSize = '16px';
+        const cancelButton = document.createElement('button');
+        Object.assign(cancelButton.style, {
+            ...DIALOG_STYLES.button,
+            ...DIALOG_STYLES.buttonSecondary,
+            marginTop: '10px'
+        });
+        cancelButton.textContent = 'Cancel';
         
         // Add event listeners
-        subscribeBtn.addEventListener('click', async () => {
-            overlay.remove();
-            // Check if user is authenticated first
-            const token = getAuthToken();
-            if (!token) {
-                const authenticated = await handleUnauthenticated();
-                if (authenticated) {
-                    redirectToStripeCheckout();
-                }
-            } else {
-                redirectToStripeCheckout();
+        subscribeButton.addEventListener('click', async () => {
+            try {
+                subscribeButton.disabled = true;
+                subscribeButton.textContent = 'Processing...';
+                await redirectToStripeCheckout();
+            } catch (error) {
+                console.error('Subscription error:', error);
+                const errorMsg = document.createElement('div');
+                Object.assign(errorMsg.style, DIALOG_STYLES.error);
+                errorMsg.textContent = 'An error occurred. Please try again.';
+                modal.appendChild(errorMsg);
+            } finally {
+                subscribeButton.disabled = false;
+                subscribeButton.textContent = 'Subscribe Now';
             }
         });
         
-        cancelBtn.addEventListener('click', () => {
-            overlay.remove();
+        cancelButton.addEventListener('click', () => {
+            document.body.removeChild(overlay);
+        });
+        
+        // Add hover effects
+        [subscribeButton, cancelButton].forEach(button => {
+            button.addEventListener('mouseover', () => {
+                if (button === subscribeButton) {
+                    Object.assign(button.style, DIALOG_STYLES.buttonHover);
+                } else {
+                    button.style.backgroundColor = '#f8f9fa';
+                }
+            });
+            
+            button.addEventListener('mouseout', () => {
+                if (button === subscribeButton) {
+                    button.style.backgroundColor = DIALOG_STYLES.button.backgroundColor;
+                } else {
+                    button.style.backgroundColor = DIALOG_STYLES.buttonSecondary.backgroundColor;
+                }
+            });
         });
         
         // Assemble modal
         modal.appendChild(header);
         modal.appendChild(message);
         modal.appendChild(priceInfo);
-        modal.appendChild(subscribeBtn);
-        modal.appendChild(cancelBtn);
-        overlay.appendChild(modal);
+        modal.appendChild(featuresList);
+        modal.appendChild(subscribeButton);
+        modal.appendChild(cancelButton);
         
-        // Add to body
+        overlay.appendChild(modal);
         document.body.appendChild(overlay);
     }
     // ... other functions ...
@@ -426,8 +497,6 @@ window.subscriptionHandler = {
 
 // Make function globally available
 window.checkSubscriptionStatus = async function() {
-    const API_BASE_URL = 'https://customers-production-16f8.up.railway.app/api';
-    
     try {
         const token = getAuthToken();
         

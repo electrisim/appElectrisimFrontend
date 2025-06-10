@@ -1,8 +1,10 @@
-const  rowDefsImpedance = [
+import { numberParser, actionCellRenderer } from './utils/gridUtils.js';
+
+export const rowDefsImpedance = [
     { name: "Impedance", r_pu:0.0,  x_pu: 0.0, sn_mva: 0.0},
     
   ];  
-  const columnDefsImpedance = [  
+export const columnDefsImpedance = [  
     {
       field: "name",
     },
@@ -26,7 +28,7 @@ const  rowDefsImpedance = [
     }
   ];
   
-  var gridOptionsImpedance = {
+export const gridOptionsImpedance = {
     columnDefs: columnDefsImpedance,
     defaultColDef: {  
         minWidth: 100,
@@ -36,6 +38,11 @@ const  rowDefsImpedance = [
     singleClickEdit: true,
     stopEditingWhenGridLosesFocus: true, //musi być żeby przy naciśnięciu Apply zapisywała się wartość 
   };     
+
+// Make them globally available
+globalThis.rowDefsImpedance = rowDefsImpedance;
+globalThis.columnDefsImpedance = columnDefsImpedance;
+globalThis.gridOptionsImpedance = gridOptionsImpedance;
   
   
   

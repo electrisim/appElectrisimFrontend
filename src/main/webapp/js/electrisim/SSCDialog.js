@@ -1,8 +1,10 @@
-const  rowDefsSSC = [
+import { numberParser, actionCellRenderer } from './utils/gridUtils.js';
+
+export const rowDefsSSC = [
     { name: "SSC(STATCOM)", r_ohm:0.0,  x_ohm: 0.0, set_vm_pu: 0.0, vm_internal_pu: 0.0, va_internal_degree: 0.0, controllable: 'True'  },
     
   ];  
-  const columnDefsSSC = [  
+export const columnDefsSSC = [  
     {
       field: "name",
     },
@@ -44,7 +46,7 @@ const  rowDefsSSC = [
     }
   ];
   
-  var gridOptionsSSC = {
+export const gridOptionsSSC = {
     columnDefs: columnDefsSSC,
     defaultColDef: {  
         minWidth: 100,
@@ -54,6 +56,11 @@ const  rowDefsSSC = [
     singleClickEdit: true,
     stopEditingWhenGridLosesFocus: true, //musi być żeby przy naciśnięciu Apply zapisywała się wartość 
   };     
+
+// Make them globally available
+globalThis.rowDefsSSC = rowDefsSSC;
+globalThis.columnDefsSSC = columnDefsSSC;
+globalThis.gridOptionsSSC = gridOptionsSSC;
   
   
   

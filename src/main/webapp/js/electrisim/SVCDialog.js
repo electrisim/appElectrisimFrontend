@@ -1,8 +1,10 @@
-const  rowDefsSVC = [
+import { numberParser, actionCellRenderer } from './utils/gridUtils.js';
+
+export const rowDefsSVC = [
     { name: "SVC", x_l_ohm:0.0,  x_cvar_ohm: 0.0, set_vm_pu: 0.0, thyristor_firing_angle_degree: 0.0, controllable:'True', min_angle_degree:90, max_angle_degree:180},
     
   ];  
-  const columnDefsSVC = [  
+export const columnDefsSVC = [  
     {
       field: "name",
     },
@@ -51,7 +53,7 @@ const  rowDefsSVC = [
 
   ];
   
-  var gridOptionsSVC = {
+export const gridOptionsSVC = {
     columnDefs: columnDefsSVC,
     defaultColDef: {  
         minWidth: 100,
@@ -61,7 +63,21 @@ const  rowDefsSVC = [
     singleClickEdit: true,
     stopEditingWhenGridLosesFocus: true, //musi być żeby przy naciśnięciu Apply zapisywała się wartość 
   };     
-  
-  
+
+export function negativeNumberParser(params) {
+   
+    if(Number(params.newValue) <= 0) {
+      return(Number(params.newValue))
+    }else {
+      alert("The value "+ params +" must be number (dot separated) and <= 0")
+      return(Number(params.oldValue))
+    }
+}
+
+// Make them globally available
+globalThis.rowDefsSVC = rowDefsSVC;
+globalThis.columnDefsSVC = columnDefsSVC;
+globalThis.gridOptionsSVC = gridOptionsSVC;
+globalThis.negativeNumberParser = negativeNumberParser;
   
   

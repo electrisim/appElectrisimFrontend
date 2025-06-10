@@ -2,109 +2,76 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <link rel="stylesheet" type="text/css" href="mxgraph/css/common.css"> 
+    
+    <script type="text/javascript">
+        window.mxBasePath = 'mxgraph';
+        window.mxClient = { basePath: 'mxgraph' };
+    </script>
+    
 
-	<!--Google Ads-->
-	<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7016853467977893"
-     crossorigin="anonymous"></script>
+    <script type="module" src="js/electrisim/config/environment.js"></script>
 
-	<!-- Google tag (gtag.js) -->
-	<script async src="https://www.googletagmanager.com/gtag/js?id=UA-96285072-1"></script>
-	<script>
-	window.dataLayer = window.dataLayer || [];
-	function gtag(){dataLayer.push(arguments);}
-	gtag('js', new Date());
- 
-	gtag('config', 'UA-96285072-1');
-	</script>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-96285072-1"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-96285072-1');
+    </script>
 
-	<!-- Google Adsense Tag-->
-	<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7016853467977893"
-     crossorigin="anonymous"></script>
-
-	 <!-- Smartlook tag (gtag.js) -->    
-	<script type='text/javascript'>
-		window.smartlook||(function(d) {
-		  var o=smartlook=function(){ o.api.push(arguments)},h=d.getElementsByTagName('head')[0];
-		  var c=d.createElement('script');o.api=new Array();c.async=true;c.type='text/javascript';
-		  c.charset='utf-8';c.src='https://web-sdk.smartlook.com/recorder.js';h.appendChild(c);
-		  })(document);
-		  smartlook('init', '31f78a73918844d1c038266ca853b5b9bd7da408', { region: 'eu' });
-	  </script>
-
+    <!-- Smartlook -->
+    <script type='text/javascript'>
+        window.smartlook||(function(d) {
+            var o=smartlook=function(){ o.api.push(arguments)},h=d.getElementsByTagName('head')[0];
+            var c=d.createElement('script');o.api=new Array();c.async=true;c.type='text/javascript';
+            c.charset='utf-8';c.src='https://web-sdk.smartlook.com/recorder.js';h.appendChild(c);
+        })(document);
+        smartlook('init', '31f78a73918844d1c038266ca853b5b9bd7da408', { region: 'eu' });
+    </script>
 
     <title>Electrisim - Model, Simulate And Analyse Power System With the Free Cloud App</title>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-	<!--<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">  ELXXX dodane ze względu na brak SSL na AWS -->
     <meta name="Description" content="open-source online application for modelling, simulation and analysis of power system">
     <meta name="Keywords" content="electrical analysis, power system, simulation, load flow, short circuit">
     <meta itemprop="name" content="app.electrisim.com - open-source online application for electrical system">
-	<meta itemprop="description" content="open-source online application for modelling, simlulation and analysis of power system">
-	<meta itemprop="image" content=""> <!--ELXXX https://lh4.googleusercontent.com/-cLKEldMbT_E/Tx8qXDuw6eI/AAAAAAAAAAs/Ke0pnlk8Gpg/w500-h344-k/BPMN%2Bdiagram%2Brc2f.png-->
+    <meta itemprop="description" content="open-source online application for modelling, simlulation and analysis of power system">
+    <meta itemprop="image" content="">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-	<meta name="msapplication-config" content="images/browserconfig.xml">
+    <meta name="msapplication-config" content="images/browserconfig.xml">
     <meta name="mobile-web-app-capable" content="yes">
-	<meta name="theme-color" content="#48d800">  <!-- ELXXX #d89000 -->
-	<script type="text/javascript">
+    <meta name="theme-color" content="#48d800">
 
-		
-		/**
-		 * URL Parameters and protocol description are here:
-		 *
-		 * https://desk.draw.io/support/solutions/articles/16000042546-what-url-parameters-are-supported
-		 *
-		 * Parameters for developers:
-		 *
-		 * - dev=1: For developers only
-		 * - test=1: For developers only
-		 * - export=URL for export: For developers only
-		 * - ignoremime=1: For developers only (see DriveClient.js). Use Cmd-S to override mime.
-		 * - createindex=1: For developers only (see etc/build/README)
-		 * - filesupport=0: For developers only (see Editor.js in core)
-		 * - savesidebar=1: For developers only (see Sidebar.js)
-		 * - pages=1: For developers only (see Pages.js)
-		 * - lic=email: For developers only (see LicenseServlet.java)
-		 * --
-		 * - networkshapes=1: For testing network shapes (temporary)
-		 */
-		var urlParams = (function()
-		{
-			var result = new Object();
-			var params = window.location.search.slice(1).split('&');
-			
-			for (var i = 0; i < params.length; i++)
-			{
-				idx = params[i].indexOf('=');
-				
-				if (idx > 0)
-				{
-					result[params[i].substring(0, idx)] = params[i].substring(idx + 1);
-				}
-			}
-			
-			return result;
-		})();
-		
-		// Forces CDN caches by passing URL parameters via URL hash
-		if (window.location.hash != null && window.location.hash.substring(0, 2) == '#P')
-		{
-			try
-			{
-				urlParams = JSON.parse(decodeURIComponent(window.location.hash.substring(2)));
-				
-				if (urlParams.hash != null)
-				{
-					window.location.hash = urlParams.hash;
-				}
-			}
-			catch (e)
-			{
-				// ignore
-			}
-		}
-		
-		// Global variable for desktop
-		var mxIsElectron = window && window.process && window.process.type;
+    <script type="text/javascript">
+        // URL Parameters handling
+        var urlParams = (function() {
+            var result = new Object();
+            var params = window.location.search.slice(1).split('&');
+            for (var i = 0; i < params.length; i++) {
+                idx = params[i].indexOf('=');
+                if (idx > 0) {
+                    result[params[i].substring(0, idx)] = params[i].substring(idx + 1);
+                }
+            }
+            return result;
+        })();
+
+        // Forces CDN caches by passing URL parameters via URL hash
+        if (window.location.hash != null && window.location.hash.substring(0, 2) == '#P') {
+            try {
+                urlParams = JSON.parse(decodeURIComponent(window.location.hash.substring(2)));
+                if (urlParams.hash != null) {
+                    window.location.hash = urlParams.hash;
+                }
+            } catch (e) {
+                // ignore
+            }
+        }
+
+        // Global variables
+        var mxIsElectron = window && window.process && window.process.type;
 
 		// Redirects page if required
 		if (urlParams['dev'] != '1')
@@ -135,11 +102,12 @@
 				}
 			})();
 		}
-		
+
+
 		/**
 		 * Adds meta tag to the page.
 		 */
-		function mxmeta(name, content, httpEquiv)
+		 function mxmeta(name, content, httpEquiv)
 		{
 			try
 			{
@@ -164,67 +132,139 @@
 			{
 				// ignore
 			}
-		};
-		
-		/**
-		 * Synchronously adds scripts to the page.
-		 */
-		function mxscript(src, onLoad, id, dataAppKey, noWrite)
-		{
-			var defer = onLoad == null && !noWrite;
-			
-			if ((urlParams['dev'] != '1' && typeof document.createElement('canvas').getContext === "function") ||
-				onLoad != null || noWrite)
-			{
-				var s = document.createElement('script');
-				s.setAttribute('type', 'text/javascript');
-				//ELXXX - żeby można było robić import dla funkcji
-				//s.setAttribute('type', 'module'); niestety nie można stosować ze wzledu na wyskakujacy blad
-				s.setAttribute('defer', 'true');
-				s.setAttribute('src', src);
+		};      
 
-				if (id != null)
-				{
-					s.setAttribute('id', id);
-				}
-				
-				if (dataAppKey != null)
-				{
-					s.setAttribute('data-app-key', dataAppKey);
-				}
-				
-				if (onLoad != null)
-				{
-					var r = false;
-				
-					s.onload = s.onreadystatechange = function()
-					{
-						if (!r && (!this.readyState || this.readyState == 'complete'))
-						{
-				      		r = true;
-				      		onLoad();
-						}
-				  	};
-				}
-			  	
-			  	var t = document.getElementsByTagName('script')[0];
-			  	
-			  	if (t != null)
-			  	{
-			  		t.parentNode.insertBefore(s, t);
-			  	}
-			}
-			else
-			{
-				document.write('<script src="' + src + '"' + ((id != null) ? ' id="' + id +'" ' : '') +
-					((dataAppKey != null) ? ' data-app-key="' + dataAppKey +'" ' : '') + '></scr' + 'ipt>');
-			}
-		};
+        // Define mxGraph core dependencies
+        const mxGraphDeps = [
+            { src: 'mxgraph/mxClient.js' }
+        ];
+
+        // Define initialization scripts
+        const initScripts = [
+            { src: 'js/PreConfig.js' },
+            { src: 'js/diagramly/Init.js' }
+        ];
+
+        // Define core scripts
+        const coreScripts = [
+            { src: 'js/json/json2.min.js' },
+            { src: 'js/jscolor/jscolor.js' },
+            { src: 'js/sanitizer/sanitizer.min.js' }
+        ];
+
+        // Define utility scripts
+        const utilScripts = [
+            { src: 'js/ag-grid-community.min.js' }
+        ];
+
+        // Define auth and subscription scripts (ES modules)
+        const authScripts = [
+            { src: 'https://js.stripe.com/v3/' },
+            { src: 'js/electrisim/loginsubscription/stripe.js', type: 'module' },
+            { src: 'js/electrisim/loginsubscription/auth-handler.js', type: 'module' },
+            { src: 'js/electrisim/loginsubscription/stripe-subscription.js', type: 'module' }
+        ];
+
+        // Define mxGraph scripts (dependent on mxClient)
+        const mxGraphScripts = [
+            { src: 'js/mxgraph/Init.js' },
+            { src: 'js/mxgraph/Editor.js' },
+            { src: 'js/mxgraph/Graph.js' },
+            { src: 'js/mxgraph/Shapes.js' },
+            { src: 'js/mxgraph/EditorUi.js' },
+            { src: 'js/mxgraph/Actions.js' },
+            { src: 'js/mxgraph/Toolbar.js' },
+            { src: 'js/mxgraph/Menus.js' },
+            { src: 'js/mxgraph/Format.js' },
+            { src: 'js/mxgraph/Sidebar.js' },
+            { src: 'js/mxgraph/Dialogs.js' }
+        ];
+
+        // Define application scripts
+        const appScripts = [
+            { src: 'js/app.min.js' },
+            { src: 'js/extensions.min.js' },
+            //{ src: 'js/stencils.min.js' }, Comment to AI: I cannot include loading the stencils.min.js because it is not working, I am getting different shapes at sidebar. 
+            { src: 'js/shapes.min.js' },
+            { src: 'js/electrisim/utils/cellUtils.js', type: 'module' },
+            { src: 'js/electrisim/dialogs/dialogInitializer.js', type: 'module' },
+            { src: 'js/electrisim/dialogs/EditDataDialog.js', type: 'module' },
+            { src: 'js/electrisim/dialogs/LoadFlowDialog.js', type: 'module' },
+            { src: 'js/electrisim/dialogs/ShortCircuitDialog.js', type: 'module' },
+            { src: 'js/electrisim/lineBaseDialog.js', type: 'module' },
+            { src: 'js/electrisim/lineDialog.js', type: 'module' },
+            { src: 'js/electrisim/externalGridDialog.js', type: 'module' },
+            { src: 'js/electrisim/generatorDialog.js', type: 'module' },
+            { src: 'js/electrisim/staticGeneratorDialog.js', type: 'module' },
+            { src: 'js/electrisim/asymmetricStaticGeneratorDialog.js', type: 'module' },
+            { src: 'js/electrisim/busDialog.js', type: 'module' },
+            { src: 'js/electrisim/transformerBaseDialog.js', type: 'module' },
+            { src: 'js/electrisim/transformerDialog.js', type: 'module' },
+            { src: 'js/electrisim/threeWindingTransformerBaseDialog.js', type: 'module' },
+            { src: 'js/electrisim/threeWindingTransformerLibrary.js', type: 'module' },
+            { src: 'js/electrisim/shuntReactorDialog.js', type: 'module' },
+            { src: 'js/electrisim/capacitorDialog.js', type: 'module' },
+            { src: 'js/electrisim/loadDialog.js', type: 'module' },
+            { src: 'js/electrisim/asymmetricLoadDialog.js', type: 'module' },
+            { src: 'js/electrisim/shortCircuit.js', type: 'module' },
+            { src: 'js/electrisim/impedanceDialog.js', type: 'module' },
+            { src: 'js/electrisim/wardDialog.js', type: 'module' },
+            { src: 'js/electrisim/extendedWardDialog.js', type: 'module' },
+            { src: 'js/electrisim/motorDialog.js', type: 'module' },
+            { src: 'js/electrisim/storageDialog.js', type: 'module' },
+            { src: 'js/electrisim/SSCDialog.js', type: 'module' },
+            { src: 'js/electrisim/SVCDialog.js', type: 'module' },
+            { src: 'js/electrisim/TCSCDialog.js', type: 'module' },
+            { src: 'js/electrisim/dcLineDialog.js', type: 'module' },
+            { src: 'js/electrisim/configureAttributes.js', type: 'module' },
+            { src: 'js/electrisim/supportingFunctions.js', type: 'module' },
+            { src: 'js/electrisim/loadFlow.js', type: 'module' },
+            { src: 'js/electrisim/shortCircuit.js', type: 'module' }
+        ];
+
+        function checkAllLoaded() {
+            if (mxScriptsLoaded && mxWinLoaded) {
+                App.main();
+            }
+        }
+
+        function mxscript(src, onLoad, id, dataAppKey, noWrite, type) {
+            type = type || 'text/javascript';
+            var defer = onLoad == null && !noWrite;
+            
+            if ((urlParams['dev'] != '1' && typeof document.createElement('canvas').getContext === "function") ||
+                onLoad != null || noWrite) {
+                var s = document.createElement('script');
+                s.setAttribute('type', type);
+                s.setAttribute('src', src);
+                if (defer) s.setAttribute('defer', 'true');
+                if (id != null) s.setAttribute('id', id);
+                if (dataAppKey != null) s.setAttribute('data-app-key', dataAppKey);
+                
+                if (onLoad != null) {
+                    var r = false;
+                    s.onload = s.onreadystatechange = function() {
+                        if (!r && (!this.readyState || this.readyState == 'complete')) {
+                            r = true;
+                            onLoad();
+                        }
+                    };
+                }
+                
+                var t = document.getElementsByTagName('script')[0];
+                t.parentNode.insertBefore(s, t);
+            } else {
+                document.write('<script src="' + src + '"' + 
+                    ((id != null) ? ' id="' + id +'" ' : '') +
+                    ((dataAppKey != null) ? ' data-app-key="' + dataAppKey +'" ' : '') + 
+                    '></scr' + 'ipt>');
+            }
+        }
 
 		/**
 		 * Asynchronously adds scripts to the page.
 		 */
-		function mxinclude(src)
+		 function mxinclude(src)
 		{
 			var g = document.createElement('script');
 			g.type = 'text/javascript';
@@ -234,77 +274,63 @@
 		    var s = document.getElementsByTagName('script')[0];
 		    s.parentNode.insertBefore(g, s);
 		};
-		
-		/**
-		 * Adds meta tags with application name (depends on offline URL parameter)
-		 */
-		(function()
-		{
-			//ELXXX
-			mxscript('js/ag-grid-community.min.js')
+        // Sequential script loading function
+        function loadScriptSequence(scripts, onComplete) {
+            let index = 0;
+            function loadNext() {
+                if (index < scripts.length) {
+                    const script = scripts[index];
+                    mxscript(script.src, function() {
+                        index++;
+                        loadNext();
+                    }, null, null, false, script.type || 'text/javascript');
+                } else if (onComplete) {
+                    onComplete();
+                }
+            }
+            loadNext();
+        }
 
-			mxscript('https://js.stripe.com/v3/') // Load Stripe.js from CDN first
-			mxscript('js/stripe.js')			
-			mxscript('js/electrisim/auth-handler.js')
-			mxscript('js/electrisim/stripe-subscription.js')
-			
-			
+        // Start loading scripts
+        (function() {
+            // Load XLSX library first
+            mxscript('https://unpkg.com/xlsx-style@0.8.13/dist/xlsx.full.min.js');
 
-			
-			mxscript('js/electrisim/select-cell-renderer.js')
-
-
-			mxscript('js/electrisim/lineBaseDialog.js')	
-			mxscript('js/electrisim/lineDialog.js')		
-			mxscript('js/electrisim/externalGridDialog.js')
-			mxscript('js/electrisim/generatorDialog.js')
-
-			mxscript('js/electrisim/staticGeneratorDialog.js')
-			mxscript('js/electrisim/asymmetricStaticGeneratorDialog.js')
-			mxscript('js/electrisim/busDialog.js')
-
-			mxscript('js/electrisim/transformerBaseDialog.js')	
-			mxscript('js/electrisim/transformerDialog.js')
-			mxscript('js/electrisim/threeWindingTransformerBaseDialog.js')			
-			mxscript('js/electrisim/threeWindingTransformerDialog.js')
-			
-			mxscript('js/electrisim/shuntReactorDialog.js')
-			mxscript('js/electrisim/capacitorDialog.js')
-			mxscript('js/electrisim/loadDialog.js')
-			mxscript('js/electrisim/asymmetricLoadDialog.js')
-			mxscript('js/electrisim/impedanceDialog.js')
-			mxscript('js/electrisim/wardDialog.js')
-			mxscript('js/electrisim/extendedWardDialog.js')
-			mxscript('js/electrisim/motorDialog.js')
-			mxscript('js/electrisim/storageDialog.js')
-			mxscript('js/electrisim/SSCDialog.js')
-			mxscript('js/electrisim/SVCDialog.js')
-			mxscript('js/electrisim/TCSCDialog.js')
-			mxscript('js/electrisim/dcLineDialog.js')
+            // Load core dependencies
+            loadScriptSequence(mxGraphDeps, function() {
+                // Load initialization scripts
+                loadScriptSequence(initScripts, function() {
+                    // Load core scripts
+                    loadScriptSequence(coreScripts, function() {
+                        // Load utility scripts
+                        loadScriptSequence(utilScripts, function() {
+                            // Load auth scripts
+                            loadScriptSequence(authScripts, function() {
+                                // Load mxGraph scripts
+                                loadScriptSequence(mxGraphScripts, function() {
+                                    // Load application scripts
+                                    loadScriptSequence(appScripts, function() {
 
 
-			mxscript('js/electrisim/configureAttributes.js')
-			
-			mxscript('js/electrisim/supportingFunctions.js')
-		
+                                        mxScriptsLoaded = true;
+                                        checkAllLoaded();
+                                    });
+                                });
+                            });
+                        });
+                    });
+                });
+            });
 
-			mxscript('js/electrisim/loadFlow.js')	
-			mxscript('js/electrisim/shortCircuit.js')		
-	
+            var name = 'electrisim.com';
+            mxmeta('apple-mobile-web-app-title', name);
+            mxmeta('application-name', name);
 
-			mxscript('https://unpkg.com/xlsx-style@0.8.13/dist/xlsx.full.min.js')
-			
-			
-			var name = 'electrisim.com';
-			mxmeta('apple-mobile-web-app-title', name);
-			mxmeta('application-name', name);
+            if (mxIsElectron) {
+                mxmeta(null, 'default-src \'self\' \'unsafe-inline\'; connect-src \'self\' https://*.draw.io https://fonts.googleapis.com https://fonts.gstatic.com; img-src * data:; media-src *; font-src *; style-src-elem \'self\' \'unsafe-inline\' https://fonts.googleapis.com', 'Content-Security-Policy');
+            }
+        })();
 
-			if (mxIsElectron)
-			{
-				mxmeta(null, 'default-src \'self\' \'unsafe-inline\'; connect-src \'self\' https://*.draw.io https://fonts.googleapis.com https://fonts.gstatic.com; img-src * data:; media-src *; font-src *; style-src-elem \'self\' \'unsafe-inline\' https://fonts.googleapis.com', 'Content-Security-Policy');
-			}
-		})();
-		
 		// Checks for local storage
 		var isLocalStorage = false;
 		
@@ -319,14 +345,10 @@
 
 		var mxScriptsLoaded = false, mxWinLoaded = false;
 		
-		function checkAllLoaded()
+		window.onload = function()
 		{
-			if (mxScriptsLoaded && mxWinLoaded)
-			{
-			
-				
-				App.main();				
-			}
+			mxWinLoaded = true;
+			checkAllLoaded();
 		};
 		
 		var t0 = new Date();
@@ -391,7 +413,7 @@
 					//mxscript('js/electrisim/select-cell-renderer.js')
 					//mxscript('js/electrisim/transformerBaseDialog.js')
 					mxscript('js/app.min.js', function()
-					{	
+					{
 
 						mxScriptsLoaded = true;
 						
@@ -436,199 +458,132 @@
 			})();
 		}
 
-		// Adds basic error handling
-		window.onerror = function()
-		{
-			var status = document.getElementById('geStatus');
-			
-			if (status != null)
-			{
-				status.innerHTML = 'Page is loading.';
-			}
-		};
-	</script>
+        // Basic error handling
+        window.onerror = function() {
+            var status = document.getElementById('geStatus');
+            if (status != null) {
+                status.innerHTML = 'Page is loading.';
+            }
+        };
+    </script>
+
     <link rel="chrome-webstore-item" href="https://chrome.google.com/webstore/detail/plgmlhohecdddhbmmkncjdmlhcmaachm">
-	<link rel="apple-touch-icon" sizes="180x180" href="images/apple-touch-icon.png">
-	<link rel="icon" type="image/png" sizes="32x32" href="images/logo_Electrisim_removebg-preview.png"> <!-- ELXXX było images/favicon-32x32.png -->
-	<link rel="icon" type="image/png" sizes="16x16" href="images/logo_Electrisim_removebg-preview.png"> <!-- ELXXX było images/favicon-16x16.png -->
-	<link rel="mask-icon" href="images/safari-pinned-tab.svg" color="#d89000">
-	<link rel="stylesheet" type="text/css" href="js/croppie/croppie.min.css">
+    <link rel="apple-touch-icon" sizes="180x180" href="images/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="images/logo_Electrisim_removebg-preview.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="images/logo_Electrisim_removebg-preview.png">
+    <link rel="mask-icon" href="images/safari-pinned-tab.svg" color="#d89000">
+    <link rel="stylesheet" type="text/css" href="js/croppie/croppie.min.css">
+    <link rel="stylesheet" type="text/css" href="mxgraph/css/common.css">
     <link rel="stylesheet" type="text/css" href="styles/grapheditor.css">
     <link rel="preconnect" href="https://storage.googleapis.com">
     <link rel="canonical" href="https://app.electrisim.com">
-	<link rel="manifest" href="images/manifest.json">
-	<link rel="shortcut icon" href="images/logo_Electrisim_removebg-preview.png"> <!-- ELXXX było favicon.ico -->
-	<style type="text/css">
-		body { overflow:hidden; }
-		div.picker { z-index: 10007; }
-		.geSidebarContainer .geTitle input {
-			font-size:8pt;
-			color:#606060;
-		}
-		.geBlock {
-			z-index:-3;
-			margin:100px;
-			margin-top:40px;
-			margin-bottom:30px;
-			padding:20px;
-		}
-		.geBlock h1, .geBlock h2 {
-			margin-top:0px;
-			padding-top:0px;
-		}
-		.geEditor ::-webkit-scrollbar {
-		    width:14px;
-		    height:14px;
-		}
-		.geEditor ::-webkit-scrollbar-track {
-			background-clip:padding-box;
-			border:solid transparent;
-			border-width:1px;
-		}
-		.geEditor ::-webkit-scrollbar-corner {
-			background-color:transparent;
-		}
-		.geEditor ::-webkit-scrollbar-thumb {
-			background-color:rgba(0,0,0,.1);
-			background-clip:padding-box;
-			border:solid transparent;
-			border-radius:10px;
-		}
-		.geEditor ::-webkit-scrollbar-thumb:hover{
-			background-color:rgba(0,0,0,.4);
-		}
-		.geTemplate {
-			border:1px solid transparent;
-			display:inline-block;
-			_display:inline;
-			vertical-align:top;
-			border-radius:3px;
-			overflow:hidden;
-			font-size:14pt;
-			cursor:pointer;
-			margin:5px;
-		}
-
-		/*ELXXX ag-grid styles */
-		.action-button {
-			border: none;
-			color: white;
-			padding: 3px 12px;
-			text-align: center;
-			text-decoration: none;
-			display: inline-block;
-			font-size: 16px;
-			opacity: 0.7;
-		}
-
-		.action-button:hover {
-			opacity: 1;
-		}
-
-		.action-button.edit {
-			background-color: #008cba; /* Blue */
-		}
-		.action-button.update {
-			background-color: #4caf50; /* Green */
-		}
-
-		.action-button.delete {
-			background-color: #f44336; /* Red */
-		}
-
-		.action-button.cancel {
-			background-color: #e7e7e7; /* Gray */
-			color: black; 
-		}
-
-
-	</style>
-	<!-- Workaround for binary XHR in IE 9/10, see App.loadUrl -->
-	<!--[if (IE 9)|(IE 10)]><!-->
-		<script type="text/vbscript">
-			Function mxUtilsBinaryToArray(Binary)
-				Dim i
-				ReDim byteArray(LenB(Binary))
-				For i = 1 To LenB(Binary)
-					byteArray(i-1) = AscB(MidB(Binary, i, 1))
-				Next
-				mxUtilsBinaryToArray = byteArray
-			End Function
-		</script>
-	<!--<![endif]-->
+    <link rel="manifest" href="images/manifest.json">
+    <link rel="shortcut icon" href="images/logo_Electrisim_removebg-preview.png">
+    <style type="text/css">
+        body { overflow:hidden; }
+        div.picker { z-index: 10007; }
+        .geSidebarContainer .geTitle input {
+            font-size:8pt;
+            color:#606060;
+        }
+        .geBlock {
+            z-index:-3;
+            margin:100px;
+            margin-top:40px;
+            margin-bottom:30px;
+            padding:20px;
+        }
+        .geBlock h1, .geBlock h2 {
+            margin-top:0px;
+            padding-top:0px;
+        }
+        .geEditor ::-webkit-scrollbar {
+            width:14px;
+            height:14px;
+        }
+        .geEditor ::-webkit-scrollbar-track {
+            background-clip:padding-box;
+            border:solid transparent;
+            border-width:1px;
+        }
+        .geEditor ::-webkit-scrollbar-corner {
+            background-color:transparent;
+        }
+        .geEditor ::-webkit-scrollbar-thumb {
+            background-color:rgba(0,0,0,.1);
+            background-clip:padding-box;
+            border:solid transparent;
+            border-radius:10px;
+        }
+        .geEditor ::-webkit-scrollbar-thumb:hover{
+            background-color:rgba(0,0,0,.4);
+        }
+        .geTemplate {
+            border:1px solid transparent;
+            display:inline-block;
+            _display:inline;
+            vertical-align:top;
+            border-radius:3px;
+            overflow:hidden;
+            font-size:14pt;
+            cursor:pointer;
+            margin:5px;
+        }
+        .action-button {
+            border: none;
+            color: white;
+            padding: 3px 12px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            opacity: 0.7;
+        }
+        .action-button:hover {
+            opacity: 1;
+        }
+        .action-button.edit {
+            background-color: #008cba;
+        }
+        .action-button.update {
+            background-color: #4caf50;
+        }
+        .action-button.delete {
+            background-color: #f44336;
+        }
+        .action-button.cancel {
+            background-color: #e7e7e7;
+            color: black; 
+        }
+    </style>
+    <!--[if (IE 9)|(IE 10)]><!-->
+    <script type="text/vbscript">
+        Function mxUtilsBinaryToArray(Binary)
+            Dim i
+            ReDim byteArray(LenB(Binary))
+            For i = 1 To LenB(Binary)
+                byteArray(i-1) = AscB(MidB(Binary, i, 1))
+            Next
+            mxUtilsBinaryToArray = byteArray
+        End Function
+    </script>
+    <!--<![endif]-->
 </head>
-
-<!--Start of Tawk.to Script chat--> 
-<!-- 
-<script type="text/javascript"> 
-	var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
-	(function(){
-	var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
-	s1.async=true;
-	s1.src='https://embed.tawk.to/65cb68c48d261e1b5f5fceee/1hmh92fu7';
-	s1.charset='UTF-8';
-	s1.setAttribute('crossorigin','*');
-	s0.parentNode.insertBefore(s1,s0);
-	})();
-	</script>
-	--> 
-<!--End of Tawk.to Script-->
-
 <body class="geEditor">
-<div id="geInfo">
-	<div class="geBlock" style="text-align:center;min-width:50%;">
-		<h1>Electrisim - open-source app for power system modelling, simulation and analysis</h1>
-
-		<h2 id="geStatus">Working only in a desktop web browser. <u> Not working on mobile phones.</u></h2>
-		
-		<p>
-			app.electrisim.com is open-source online application for modelling, simulation and analysis of power system.
-		</p>
-		<p>
-			Loading...
-		</p>		
-		<p>
-			Please ensure JavaScript is enabled. Tested on Google Chrome.
-		</p>
-	</div>
-</div>
-<script type="text/javascript">
-
-
-/**
- * Main
- */
-if (navigator.userAgent != null && navigator.userAgent.toLowerCase().
-	indexOf(' electron/') >= 0 && typeof process !== 'undefined' && process.versions.electron < 5)
-{
-	// Redirects old Electron app to latest version
-	var div = document.getElementById('geInfo');
-	
-	if (div != null)
-	
-	{
-		/** ELXXX
-		div.innerHTML = '<center><h2>You are using an out of date version of this app.<br>Please download the latest version ' +
-			'<a href="https://github.com/jgraph/drawio-desktop/releases/latest" target="_blank">here</a>.</h2></center>';
-		**/
-	}
-	
-}
-else
-{
-	if (urlParams['dev'] != '1' && typeof document.createElement('canvas').getContext === "function")
-	{
-		window.addEventListener('load', function()
-		{
-			mxWinLoaded = true;
-			checkAllLoaded();
-		});
-	}
-	else
-	{		
-		App.main();
-	}
-}
-</script>
+    <div id="geInfo">
+        <div class="geBlock" style="text-align:center;min-width:50%;">
+            <h1>Electrisim - open-source app for power system modelling, simulation and analysis</h1>
+            <h2 id="geStatus">Working only in a desktop web browser. <u>Not working on mobile phones.</u></h2>
+            <p>
+                app.electrisim.com is open-source online application for modelling, simulation and analysis of power system.
+            </p>
+            <p>
+                Loading...
+            </p>
+            <p>
+                Please ensure JavaScript is enabled. Tested on Google Chrome.
+            </p>
+        </div>
+    </div>
 </body>
 </html>

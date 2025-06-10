@@ -1,8 +1,10 @@
-const  rowDefsAsymmetricLoad = [
+import { numberParser, actionCellRenderer } from './utils/gridUtils.js';
+
+export const rowDefsAsymmetricLoad = [
     { name: "Asymmetric Load", p_a_mw:0.0,  p_b_mw: 0.0, p_c_mw: 0.0, q_a_mvar: 0.0, q_b_mvar: 0.0, q_c_mvar:0.0, sn_mva:0.0, scaling: 0.0, type: 'Wye'},
     
   ];  
-  const columnDefsAsymmetricLoad = [  
+export const columnDefsAsymmetricLoad = [  
     {
       field: "name",
     },
@@ -62,7 +64,7 @@ const  rowDefsAsymmetricLoad = [
     }
   ];
   
-  var gridOptionsAsymmetricLoad = {
+export const gridOptionsAsymmetricLoad = {
     columnDefs: columnDefsAsymmetricLoad,
     defaultColDef: {  
         minWidth: 100,
@@ -72,6 +74,11 @@ const  rowDefsAsymmetricLoad = [
     singleClickEdit: true,
     stopEditingWhenGridLosesFocus: true, //musi być żeby przy naciśnięciu Apply zapisywała się wartość 
   };     
+
+// Make them globally available
+globalThis.rowDefsAsymmetricLoad = rowDefsAsymmetricLoad;
+globalThis.columnDefsAsymmetricLoad = columnDefsAsymmetricLoad;
+globalThis.gridOptionsAsymmetricLoad = gridOptionsAsymmetricLoad;
   
   
   
