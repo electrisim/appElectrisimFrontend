@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "include": ["/*"],
+  "exclude": [],
+  "routes": [
+    {
+      "src": "/src/main/webapp/(.*)",
+      "dest": "/src/main/webapp/$1",
+      "headers": {
+        "Content-Type": "application/javascript"
+      }
+    },
+    {
+      "src": "/(.*)\\.js",
+      "headers": {
+        "Content-Type": "application/javascript"
+      }
+    },
+    {
+      "src": "/(.*)\\.mjs",
+      "headers": {
+        "Content-Type": "application/javascript"
+      }
+    },
+    {
+      "src": "/(.*)\\.json",
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    },
+    {
+      "src": "/(.*)\\.css",
+      "headers": {
+        "Content-Type": "text/css"
+      }
+    },
+    {
+      "src": "/(.*)\\.html",
+      "headers": {
+        "Content-Type": "text/html"
+      }
+    },
+    {
+      "src": "/(.*)\\.png",
+      "headers": {
+        "Content-Type": "image/png"
+      }
+    },
+    {
+      "src": "/(.*)\\.jpg",
+      "headers": {
+        "Content-Type": "image/jpeg"
+      }
+    },
+    {
+      "src": "/(.*)\\.svg",
+      "headers": {
+        "Content-Type": "image/svg+xml"
+      }
+    },
+    {
+      "src": "/(.*)\\.ico",
+      "headers": {
+        "Content-Type": "image/x-icon"
+      }
+    }
+  ]
+} 
