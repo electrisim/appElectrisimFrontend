@@ -160,9 +160,9 @@
         // Define auth and subscription scripts (ES modules)
         const authScripts = [
             { src: 'https://js.stripe.com/v3/' },
-            { src: 'js/electrisim/loginsubscription/stripe.js', type: 'module' },
-            { src: 'js/electrisim/loginsubscription/auth-handler.js', type: 'module' },
-            { src: 'js/electrisim/loginsubscription/stripe-subscription.js', type: 'module' }
+            { src: 'js/electrisim/loginsubscription/stripe.js', type: 'module', async: true },
+            { src: 'js/electrisim/loginsubscription/auth-handler.js', type: 'module', async: true },
+            { src: 'js/electrisim/loginsubscription/stripe-subscription.js', type: 'module', async: true }
         ];
 
         // Define mxGraph scripts (dependent on mxClient)
@@ -180,46 +180,45 @@
             { src: 'js/mxgraph/Dialogs.js' }
         ];
 
-        // Define application scripts
+        // Define application scripts (ES modules)
         const appScripts = [
             { src: 'js/app.min.js' },
             { src: 'js/extensions.min.js' },
-            //{ src: 'js/stencils.min.js' }, Comment to AI: I cannot include loading the stencils.min.js because it is not working, I am getting different shapes at sidebar. 
             { src: 'js/shapes.min.js' },
-            { src: 'js/electrisim/utils/cellUtils.js', type: 'module' },
-            { src: 'js/electrisim/dialogs/dialogInitializer.js', type: 'module' },
-            { src: 'js/electrisim/dialogs/EditDataDialog.js', type: 'module' },
-            { src: 'js/electrisim/dialogs/LoadFlowDialog.js', type: 'module' },
-            { src: 'js/electrisim/dialogs/ShortCircuitDialog.js', type: 'module' },
-            { src: 'js/electrisim/lineBaseDialog.js', type: 'module' },
-            { src: 'js/electrisim/lineDialog.js', type: 'module' },
-            { src: 'js/electrisim/externalGridDialog.js', type: 'module' },
-            { src: 'js/electrisim/generatorDialog.js', type: 'module' },
-            { src: 'js/electrisim/staticGeneratorDialog.js', type: 'module' },
-            { src: 'js/electrisim/asymmetricStaticGeneratorDialog.js', type: 'module' },
-            { src: 'js/electrisim/busDialog.js', type: 'module' },
-            { src: 'js/electrisim/transformerBaseDialog.js', type: 'module' },
-            { src: 'js/electrisim/transformerDialog.js', type: 'module' },
-            { src: 'js/electrisim/threeWindingTransformerBaseDialog.js', type: 'module' },
-            { src: 'js/electrisim/threeWindingTransformerLibrary.js', type: 'module' },
-            { src: 'js/electrisim/shuntReactorDialog.js', type: 'module' },
-            { src: 'js/electrisim/capacitorDialog.js', type: 'module' },
-            { src: 'js/electrisim/loadDialog.js', type: 'module' },
-            { src: 'js/electrisim/asymmetricLoadDialog.js', type: 'module' },
-            { src: 'js/electrisim/shortCircuit.js', type: 'module' },
-            { src: 'js/electrisim/impedanceDialog.js', type: 'module' },
-            { src: 'js/electrisim/wardDialog.js', type: 'module' },
-            { src: 'js/electrisim/extendedWardDialog.js', type: 'module' },
-            { src: 'js/electrisim/motorDialog.js', type: 'module' },
-            { src: 'js/electrisim/storageDialog.js', type: 'module' },
-            { src: 'js/electrisim/SSCDialog.js', type: 'module' },
-            { src: 'js/electrisim/SVCDialog.js', type: 'module' },
-            { src: 'js/electrisim/TCSCDialog.js', type: 'module' },
-            { src: 'js/electrisim/dcLineDialog.js', type: 'module' },
-            { src: 'js/electrisim/configureAttributes.js', type: 'module' },
-            { src: 'js/electrisim/supportingFunctions.js', type: 'module' },
-            { src: 'js/electrisim/loadFlow.js', type: 'module' },
-            { src: 'js/electrisim/shortCircuit.js', type: 'module' }
+            { src: 'js/electrisim/utils/cellUtils.js', type: 'module', async: true },
+            { src: 'js/electrisim/dialogs/dialogInitializer.js', type: 'module', async: true },
+            { src: 'js/electrisim/dialogs/EditDataDialog.js', type: 'module', async: true },
+            { src: 'js/electrisim/dialogs/LoadFlowDialog.js', type: 'module', async: true },
+            { src: 'js/electrisim/dialogs/ShortCircuitDialog.js', type: 'module', async: true },
+            { src: 'js/electrisim/lineBaseDialog.js', type: 'module', async: true },
+            { src: 'js/electrisim/lineDialog.js', type: 'module', async: true },
+            { src: 'js/electrisim/externalGridDialog.js', type: 'module', async: true },
+            { src: 'js/electrisim/generatorDialog.js', type: 'module', async: true },
+            { src: 'js/electrisim/staticGeneratorDialog.js', type: 'module', async: true },
+            { src: 'js/electrisim/asymmetricStaticGeneratorDialog.js', type: 'module', async: true },
+            { src: 'js/electrisim/busDialog.js', type: 'module', async: true },
+            { src: 'js/electrisim/transformerBaseDialog.js', type: 'module', async: true },
+            { src: 'js/electrisim/transformerDialog.js', type: 'module', async: true },
+            { src: 'js/electrisim/threeWindingTransformerBaseDialog.js', type: 'module', async: true },
+            { src: 'js/electrisim/threeWindingTransformerLibrary.js', type: 'module', async: true },
+            { src: 'js/electrisim/shuntReactorDialog.js', type: 'module', async: true },
+            { src: 'js/electrisim/capacitorDialog.js', type: 'module', async: true },
+            { src: 'js/electrisim/loadDialog.js', type: 'module', async: true },
+            { src: 'js/electrisim/asymmetricLoadDialog.js', type: 'module', async: true },
+            { src: 'js/electrisim/shortCircuit.js', type: 'module', async: true },
+            { src: 'js/electrisim/impedanceDialog.js', type: 'module', async: true },
+            { src: 'js/electrisim/wardDialog.js', type: 'module', async: true },
+            { src: 'js/electrisim/extendedWardDialog.js', type: 'module', async: true },
+            { src: 'js/electrisim/motorDialog.js', type: 'module', async: true },
+            { src: 'js/electrisim/storageDialog.js', type: 'module', async: true },
+            { src: 'js/electrisim/SSCDialog.js', type: 'module', async: true },
+            { src: 'js/electrisim/SVCDialog.js', type: 'module', async: true },
+            { src: 'js/electrisim/TCSCDialog.js', type: 'module', async: true },
+            { src: 'js/electrisim/dcLineDialog.js', type: 'module', async: true },
+            { src: 'js/electrisim/configureAttributes.js', type: 'module', async: true },
+            { src: 'js/electrisim/supportingFunctions.js', type: 'module', async: true },
+            { src: 'js/electrisim/loadFlow.js', type: 'module', async: true },
+            { src: 'js/electrisim/shortCircuit.js', type: 'module', async: true }
         ];
 
         function checkAllLoaded() {
