@@ -1,4 +1,4 @@
-// auth-handler.js - Handles authentication for  app
+// auth-handler.js - Handles authentication for app
 
 import config from '../config/environment.js';
 

@@ -16,10 +16,10 @@ const config = {
   const env = window.location.hostname === 'app.electrisim.com' ? 'production' : 'development';
 const currentConfig = config[env];
 
-// Set global ENV for non-module scripts
+
 window.ENV = currentConfig;
 console.log('Current environment:', env);
 console.log('Using API URL:', currentConfig.apiBaseUrl);
 
-// Export for ES modules
+
 export default currentConfig;
