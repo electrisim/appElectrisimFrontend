@@ -150,7 +150,7 @@ function createLoginForm(container) {
     form.querySelector('.google-btn').addEventListener('click', () => {
         const baseUrl = config.isDevelopment
             ? 'http://localhost:3000'
-            : 'https://api.electrisim.com';
+            : 'https://app.electrisim.com';
         window.location.href = `${baseUrl}/api/auth/google`;
     });
     
@@ -210,7 +210,7 @@ function createRegisterForm(container) {
     form.querySelector('.google-btn').addEventListener('click', () => {
         const baseUrl = config.isDevelopment
             ? 'http://localhost:3000'
-            : 'https://api.electrisim.com';
+            : 'https://app.electrisim.com';
         window.location.href = `${baseUrl}/api/auth/google`;
     });
     
