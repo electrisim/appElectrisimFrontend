@@ -55,12 +55,20 @@
         <div class="success-icon">✓</div>
         <h1>Subscription Successful!</h1>
         <p>Thank you for subscribing to Electrisim. Your account has been successfully activated.</p>
-        <a href="/src/main/webapp/index.html" class="button">Return to Dashboard</a>
+        <a href="/index.html" class="button">Return to Dashboard</a>
     </div>
     <script>
-        // You can add any additional success handling here
-        console.log('Subscription successful');
-        localStorage.setItem('hasActiveSubscription', 'true');
+        // Get the session ID from the URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const sessionId = urlParams.get('session_id');
+        
+        if (sessionId) {
+            console.log('Subscription successful with session:', sessionId);
+            localStorage.setItem('hasActiveSubscription', 'true');
+            localStorage.setItem('stripeSessionId', sessionId);
+        } else {
+            console.error('No session ID found in URL');
+        }
     </script>
 </body>
 </html>
