@@ -148,10 +148,11 @@ function createLoginForm(container) {
 
     // Handle Google login
     form.querySelector('.google-btn').addEventListener('click', () => {
-        const baseUrl = config.isDevelopment
+        // Use Railway backend URL directly for OAuth
+        const backendUrl = config.isDevelopment
             ? 'http://localhost:3000'
-            : 'https://app.electrisim.com';
-        window.location.href = `${baseUrl}/api/auth/google`;
+            : 'https://customers-production-16f8.up.railway.app';
+        window.location.href = `${backendUrl}/api/auth/google`;
     });
     
     container.innerHTML = '';
@@ -208,10 +209,11 @@ function createRegisterForm(container) {
 
     // Handle Google login
     form.querySelector('.google-btn').addEventListener('click', () => {
-        const baseUrl = config.isDevelopment
+        // Use Railway backend URL directly for OAuth
+        const backendUrl = config.isDevelopment
             ? 'http://localhost:3000'
-            : 'https://app.electrisim.com';
-        window.location.href = `${baseUrl}/api/auth/google`;
+            : 'https://customers-production-16f8.up.railway.app';
+        window.location.href = `${backendUrl}/api/auth/google`;
     });
     
     container.innerHTML = '';
