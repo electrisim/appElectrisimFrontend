@@ -80,13 +80,18 @@ async function redirectToStripeCheckout(priceId) {
         const token = getAuthToken();
         
         if (!token) {
+            console.error('No authentication token found');
             return handleUnauthenticated();
         }
 
         const isProd = window.location.hostname === 'app.electrisim.com';
         const defaultPriceId = isProd ? 'price_1RLjivAd4ULYw2Nb6oGrb9P1' : 'price_1RMDAEAd4ULYw2Nb9nhh8Wf2';
         
-        console.log('Creating checkout session with price:', priceId || defaultPriceId);
+        console.log('Creating checkout session:', {
+            priceId: priceId || defaultPriceId,
+            apiUrl: `${API_BASE_URL}/stripe/create-checkout-session`,
+            isProduction: isProd
+        });
         
         const response = await fetch(`${API_BASE_URL}/stripe/create-checkout-session`, {
             method: 'POST',
@@ -100,7 +105,10 @@ async function redirectToStripeCheckout(priceId) {
         });
 
         if (response.status === 401) {
-            console.log('Token expired or invalid');
+            console.error('Authentication failed:', {
+                status: response.status,
+                statusText: response.statusText
+            });
             return handleUnauthenticated();
         }
 
@@ -109,7 +117,8 @@ async function redirectToStripeCheckout(priceId) {
             console.error('Checkout session creation failed:', {
                 status: response.status,
                 statusText: response.statusText,
-                errorData
+                errorData,
+                headers: Object.fromEntries(response.headers.entries())
             });
             throw new Error(errorData.error || `Failed to create checkout session: ${response.status}`);
         }
@@ -117,18 +126,24 @@ async function redirectToStripeCheckout(priceId) {
         const data = await response.json();
         
         if (!data.url) {
-            console.error('No checkout URL in response:', data);
+            console.error('Invalid response data:', data);
             throw new Error('No checkout URL received');
         }
 
-        // Redirect to checkout URL
+        console.log('Redirecting to checkout URL:', data.url);
         window.location.href = data.url;
         
     } catch (error) {
-        console.error('Error in redirectToStripeCheckout:', error);
+        console.error('Error in redirectToStripeCheckout:', {
+            message: error.message,
+            stack: error.stack,
+            apiUrl: `${API_BASE_URL}/stripe/create-checkout-session`
+        });
         if (error.message.includes('Token expired')) {
             return handleUnauthenticated();
         }
+        // Show error to user
+        alert('Failed to start checkout process. Please try again or contact support if the issue persists.');
         throw error;
     }
 }
