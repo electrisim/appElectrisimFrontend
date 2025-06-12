@@ -167,24 +167,24 @@
 
         // Define mxGraph scripts (dependent on mxClient)
         const mxGraphScripts = [
-            { src: 'js/mxgraph/Init.js' },
-            { src: 'js/mxgraph/Editor.js' },
-            { src: 'js/mxgraph/Graph.js' },
-            { src: 'js/mxgraph/Shapes.js' },
-            { src: 'js/mxgraph/EditorUi.js' },
-            { src: 'js/mxgraph/Actions.js' },
-            { src: 'js/mxgraph/Toolbar.js' },
-            { src: 'js/mxgraph/Menus.js' },
-            { src: 'js/mxgraph/Format.js' },
-            { src: 'js/mxgraph/Sidebar.js' },
-            { src: 'js/mxgraph/Dialogs.js' }
+        //    { src: 'js/mxgraph/Init.js' }
+        //    { src: 'js/mxgraph/Editor.js' },
+         //   { src: 'js/mxgraph/Graph.js' },
+        //    { src: 'js/mxgraph/Shapes.js' },
+        //    { src: 'js/mxgraph/EditorUi.js' },
+        //    { src: 'js/mxgraph/Actions.js' },
+        //    { src: 'js/mxgraph/Toolbar.js' },
+        //    { src: 'js/mxgraph/Menus.js' },
+        //    { src: 'js/mxgraph/Format.js' },
+        //    { src: 'js/mxgraph/Sidebar.js' },
+        //    { src: 'js/mxgraph/Dialogs.js' }
         ];
 
         // Define application scripts (ES modules)
         const appScripts = [
             { src: 'js/app.min.js' },
-            { src: 'js/extensions.min.js' },
-            { src: 'js/shapes.min.js' },
+           // { src: 'js/extensions.min.js' },
+           // { src: 'js/shapes.min.js' },
             { src: 'js/electrisim/utils/cellUtils.js', type: 'module', async: true },
             { src: 'js/electrisim/dialogs/dialogInitializer.js', type: 'module', async: true },
             { src: 'js/electrisim/dialogs/EditDataDialog.js', type: 'module', async: true },
@@ -216,7 +216,7 @@
             { src: 'js/electrisim/TCSCDialog.js', type: 'module', async: true },
             { src: 'js/electrisim/dcLineDialog.js', type: 'module', async: true },
             { src: 'js/electrisim/configureAttributes.js', type: 'module', async: true },
-            { src: 'js/electrisim/supportingFunctions.js', type: 'module', async: true },
+           // { src: 'js/electrisim/supportingFunctions.js', type: 'module', async: true },
             { src: 'js/electrisim/loadFlow.js', type: 'module', async: true },
             { src: 'js/electrisim/shortCircuit.js', type: 'module', async: true }
         ];
@@ -408,12 +408,9 @@
 				function loadAppJS()				
 				{
 
-					//mxscript('js/electrisim/stripe-subscription.js')
-					//mxscript('js/electrisim/select-cell-renderer.js')
-					//mxscript('js/electrisim/transformerBaseDialog.js')
+				
 					mxscript('js/app.min.js', function()
 					{
-
 						mxScriptsLoaded = true;
 						
 						checkAllLoaded();
