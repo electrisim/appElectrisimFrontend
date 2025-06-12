@@ -355,6 +355,8 @@ export function configureLoadAttributes(grafka, vertex, options = {}) {
     g.setAttribute("controllable", "True");*/
 
     grafka.getModel().setValue(vertex, g)
+    
+    grafka.insertVertex(vertex, null, 'Load', 0.5, 1.5, 0, 0, null, true);
 }
 
 export function configureAsymmetricLoadAttributes(grafka, vertex, options = {}) {
@@ -379,6 +381,8 @@ export function configureAsymmetricLoadAttributes(grafka, vertex, options = {}) 
     // g.setAttribute("in_service", "True"); //in_service nie działa
 
     grafka.getModel().setValue(vertex, g)
+
+    grafka.insertVertex(vertex, null, 'A.Load', 0.5, 1.5, 0, 0, null, true);
 }
 
 export function configureImpedanceAttributes(grafka, vertex, options = {}) {
@@ -393,6 +397,8 @@ export function configureImpedanceAttributes(grafka, vertex, options = {}) {
     g.setAttribute("sn_mva", options.sn_mva || "0");
 
     grafka.getModel().setValue(vertex, g)
+
+    grafka.insertVertex(vertex, null, 'Impedance', 0.5, 1.5, 0, 0, null, true);
 }
 
 export function configureWardAttributes(grafka, vertex, options = {}) {
@@ -407,6 +413,8 @@ export function configureWardAttributes(grafka, vertex, options = {}) {
     g.setAttribute("qz_mvar", options.qz_mvar || "0");
 
     grafka.getModel().setValue(vertex, g)
+
+    grafka.insertVertex(vertex, null, 'Ward', 0.5, 1.5, 0, 0, null, true);
 }
 
 export function configureExtendedWardAttributes(grafka, vertex, options = {}) {
@@ -429,12 +437,14 @@ export function configureExtendedWardAttributes(grafka, vertex, options = {}) {
     //g.setAttribute("slack_weight", "0");
 
     grafka.getModel().setValue(vertex, g)
+
+    grafka.insertVertex(vertex, null, 'ExtendedWard', 0.5, 1.5, 0, 0, null, true);
 }
 
 export function configureMotorAttributes(grafka, vertex, options = {}) {
    
     var g = mxUtils.createXmlDocument().createElement("object");
-    g.setAttribute("name", "Ward");
+    g.setAttribute("name", "Motor");
 
     //g.setAttribute("parameters", true);  //na potrzeby wyboru elementu z biblioteki
 
@@ -459,6 +469,8 @@ export function configureMotorAttributes(grafka, vertex, options = {}) {
     // g.setAttribute("in_service", "True");  //in_service nie działa                
 
     grafka.getModel().setValue(vertex, g)
+
+    grafka.insertVertex(vertex, null, 'M', 0.5, 0.4, 0, 0, 'fontSize=35;', true);
 }
 
 export function configureStorageAttributes(grafka, vertex, options = {}) {
@@ -491,6 +503,8 @@ export function configureStorageAttributes(grafka, vertex, options = {}) {
     g.setAttribute("controllable", "True");*/
 
     grafka.getModel().setValue(vertex, g)
+
+    grafka.insertVertex(vertex, null, 'Storage', 0.5, 1.5, 0, 0, null, true);
 }
 
 export function configureSVCAttributes(grafka, vertex, options = {}) {
@@ -510,6 +524,8 @@ export function configureSVCAttributes(grafka, vertex, options = {}) {
     g.setAttribute("max_angle_degree", options.max_angle_degree || "180");
 
     grafka.getModel().setValue(vertex, g)
+
+    grafka.insertVertex(vertex, null, 'SVC', 0.5, 1.5, 0, 0, null, true);
 }
 
 export function configureTCSCAttributes(grafka, vertex, options = {}) {
@@ -529,6 +545,8 @@ export function configureTCSCAttributes(grafka, vertex, options = {}) {
     g.setAttribute("max_angle_degree", options.max_angle_degree || "180");
 
     grafka.getModel().setValue(vertex, g)
+
+    grafka.insertVertex(vertex, null, 'TCSC', 0.5, 1.5, 0, 0, null, true);
 }
 
 export function configureSSCAttributes(grafka, vertex, options = {}) {
@@ -548,6 +566,8 @@ export function configureSSCAttributes(grafka, vertex, options = {}) {
     g.setAttribute("controllable", options.controllable || "True");
 
     grafka.getModel().setValue(vertex, g)
+
+    grafka.insertVertex(vertex, null, 'SSC', 0.5, 1.5, 0, 0, null, true);
 }
 
 export function configureDCLineAttributes(grafka, vertex, options = {}) {
@@ -555,7 +575,6 @@ export function configureDCLineAttributes(grafka, vertex, options = {}) {
 
     var g = mxUtils.createXmlDocument().createElement("object");
     g.setAttribute("name", "DC Line");
-
     //INPUT
     g.setAttribute("Load_flow_parameters", "");  
     g.setAttribute("p_mw", options.p_mw || "0");
@@ -578,6 +597,8 @@ export function configureDCLineAttributes(grafka, vertex, options = {}) {
     g.setAttribute("controllable", "True");*/
 
     grafka.getModel().setValue(vertex, g) 
+
+    grafka.insertVertex(vertex, null, 'DC Line', 0.5, 0.5, 0, 0, null, true);
 }
 
 
@@ -609,8 +630,7 @@ export function configureLineAttributes(grafka, vertex, options = {}) {
     g.setAttribute("r0_ohm_per_km", "0");
     g.setAttribute("x0_ohm_per_km", "0");
     g.setAttribute("c0_nf_per_km", "0");
-    g.setAttribute("endtemp_degree", "0");
-  
+    g.setAttribute("endtemp_degree", "0");  
 
 
     grafka.getModel().setValue(vertex, g) 

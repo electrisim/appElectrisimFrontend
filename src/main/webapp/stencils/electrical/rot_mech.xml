@@ -9,7 +9,7 @@
             <move x="0" y="100"/>
             <line x="20" y="80"/>
             <move x="80" y="20"/>
-            <line x="100" y="0"/>
+            <line x="100" y="0"/>           
         </path>
     </background>
     <foreground>
