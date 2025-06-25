@@ -3,5 +3,8 @@
     "prepare-deploy": "node scripts/prepare-deploy.js",
     "deploy:dev": "cross-env NODE_ENV=development npm run prepare-deploy",
     "deploy:prod": "cross-env NODE_ENV=production npm run prepare-deploy"
+  },
+  "dependencies": {
+    "nodemailer": "^7.0.3"
   }
-} 
+}

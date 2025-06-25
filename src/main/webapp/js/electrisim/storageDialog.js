@@ -75,6 +75,22 @@ globalThis.rowDefsStorage = rowDefsStorage;
 globalThis.columnDefsStorage = columnDefsStorage;
 globalThis.gridOptionsStorage = gridOptionsStorage;
   
+// Override the default StorageDialog behavior
+window.addEventListener('load', function() {
+    // Store the original StorageDialog
+    var originalStorageDialog = window.StorageDialog;
+    
+    // Override StorageDialog
+    window.StorageDialog = function(editorUi, fn, rowLimit) {
+        // Skip the dialog and directly use Device Storage
+        editorUi.setMode(App.MODE_DEVICE, true);
+        fn();
+        return {
+            container: document.createElement('div') // Return empty container since we're not showing the dialog
+        };
+    };
+});
+  
   
   
   
