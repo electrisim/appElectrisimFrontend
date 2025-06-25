@@ -44,8 +44,16 @@
   <add>Uhttps://jgraph.github.io/drawio-libs/libs/fortinet/Fortinet_Vertical_Related.xml</add>
   <add>Uhttps://jgraph.github.io/drawio-libs/libs/fortinet/Fortinet_VM_Components.xml</add>
 </clibs>
-<template url="basic/classes.xml" title="classDiagram" libs="general;uml"/>
-<template url="basic/flowchart.xml" title="flowchart" libs="general;flowchart"/>
+
+<template url="basic/simple example.drawio" title="Simple Example" libs="general;uml"/>
+<template url="renewables/reactive_power_onshore_WF_33MW.drawio" title="onshore wind farm 33MW" libs="general;uml"/>
+<template url="renewables/1GW 100km rev1.drawio" title="offshore wind farm  1 GW" libs="general;uml"/>
+<template url="transmission/IEEE_4bus.drawio" title="IEEE 4 bus" libs="general;uml"/>
+<template url="transmission/IEEE_5bus.drawio" title="IEEE 5 bus" libs="general;uml"/>
+<template url="transmission/IEEE_6bus.drawio" title="IEEE 6 bus" libs="general;uml"/>
+
+<template url="distribution/multivoltage example.drawio" title="multivoltage example" libs="general;uml"/>
+<!--<template url="basic/flowchart.xml" title="flowchart" libs="general;flowchart"/>
 <template url="basic/orgchart.xml" title="orgChart" libs="general;basic;arrows"/>
 <template url="basic/swimlanes.xml" title="swimlaneDiagram" libs="general;flowchart;bpmn"/>
 <template url="basic/erd.xml" title="entityRelationshipDiagram" libs="general;er"/>
@@ -185,5 +193,6 @@
 <template url="wireframes/bootstrap_1.xml" libs="general;bootstrap"/>
 <template url="wireframes/home_page_hero_video_1.xml" libs="general;mockups"/>
 <template url="wireframes/home_page_1.xml" libs="general;mockups"/>
-<template url="wireframes/home_page_2.xml" libs="general;mockups"/>
+<template url="wireframes/home_page_2.xml" libs="general;mockups"/> -->
+
 </templates>

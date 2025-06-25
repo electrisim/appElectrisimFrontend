@@ -3563,7 +3563,7 @@ App.prototype.showSplash = function(force)
 		var dlg = new StorageDialog(this, mxUtils.bind(this, function()
 		{
 			this.hideDialog();
-			showSecondDialog();
+		showSecondDialog();
 		}), rowLimit);
 		
 		this.showDialog(dlg.container, (rowLimit < 3) ? 200 : 300,

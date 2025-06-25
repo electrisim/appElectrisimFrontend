@@ -112,6 +112,9 @@ function createLoginForm(container) {
             <input type="password" id="password" name="password" required>
         </div>
         <button type="submit" class="submit-btn">Login</button>
+        <p style="text-align:center; margin-top:10px;">
+          <a href="/src/main/webapp/forgot-password.html">Forgot Password?</a>
+        </p>
         <div class="divider">or</div>
         <button type="button" class="google-btn">
             <img src="https://www.google.com/favicon.ico" alt="Google" />
