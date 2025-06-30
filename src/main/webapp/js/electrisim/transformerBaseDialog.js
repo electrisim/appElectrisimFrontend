@@ -1,5 +1,5 @@
 export const rowDefsTransformerBase = [
-    { name: "Transformer", sn_mva: 0.0, vn_hv_kv: 0.0, vn_lv_kv: 0.0, vk_percent: 0.0, vkr_percent: 0.0, pfe_kw: 0.0, i0_percent: 0.0, shift_degree: 0.0, tap_side: "hv", tap_neutral: 0.0, tap_min: -10.0, tap_max: 10.0, tap_step_percent: 1.0, tap_pos: 0.0, tap_phase_shifter: false },
+    { name: "Transformer", sn_mva: 0.0, vn_hv_kv: 0.0, vn_lv_kv: 0.0, vk_percent: 0.0, vkr_percent: 0.0, pfe_kw: 0.0, i0_percent: 0.0, shift_degree: 0.0, tap_side: "hv", tap_neutral: 0.0, tap_min: -10.0, tap_max: 10.0, tap_step_percent: 1.0, tap_step_degree: 0.0, tap_pos: 0.0, tap_phase_shifter: false },
 ];
 
 export const columnDefsTransformerBase = [
@@ -81,6 +81,12 @@ export const columnDefsTransformerBase = [
     { 
       field: "tap_step_percent",
       headerTooltip: "tap step size in percent",
+      maxWidth: 150,
+      valueParser: numberParser,
+    },
+    { 
+      field: "tap_step_degree",
+      headerTooltip: "tap step size for voltage angle in degree, only considered in load flow if calculate_voltage_angles = True",
       maxWidth: 150,
       valueParser: numberParser,
     },
