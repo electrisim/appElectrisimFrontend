@@ -64,6 +64,10 @@ function fetchPandaPowerData() {
             console.error('Error fetching data:', error);
         });
 }
+
+// Make the function globally available
+window.fetchPandaPowerData = fetchPandaPowerData;
+
 // Function to use the data
 function usePandaPowerData() {
     // Add a check to ensure data is loaded
@@ -90,8 +94,11 @@ function waitForData() {
     });
 }
 
+// Also make other functions globally available if needed
+window.useDataToInsertOnGraph = useDataToInsertOnGraph;
+window.waitForData = waitForData;
+window.findVertexByBusId = findVertexByBusId;
 
-// Helper function to find a bus vertex by its ID
 // Helper function to find a bus vertex by its ID
 function findVertexByBusId(grafka, parent, busName) {
     const childCells = grafka.getChildCells(parent, true, false);
@@ -1345,18 +1352,6 @@ function useDataToInsertOnGraph(grafka, a, target, point) {
                     });
                 }
             });
-
-
-
-
-
-
-
-
-
-
-
-
 
         } catch (error) {
             console.error('Error during vertex insertion:', error);
