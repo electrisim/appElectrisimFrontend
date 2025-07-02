@@ -1438,10 +1438,14 @@ function loadFlowPandaPower(a, b, c) {
             ...componentArrays.impedance,
             ...componentArrays.ward,
             ...componentArrays.extendedWard,
+            ...componentArrays.motor,
+            ...componentArrays.storage,
             ...componentArrays.SSC,
             ...componentArrays.SVC,
             ...componentArrays.TCSC,
+            ...componentArrays.dcLine,
             ...componentArrays.line
+            
         ];
 
         const obj = Object.assign({}, array);
