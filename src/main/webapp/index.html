@@ -12,15 +12,6 @@
 
     <script type="module" src="js/electrisim/config/environment.js"></script>
 
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-96285072-1"></script>
-    <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-        gtag('config', 'UA-96285072-1');
-    </script>
-
     <!-- Smartlook -->
     <script type='text/javascript'>
         window.smartlook||(function(d) {
@@ -223,7 +214,19 @@
 
         function checkAllLoaded() {
             if (mxScriptsLoaded && mxWinLoaded) {
-                App.main();
+                try {
+                    // Remove loading screen first
+                    var geInfo = document.getElementById('geInfo');
+                    if (geInfo != null) {
+                        geInfo.parentNode.removeChild(geInfo);
+                    }
+                    
+                    if (typeof App !== 'undefined' && App.main) {
+                        App.main();
+                    }
+                } catch (e) {
+                    console.error('Error in checkAllLoaded:', e);
+                }
             }
         }
 
@@ -290,6 +293,9 @@
             loadNext();
         }
 
+        // Custom loading system disabled to prevent conflicts with original draw.io loading
+        // The original draw.io loading system below will handle all script loading
+        /*
         // Start loading scripts
         (function() {
             // Load XLSX library first
@@ -329,6 +335,16 @@
                 mxmeta(null, 'default-src \'self\' \'unsafe-inline\'; connect-src \'self\' https://*.draw.io https://fonts.googleapis.com https://fonts.gstatic.com; img-src * data:; media-src *; font-src *; style-src-elem \'self\' \'unsafe-inline\' https://fonts.googleapis.com', 'Content-Security-Policy');
             }
         })();
+        */
+        
+        // Meta tags for app
+        var name = 'electrisim.com';
+        mxmeta('apple-mobile-web-app-title', name);
+        mxmeta('application-name', name);
+
+        if (mxIsElectron) {
+            mxmeta(null, 'default-src \'self\' \'unsafe-inline\'; connect-src \'self\' https://*.draw.io https://fonts.googleapis.com https://fonts.gstatic.com; img-src * data:; media-src *; font-src *; style-src-elem \'self\' \'unsafe-inline\' https://fonts.googleapis.com', 'Content-Security-Policy');
+        }
 
 		// Checks for local storage
 		var isLocalStorage = false;
@@ -344,11 +360,10 @@
 
 		var mxScriptsLoaded = false, mxWinLoaded = false;
 		
-		window.onload = function()
-		{
-			mxWinLoaded = true;
-			checkAllLoaded();
-		};
+		window.onload = function() {
+            mxWinLoaded = true;
+            checkAllLoaded();
+        };
 		
 		var t0 = new Date();
 
@@ -407,13 +422,101 @@
 									
 				function loadAppJS()				
 				{
-
+					// Load XLSX library first
+					mxscript('https://unpkg.com/xlsx-style@0.8.13/dist/xlsx.full.min.js');
 
 					mxscript('js/app.min.js', function()
 					{
-						mxScriptsLoaded = true;
+						// Load Electrisim custom scripts after app.min.js
+						var electrisimScripts = [
+							'js/electrisim/utils/cellUtils.js',
+							'js/electrisim/dialogs/dialogInitializer.js',
+							'js/electrisim/dialogs/EditDataDialog.js',
+							'js/electrisim/dialogs/LoadFlowDialog.js',
+							'js/electrisim/dialogs/ShortCircuitDialog.js',
+							'js/electrisim/lineBaseDialog.js',
+							'js/electrisim/lineDialog.js',
+							'js/electrisim/externalGridDialog.js',
+							'js/electrisim/generatorDialog.js',
+							'js/electrisim/staticGeneratorDialog.js',
+							'js/electrisim/asymmetricStaticGeneratorDialog.js',
+							'js/electrisim/busDialog.js',
+							'js/electrisim/transformerBaseDialog.js',
+							'js/electrisim/transformerDialog.js',
+							'js/electrisim/threeWindingTransformerBaseDialog.js',
+							'js/electrisim/threeWindingTransformerLibrary.js',
+							'js/electrisim/shuntReactorDialog.js',
+							'js/electrisim/capacitorDialog.js',
+							'js/electrisim/loadDialog.js',
+							'js/electrisim/asymmetricLoadDialog.js',
+							'js/electrisim/shortCircuit.js',
+							'js/electrisim/impedanceDialog.js',
+							'js/electrisim/wardDialog.js',
+							'js/electrisim/extendedWardDialog.js',
+							'js/electrisim/motorDialog.js',
+							'js/electrisim/storageDialog.js',
+							'js/electrisim/SSCDialog.js',
+							'js/electrisim/SVCDialog.js',
+							'js/electrisim/TCSCDialog.js',
+							'js/electrisim/dcLineDialog.js',
+							'js/electrisim/configureAttributes.js',
+							'js/electrisim/supportingFunctions.js',
+							'js/electrisim/loadFlow.js'
+						];
 						
-						checkAllLoaded();
+						// Load auth scripts first
+						var authScripts = [
+							'https://js.stripe.com/v3/',
+							'js/electrisim/loginsubscription/stripe.js',
+							'js/electrisim/loginsubscription/auth-handler.js',
+							'js/electrisim/loginsubscription/stripe-subscription.js'
+						];
+						
+						function loadAuthScripts(index) {
+							if (index < authScripts.length) {
+								var script = document.createElement('script');
+								if (index > 0) script.type = 'module';
+								script.src = authScripts[index];
+								script.onload = function() {
+									loadAuthScripts(index + 1);
+								};
+								script.onerror = function() {
+									// Continue loading even if one fails
+									loadAuthScripts(index + 1);
+								};
+								document.head.appendChild(script);
+							} else {
+								// Start loading Electrisim scripts
+								loadElectrisimScripts(0);
+							}
+						}
+						
+						// Improved Electrisim script loading with better error handling
+						function loadElectrisimScripts(index) {
+							if (index < electrisimScripts.length) {
+								var script = document.createElement('script');
+								script.type = 'module';
+								script.src = electrisimScripts[index];
+								script.onload = function() {
+									loadElectrisimScripts(index + 1);
+								};
+								script.onerror = function() {
+									// Continue loading even if one fails
+									loadElectrisimScripts(index + 1);
+								};
+								document.head.appendChild(script);
+							} else {
+								// Don't remove loading screen here - let the core app handle it
+								// The core draw.io app will remove the loading screen when ready
+								mxScriptsLoaded = true;
+								checkAllLoaded();
+							}
+						}
+						
+						// Start loading auth scripts with a small delay to ensure app.min.js is fully initialized
+						setTimeout(function() {
+							loadAuthScripts(0);
+						}, 10); // Minimal delay for initialization
 						
 						if (!supportedDomain)
 						{

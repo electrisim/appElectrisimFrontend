@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Loading - Electrisim</title>
+    <link rel="stylesheet" type="text/css" href="mxgraph/css/common.css">
+    <link rel="stylesheet" type="text/css" href="styles/grapheditor.css">
+    
+    <script type="text/javascript">
+        window.mxBasePath = 'mxgraph';
+        window.mxClient = { basePath: 'mxgraph' };
+        
+        // URL Parameters handling
+        var urlParams = (function() {
+            var result = new Object();
+            var params = window.location.search.slice(1).split('&');
+            for (var i = 0; i < params.length; i++) {
+                idx = params[i].indexOf('=');
+                if (idx > 0) {
+                    result[params[i].substring(0, idx)] = params[i].substring(idx + 1);
+                }
+            }
+            return result;
+        })();
+        
+        // Debug logging
+        function debugLog(message) {
+            console.log('[DEBUG]', message);
+            var debugDiv = document.getElementById('debug-log');
+            if (debugDiv) {
+                debugDiv.innerHTML += '<div>' + new Date().toLocaleTimeString() + ': ' + message + '</div>';
+            }
+        }
+        
+        // Global variables
+        var mxIsElectron = window && window.process && window.process.type;
+        var isLocalStorage = false;
+        
+        try {
+            isLocalStorage = urlParams['local'] != '1' && typeof(localStorage) != 'undefined';
+        } catch (e) {
+            debugLog('LocalStorage check failed: ' + e);
+        }
+        
+        var mxScriptsLoaded = false, mxWinLoaded = false;
+        
+        function checkAllLoaded() {
+            debugLog('checkAllLoaded called - mxScriptsLoaded: ' + mxScriptsLoaded + ', mxWinLoaded: ' + mxWinLoaded);
+            if (mxScriptsLoaded && mxWinLoaded) {
+                debugLog('All loaded, calling App.main()');
+                try {
+                    // Remove loading screen
+                    var geInfo = document.getElementById('geInfo');
+                    if (geInfo != null) {
+                        geInfo.parentNode.removeChild(geInfo);
+                        debugLog('Loading screen removed');
+                    }
+                    
+                    if (typeof App !== 'undefined' && App.main) {
+                        App.main();
+                        debugLog('App.main() called successfully');
+                    } else {
+                        debugLog('App.main() not available');
+                    }
+                } catch (e) {
+                    debugLog('Error in App.main(): ' + e);
+                }
+            }
+        }
+        
+        window.onload = function() {
+            debugLog('Window loaded');
+            mxWinLoaded = true;
+            checkAllLoaded();
+        };
+        
+        function mxscript(src, onLoad, id, dataAppKey, noWrite, type) {
+            debugLog('Loading script: ' + src);
+            type = type || 'text/javascript';
+            
+            var s = document.createElement('script');
+            s.setAttribute('type', type);
+            s.setAttribute('src', src);
+            if (id != null) s.setAttribute('id', id);
+            if (dataAppKey != null) s.setAttribute('data-app-key', dataAppKey);
+            
+            if (onLoad != null) {
+                var r = false;
+                s.onload = s.onreadystatechange = function() {
+                    if (!r && (!this.readyState || this.readyState == 'complete')) {
+                        r = true;
+                        debugLog('Script loaded: ' + src);
+                        onLoad();
+                    }
+                };
+            }
+            
+            s.onerror = function() {
+                debugLog('Script failed to load: ' + src);
+            };
+            
+            var t = document.getElementsByTagName('script')[0];
+            t.parentNode.insertBefore(s, t);
+        }
+        
+        // Start loading - minimal version
+        debugLog('Starting script loading');
+        
+        // Load PreConfig first
+        mxscript('js/PreConfig.js', function() {
+            debugLog('PreConfig loaded');
+            
+            // Load app.min.js
+            mxscript('js/app.min.js', function() {
+                debugLog('app.min.js loaded');
+                mxScriptsLoaded = true;
+                checkAllLoaded();
+            });
+        });
+    </script>
+</head>
+<body class="geEditor">
+    <div id="geInfo">
+        <div class="geBlock" style="text-align:center;min-width:50%;">
+            <h1>Debug Loading - Electrisim</h1>
+            <h2 id="geStatus">Testing minimal loading...</h2>
+            <div id="debug-log" style="text-align: left; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; margin: 20px;">
+                <div>Debug log will appear here...</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 

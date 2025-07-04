@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear Cache - Electrisim</title>
+</head>
+<body>
+    <h1>Clear Cache</h1>
+    <p>This page will clear all service workers and cache.</p>
+    <button onclick="clearCache()">Clear Cache</button>
+    <div id="status"></div>
+    
+    <script>
+        function clearCache() {
+            const status = document.getElementById('status');
+            status.innerHTML = 'Clearing cache...';
+            
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                    let promises = [];
+                    for (let registration of registrations) {
+                        promises.push(registration.unregister());
+                    }
+                    
+                    Promise.all(promises).then(() => {
+                        status.innerHTML = 'Service workers unregistered. ';
+                        
+                        // Clear all caches
+                        if ('caches' in window) {
+                            caches.keys().then(function(cacheNames) {
+                                return Promise.all(
+                                    cacheNames.map(function(cacheName) {
+                                        return caches.delete(cacheName);
+                                    })
+                                );
+                            }).then(() => {
+                                status.innerHTML += 'All caches cleared. Please refresh the main page.';
+                            });
+                        } else {
+                            status.innerHTML += 'Please refresh the main page.';
+                        }
+                    });
+                });
+            } else {
+                status.innerHTML = 'Service workers not supported. Please clear browser cache manually.';
+            }
+        }
+        
+        // Auto-clear on page load
+        window.onload = clearCache;
+    </script>
+</body>
+</html> 
