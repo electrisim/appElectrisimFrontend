@@ -248,7 +248,7 @@ App.DROPBOX_APPKEY = 'libwls2fa9szdji';
 /**
  * Sets URL to load the Dropbox SDK from
  */
-App.DROPBOX_URL = window.DRAWIO_BASE_URL + '/js/dropbox/Dropbox-sdk.min.js';
+App.DROPBOX_URL ='https://app.electrisim.com/';
 
 /**
  * Sets URL to load the Dropbox dropins JS from.
@@ -468,6 +468,8 @@ App.getStoredMode = function()
 	
 				// Loads dropbox for all browsers but IE8 and below (no CORS) if not disabled or if enabled and in embed mode
 				// KNOWN: Picker does not work in IE11 (https://dropbox.zendesk.com/requests/1650781)
+				//ELXXX
+				/*
 				if (typeof window.DropboxClient === 'function')
 				{
 					if (urlParams['db'] != '0' && isSvgBrowser &&
@@ -528,7 +530,7 @@ App.getStoredMode = function()
 						window.OneDriveClient = null;
 					}
 				}
-				
+				*/
 				// Loads Trello for all browsers but < IE10 if not disabled or if enabled and in embed mode
 				if (typeof window.TrelloClient === 'function')
 				{
@@ -863,6 +865,7 @@ App.main = function(callback, createUi)
 			
 			if (window.mxscript != null)
 			{
+				/*
 				// Loads dropbox for all browsers but IE8 and below (no CORS) if not disabled or if enabled and in embed mode
 				// KNOWN: Picker does not work in IE11 (https://dropbox.zendesk.com/requests/1650781)
 				if (typeof window.DropboxClient === 'function' &&
@@ -933,6 +936,7 @@ App.main = function(callback, createUi)
 				{
 					window.TrelloClient = null;
 				}
+					*/
 	
 			}
 			
