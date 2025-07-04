@@ -425,124 +425,128 @@
 					// Load XLSX library first
 					mxscript('https://unpkg.com/xlsx-style@0.8.13/dist/xlsx.full.min.js');
 
-					mxscript('js/app.min.js', function()
+					// Load AG Grid library before app.min.js
+					mxscript('js/ag-grid-community.min.js', function()
 					{
-						// Load Electrisim custom scripts after app.min.js
-						var electrisimScripts = [
-							'js/electrisim/utils/cellUtils.js',
-							'js/electrisim/dialogs/dialogInitializer.js',
-							'js/electrisim/dialogs/EditDataDialog.js',
-							'js/electrisim/dialogs/LoadFlowDialog.js',
-							'js/electrisim/dialogs/ShortCircuitDialog.js',
-							'js/electrisim/lineBaseDialog.js',
-							'js/electrisim/lineDialog.js',
-							'js/electrisim/externalGridDialog.js',
-							'js/electrisim/generatorDialog.js',
-							'js/electrisim/staticGeneratorDialog.js',
-							'js/electrisim/asymmetricStaticGeneratorDialog.js',
-							'js/electrisim/busDialog.js',
-							'js/electrisim/transformerBaseDialog.js',
-							'js/electrisim/transformerDialog.js',
-							'js/electrisim/threeWindingTransformerBaseDialog.js',
-							'js/electrisim/threeWindingTransformerLibrary.js',
-							'js/electrisim/shuntReactorDialog.js',
-							'js/electrisim/capacitorDialog.js',
-							'js/electrisim/loadDialog.js',
-							'js/electrisim/asymmetricLoadDialog.js',
-							'js/electrisim/shortCircuit.js',
-							'js/electrisim/impedanceDialog.js',
-							'js/electrisim/wardDialog.js',
-							'js/electrisim/extendedWardDialog.js',
-							'js/electrisim/motorDialog.js',
-							'js/electrisim/storageDialog.js',
-							'js/electrisim/SSCDialog.js',
-							'js/electrisim/SVCDialog.js',
-							'js/electrisim/TCSCDialog.js',
-							'js/electrisim/dcLineDialog.js',
-							'js/electrisim/configureAttributes.js',
-							'js/electrisim/supportingFunctions.js',
-							'js/electrisim/loadFlow.js'
-						];
-						
-						// Load auth scripts first
-						var authScripts = [
-							'https://js.stripe.com/v3/',
-							'js/electrisim/loginsubscription/stripe.js',
-							'js/electrisim/loginsubscription/auth-handler.js',
-							'js/electrisim/loginsubscription/stripe-subscription.js'
-						];
-						
-						function loadAuthScripts(index) {
-							if (index < authScripts.length) {
-								var script = document.createElement('script');
-								if (index > 0) script.type = 'module';
-								script.src = authScripts[index];
-								script.onload = function() {
-									loadAuthScripts(index + 1);
-								};
-								script.onerror = function() {
-									// Continue loading even if one fails
-									loadAuthScripts(index + 1);
-								};
-								document.head.appendChild(script);
-							} else {
-								// Start loading Electrisim scripts
-								loadElectrisimScripts(0);
-							}
-						}
-						
-						// Improved Electrisim script loading with better error handling
-						function loadElectrisimScripts(index) {
-							if (index < electrisimScripts.length) {
-								var script = document.createElement('script');
-								script.type = 'module';
-								script.src = electrisimScripts[index];
-								script.onload = function() {
-									loadElectrisimScripts(index + 1);
-								};
-								script.onerror = function() {
-									// Continue loading even if one fails
-									loadElectrisimScripts(index + 1);
-								};
-								document.head.appendChild(script);
-							} else {
-								// Don't remove loading screen here - let the core app handle it
-								// The core draw.io app will remove the loading screen when ready
-								mxScriptsLoaded = true;
-								checkAllLoaded();
-							}
-						}
-						
-						// Start loading auth scripts with a small delay to ensure app.min.js is fully initialized
-						setTimeout(function() {
-							loadAuthScripts(0);
-						}, 10); // Minimal delay for initialization
-						
-						if (!supportedDomain)
+						mxscript('js/app.min.js', function()
 						{
-							mxscript('js/PostConfig.js');
-						}
-						
-						// Electron
-						if (mxIsElectron)
-						{
-							mxscript('js/diagramly/DesktopLibrary.js', function()
+							// Load Electrisim custom scripts after app.min.js
+							var electrisimScripts = [
+								'js/electrisim/utils/cellUtils.js',
+								'js/electrisim/dialogs/dialogInitializer.js',
+								'js/electrisim/dialogs/EditDataDialog.js',
+								'js/electrisim/dialogs/LoadFlowDialog.js',
+								'js/electrisim/dialogs/ShortCircuitDialog.js',
+								'js/electrisim/lineBaseDialog.js',
+								'js/electrisim/lineDialog.js',
+								'js/electrisim/externalGridDialog.js',
+								'js/electrisim/generatorDialog.js',
+								'js/electrisim/staticGeneratorDialog.js',
+								'js/electrisim/asymmetricStaticGeneratorDialog.js',
+								'js/electrisim/busDialog.js',
+								'js/electrisim/transformerBaseDialog.js',
+								'js/electrisim/transformerDialog.js',
+								'js/electrisim/threeWindingTransformerBaseDialog.js',
+								'js/electrisim/threeWindingTransformerLibrary.js',
+								'js/electrisim/shuntReactorDialog.js',
+								'js/electrisim/capacitorDialog.js',
+								'js/electrisim/loadDialog.js',
+								'js/electrisim/asymmetricLoadDialog.js',
+								'js/electrisim/shortCircuit.js',
+								'js/electrisim/impedanceDialog.js',
+								'js/electrisim/wardDialog.js',
+								'js/electrisim/extendedWardDialog.js',
+								'js/electrisim/motorDialog.js',
+								'js/electrisim/storageDialog.js',
+								'js/electrisim/SSCDialog.js',
+								'js/electrisim/SVCDialog.js',
+								'js/electrisim/TCSCDialog.js',
+								'js/electrisim/dcLineDialog.js',
+								'js/electrisim/configureAttributes.js',
+								'js/electrisim/supportingFunctions.js',
+								'js/electrisim/loadFlow.js'
+							];
+							
+							// Load auth scripts first
+							var authScripts = [
+								'https://js.stripe.com/v3/',
+								'js/electrisim/loginsubscription/stripe.js',
+								'js/electrisim/loginsubscription/auth-handler.js',
+								'js/electrisim/loginsubscription/stripe-subscription.js'
+							];
+							
+							function loadAuthScripts(index) {
+								if (index < authScripts.length) {
+									var script = document.createElement('script');
+									if (index > 0) script.type = 'module';
+									script.src = authScripts[index];
+									script.onload = function() {
+										loadAuthScripts(index + 1);
+									};
+									script.onerror = function() {
+										// Continue loading even if one fails
+										loadAuthScripts(index + 1);
+									};
+									document.head.appendChild(script);
+								} else {
+									// Start loading Electrisim scripts
+									loadElectrisimScripts(0);
+								}
+							}
+							
+							// Improved Electrisim script loading with better error handling
+							function loadElectrisimScripts(index) {
+								if (index < electrisimScripts.length) {
+									var script = document.createElement('script');
+									script.type = 'module';
+									script.src = electrisimScripts[index];
+									script.onload = function() {
+										loadElectrisimScripts(index + 1);
+									};
+									script.onerror = function() {
+										// Continue loading even if one fails
+										loadElectrisimScripts(index + 1);
+									};
+									document.head.appendChild(script);
+								} else {
+									// Don't remove loading screen here - let the core app handle it
+									// The core draw.io app will remove the loading screen when ready
+									mxScriptsLoaded = true;
+									checkAllLoaded();
+								}
+							}
+							
+							// Start loading auth scripts with a small delay to ensure app.min.js is fully initialized
+							setTimeout(function() {
+								loadAuthScripts(0);
+							}, 10); // Minimal delay for initialization
+							
+							if (!supportedDomain)
 							{
-								mxscript('js/diagramly/ElectronApp.js', function()
+								mxscript('js/PostConfig.js');
+							}
+							
+							// Electron
+							if (mxIsElectron)
+							{
+								mxscript('js/diagramly/DesktopLibrary.js', function()
 								{
-									mxscript('js/extensions.min.js', function()
+									mxscript('js/diagramly/ElectronApp.js', function()
 									{
-										mxscript('js/stencils.min.js', function()
+										mxscript('js/extensions.min.js', function()
 										{
-											mxscript('js/shapes.min.js', function()
+											mxscript('js/stencils.min.js', function()
 											{
-												mxscript('js/PostConfig.js');
+												mxscript('js/shapes.min.js', function()
+												{
+													mxscript('js/PostConfig.js');
+												});
 											});
 										});
 									});
 								});
-							});
-						}
+							}
+						});
 					});
 				};
 				
@@ -596,6 +600,7 @@
             margin-top:0px;
             padding-top:0px;
         }
+        
         .geEditor ::-webkit-scrollbar {
             width:14px;
             height:14px;
@@ -616,43 +621,6 @@
         }
         .geEditor ::-webkit-scrollbar-thumb:hover{
             background-color:rgba(0,0,0,.4);
-        }
-        .geTemplate {
-            border:1px solid transparent;
-            display:inline-block;
-            _display:inline;
-            vertical-align:top;
-            border-radius:3px;
-            overflow:hidden;
-            font-size:14pt;
-            cursor:pointer;
-            margin:5px;
-        }
-        .action-button {
-            border: none;
-            color: white;
-            padding: 3px 12px;
-            text-align: center;
-            text-decoration: none;
-            display: inline-block;
-            font-size: 16px;
-            opacity: 0.7;
-        }
-        .action-button:hover {
-            opacity: 1;
-        }
-        .action-button.edit {
-            background-color: #008cba;
-        }
-        .action-button.update {
-            background-color: #4caf50;
-        }
-        .action-button.delete {
-            background-color: #f44336;
-        }
-        .action-button.cancel {
-            background-color: #e7e7e7;
-            color: black; 
         }
     </style>
     <!--[if (IE 9)|(IE 10)]><!-->
