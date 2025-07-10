@@ -489,7 +489,12 @@ div.mxWindow .geButton {
 	background:white;
 	line-height:1em;
 	overflow:hidden;
-	padding:30px;
+	padding:10px;
+	padding-top: 30px;
+	padding-bottom: 5px;
+	padding-left: 30px;
+	padding-right: 30px;
+
 	border:1px solid #acacac;
 	-webkit-box-shadow:0px 0px 2px 2px #d5d5d5;
 	-moz-box-shadow:0px 0px 2px 2px #d5d5d5;
