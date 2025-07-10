@@ -6,7 +6,8 @@ export const rowDefsBus = [
 
 export const columnDefsBus = [  
     {
-      field: "name",
+      field: "name", 
+      maxWidth: 150
     },
     {
       field: "vn_kv",

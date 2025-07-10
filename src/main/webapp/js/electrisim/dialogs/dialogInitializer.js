@@ -1,6 +1,7 @@
 // dialogInitializer.js - Ensures proper dialog initialization and overrides
 import { LoadFlowDialog } from './LoadFlowDialog.js';
 import { ShortCircuitDialog } from './ShortCircuitDialog.js';
+import { EditDataDialog } from './EditDataDialog.js';
 
 // Wait for both the document and app.min.js to be loaded
 function waitForApp(callback) {
@@ -23,6 +24,9 @@ function initializeDialogs() {
         // Store original methods for ShortCircuit
         const originalShortCircuitDialog = window.ShortCircuitDialog;
         const originalShowShortCircuit = EditorUi.prototype.showShortCircuitDialog;
+
+        // Store original EditDataDialog method
+        const originalShowDataDialog = EditorUi.prototype.showDataDialog;
 
         // Override the LoadFlowDialogPandaPower constructor
         window.LoadFlowDialogPandaPower = function(title, okButtonText, callback) {
@@ -64,6 +68,46 @@ function initializeDialogs() {
                 // Fallback to original method if available
                 if (originalShowShortCircuit) {
                     originalShowShortCircuit.call(this, title, okButtonText, callback);
+                }
+            }
+        };
+
+        // Override the showDataDialog method to use our clean EditDataDialog
+        EditorUi.prototype.showDataDialog = function(cell) {
+            try {
+                if (!cell) return;
+                
+                // Create our custom EditDataDialog
+                const dialog = new EditDataDialog(this, cell);
+                
+                // Check if the dialog should be shown (for special cases like Result elements)
+                if (dialog.shouldShowDialog === false) {
+                    return;
+                }
+                
+                // Get current screen dimensions for full-width dialog
+                const screenWidth = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+                const screenHeight = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+                
+                // Calculate dynamic width: full screen width with margins, minimum 1200px
+                const dialogWidth = Math.max(screenWidth - 40, 1200);
+                
+                // Ultra-compact dialog height: 75px grid + 28px buttons + 15px margins = 118px
+                const dialogHeight = 118;
+                
+                // Show the dialog with full-width dimensions
+                this.showDialog(dialog.container, dialogWidth, dialogHeight, true, false, null, false);
+                
+                // Initialize the dialog
+                dialog.init();
+                
+                console.log(`Custom EditDataDialog shown: ${dialogWidth}x${dialogHeight}`);
+                
+            } catch (error) {
+                console.error('Error in showDataDialog:', error);
+                // Fallback to original method if something goes wrong
+                if (originalShowDataDialog) {
+                    originalShowDataDialog.call(this, cell);
                 }
             }
         };

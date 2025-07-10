@@ -2889,7 +2889,13 @@ var NewDialog = function(editorUi, compact, showName, callback, createOnly, canc
 		}
 		else if (!noImg && url != null && url.length > 0)
 		{
-			var png = preview || (TEMPLATE_PATH + '/' + url.substring(0, url.length - 4) + '.png');
+			// Fix for .drawio files: properly detect and remove the file extension
+			var baseName = url;
+			var lastDotIndex = url.lastIndexOf('.');
+			if (lastDotIndex > 0) {
+				baseName = url.substring(0, lastDotIndex);
+			}
+			var png = preview || (TEMPLATE_PATH + '/' + baseName + '.png');
 			
 			elt.style.backgroundImage = 'url(' + png + ')';
 			elt.style.backgroundPosition = 'center center';
@@ -9114,7 +9120,7 @@ TemplatesDialog.prototype.init = function(editorUi, callback, cancelCallback,
 	
 	function createPreview(diagram)
 	{
-		var imgUrl = diagram.prevImgUrl || diagram.imgUrl || (TEMPLATE_PATH + '/' + diagram.url.substring(0, diagram.url.length - 4) + '.png');
+		var imgUrl = diagram.prevImgUrl || diagram.imgUrl || (TEMPLATE_PATH + '/' + (diagram.url.endsWith('.xml') || diagram.url.endsWith('.drawio') ? diagram.url.substring(0, diagram.url.lastIndexOf('.')) : diagram.url) + '.png');
 		var mask = document.createElement('div');
 		mask.className = "geTempDlgDialogMask";
 		dlgDiv.appendChild(mask);
@@ -9288,7 +9294,7 @@ TemplatesDialog.prototype.init = function(editorUi, callback, cancelCallback,
 			
 			if (!imgUrl)
 			{
-				imgUrl = TEMPLATE_PATH + '/' + url.substring(0, url.length - 4) + '.png';
+				imgUrl = TEMPLATE_PATH + '/' + (url.endsWith('.xml') || url.endsWith('.drawio') ? url.substring(0, url.lastIndexOf('.')) : url) + '.png';
 			}
 			
 			var titleLimit = asList? 50 : 15;
