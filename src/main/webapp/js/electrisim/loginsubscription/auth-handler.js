@@ -16,7 +16,38 @@ async function apiCall(endpoint, options = {}) {
         });
 
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            // Try to get error details from response
+            let errorMessage = `HTTP error! status: ${response.status}`;
+            try {
+                const errorData = await response.json();
+                if (errorData.message) {
+                    errorMessage = errorData.message;
+                } else if (errorData.error) {
+                    errorMessage = errorData.error;
+                }
+            } catch (parseError) {
+                // If we can't parse the error response, use status-based messages
+                switch (response.status) {
+                    case 409:
+                        errorMessage = 'This email address is already registered. Please use a different email or try logging in.';
+                        break;
+                    case 400:
+                        errorMessage = 'Invalid request. Please check your input and try again.';
+                        break;
+                    case 401:
+                        errorMessage = 'Invalid email or password.';
+                        break;
+                    case 403:
+                        errorMessage = 'Access denied.';
+                        break;
+                    case 500:
+                        errorMessage = 'Server error. Please try again later.';
+                        break;
+                    default:
+                        errorMessage = `Request failed with status ${response.status}`;
+                }
+            }
+            throw new Error(errorMessage);
         }
 
         return await response.json();
@@ -70,7 +101,14 @@ async function register(email, password, name) {
             throw new Error('Invalid response from server');
         }
     } catch (error) {
-        throw new Error('Registration failed: ' + error.message);
+        // If the error message is already user-friendly, don't add prefix
+        if (error.message.includes('email address is already registered') || 
+            error.message.includes('Invalid request') ||
+            error.message.includes('Server error')) {
+            throw error;
+        } else {
+            throw new Error('Registration failed: ' + error.message);
+        }
     }
 }
 

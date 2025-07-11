@@ -1,87 +1,80 @@
-// dialogInitializer.js - Ensures proper dialog initialization and overrides
-import { LoadFlowDialog } from './LoadFlowDialog.js';
-import { ShortCircuitDialog } from './ShortCircuitDialog.js';
+// dialogInitializer.js - Ensures proper dialog initialization
 import { EditDataDialog } from './EditDataDialog.js';
+import { LoadFlowDialog } from './LoadFlowDialog.js';
+import { ComponentsDataDialog } from './ComponentsDataDialog.js';
 
-// Wait for both the document and app.min.js to be loaded
+// Make dialogs available globally for legacy code compatibility
+window.EditDataDialog = EditDataDialog;
+window.ComponentsDataDialog = ComponentsDataDialog;
+window.LoadFlowDialog = LoadFlowDialog;
+
+// Wait for all dependencies to be ready
 function waitForApp(callback) {
-    if (typeof LoadFlowDialogPandaPower === 'undefined' || 
-        typeof ShortCircuitDialog === 'undefined' ||
-        typeof EditorUi === 'undefined') {
+    if (typeof EditorUi === 'undefined' || 
+        !window.App || 
+        !window.App.main || 
+        !window.App.main.editor) {
         setTimeout(() => waitForApp(callback), 100);
         return;
     }
     callback();
 }
 
-// Initialize our dialog overrides
+// Initialize all dialog overrides
 function initializeDialogs() {
     try {
-        // Store original methods for LoadFlow
-        const originalLoadFlowDialog = window.LoadFlowDialogPandaPower;
-        const originalShowLoadFlow = EditorUi.prototype.showLoadFlowDialogPandaPower;
+        console.log('Initializing modern dialogs...');
+        
+        // Ensure dialogs are available globally
+        if (!window.EditDataDialog) {
+            window.EditDataDialog = EditDataDialog;
+            console.log('EditDataDialog made available globally');
+        }
+        
+        if (!window.ComponentsDataDialog) {
+            window.ComponentsDataDialog = ComponentsDataDialog;
+            console.log('ComponentsDataDialog made available globally');
+        }
 
-        // Store original methods for ShortCircuit
-        const originalShortCircuitDialog = window.ShortCircuitDialog;
-        const originalShowShortCircuit = EditorUi.prototype.showShortCircuitDialog;
-
-        // Store original EditDataDialog method
+        // Store original method as backup
         const originalShowDataDialog = EditorUi.prototype.showDataDialog;
 
-        // Override the LoadFlowDialogPandaPower constructor
-        window.LoadFlowDialogPandaPower = function(title, okButtonText, callback) {
-            const dialog = new LoadFlowDialog();
-            dialog.show(callback);
-            return dialog;
-        };
-
-        // Override the showLoadFlowDialogPandaPower method
-        EditorUi.prototype.showLoadFlowDialogPandaPower = function(title, okButtonText, callback) {
-            try {
-                // Create and show the dialog
-                const dialog = new LoadFlowDialog();
-                dialog.show(callback);
-            } catch (error) {
-                console.error('Error in showLoadFlowDialogPandaPower:', error);
-                // Fallback to original method if available
-                if (originalShowLoadFlow) {
-                    originalShowLoadFlow.call(this, title, okButtonText, callback);
-                }
-            }
-        };
-
-        // Override the ShortCircuitDialog constructor
-        window.ShortCircuitDialog = function(title, okButtonText, callback) {
-            const dialog = new ShortCircuitDialog();
-            dialog.show(callback);
-            return dialog;
-        };
-
-        // Override the showShortCircuitDialog method
-        EditorUi.prototype.showShortCircuitDialog = function(title, okButtonText, callback) {
-            try {
-                // Create and show the dialog
-                const dialog = new ShortCircuitDialog();
-                dialog.show(callback);
-            } catch (error) {
-                console.error('Error in showShortCircuitDialog:', error);
-                // Fallback to original method if available
-                if (originalShowShortCircuit) {
-                    originalShowShortCircuit.call(this, title, okButtonText, callback);
-                }
-            }
-        };
-
-        // Override the showDataDialog method to use our clean EditDataDialog
+        // Override the showDataDialog method to use appropriate dialog
         EditorUi.prototype.showDataDialog = function(cell) {
             try {
-                if (!cell) return;
+                console.log('showDataDialog called with cell:', cell);
                 
-                // Create our custom EditDataDialog
+                if (!cell) {
+                    console.log('No cell provided, using root cell');
+                    cell = this.editor.graph.getModel().getRoot();
+                }
+                
+                // Check if this is the root cell or a request for all components overview
+                const model = this.editor.graph.getModel();
+                const isRootCell = cell === model.getRoot();
+                const cellStyle = cell.getStyle && cell.getStyle();
+                
+                console.log('Cell analysis:', {
+                    isRootCell,
+                    cellStyle: cellStyle || 'none',
+                    hasShapeELXXX: cellStyle ? cellStyle.includes('shapeELXXX=') : false
+                });
+                
+                // If it's the root cell or has no specific component style, show ComponentsDataDialog
+                if (isRootCell || !cellStyle || !cellStyle.includes('shapeELXXX=')) {
+                    console.log('Showing ComponentsDataDialog for all components overview');
+                    const componentsDialog = new ComponentsDataDialog(this, cell);
+                    componentsDialog.show();
+                    return;
+                }
+                
+                // Otherwise, show EditDataDialog for individual cell
+                console.log('Showing EditDataDialog for individual cell');
                 const dialog = new EditDataDialog(this, cell);
                 
                 // Check if the dialog should be shown (for special cases like Result elements)
                 if (dialog.shouldShowDialog === false) {
+                    console.log('Dialog should not be shown for this cell');
                     return;
                 }
                 
@@ -102,26 +95,40 @@ function initializeDialogs() {
                 dialog.init();
                 
                 console.log(`Custom EditDataDialog shown: ${dialogWidth}x${dialogHeight}`);
-                
             } catch (error) {
-                console.error('Error in showDataDialog:', error);
-                // Fallback to original method if something goes wrong
-                if (originalShowDataDialog) {
-                    originalShowDataDialog.call(this, cell);
+                console.error('Error in custom showDataDialog:', error);
+                // Fallback to original method if available
+                if (originalShowDataDialog && typeof originalShowDataDialog === 'function') {
+                    console.log('Falling back to original showDataDialog');
+                    return originalShowDataDialog.call(this, cell);
                 }
             }
         };
 
-        console.log('Dialog overrides initialized successfully');
+        // Override the LoadFlowDialog method
+        EditorUi.prototype.showLoadFlowDialogPandaPower = function(title, okButtonText, callback) {
+            const dialog = new LoadFlowDialog(this);
+            dialog.show((values) => {
+                if (callback) {
+                    callback(values);
+                }
+            });
+            return dialog;
+        };
+
+        console.log('All dialog overrides initialized successfully');
+        
+        // Verify the override worked
+        console.log('showDataDialog override verification:', {
+            isOverridden: EditorUi.prototype.showDataDialog.toString().includes('ComponentsDataDialog'),
+            EditDataDialogAvailable: typeof window.EditDataDialog !== 'undefined',
+            ComponentsDataDialogAvailable: typeof window.ComponentsDataDialog !== 'undefined'
+        });
+        
     } catch (error) {
         console.error('Error initializing dialog overrides:', error);
     }
 }
 
-// Start initialization when everything is ready
-waitForApp(initializeDialogs);
-
-// Add a backup initialization in case the first one fails
-window.addEventListener('load', () => {
-    setTimeout(initializeDialogs, 2000); // Wait 2 seconds after load
-}); 
+// Initialize when everything is ready
+waitForApp(initializeDialogs); 

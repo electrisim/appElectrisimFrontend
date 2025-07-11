@@ -176,9 +176,11 @@
             { src: 'js/app.min.js' },
            // { src: 'js/extensions.min.js' },
            // { src: 'js/shapes.min.js' },
-            { src: 'js/electrisim/utils/cellUtils.js', type: 'module', async: true },
-            { src: 'js/electrisim/dialogs/dialogInitializer.js', type: 'module', async: true },
             { src: 'js/electrisim/dialogs/EditDataDialog.js', type: 'module', async: true },
+            { src: 'js/electrisim/dialogs/ComponentsDataDialog.js', type: 'module', async: true },
+            { src: 'js/electrisim/utils/cellUtils.js', type: 'module', async: true },
+            { src: 'js/electrisim/ensureSubscriptionFunctions.js', type: 'module', async: true },
+            { src: 'js/electrisim/dialogs/dialogInitializer.js', type: 'module', async: true },
             { src: 'js/electrisim/dialogs/LoadFlowDialog.js', type: 'module', async: true },
             { src: 'js/electrisim/dialogs/ShortCircuitDialog.js', type: 'module', async: true },
             { src: 'js/electrisim/lineBaseDialog.js', type: 'module', async: true },
@@ -432,9 +434,11 @@
 						{
 							// Load Electrisim custom scripts after app.min.js
 							var electrisimScripts = [
-								'js/electrisim/utils/cellUtils.js',
-								'js/electrisim/dialogs/dialogInitializer.js',
-								'js/electrisim/dialogs/EditDataDialog.js',
+								                                                                'js/electrisim/dialogs/EditDataDialog.js',
+                                'js/electrisim/dialogs/ComponentsDataDialog.js',
+                                'js/electrisim/utils/cellUtils.js',
+                                'js/electrisim/ensureSubscriptionFunctions.js',
+                                'js/electrisim/dialogs/dialogInitializer.js',
 								'js/electrisim/dialogs/LoadFlowDialog.js',
 								'js/electrisim/dialogs/ShortCircuitDialog.js',
 								'js/electrisim/lineBaseDialog.js',

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auth Debug</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 3px; }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button { padding: 8px 16px; margin: 5px; cursor: pointer; }
+        input { padding: 8px; margin: 5px; width: 200px; }
+    </style>
+</head>
+<body>
+    <h1>Authentication Debug Tool</h1>
+    
+    <div class="test-section">
+        <h3>1. Backend Connectivity Test</h3>
+        <button onclick="testBackendConnection()">Test Backend Connection</button>
+        <div id="connectivity-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>2. API Configuration Check</h3>
+        <button onclick="checkConfig()">Check Configuration</button>
+        <div id="config-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>3. Test Registration</h3>
+        <div>
+            <input type="text" id="reg-name" placeholder="Name" value="Test User">
+            <input type="email" id="reg-email" placeholder="Email" value="test@example.com">
+            <input type="password" id="reg-password" placeholder="Password" value="testpass123">
+            <button onclick="testRegistration()">Test Registration</button>
+        </div>
+        <div id="registration-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>4. Test Login</h3>
+        <div>
+            <input type="email" id="login-email" placeholder="Email" value="test@example.com">
+            <input type="password" id="login-password" placeholder="Password" value="testpass123">
+            <button onclick="testLogin()">Test Login</button>
+        </div>
+        <div id="login-result" class="result"></div>
+    </div>
+
+    <script type="module">
+        import config from './js/electrisim/config/environment.js';
+        window.config = config;
+        
+        // Make API call function available globally
+        window.apiCall = async function(endpoint, options = {}) {
+            const url = `${config.apiBaseUrl}${endpoint}`;
+            
+            const defaultOptions = {
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            };
+
+            try {
+                console.log(`Making API call to: ${url}`);
+                const response = await fetch(url, { ...defaultOptions, ...options });
+                
+                console.log(`Response status: ${response.status}`);
+                
+                if (!response.ok) {
+                    let errorMessage = `HTTP error! status: ${response.status}`;
+                    try {
+                        const errorData = await response.json();
+                        if (errorData.message) {
+                            errorMessage = errorData.message;
+                        } else if (errorData.error) {
+                            errorMessage = errorData.error;
+                        }
+                    } catch (parseError) {
+                        switch (response.status) {
+                            case 409:
+                                errorMessage = 'This email address is already registered. Please use a different email or try logging in.';
+                                break;
+                            case 400:
+                                errorMessage = 'Invalid request. Please check your input and try again.';
+                                break;
+                            case 401:
+                                errorMessage = 'Invalid email or password.';
+                                break;
+                            case 403:
+                                errorMessage = 'Access denied.';
+                                break;
+                            case 500:
+                                errorMessage = 'Server error. Please try again later.';
+                                break;
+                            default:
+                                errorMessage = `Request failed with status ${response.status}`;
+                        }
+                    }
+                    throw new Error(errorMessage);
+                }
+
+                return await response.json();
+            } catch (error) {
+                console.error(`API call failed: ${endpoint}`, error);
+                throw error;
+            }
+        };
+
+        window.testBackendConnection = async function() {
+            const resultDiv = document.getElementById('connectivity-result');
+            resultDiv.innerHTML = '<div class="info">Testing connection...</div>';
+            
+            try {
+                // Try to fetch a simple endpoint
+                const response = await fetch(`${config.apiBaseUrl}/health`, { method: 'GET' });
+                if (response.ok) {
+                    resultDiv.innerHTML = '<div class="success">✓ Backend is reachable</div>';
+                } else {
+                    throw new Error(`Backend responded with status ${response.status}`);
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">✗ Backend connection failed: ${error.message}</div>`;
+            }
+        };
+
+        window.checkConfig = function() {
+            const resultDiv = document.getElementById('config-result');
+            resultDiv.innerHTML = `
+                <div class="info">
+                    <strong>Current Configuration:</strong><br>
+                    Environment: ${config.isDevelopment ? 'Development' : 'Production'}<br>
+                    API Base URL: ${config.apiBaseUrl}<br>
+                    Frontend URL: ${config.frontendUrl}<br>
+                    Hostname: ${window.location.hostname}
+                </div>
+            `;
+        };
+
+        window.testRegistration = async function() {
+            const resultDiv = document.getElementById('registration-result');
+            resultDiv.innerHTML = '<div class="info">Testing registration...</div>';
+            
+            const name = document.getElementById('reg-name').value;
+            const email = document.getElementById('reg-email').value;
+            const password = document.getElementById('reg-password').value;
+            
+            try {
+                const response = await apiCall('/auth/register', {
+                    method: 'POST',
+                    body: JSON.stringify({ name, email, password })
+                });
+                
+                resultDiv.innerHTML = `<div class="success">✓ Registration successful! User ID: ${response.user.id}</div>`;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">✗ Registration failed: ${error.message}</div>`;
+            }
+        };
+
+        window.testLogin = async function() {
+            const resultDiv = document.getElementById('login-result');
+            resultDiv.innerHTML = '<div class="info">Testing login...</div>';
+            
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            
+            try {
+                const response = await apiCall('/auth/login', {
+                    method: 'POST',
+                    body: JSON.stringify({ email, password })
+                });
+                
+                resultDiv.innerHTML = `<div class="success">✓ Login successful! User: ${response.user.email}</div>`;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">✗ Login failed: ${error.message}</div>`;
+            }
+        };
+    </script>
+</body>
+</html> 

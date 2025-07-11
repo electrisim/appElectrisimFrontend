@@ -3,15 +3,6 @@ import { COMPONENT_TYPES } from './utils/componentTypes.js';
 import { getAttributesAsObject } from './utils/attributeUtils.js';
 import { ShortCircuitDialog } from './dialogs/ShortCircuitDialog.js';
 
-// Make the dialog function available globally
-window.showShortCircuitDialog = function(title, okButtonText, callback) {
-    const dialog = new ShortCircuitDialog();
-    dialog.show(callback);
-}
-
-// Also export it as a module
-export const showShortCircuitDialog = window.showShortCircuitDialog;
-
 // Make the shortCircuit function available globally
 window.shortCircuitPandaPower = function(a, b, c) {
     let apka = a;
@@ -185,7 +176,10 @@ window.shortCircuitPandaPower = function(a, b, c) {
     }
 
     // Main function execution
-    b.isEnabled() && !b.isCellLocked(b.getDefaultParent()) && a.showShortCircuitDialog("", "Calculate", function (a, c) {
+    if (b.isEnabled() && !b.isCellLocked(b.getDefaultParent())) {
+        // Use modern ShortCircuitDialog directly
+        const dialog = new ShortCircuitDialog(a);
+        dialog.show(function (a, c) {
         // Cache commonly used functions and values
         const getModel = b.getModel.bind(b);
         const model = getModel();
@@ -772,7 +766,8 @@ window.shortCircuitPandaPower = function(a, b, c) {
             // Process network data
             processNetworkData("https://03dht3kc-5000.euw.devtunnels.ms/", obj, b, grafka);
         }
-    });
+        });
+    }
 }
 
 // Also export it as a module

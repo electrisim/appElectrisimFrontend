@@ -7,6 +7,7 @@ export const rowDefsExternalGrid = [
 export const columnDefsExternalGrid = [  
     {
       field: "name",
+      maxWidth: 200,
     },
     {
       field: "vm_pu",

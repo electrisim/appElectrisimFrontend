@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Subscription Dialog</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 3px; }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button { padding: 8px 16px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Test Subscription Check in Dialogs</h1>
+    
+    <div class="test-section">
+        <h3>1. Test Global Subscription Functions</h3>
+        <button onclick="testGlobalFunctions()">Test Global Functions</button>
+        <div id="global-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>2. Test LoadFlowDialog</h3>
+        <button onclick="testLoadFlowDialog()">Test LoadFlow Dialog</button>
+        <div id="loadflow-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>3. Test ShortCircuitDialog</h3>
+        <button onclick="testShortCircuitDialog()">Test ShortCircuit Dialog</button>
+        <div id="shortcircuit-result" class="result"></div>
+    </div>
+
+    <script type="module">
+        import config from './js/electrisim/config/environment.js';
+        import { LoadFlowDialog } from './js/electrisim/dialogs/LoadFlowDialog.js';
+        import { ShortCircuitDialog } from './js/electrisim/dialogs/ShortCircuitDialog.js';
+        
+        window.config = config;
+        
+        // Mock functions if they don't exist
+        if (!window.checkSubscriptionStatus) {
+            window.checkSubscriptionStatus = async function() {
+                console.log('Mock checkSubscriptionStatus called');
+                // Return false to test subscription modal
+                return false;
+            };
+        }
+        
+        if (!window.showSubscriptionModal) {
+            window.showSubscriptionModal = function() {
+                console.log('Mock showSubscriptionModal called');
+                alert('Subscription modal would show here');
+            };
+        }
+
+        window.testGlobalFunctions = async function() {
+            const resultDiv = document.getElementById('global-result');
+            resultDiv.innerHTML = '<div class="info">Testing global functions...</div>';
+            
+            let results = [];
+            
+            // Test checkSubscriptionStatus
+            if (typeof window.checkSubscriptionStatus === 'function') {
+                try {
+                    const hasSubscription = await window.checkSubscriptionStatus();
+                    results.push(`✓ checkSubscriptionStatus: ${hasSubscription}`);
+                } catch (error) {
+                    results.push(`✗ checkSubscriptionStatus error: ${error.message}`);
+                }
+            } else {
+                results.push('✗ checkSubscriptionStatus not available');
+            }
+            
+            // Test showSubscriptionModal
+            if (typeof window.showSubscriptionModal === 'function') {
+                results.push('✓ showSubscriptionModal available');
+            } else {
+                results.push('✗ showSubscriptionModal not available');
+            }
+            
+            // Test SubscriptionManager
+            if (window.SubscriptionManager) {
+                if (typeof window.SubscriptionManager.checkSubscriptionStatus === 'function') {
+                    try {
+                        const hasSubscription = await window.SubscriptionManager.checkSubscriptionStatus();
+                        results.push(`✓ SubscriptionManager.checkSubscriptionStatus: ${hasSubscription}`);
+                    } catch (error) {
+                        results.push(`✗ SubscriptionManager.checkSubscriptionStatus error: ${error.message}`);
+                    }
+                } else {
+                    results.push('✗ SubscriptionManager.checkSubscriptionStatus not available');
+                }
+            } else {
+                results.push('✗ SubscriptionManager not available');
+            }
+            
+            resultDiv.innerHTML = `<div class="info">${results.join('<br>')}</div>`;
+        };
+
+        window.testLoadFlowDialog = function() {
+            const resultDiv = document.getElementById('loadflow-result');
+            resultDiv.innerHTML = '<div class="info">Testing LoadFlow Dialog...</div>';
+            
+            try {
+                const mockUi = { 
+                    editor: { graph: {} },
+                    showDialog: function(content, width, height, modal, closable, onCancel) {
+                        console.log('Mock showDialog called for LoadFlow');
+                        return {
+                            window: document.body.appendChild(content.container)
+                        };
+                    },
+                    hideDialog: function() {
+                        console.log('Mock hideDialog called');
+                    }
+                };
+                
+                const dialog = new LoadFlowDialog(mockUi);
+                
+                // Test the checkSubscriptionStatus method directly
+                dialog.checkSubscriptionStatus().then(hasSubscription => {
+                    resultDiv.innerHTML = `<div class="success">✓ LoadFlowDialog subscription check: ${hasSubscription}</div>`;
+                }).catch(error => {
+                    resultDiv.innerHTML = `<div class="error">✗ LoadFlowDialog subscription check error: ${error.message}</div>`;
+                });
+                
+                // Show the dialog with a test callback
+                dialog.show(async (values) => {
+                    console.log('LoadFlow Calculate button clicked with values:', values);
+                    resultDiv.innerHTML += `<div class="info">Calculate callback executed with values: ${JSON.stringify(values)}</div>`;
+                });
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">✗ Error creating LoadFlow Dialog: ${error.message}</div>`;
+            }
+        };
+
+        window.testShortCircuitDialog = function() {
+            const resultDiv = document.getElementById('shortcircuit-result');
+            resultDiv.innerHTML = '<div class="info">Testing ShortCircuit Dialog...</div>';
+            
+            try {
+                const mockUi = { 
+                    editor: { graph: {} },
+                    showDialog: function(content, width, height, modal, closable, onCancel) {
+                        console.log('Mock showDialog called for ShortCircuit');
+                        return {
+                            window: document.body.appendChild(content.container)
+                        };
+                    },
+                    hideDialog: function() {
+                        console.log('Mock hideDialog called');
+                    }
+                };
+                
+                const dialog = new ShortCircuitDialog(mockUi);
+                
+                // Test the checkSubscriptionStatus method directly
+                dialog.checkSubscriptionStatus().then(hasSubscription => {
+                    resultDiv.innerHTML = `<div class="success">✓ ShortCircuitDialog subscription check: ${hasSubscription}</div>`;
+                }).catch(error => {
+                    resultDiv.innerHTML = `<div class="error">✗ ShortCircuitDialog subscription check error: ${error.message}</div>`;
+                });
+                
+                // Show the dialog with a test callback
+                dialog.show(async (values) => {
+                    console.log('ShortCircuit Calculate button clicked with values:', values);
+                    resultDiv.innerHTML += `<div class="info">Calculate callback executed with values: ${JSON.stringify(values)}</div>`;
+                });
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">✗ Error creating ShortCircuit Dialog: ${error.message}</div>`;
+            }
+        };
+    </script>
+</body>
+</html> 

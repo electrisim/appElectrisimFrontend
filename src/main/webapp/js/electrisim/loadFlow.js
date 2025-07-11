@@ -345,15 +345,6 @@ const COMPONENT_TYPES = {
 import { DIALOG_STYLES } from './utils/dialogStyles.js';
 import { LoadFlowDialog } from './dialogs/LoadFlowDialog.js';
 
-// Update the showLoadFlowDialogPandaPower function
-window.showLoadFlowDialogPandaPower = function(title, okButtonText, callback) {
-    const dialog = new LoadFlowDialog();
-    dialog.show(callback);
-}
-
-// Export for ES modules
-export const showLoadFlowDialogPandaPower = window.showLoadFlowDialogPandaPower;
-
 function loadFlowPandaPower(a, b, c) {
 
     // Create counters object
@@ -882,8 +873,11 @@ function loadFlowPandaPower(a, b, c) {
     
     let apka = a
     let grafka = b
-
-    b.isEnabled() && !b.isCellLocked(b.getDefaultParent()) && a.showLoadFlowDialogPandaPower("", "Calculate", function (a, c) {
+    //FROM FRONTEND TO BACKEND
+    if (b.isEnabled() && !b.isCellLocked(b.getDefaultParent())) {
+        // Use  LoadFlowDialog directly
+        const dialog = new LoadFlowDialog(a);
+        dialog.show(function (a, c) {
 
         apka.spinner.spin(document.body, "Waiting for results...")
 
@@ -1453,7 +1447,8 @@ function loadFlowPandaPower(a, b, c) {
 
         processNetworkData("https://03dht3kc-5000.euw.devtunnels.ms/", obj, b, grafka);
         } 
-    })
+        });
+    }
 }
 
 // Make loadFlowPandaPower available globally
