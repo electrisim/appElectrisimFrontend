@@ -12,57 +12,28 @@ export class Dialog {
     }
 
     show(callback, parameters = []) {
+        // Store callback for potential use in fallback
+        this.callback = callback;
+        
         // Use global App if ui is not valid
         this.ui = this.ui || window.App?.main?.editor?.editorUi;
         
+        // Create a simple content container for DrawIO's dialog system
         const container = document.createElement('div');
         Object.assign(container.style, {
             fontFamily: 'Arial, sans-serif',
             fontSize: '14px',
             lineHeight: '1.5',
             color: '#333',
-            backgroundColor: '#ffffff',
-            width: '100%',
-            maxWidth: '700px',
-            height: 'auto',
-            maxHeight: '98vh',
-            display: 'flex',
-            flexDirection: 'column',
             padding: '0',
-            border: '1px solid #ddd',
-            borderRadius: '8px',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
-        });
-
-        // Create header
-        const header = document.createElement('div');
-        Object.assign(header.style, {
-            backgroundColor: '#f8f9fa',
-            padding: '16px 20px',
-            borderBottom: '1px solid #e9ecef',
-            borderRadius: '8px 8px 0 0',
-            fontSize: '16px',
-            fontWeight: 'bold',
-            color: '#495057'
-        });
-        header.textContent = this.title;
-        container.appendChild(header);
-
-        const form = document.createElement('form');
-        Object.assign(form.style, {
-            padding: '12px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px',
-            overflowY: 'auto',
-            overflowX: 'hidden',
-            maxHeight: 'calc(98vh - 60px)',
+            margin: '0',
             width: '100%',
+            height: '100%',
             boxSizing: 'border-box',
-            flex: '1',
-            minHeight: 'auto'
+            display: 'flex',
+            flexDirection: 'column'
         });
-        
+
         // Add description if provided
         if (this.getDescription) {
             const description = document.createElement('div');
@@ -73,11 +44,33 @@ export class Dialog {
                 borderRadius: '4px',
                 fontSize: '12px',
                 color: '#1565c0',
-                marginBottom: '8px'
+                marginBottom: '12px'
             });
             description.innerHTML = this.getDescription();
-            form.appendChild(description);
+            container.appendChild(description);
         }
+
+        // Create content area (scrollable)
+        const contentArea = document.createElement('div');
+        Object.assign(contentArea.style, {
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            flex: '1 1 auto',
+            minHeight: '0',
+            scrollbarWidth: 'thin',
+            scrollbarColor: '#c1c1c1 #f1f1f1',
+            paddingRight: '8px'
+        });
+
+        const form = document.createElement('form');
+        Object.assign(form.style, {
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+            width: '100%',
+            boxSizing: 'border-box'
+        });
+
 
         // Create form fields from parameters
         if (this.parameters && Array.isArray(this.parameters)) {
@@ -163,22 +156,25 @@ export class Dialog {
             });
         }
 
-        // Add button container
+        // Append form to content area
+        contentArea.appendChild(form);
+        container.appendChild(contentArea);
+
+        // Add button container at the bottom
         const buttonContainer = document.createElement('div');
         Object.assign(buttonContainer.style, {
             display: 'flex',
             gap: '8px',
-            marginTop: '12px',
             justifyContent: 'flex-end',
-            paddingTop: '8px',
-            paddingBottom: '0',
+            marginTop: '16px',
+            paddingTop: '16px',
             borderTop: '1px solid #e9ecef'
         });
 
         const cancelButton = document.createElement('button');
         cancelButton.textContent = 'Cancel';
         Object.assign(cancelButton.style, {
-            padding: '10px 20px',
+            padding: '8px 16px',
             backgroundColor: '#6c757d',
             color: 'white',
             border: 'none',
@@ -195,11 +191,11 @@ export class Dialog {
             cancelButton.style.backgroundColor = '#6c757d';
         });
 
-        const okButton = document.createElement('button');
-        okButton.textContent = this.submitButtonText;
-        Object.assign(okButton.style, {
-            padding: '10px 20px',
-            backgroundColor: '#0066cc',
+        const calculateButton = document.createElement('button');
+        calculateButton.textContent = this.submitButtonText;
+        Object.assign(calculateButton.style, {
+            padding: '8px 16px',
+            backgroundColor: '#007bff',
             color: 'white',
             border: 'none',
             borderRadius: '4px',
@@ -208,44 +204,141 @@ export class Dialog {
             fontWeight: '500',
             transition: 'background-color 0.2s'
         });
-        okButton.addEventListener('mouseenter', () => {
-            okButton.style.backgroundColor = '#0052a3';
-        });
-        okButton.addEventListener('mouseleave', () => {
-            okButton.style.backgroundColor = '#0066cc';
-        });
-
-        okButton.onclick = (e) => {
-            e.preventDefault();
-            const values = this.getFormValues();
-            
-            console.log(`${this.title} values:`, values);
-            
-            if (callback) {
-                callback(values);
+        calculateButton.addEventListener('mouseenter', () => {
+            if (!calculateButton.disabled) {
+                calculateButton.style.backgroundColor = '#0056b3';
             }
-            
-            this.destroy();
+        });
+        calculateButton.addEventListener('mouseleave', () => {
+            if (!calculateButton.disabled) {
+                calculateButton.style.backgroundColor = '#007bff';
+            }
+        });
+        
+        // Add disabled state styling
+        const updateButtonState = () => {
+            if (calculateButton.disabled) {
+                calculateButton.style.backgroundColor = '#6c757d';
+                calculateButton.style.cursor = 'not-allowed';
+                calculateButton.style.opacity = '0.6';
+            } else {
+                calculateButton.style.backgroundColor = '#007bff';
+                calculateButton.style.cursor = 'pointer';
+                calculateButton.style.opacity = '1';
+            }
         };
+        
+        // Watch for disabled state changes
+        const observer = new MutationObserver(updateButtonState);
+        observer.observe(calculateButton, { attributes: true, attributeFilter: ['disabled'] });
 
+        // Button event handlers
         cancelButton.onclick = (e) => {
             e.preventDefault();
             this.destroy();
+            // Also hide the DrawIO dialog
+            if (this.ui && typeof this.ui.hideDialog === 'function') {
+                this.ui.hideDialog();
+            }
+        };
+
+        calculateButton.onclick = async (e) => {
+            e.preventDefault();
+            
+            // Disable button to prevent multiple clicks
+            calculateButton.disabled = true;
+            const originalText = calculateButton.textContent;
+            calculateButton.textContent = 'Processing...';
+            
+            try {
+                const values = this.getFormValues();
+                console.log(`${this.title} values:`, values);
+                
+                if (callback) {
+                    // Check if callback is async by calling it and checking if it returns a Promise
+                    const result = callback(values);
+                    
+                    // If the callback returns a Promise, wait for it to resolve
+                    if (result && typeof result.then === 'function') {
+                        await result;
+                    }
+                }
+                
+                // Only destroy dialog if callback completed successfully
+                this.destroy();
+                // Also hide the DrawIO dialog
+                if (this.ui && typeof this.ui.hideDialog === 'function') {
+                    this.ui.hideDialog();
+                }
+            } catch (error) {
+                console.error('Error in dialog callback:', error);
+                // Re-enable button and restore text if there was an error
+                calculateButton.disabled = false;
+                calculateButton.textContent = originalText;
+                // Don't destroy dialog on error - let user try again
+            }
         };
 
         buttonContainer.appendChild(cancelButton);
-        buttonContainer.appendChild(okButton);
-        form.appendChild(buttonContainer);
-        container.appendChild(form);
+        buttonContainer.appendChild(calculateButton);
+        container.appendChild(buttonContainer);
 
         this.container = container;
 
-        // Show dialog
+        // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
-            this.ui.showDialog(container, 720, 700, true, true);
+            // Calculate required height based on content (add space for buttons)
+            const minHeight = 350;
+            const maxHeight = Math.min(window.innerHeight * 0.8, 650);
+            const contentHeight = this.calculateContentHeight() + 80; // Add space for buttons
+            const dialogHeight = Math.max(minHeight, Math.min(contentHeight, maxHeight));
+            
+            // Create dialog wrapper for DrawIO system
+            const dialog = {
+                container: container,
+                init: function() {
+                    // Focus first input if available
+                    const firstInput = container.querySelector('input, select, textarea');
+                    if (firstInput) {
+                        setTimeout(() => firstInput.focus(), 100);
+                    }
+                }
+            };
+            
+            // Show dialog without callback - we handle buttons ourselves
+            this.ui.showDialog(dialog.container, 680, dialogHeight, true, false);
+            
+            // Initialize the dialog
+            dialog.init();
         } else {
             this.showModalFallback(container);
         }
+    }
+
+    calculateContentHeight() {
+        if (!this.parameters) return 200;
+        
+        let height = 120; // Header + padding + buttons
+        
+        // Add description height if present
+        if (this.getDescription) {
+            height += 40; // Description box
+        }
+        
+        // Calculate height for each parameter
+        this.parameters.forEach(param => {
+            height += 30; // Label
+            if (param.type === 'radio') {
+                height += (param.options.length * 25) + 20; // Radio options + container padding
+            } else if (param.type === 'checkbox') {
+                height += 25; // Checkbox
+            } else {
+                height += 35; // Input field
+            }
+            height += 10; // Margin between fields
+        });
+        
+        return height;
     }
 
     getFormValues() {
@@ -283,7 +376,87 @@ export class Dialog {
             zIndex: '10000'
         });
 
-        overlay.appendChild(content);
+        // Create a complete dialog container for fallback
+        const dialogContainer = document.createElement('div');
+        Object.assign(dialogContainer.style, {
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+            maxWidth: '680px',
+            width: '90%',
+            maxHeight: '80vh',
+            display: 'flex',
+            flexDirection: 'column'
+        });
+
+        // Add title header
+        const header = document.createElement('div');
+        Object.assign(header.style, {
+            padding: '16px 20px',
+            borderBottom: '1px solid #e9ecef',
+            fontWeight: 'bold',
+            fontSize: '16px'
+        });
+        header.textContent = this.title;
+        dialogContainer.appendChild(header);
+
+        // Add content
+        const contentWrapper = document.createElement('div');
+        Object.assign(contentWrapper.style, {
+            padding: '20px',
+            flex: '1',
+            overflow: 'auto'
+        });
+        contentWrapper.appendChild(content);
+        dialogContainer.appendChild(contentWrapper);
+
+        // Add buttons
+        const buttonContainer = document.createElement('div');
+        Object.assign(buttonContainer.style, {
+            padding: '16px 20px',
+            borderTop: '1px solid #e9ecef',
+            display: 'flex',
+            gap: '8px',
+            justifyContent: 'flex-end'
+        });
+
+        const cancelButton = document.createElement('button');
+        cancelButton.textContent = 'Cancel';
+        Object.assign(cancelButton.style, {
+            padding: '8px 16px',
+            backgroundColor: '#6c757d',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer'
+        });
+        cancelButton.onclick = () => {
+            document.body.removeChild(overlay);
+        };
+
+        const okButton = document.createElement('button');
+        okButton.textContent = this.submitButtonText;
+        Object.assign(okButton.style, {
+            padding: '8px 16px',
+            backgroundColor: '#007bff',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer'
+        });
+        okButton.onclick = () => {
+            const values = this.getFormValues();
+            if (this.callback) {
+                this.callback(values);
+            }
+            document.body.removeChild(overlay);
+        };
+
+        buttonContainer.appendChild(cancelButton);
+        buttonContainer.appendChild(okButton);
+        dialogContainer.appendChild(buttonContainer);
+
+        overlay.appendChild(dialogContainer);
         document.body.appendChild(overlay);
         this.modalOverlay = overlay;
     }
@@ -345,11 +518,16 @@ export class Dialog {
     }
 
     destroy() {
-        if (this.ui && typeof this.ui.hideDialog === 'function') {
-            this.ui.hideDialog();
-        } else if (this.modalOverlay) {
+        // Clean up modal overlay if using fallback
+        if (this.modalOverlay && this.modalOverlay.parentNode) {
             document.body.removeChild(this.modalOverlay);
         }
+        
+        // Clean up any references
+        this.container = null;
+        this.modalOverlay = null;
+        this.callback = null;
+        this.inputs.clear();
     }
 
     // Legacy methods for backward compatibility

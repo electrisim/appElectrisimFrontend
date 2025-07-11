@@ -244,7 +244,12 @@ export class EditDataDialog {
                     }
                 };
                 
-                const grid = new agGrid.Grid(gridDiv, gridOptions);
+                // Check if AG Grid is available
+                if (!window.agGrid) {
+                    throw new Error('AG Grid library not loaded. Please ensure ag-grid-community.min.js is loaded before this module.');
+                }
+                
+                const grid = new window.agGrid.Grid(gridDiv, gridOptions);
                 
                 // Populate grid with cell data
                 this.populateGridData(gridOptions, rowDefs);
@@ -255,7 +260,7 @@ export class EditDataDialog {
                 div.textContent = 'Error creating grid: ' + error.message;
             }
         } else {
-            div.textContent = `Unsupported element type: ${this.elementType}`;
+            div.textContent = `Choose some component in the model first. Unsupported element type: ${this.elementType}`;
         }
         
         // Add buttons at the bottom with ultra-compact layout
@@ -715,4 +720,9 @@ export class EditDataDialog {
 }
 
 // Set default help link
-EditDataDialog.placeholderHelpLink = 'https://pandapower.readthedocs.io/en/latest/elements.html'; 
+EditDataDialog.placeholderHelpLink = 'https://pandapower.readthedocs.io/en/latest/elements.html';
+
+// Make EditDataDialog available globally for legacy compatibility
+if (typeof window !== 'undefined') {
+    window.EditDataDialog = EditDataDialog;
+} 

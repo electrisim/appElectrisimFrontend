@@ -5,7 +5,7 @@ console.log('Testing EditDataDialog...');
 setTimeout(() => {
     try {
         console.log('Dialog initializer loaded:', typeof initializeDialogs !== 'undefined');
-        console.log('AG-Grid available:', typeof agGrid !== 'undefined');
+        console.log('AG-Grid available:', typeof window.agGrid !== 'undefined');
         console.log('EditorUi available:', typeof EditorUi !== 'undefined');
         console.log('EditDataDialog override installed:', EditorUi.prototype.showDataDialog.toString().includes('EditDataDialog'));
         

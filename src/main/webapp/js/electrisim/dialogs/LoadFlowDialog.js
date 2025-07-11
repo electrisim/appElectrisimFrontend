@@ -1,5 +1,6 @@
 // LoadFlowDialog.js - Dialog for Load Flow parameters
 import { Dialog } from '../Dialog.js';
+import { ensureSubscriptionFunctions } from '../ensureSubscriptionFunctions.js';
 
 export class LoadFlowDialog extends Dialog {
     constructor(editorUi) {
@@ -62,24 +63,85 @@ export class LoadFlowDialog extends Dialog {
     }
 
     show(callback) {
-        super.show((values) => {
-            // Convert object to array format expected by loadFlow.js
-            // The callback expects: [frequency, algorithm, calculate_voltage_angles, initialization, maxIterations, tolerance, enforceLimits]
-            const valuesArray = [
-                values[0], // frequency
-                values[1], // algorithm
-                values[2], // calculate_voltage_angles
-                values[3], // initialization
-                values[4], // maxIterations
-                values[5], // tolerance
-                values[6]  // enforceLimits
-            ];
+        console.log('LoadFlowDialog.show() called');
+        super.show(async (values) => {
+            console.log('LoadFlowDialog Calculate button clicked, values:', values);
             
-            console.log('Load Flow Dialog values array:', valuesArray);
-            
-            if (callback) {
-                callback(valuesArray);
+            // Check subscription status before proceeding
+            try {
+                console.log('LoadFlowDialog: Starting subscription check...');
+                const hasSubscription = await this.checkSubscriptionStatus();
+                console.log('LoadFlowDialog: Subscription check result:', hasSubscription);
+                
+                if (!hasSubscription) {
+                    console.log('LoadFlowDialog: No subscription, showing modal...');
+                    // Show subscription modal if no active subscription
+                    if (window.showSubscriptionModal) {
+                        console.log('LoadFlowDialog: Calling showSubscriptionModal');
+                        window.showSubscriptionModal();
+                    } else {
+                        console.error('LoadFlowDialog: Subscription modal not available');
+                        alert('A subscription is required to use the Load Flow calculation feature.');
+                    }
+                    return;
+                }
+                
+                console.log('LoadFlowDialog: Subscription check passed, proceeding with calculation...');
+                
+                // Convert object to array format expected by loadFlow.js
+                // The callback expects: [frequency, algorithm, calculate_voltage_angles, initialization, maxIterations, tolerance, enforceLimits]
+                const valuesArray = [
+                    values[0], // frequency
+                    values[1], // algorithm
+                    values[2], // calculate_voltage_angles
+                    values[3], // initialization
+                    values[4], // maxIterations
+                    values[5], // tolerance
+                    values[6]  // enforceLimits
+                ];
+                
+                console.log('LoadFlowDialog: Calling callback with values array:', valuesArray);
+                
+                if (callback) {
+                    callback(valuesArray);
+                }
+            } catch (error) {
+                console.error('LoadFlowDialog: Error checking subscription status:', error);
+                alert('Unable to verify subscription status. Please try again.');
             }
         });
+    }
+
+    // Function to check subscription status
+    async checkSubscriptionStatus() {
+        console.log('LoadFlowDialog.checkSubscriptionStatus() called');
+        try {
+            // First ensure subscription functions are available
+            console.log('LoadFlowDialog: Ensuring subscription functions are available...');
+            const functionsStatus = await ensureSubscriptionFunctions();
+            console.log('LoadFlowDialog: Functions status:', functionsStatus);
+            
+            // Use the global subscription check function
+            if (window.checkSubscriptionStatus) {
+                console.log('LoadFlowDialog: Using window.checkSubscriptionStatus');
+                const result = await window.checkSubscriptionStatus();
+                console.log('LoadFlowDialog: window.checkSubscriptionStatus result:', result);
+                return result;
+            }
+            
+            // Fallback: check if subscription manager exists
+            if (window.SubscriptionManager && window.SubscriptionManager.checkSubscriptionStatus) {
+                console.log('LoadFlowDialog: Using SubscriptionManager.checkSubscriptionStatus');
+                const result = await window.SubscriptionManager.checkSubscriptionStatus();
+                console.log('LoadFlowDialog: SubscriptionManager result:', result);
+                return result;
+            }
+            
+            console.warn('LoadFlowDialog: No subscription check function available');
+            return false;
+        } catch (error) {
+            console.error('LoadFlowDialog: Error in checkSubscriptionStatus:', error);
+            return false;
+        }
     }
 } 

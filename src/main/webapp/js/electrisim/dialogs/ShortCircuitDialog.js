@@ -1,5 +1,6 @@
 // ShortCircuitDialog.js - Dialog for Short Circuit parameters
 import { Dialog } from '../Dialog.js';
+import { ensureSubscriptionFunctions } from '../ensureSubscriptionFunctions.js';
 
 export class ShortCircuitDialog extends Dialog {
     constructor(editorUi) {
@@ -67,12 +68,72 @@ export class ShortCircuitDialog extends Dialog {
     }
 
     show(callback) {
-        super.show((values) => {
-            console.log('Short Circuit Dialog values:', values);
+        console.log('ShortCircuitDialog.show() called');
+        super.show(async (values) => {
+            console.log('ShortCircuitDialog Calculate button clicked, values:', values);
             
-            if (callback) {
-                callback(values);
+            // Check subscription status before proceeding
+            try {
+                console.log('ShortCircuitDialog: Starting subscription check...');
+                const hasSubscription = await this.checkSubscriptionStatus();
+                console.log('ShortCircuitDialog: Subscription check result:', hasSubscription);
+                
+                if (!hasSubscription) {
+                    console.log('ShortCircuitDialog: No subscription, showing modal...');
+                    // Show subscription modal if no active subscription
+                    if (window.showSubscriptionModal) {
+                        console.log('ShortCircuitDialog: Calling showSubscriptionModal');
+                        window.showSubscriptionModal();
+                    } else {
+                        console.error('ShortCircuitDialog: Subscription modal not available');
+                        alert('A subscription is required to use the Short Circuit calculation feature.');
+                    }
+                    return;
+                }
+                
+                console.log('ShortCircuitDialog: Subscription check passed, proceeding with calculation...');
+                console.log('ShortCircuitDialog: Calling callback with values:', values);
+                
+                if (callback) {
+                    callback(values);
+                }
+            } catch (error) {
+                console.error('ShortCircuitDialog: Error checking subscription status:', error);
+                alert('Unable to verify subscription status. Please try again.');
             }
         });
+    }
+
+    // Function to check subscription status
+    async checkSubscriptionStatus() {
+        console.log('ShortCircuitDialog.checkSubscriptionStatus() called');
+        try {
+            // First ensure subscription functions are available
+            console.log('ShortCircuitDialog: Ensuring subscription functions are available...');
+            const functionsStatus = await ensureSubscriptionFunctions();
+            console.log('ShortCircuitDialog: Functions status:', functionsStatus);
+            
+            // Use the global subscription check function
+            if (window.checkSubscriptionStatus) {
+                console.log('ShortCircuitDialog: Using window.checkSubscriptionStatus');
+                const result = await window.checkSubscriptionStatus();
+                console.log('ShortCircuitDialog: window.checkSubscriptionStatus result:', result);
+                return result;
+            }
+            
+            // Fallback: check if subscription manager exists
+            if (window.SubscriptionManager && window.SubscriptionManager.checkSubscriptionStatus) {
+                console.log('ShortCircuitDialog: Using SubscriptionManager.checkSubscriptionStatus');
+                const result = await window.SubscriptionManager.checkSubscriptionStatus();
+                console.log('ShortCircuitDialog: SubscriptionManager result:', result);
+                return result;
+            }
+            
+            console.warn('ShortCircuitDialog: No subscription check function available');
+            return false;
+        } catch (error) {
+            console.error('ShortCircuitDialog: Error in checkSubscriptionStatus:', error);
+            return false;
+        }
     }
 } 
