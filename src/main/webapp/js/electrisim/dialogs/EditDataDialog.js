@@ -19,6 +19,9 @@ export class EditDataDialog {
             
             console.log('EditDataDialog - Element type:', this.elementType);
             
+            // Create a minimal container first (this ensures container is always set)
+            this.container = document.createElement('div');
+            
             // Check for special cases first
             if (this.elementType === "NotEditableLine") {
                 this.handleNotEditableLine();
@@ -30,7 +33,7 @@ export class EditDataDialog {
                 return;
             }
             
-            // Create the main container
+            // Create the main container for normal elements
             this.container = this.createContainer();
             
         } catch (error) {
@@ -56,41 +59,35 @@ export class EditDataDialog {
     }
     
     handleNotEditableLine() {
-        this.shouldShowDialog = false; // Prevent dialog from being shown
+        this.shouldShowDialog = false; // Prevent main dialog from being shown
         
-        try {
-            // Create a beautiful custom styled dialog
-            this.showStyledMessageDialog(
-                'Cannot Edit Element',
-                'This element cannot be edited. To model a line or cable, place it between two buses.',
-                '#FF9800', // Orange color for warning
-                '⚠️' // Warning icon
-            );
-            
-        } catch (error) {
-            console.error('Error in handleNotEditableLine:', error);
-            // Ultimate fallback
-            alert('This element cannot be edited. To model a line or cable, place it between two buses.');
-        }
+        // Set container to a minimal hidden div to prevent appendChild errors
+        this.container.style.display = 'none';
+        this.container.innerHTML = '';
+        
+        // Use the styled message dialog
+        this.showStyledMessageDialog(
+            'Cannot Edit Element',
+            'This element cannot be edited. To model a line or cable, place it between two buses.',
+            '#FF9800', // Orange color for warning
+            '⚠️' // Warning icon
+        );
     }
     
     handleResultElement() {
-        this.shouldShowDialog = false; // Prevent dialog from being shown
+        this.shouldShowDialog = false; // Prevent main dialog from being shown
         
-        try {
-            // Create a beautiful custom styled dialog
-            this.showStyledMessageDialog(
-                'Information',
-                'This element is a result label. It cannot be edited',
-                '#2196F3', // Blue color for info
-                '📊' // Icon
-            );
-            
-        } catch (error) {
-            console.error('Error in handleResultElement:', error);
-            // Ultimate fallback
-            alert('This element is a result label. It cannot be edited');
-        }
+        // Set container to a minimal hidden div to prevent appendChild errors
+        this.container.style.display = 'none';
+        this.container.innerHTML = '';
+        
+        // Use the styled message dialog
+        this.showStyledMessageDialog(
+            'Information',
+            'This element is a result label. It cannot be edited',
+            '#2196F3', // Blue color for info
+            '📊' // Icon
+        );
     }
     
     createContainer() {
