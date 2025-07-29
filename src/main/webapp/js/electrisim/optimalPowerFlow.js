@@ -125,6 +125,53 @@ function optimalPowerFlowPandaPower(a, b, c) {
                 const max_p_mw_user = parseFloat(params[14]);
 
                 if (params.length > 0) {
+                    // Get current user email with robust fallback
+                    function getUserEmail() {
+                        try {
+                            // First try: direct localStorage access (most reliable)
+                            const userStr = localStorage.getItem('user');
+                            if (userStr) {
+                                const user = JSON.parse(userStr);
+                                if (user && user.email) {
+                                    return user.email;
+                                }
+                            }
+                            
+                            // Second try: global getCurrentUser function
+                            if (typeof getCurrentUser === 'function') {
+                                const currentUser = getCurrentUser();
+                                if (currentUser && currentUser.email) {
+                                    return currentUser.email;
+                                }
+                            }
+                            
+                            // Third try: window.getCurrentUser
+                            if (window.getCurrentUser && typeof window.getCurrentUser === 'function') {
+                                const currentUser = window.getCurrentUser();
+                                if (currentUser && currentUser.email) {
+                                    return currentUser.email;
+                                }
+                            }
+                            
+                            // Fourth try: authHandler
+                            if (window.authHandler && window.authHandler.getCurrentUser) {
+                                const currentUser = window.authHandler.getCurrentUser();
+                                if (currentUser && currentUser.email) {
+                                    return currentUser.email;
+                                }
+                            }
+                            
+                            // Fallback
+                            return 'unknown@user.com';
+                        } catch (error) {
+                            console.warn('Error getting user email:', error);
+                            return 'unknown@user.com';
+                        }
+                    }
+                    
+                    const userEmail = getUserEmail();
+                    console.log('Optimal Power Flow - User email:', userEmail); // Debug log
+                    
                     componentArrays.simulationParameters.push({
                         typ: "OptimalPowerFlowPandaPower Parameters",
                         opf_type: params[0],
@@ -139,156 +186,210 @@ function optimalPowerFlowPandaPower(a, b, c) {
                         ac_line_model: params[9],
                         numba: params[10],
                         suppress_warnings: params[11],
-                        cost_function: params[12]
+                        cost_function: params[12],
+                        user_email: userEmail  // Add user email to simulation data
                     });
 
-                    // Process cells
-                    cellsArray.forEach(cell => {
-                        if (cell.getStyle()?.includes("Result")) {
-                            model.remove(model.getCell(cell.id));
-                            return;
-                        }
+                        // Process cells
+                        cellsArray.forEach(cell => {
+                            if (cell.getStyle()?.includes("Result")) {
+                                model.remove(model.getCell(cell.id));
+                                return;
+                            }
 
-                        const style = parseCellStyle(cell.getStyle());
-                        if (!style) return;
+                            const style = parseCellStyle(cell.getStyle());
+                            if (!style) return;
 
-                        const componentType = style.shapeELXXX;
-                        if (!componentType || componentType == 'NotEditableLine') return;
+                            const componentType = style.shapeELXXX;
+                            if (!componentType || componentType == 'NotEditableLine') return;
 
-                        let baseData;
-                        if(componentType === 'Line' || componentType === 'DCLine'){
-                            baseData = {
-                                name: cell.mxObjectId.replace('#', '_'),
-                                id: cell.id,
-                                bus: getConnectedBusId(cell, true)
-                            };
-                        } else {
-                            baseData = {
-                                name: cell.mxObjectId.replace('#', '_'),
-                                id: cell.id,
-                                bus: getConnectedBusId(cell)
-                            };
-                        }
-
-                        // Process basic component types
-                        switch (componentType) {
-                            case COMPONENT_TYPES.EXTERNAL_GRID:
-                                const externalGrid = {
-                                    ...baseData,
-                                    typ: `External Grid${counters.externalGrid++}`,
-                                    ...getAttributesAsObject(cell, {                                
-                                        vm_pu: 'vm_pu',
-                                        va_degree: 'va_degree',
-                                        s_sc_max_mva: 's_sc_max_mva',
-                                        s_sc_min_mva: 's_sc_min_mva',
-                                        rx_max: 'rx_max',
-                                        rx_min: 'rx_min',
-                                        r0x0_max: 'r0x0_max',
-                                        x0x_max: 'x0x_max'
-                                    })
-                                };
-                                componentArrays.externalGrid.push(externalGrid);
-                                break;
-
-                            case COMPONENT_TYPES.GENERATOR:
-                                const p_mw_val = parseFloat(getAttributesAsObject(cell, {p_mw: 'p_mw'}).p_mw) || 10;
-                                const generator = {
-                                    ...baseData,
-                                    typ: "Generator",
-                                    ...getAttributesAsObject(cell, {
-                                        p_mw: 'p_mw',
-                                        vm_pu: 'vm_pu',
-                                        sn_mva: 'sn_mva',
-                                        scaling: 'scaling',
-                                        vn_kv: 'vn_kv',
-                                        xdss_pu: 'xdss_pu',
-                                        rdss_ohm: 'rdss_ohm',
-                                        cos_phi: 'cos_phi',
-                                        pg_percent: 'pg_percent',
-                                        power_station_trafo: 'power_station_trafo'
-                                    }),
-                                    min_p_mw: perGenLimits[cell.id]?.min ?? 0,
-                                    max_p_mw: perGenLimits[cell.id]?.max ?? p_mw_val
-                                };
-                                componentArrays.generator.push(generator);
-                                counters.generator++;
-                                break;
-
-                            case COMPONENT_TYPES.BUS:
-                                const busbar = {
-                                    typ: `Bus${counters.busbar++}`,
-                                    name: cell.mxObjectId.replace('#', '_'),
+                            // Get user-friendly name from grid data if available
+                            let userFriendlyName = cell.mxObjectId.replace('#', '_'); // fallback to technical ID
+                            
+                            // Try to get the actual user-friendly name from the grid
+                            try {
+                                // For buses, check busDialog grid
+                                if (componentType === COMPONENT_TYPES.BUS && window.gridOptionsBus && window.gridOptionsBus.api) {
+                                    const busData = window.gridOptionsBus.api.getRenderedNodes();
+                                    if (busData && busData.length > 0) {
+                                        // Find matching bus by technical ID
+                                        const matchingBus = busData.find(node => node.data && node.data.id === cell.id);
+                                        if (matchingBus && matchingBus.data && matchingBus.data.name) {
+                                            userFriendlyName = matchingBus.data.name;
+                                        }
+                                    }
+                                }
+                                // For loads, check loadDialog grid
+                                else if (componentType === COMPONENT_TYPES.LOAD && window.gridOptionsLoad && window.gridOptionsLoad.api) {
+                                    const loadData = window.gridOptionsLoad.api.getRenderedNodes();
+                                    if (loadData && loadData.length > 0) {
+                                        const matchingLoad = loadData.find(node => node.data && node.data.id === cell.id);
+                                        if (matchingLoad && matchingLoad.data && matchingLoad.data.name) {
+                                            userFriendlyName = matchingLoad.data.name;
+                                        }
+                                    }
+                                }
+                                // For generators, check generatorDialog grid
+                                else if (componentType === COMPONENT_TYPES.GENERATOR && window.gridOptionsGenerator && window.gridOptionsGenerator.api) {
+                                    const genData = window.gridOptionsGenerator.api.getRenderedNodes();
+                                    if (genData && genData.length > 0) {
+                                        const matchingGen = genData.find(node => node.data && node.data.id === cell.id);
+                                        if (matchingGen && matchingGen.data && matchingGen.data.name) {
+                                            userFriendlyName = matchingGen.data.name;
+                                        }
+                                    }
+                                }
+                                // For lines, check lineDialog grid
+                                else if (componentType === COMPONENT_TYPES.LINE && window.gridOptionsLineDialog && window.gridOptionsLineDialog.api) {
+                                    const lineData = window.gridOptionsLineDialog.api.getRenderedNodes();
+                                    if (lineData && lineData.length > 0) {
+                                        const matchingLine = lineData.find(node => node.data && node.data.id === cell.id);
+                                        if (matchingLine && matchingLine.data && matchingLine.data.name) {
+                                            userFriendlyName = matchingLine.data.name;
+                                        }
+                                    }
+                                }
+                            } catch (error) {
+                                console.warn('Could not get user-friendly name for', componentType, cell.id, error);
+                            }
+                            
+                            let baseData;
+                            if(componentType === 'Line' || componentType === 'DCLine'){
+                                baseData = {
+                                    name: cell.mxObjectId.replace('#', '_'), // technical ID
+                                    userFriendlyName: userFriendlyName, // user-friendly name
                                     id: cell.id,
-                                    vn_kv: cell.value.attributes[2].nodeValue
+                                    bus: getConnectedBusId(cell, true)
                                 };
-                                componentArrays.busbar.push(busbar);
-                                break;
-
-                            case COMPONENT_TYPES.LOAD:
-                                const load = {
-                                    typ: `Load${counters.load++}`,
-                                    name: cell.mxObjectId.replace('#', '_'),
+                            } else {
+                                baseData = {
+                                    name: cell.mxObjectId.replace('#', '_'), // technical ID
+                                    userFriendlyName: userFriendlyName, // user-friendly name
                                     id: cell.id,
-                                    bus: getConnectedBusId(cell),
-                                    ...getAttributesAsObject(cell, {
-                                        p_mw: 'p_mw',
-                                        q_mvar: 'q_mvar',
-                                        const_z_percent: 'const_z_percent',
-                                        const_i_percent: 'const_i_percent',
-                                        sn_mva: 'sn_mva',
-                                        scaling: 'scaling',
-                                        type: 'type'
-                                    })
+                                    bus: getConnectedBusId(cell)
                                 };
-                                componentArrays.load.push(load);
-                                break;
+                            }
 
-                            case COMPONENT_TYPES.LINE:
-                                const line = {
-                                    typ: `Line${counters.line++}`,
-                                    name: cell.mxObjectId.replace('#', '_'),
-                                    id: cell.id,
-                                    busFrom: cell.source?.mxObjectId?.replace('#', '_'),
-                                    busTo: cell.target?.mxObjectId?.replace('#', '_'),
-                                    ...getAttributesAsObject(cell, {
-                                        length_km: 'length_km',
-                                        parallel: 'parallel',
-                                        df: 'df',
-                                        r_ohm_per_km: 'r_ohm_per_km',
-                                        x_ohm_per_km: 'x_ohm_per_km',
-                                        c_nf_per_km: 'c_nf_per_km',
-                                        g_us_per_km: 'g_us_per_km',
-                                        max_i_ka: 'max_i_ka',
-                                        type: 'type'
-                                    })
-                                };
-                                componentArrays.line.push(line);
-                                break;
-                        }
-                    });
+                            // Process basic component types
+                            switch (componentType) {
+                                case COMPONENT_TYPES.EXTERNAL_GRID:
+                                    const externalGrid = {
+                                        ...baseData,
+                                        typ: `External Grid${counters.externalGrid++}`,
+                                        ...getAttributesAsObject(cell, {                                
+                                            vm_pu: 'vm_pu',
+                                            va_degree: 'va_degree',
+                                            s_sc_max_mva: 's_sc_max_mva',
+                                            s_sc_min_mva: 's_sc_min_mva',
+                                            rx_max: 'rx_max',
+                                            rx_min: 'rx_min',
+                                            r0x0_max: 'r0x0_max',
+                                            x0x_max: 'x0x_max'
+                                        })
+                                    };
+                                    componentArrays.externalGrid.push(externalGrid);
+                                    break;
 
-                    // Combine all arrays
-                    const array = [
-                        ...componentArrays.simulationParameters,
-                        ...componentArrays.externalGrid,
-                        ...componentArrays.generator,
-                        ...componentArrays.busbar,
-                        ...componentArrays.load,
-                        ...componentArrays.line
-                    ];
+                                case COMPONENT_TYPES.GENERATOR:
+                                    const p_mw_val = parseFloat(getAttributesAsObject(cell, {p_mw: 'p_mw'}).p_mw) || 10;
+                                    const generator = {
+                                        ...baseData,
+                                        typ: "Generator",
+                                        ...getAttributesAsObject(cell, {
+                                            p_mw: 'p_mw',
+                                            vm_pu: 'vm_pu',
+                                            sn_mva: 'sn_mva',
+                                            scaling: 'scaling',
+                                            vn_kv: 'vn_kv',
+                                            xdss_pu: 'xdss_pu',
+                                            rdss_ohm: 'rdss_ohm',
+                                            cos_phi: 'cos_phi',
+                                            pg_percent: 'pg_percent',
+                                            power_station_trafo: 'power_station_trafo'
+                                        }),
+                                        min_p_mw: perGenLimits[cell.id]?.min ?? 0,
+                                        max_p_mw: perGenLimits[cell.id]?.max ?? p_mw_val
+                                    };
+                                    componentArrays.generator.push(generator);
+                                    counters.generator++;
+                                    break;
 
-                    const obj = Object.assign({}, array);
-                    console.log('OPF Data:', JSON.stringify(obj));
+                                case COMPONENT_TYPES.BUS:
+                                    const busbar = {
+                                        typ: `Bus${counters.busbar++}`,
+                                        name: cell.mxObjectId.replace('#', '_'),
+                                        id: cell.id,
+                                        vn_kv: cell.value.attributes[2].nodeValue
+                                    };
+                                    componentArrays.busbar.push(busbar);
+                                    break;
 
-                    // Send to backend
-                    processNetworkData("https://03dht3kc-5000.euw.devtunnels.ms/", obj, b, grafka);
-                } 
-            });
+                                case COMPONENT_TYPES.LOAD:
+                                    const load = {
+                                        typ: `Load${counters.load++}`,
+                                        name: cell.mxObjectId.replace('#', '_'),
+                                        id: cell.id,
+                                        bus: getConnectedBusId(cell),
+                                        ...getAttributesAsObject(cell, {
+                                            p_mw: 'p_mw',
+                                            q_mvar: 'q_mvar',
+                                            const_z_percent: 'const_z_percent',
+                                            const_i_percent: 'const_i_percent',
+                                            sn_mva: 'sn_mva',
+                                            scaling: 'scaling',
+                                            type: 'type'
+                                        })
+                                    };
+                                    componentArrays.load.push(load);
+                                    break;
+
+                                case COMPONENT_TYPES.LINE:
+                                    const line = {
+                                        typ: `Line${counters.line++}`,
+                                        name: cell.mxObjectId.replace('#', '_'),
+                                        id: cell.id,
+                                        busFrom: cell.source?.mxObjectId?.replace('#', '_'),
+                                        busTo: cell.target?.mxObjectId?.replace('#', '_'),
+                                        ...getAttributesAsObject(cell, {
+                                            length_km: 'length_km',
+                                            parallel: 'parallel',
+                                            df: 'df',
+                                            r_ohm_per_km: 'r_ohm_per_km',
+                                            x_ohm_per_km: 'x_ohm_per_km',
+                                            c_nf_per_km: 'c_nf_per_km',
+                                            g_us_per_km: 'g_us_per_km',
+                                            max_i_ka: 'max_i_ka',
+                                            type: 'type'
+                                        })
+                                    };
+                                    componentArrays.line.push(line);
+                                    break;
+                            }
+                        });
+
+                        // Combine all arrays
+                        const array = [
+                            ...componentArrays.simulationParameters,
+                            ...componentArrays.externalGrid,
+                            ...componentArrays.generator,
+                            ...componentArrays.busbar,
+                            ...componentArrays.load,
+                            ...componentArrays.line
+                        ];
+
+                        const obj = Object.assign({}, array);
+                        console.log('OPF Data:', JSON.stringify(obj));
+
+                        // Send to backend
+                        processNetworkData("https://03dht3kc-5000.euw.devtunnels.ms/", obj, b, grafka);
+                    } 
+                });
+            }
+
+            tryCreateDialog();
         }
-
-        tryCreateDialog();
     }
-}
+
 
 // Main processing function (FROM BACKEND TO FRONTEND)
 async function processNetworkData(url, obj, b, grafka) {
@@ -402,7 +503,7 @@ async function processNetworkData(url, obj, b, grafka) {
     }
 }
 
-// Make optimalPowerFlowPandaPower available globally
+// Make optimalPowerFlowPandaPower available globally immediately after definition
 if (typeof globalThis !== 'undefined') {
     globalThis.optimalPowerFlowPandaPower = optimalPowerFlowPandaPower;
 } else if (typeof window !== 'undefined') {
@@ -418,4 +519,4 @@ if (typeof module !== 'undefined' && module.exports) {
     } catch (e) {
         // Ignore export errors in non-module environments
     }
-} 
+}

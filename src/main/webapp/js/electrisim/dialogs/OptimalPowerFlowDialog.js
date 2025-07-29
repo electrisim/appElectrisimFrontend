@@ -418,6 +418,10 @@
                         
                         if (!hasSubscription) {
                             console.log('OptimalPowerFlowDialog: No subscription, showing modal...');
+                            // Close the dialog first
+                            document.body.removeChild(overlay);
+                            
+                            // Show subscription modal if no active subscription
                             if (window.showSubscriptionModal) {
                                 console.log('OptimalPowerFlowDialog: Calling showSubscriptionModal');
                                 window.showSubscriptionModal();

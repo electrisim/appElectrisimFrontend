@@ -188,17 +188,59 @@ window.shortCircuitPandaPower = function(a, b, c) {
         apka.spinner.spin(document.body, "Waiting for results...")
 
         if (a.length > 0) {
-            // Initialize short circuit parameters
+            // Get current user email with robust fallback
+            function getUserEmail() {
+                try {
+                    // First try: direct localStorage access (most reliable)
+                    const userStr = localStorage.getItem('user');
+                    if (userStr) {
+                        const user = JSON.parse(userStr);
+                        if (user && user.email) {
+                            return user.email;
+                        }
+                    }
+                    
+                    // Second try: global getCurrentUser function
+                    if (typeof getCurrentUser === 'function') {
+                        const currentUser = getCurrentUser();
+                        if (currentUser && currentUser.email) {
+                            return currentUser.email;
+                        }
+                    }
+                    
+                    // Third try: window.getCurrentUser
+                    if (window.getCurrentUser && typeof window.getCurrentUser === 'function') {
+                        const currentUser = window.getCurrentUser();
+                        if (currentUser && currentUser.email) {
+                            return currentUser.email;
+                        }
+                    }
+                    
+                    // Fourth try: authHandler
+                    if (window.authHandler && window.authHandler.getCurrentUser) {
+                        const currentUser = window.authHandler.getCurrentUser();
+                        if (currentUser && currentUser.email) {
+                            return currentUser.email;
+                        }
+                    }
+                    
+                    // Fallback
+                    return 'unknown@user.com';
+                } catch (error) {
+                    console.warn('Error getting user email:', error);
+                    return 'unknown@user.com';
+                }
+            }
+            
+            const userEmail = getUserEmail();
+            console.log('Short Circuit - User email:', userEmail); // Debug log
+            
             componentArrays.simulationParameters.push({
                 typ: "ShortCircuitPandaPower Parameters",
-                fault: a[0],
-                case: a[1],
-                lv_tol_percent: a[2],
-                topology: a[3],
-                tk_s: a[4],
-                r_fault_ohm: a[5],
-                x_fault_ohm: a[6],
-                inverse_y: a[7]
+                fault_type: a[0],
+                fault_location: a[1],
+                fault_impedance: a[2],
+                user_email: userEmail  // Add user email to simulation data
             });
 
             // Process cells
