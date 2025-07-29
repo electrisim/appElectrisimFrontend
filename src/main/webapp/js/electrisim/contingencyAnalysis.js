@@ -505,16 +505,67 @@ function contingencyAnalysisPandaPower(a, b, c) {
             apka.spinner.spin(document.body, "Running Contingency Analysis...")
 
             // Initialize contingency analysis parameters
-            if (params.length > 0) {
+            if (a.length > 0) {
+                // Get current user email with robust fallback
+                function getUserEmail() {
+                    try {
+                        // First try: direct localStorage access (most reliable)
+                        const userStr = localStorage.getItem('user');
+                        if (userStr) {
+                            const user = JSON.parse(userStr);
+                            if (user && user.email) {
+                                return user.email;
+                            }
+                        }
+                        
+                        // Second try: global getCurrentUser function
+                        if (typeof getCurrentUser === 'function') {
+                            const currentUser = getCurrentUser();
+                            if (currentUser && currentUser.email) {
+                                return currentUser.email;
+                            }
+                        }
+                        
+                        // Third try: window.getCurrentUser
+                        if (window.getCurrentUser && typeof window.getCurrentUser === 'function') {
+                            const currentUser = window.getCurrentUser();
+                            if (currentUser && currentUser.email) {
+                                return currentUser.email;
+                            }
+                        }
+                        
+                        // Fourth try: authHandler
+                        if (window.authHandler && window.authHandler.getCurrentUser) {
+                            const currentUser = window.authHandler.getCurrentUser();
+                            if (currentUser && currentUser.email) {
+                                return currentUser.email;
+                            }
+                        }
+                        
+                        // Fallback
+                        return 'unknown@user.com';
+                    } catch (error) {
+                        console.warn('Error getting user email:', error);
+                        return 'unknown@user.com';
+                    }
+                }
+                
+                const userEmail = getUserEmail();
+                console.log('Contingency Analysis - User email:', userEmail); // Debug log
+                
                 componentArrays.simulationParameters.push({
                     typ: "ContingencyAnalysisPandaPower Parameters",
-                    contingency_type: params[0],
-                    element_type: params[1],
-                    elements_to_analyze: params[2],
-                    voltage_limits: params[3],
-                    thermal_limits: params[4],
-                    min_vm_pu: params[5],
-                    max_vm_pu: params[6]
+                    contingency_type: a[0],
+                    element_type: a[1],
+                    elements_to_analyze: a[2],
+                    voltage_limits: a[3],
+                    thermal_limits: a[4],
+                    min_vm_pu: a[5],
+                    max_vm_pu: a[6],
+                    max_loading_percent: a[7],
+                    post_contingency_actions: a[8],
+                    analysis_mode: a[9],
+                    user_email: userEmail  // Add user email to simulation data
                 });
             }
 

@@ -75,6 +75,11 @@ export class LoadFlowDialog extends Dialog {
                 
                 if (!hasSubscription) {
                     console.log('LoadFlowDialog: No subscription, showing modal...');
+                    // Close the dialog first
+                    if (this.modalOverlay && this.modalOverlay.parentNode) {
+                        document.body.removeChild(this.modalOverlay);
+                    }
+                    
                     // Show subscription modal if no active subscription
                     if (window.showSubscriptionModal) {
                         console.log('LoadFlowDialog: Calling showSubscriptionModal');

@@ -883,12 +883,67 @@ function loadFlowPandaPower(a, b, c) {
 
         // Initialize load flow parameters
         if (a.length > 0) {
+            // Get current user email with robust fallback
+            function getUserEmail() {
+                try {
+                    // First try: direct localStorage access (most reliable)
+                    const userStr = localStorage.getItem('user');
+                    if (userStr) {
+                        const user = JSON.parse(userStr);
+                        if (user && user.email) {
+                            return user.email;
+                        }
+                    }
+                    
+                    // Second try: global getCurrentUser function
+                    if (typeof getCurrentUser === 'function') {
+                        const currentUser = getCurrentUser();
+                        if (currentUser && currentUser.email) {
+                            return currentUser.email;
+                        }
+                    }
+                    
+                    // Third try: window.getCurrentUser
+                    if (window.getCurrentUser && typeof window.getCurrentUser === 'function') {
+                        const currentUser = window.getCurrentUser();
+                        if (currentUser && currentUser.email) {
+                            return currentUser.email;
+                        }
+                    }
+                    
+                    // Fourth try: authHandler
+                    if (window.authHandler && window.authHandler.getCurrentUser) {
+                        const currentUser = window.authHandler.getCurrentUser();
+                        if (currentUser && currentUser.email) {
+                            return currentUser.email;
+                        }
+                    }
+                    
+                    // Fallback
+                    return 'unknown@user.com';
+                } catch (error) {
+                    console.warn('Error getting user email:', error);
+                    return 'unknown@user.com';
+                }
+            }
+            
+            const userEmail = getUserEmail();
+            console.log('Load Flow - User email:', userEmail); // Debug log
+            
+            // Additional debugging
+            console.log('=== Load Flow Debug ===');
+            console.log('localStorage user:', localStorage.getItem('user'));
+            console.log('localStorage token:', localStorage.getItem('token'));
+            console.log('Final userEmail:', userEmail);
+            console.log('======================');
+            
             componentArrays.simulationParameters.push({
                 typ: "PowerFlowPandaPower Parameters",
                 frequency: a[0],
                 algorithm: a[1],
                 calculate_voltage_angles: a[2],
-                initialization: a[3]
+                initialization: a[3],
+                user_email: userEmail  // Add user email to simulation data
             });
 
             // Process cells

@@ -70,6 +70,10 @@ async function login(email, password) {
 
         if (response.token) {
             localStorage.setItem('token', response.token);
+            // Also store user data if available
+            if (response.user) {
+                localStorage.setItem('user', JSON.stringify(response.user));
+            }
             return response;
         } else {
             throw new Error('Invalid response from server');
@@ -300,6 +304,55 @@ const authHandler = {
 // Make functions available globally BEFORE exports
 window.isAuthenticated = isAuthenticated;
 window.authHandler = authHandler;
+window.getCurrentUser = getCurrentUser;  // Make getCurrentUser globally available
+
+// Add debug function to check user data
+function debugUserData() {
+    console.log('=== Debug User Data ===');
+    console.log('localStorage user:', localStorage.getItem('user'));
+    console.log('localStorage token:', localStorage.getItem('token'));
+    
+    try {
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+            const user = JSON.parse(userStr);
+            console.log('Parsed user object:', user);
+            console.log('User email:', user ? user.email : 'No email');
+            console.log('User name:', user ? user.name : 'No name');
+            console.log('User ID:', user ? user.id : 'No ID');
+        } else {
+            console.log('❌ No user data found in localStorage');
+        }
+    } catch (error) {
+        console.error('Error parsing user data:', error);
+    }
+    
+    console.log('getCurrentUser function available:', typeof getCurrentUser === 'function');
+    console.log('window.getCurrentUser available:', typeof window.getCurrentUser === 'function');
+    console.log('window.authHandler available:', !!window.authHandler);
+    
+    // Test the getUserEmail function
+    console.log('--- Testing getUserEmail function ---');
+    try {
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+            const user = JSON.parse(userStr);
+            if (user && user.email) {
+                console.log('✅ getUserEmail would return:', user.email);
+            } else {
+                console.log('❌ User object has no email property');
+            }
+        } else {
+            console.log('❌ No user data in localStorage');
+        }
+    } catch (error) {
+        console.error('❌ Error testing getUserEmail:', error);
+    }
+    
+    console.log('========================');
+}
+
+window.debugUserData = debugUserData;  // Make debug function globally available
 
 // Export all functions
 export { authHandler };
