@@ -3,7 +3,18 @@
     class DiagnosticReportDialog {
         constructor(diagnosticData) {
             this.diagnosticData = diagnosticData;
-            this.title = 'Power Flow Diagnostic Report';
+            // Set a more general title
+            this.title = this.detectShortCircuitDiagnostic(diagnosticData)
+                ? 'Short Circuit Diagnostic Report'
+                : 'Power Flow Diagnostic Report';
+        }
+
+        detectShortCircuitDiagnostic(data) {
+            // Heuristic: if data is a string and contains 'PANDAPOWER DIAGNOSTIC TOOL', treat as short circuit diagnostic
+            if (typeof data === 'string' && data.includes('PANDAPOWER DIAGNOSTIC TOOL')) {
+                return true;
+            }
+            return false;
         }
 
         show() {
@@ -36,8 +47,8 @@
                 padding: 16px; margin-bottom: 20px;
             `;
             errorSummary.innerHTML = `
-                <h3 style="margin: 0 0 8px 0; color: #d32f2f;">⚠️ Power Flow Failed</h3>
-                <p style="margin: 0; color: #c62828;">The power flow calculation could not converge. Please review the diagnostic information below and fix the issues in your network.</p>
+                <h3 style="margin: 0 0 8px 0; color: #d32f2f;">⚠️ ${this.title.replace(' Report','')} Failed</h3>
+                <p style="margin: 0; color: #c62828;">The calculation could not complete. Please review the diagnostic information below and fix the issues in your network.</p>
             `;
             dialog.appendChild(errorSummary);
 
@@ -69,13 +80,19 @@
 
             // Close on overlay click
             overlay.addEventListener('click', (e) => {
-                if (e.target === overlay) document.body.removeChild(overlay);
+                if (e.target === overlay) {
+                    if (overlay.parentNode) {
+                        document.body.removeChild(overlay);
+                    }
+                }
             });
 
             // Close on Escape key
             const handleEscape = (e) => {
                 if (e.key === 'Escape') {
-                    document.body.removeChild(overlay);
+                    if (overlay.parentNode) {
+                        document.body.removeChild(overlay);
+                    }
                     document.removeEventListener('keydown', handleEscape);
                 }
             };
@@ -84,18 +101,41 @@
 
         processDiagnosticData(content) {
             const data = this.diagnosticData;
-
-            // Handle different types of diagnostic data
-            if (Array.isArray(data)) {
-                // Handle array format (error messages)
+            // If it's a string and looks like a Pandapower diagnostic, render as preformatted
+            if (typeof data === 'string' && data.includes('PANDAPOWER DIAGNOSTIC TOOL')) {
+                this.createPandapowerDiagnosticSection(content, data);
+            } else if (Array.isArray(data)) {
                 this.createErrorSection(content, 'Error Messages', data);
             } else if (typeof data === 'object') {
-                // Handle object format (detailed diagnostic)
                 this.createDetailedDiagnostic(content, data);
             } else {
-                // Handle string format
                 this.createErrorSection(content, 'Error', [String(data)]);
             }
+        }
+
+        createPandapowerDiagnosticSection(content, diagnosticText) {
+            const section = document.createElement('div');
+            section.style.cssText = 'border: 1px solid #1976d2; border-radius: 4px; padding: 0; background: #f5f5f5; margin-bottom: 16px;';
+
+            const pre = document.createElement('pre');
+            pre.style.cssText = 'margin: 0; padding: 16px; font-family: monospace; font-size: 13px; max-height: 400px; overflow-x: auto; overflow-y: auto; background: #f5f5f5; border-radius: 4px;';
+
+            // Optionally, highlight summary and error lines
+            const lines = diagnosticText.split('\n');
+            pre.innerHTML = lines.map(line => {
+                if (/SUMMARY:/i.test(line)) {
+                    return `<span style="color:#d32f2f;font-weight:bold;">${line}</span>`;
+                } else if (/invalid value/i.test(line)) {
+                    return `<span style="color:#c62828;">${line}</span>`;
+                } else if (/failed/i.test(line)) {
+                    return `<span style="color:#e65100;">${line}</span>`;
+                } else {
+                    return line;
+                }
+            }).join('\n');
+
+            section.appendChild(pre);
+            content.appendChild(section);
         }
 
         createErrorSection(content, title, errors) {

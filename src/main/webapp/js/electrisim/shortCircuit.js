@@ -80,6 +80,19 @@ window.shortCircuitPandaPower = function(a, b, c) {
 
     // Error handler
     function handleNetworkErrors(dataJson) {
+        // Check for diagnostic response format (new error handling)
+        if (dataJson.error && dataJson.diagnostic) {
+            console.log('Short Circuit failed with diagnostic information:', dataJson);
+            if (window.DiagnosticReportDialog) {
+                const diagnosticDialog = new window.DiagnosticReportDialog(dataJson.diagnostic);
+                diagnosticDialog.show();
+            } else {
+                alert(`Short Circuit calculation failed: ${dataJson.message}\n\nException: ${dataJson.exception}`);
+            }
+            return true;
+        }
+
+        // Legacy error handling
         const errorTypes = {
             'line': 'Line',
             'bus': 'Bus',
