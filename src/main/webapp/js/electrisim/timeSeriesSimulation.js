@@ -437,6 +437,21 @@ async function processNetworkData(url, obj, b, grafka) {
         const dataJson = await response.json();
         console.log('Time Series Simulation Results:', dataJson);
 
+        // Check for diagnostic response format
+        if (dataJson.error && dataJson.diagnostic) {
+            console.log('Time Series Simulation failed with diagnostic information:', dataJson);
+            
+            // Show diagnostic dialog if available
+            if (window.DiagnosticReportDialog) {
+                const diagnosticDialog = new window.DiagnosticReportDialog(dataJson.diagnostic);
+                diagnosticDialog.show();
+            } else {
+                // Fallback to alert if dialog is not available
+                alert(`Time Series Simulation failed: ${dataJson.message}\n\nException: ${dataJson.exception}`);
+            }
+            return;
+        }
+
         // Basic result processing
         if (dataJson.error) {
             alert('Time Series Simulation Error: ' + dataJson.error);

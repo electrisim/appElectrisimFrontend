@@ -410,6 +410,21 @@ async function processNetworkData(url, obj, b, grafka) {
         const dataJson = await response.json();
         console.log('OPF Results:', dataJson);
 
+        // Check for diagnostic response format
+        if (dataJson.error && dataJson.diagnostic) {
+            console.log('Optimal Power Flow failed with diagnostic information:', dataJson);
+            
+            // Show diagnostic dialog if available
+            if (window.DiagnosticReportDialog) {
+                const diagnosticDialog = new window.DiagnosticReportDialog(dataJson.diagnostic);
+                diagnosticDialog.show();
+            } else {
+                // Fallback to alert if dialog is not available
+                alert(`Optimal Power Flow calculation failed: ${dataJson.message}\n\nException: ${dataJson.exception}`);
+            }
+            return;
+        }
+
         // Basic result processing (can be expanded)
         if (dataJson.error) {
             alert('Optimal Power Flow Error: ' + dataJson.error);

@@ -485,6 +485,22 @@ function loadFlowPandaPower(a, b, c) {
 
     // Error handler
     function handleNetworkErrors(dataJson) {
+        // Check for new diagnostic response format
+        if (dataJson.error && dataJson.diagnostic) {
+            console.log('Power flow failed with diagnostic information:', dataJson);
+            
+            // Show diagnostic dialog if available
+            if (window.DiagnosticReportDialog) {
+                const diagnosticDialog = new window.DiagnosticReportDialog(dataJson.diagnostic);
+                diagnosticDialog.show();
+            } else {
+                // Fallback to alert if dialog is not available
+                alert(`Power flow calculation failed: ${dataJson.message}\n\nException: ${dataJson.exception}`);
+            }
+            return true;
+        }
+
+        // Handle legacy error format
         const errorTypes = {
             'line': 'Line',
             'bus': 'Bus',
@@ -982,6 +998,17 @@ function loadFlowPandaPower(a, b, c) {
                         const externalGrid = {
                             ...baseData,
                             typ: `External Grid${counters.externalGrid++}`,
+                            userFriendlyName: (() => {
+                                // Check if the cell has a name attribute stored
+                                if (cell.value && cell.value.attributes) {
+                                    for (let i = 0; i < cell.value.attributes.length; i++) {
+                                        if (cell.value.attributes[i].nodeName === 'name') {
+                                            return cell.value.attributes[i].nodeValue;
+                                        }
+                                    }
+                                }
+                                return cell.mxObjectId.replace('#', '_');
+                            })(),
                             ...getAttributesAsObject(cell, {                                
                                 vm_pu: 'vm_pu',
                                 va_degree: 'va_degree',
@@ -1000,6 +1027,17 @@ function loadFlowPandaPower(a, b, c) {
                         const generator = {
                             ...baseData,
                             typ: "Generator",
+                            userFriendlyName: (() => {
+                                // Check if the cell has a name attribute stored
+                                if (cell.value && cell.value.attributes) {
+                                    for (let i = 0; i < cell.value.attributes.length; i++) {
+                                        if (cell.value.attributes[i].nodeName === 'name') {
+                                            return cell.value.attributes[i].nodeValue;
+                                        }
+                                    }
+                                }
+                                return cell.mxObjectId.replace('#', '_');
+                            })(),
                             ...getAttributesAsObject(cell, {
                                 p_mw: 'p_mw',
                                 vm_pu: 'vm_pu',
@@ -1021,6 +1059,17 @@ function loadFlowPandaPower(a, b, c) {
                         const staticGenerator = {
                             ...baseData,
                             typ: "Static Generator",
+                            userFriendlyName: (() => {
+                                // Check if the cell has a name attribute stored
+                                if (cell.value && cell.value.attributes) {
+                                    for (let i = 0; i < cell.value.attributes.length; i++) {
+                                        if (cell.value.attributes[i].nodeName === 'name') {
+                                            return cell.value.attributes[i].nodeValue;
+                                        }
+                                    }
+                                }
+                                return cell.mxObjectId.replace('#', '_');
+                            })(),
                             ...getAttributesAsObject(cell, {
                                 p_mw: 'p_mw',
                                 q_mvar: 'q_mvar',
@@ -1044,6 +1093,17 @@ function loadFlowPandaPower(a, b, c) {
                         const asymmetricGenerator = {
                             ...baseData,
                             typ: `Asymmetric Static Generator${counters.asymmetricGenerator++}`,
+                            userFriendlyName: (() => {
+                                // Check if the cell has a name attribute stored
+                                if (cell.value && cell.value.attributes) {
+                                    for (let i = 0; i < cell.value.attributes.length; i++) {
+                                        if (cell.value.attributes[i].nodeName === 'name') {
+                                            return cell.value.attributes[i].nodeValue;
+                                        }
+                                    }
+                                }
+                                return cell.mxObjectId.replace('#', '_');
+                            })(),
                             ...getAttributesAsObject(cell, {
                                 p_a_mw: 'p_a_mw',
                                 p_b_mw: 'p_b_mw',
@@ -1064,7 +1124,18 @@ function loadFlowPandaPower(a, b, c) {
                             typ: `Bus${counters.busbar++}`,
                             name: cell.mxObjectId.replace('#', '_'),
                             id: cell.id,
-                            vn_kv: cell.value.attributes[2].nodeValue
+                            vn_kv: cell.value.attributes[2].nodeValue,
+                            userFriendlyName: (() => {
+                                // Check if the cell has a name attribute stored
+                                if (cell.value && cell.value.attributes) {
+                                    for (let i = 0; i < cell.value.attributes.length; i++) {
+                                        if (cell.value.attributes[i].nodeName === 'name') {
+                                            return cell.value.attributes[i].nodeValue;
+                                        }
+                                    }
+                                }
+                                return cell.mxObjectId.replace('#', '_');
+                            })()
                         };
                         componentArrays.busbar.push(busbar);
                         break;
@@ -1075,6 +1146,17 @@ function loadFlowPandaPower(a, b, c) {
                             typ: `Transformer${counters.transformer++}`,
                             name: cell.mxObjectId.replace('#', '_'),
                             id: cell.id,
+                            userFriendlyName: (() => {
+                                // Check if the cell has a name attribute stored
+                                if (cell.value && cell.value.attributes) {
+                                    for (let i = 0; i < cell.value.attributes.length; i++) {
+                                        if (cell.value.attributes[i].nodeName === 'name') {
+                                            return cell.value.attributes[i].nodeValue;
+                                        }
+                                    }
+                                }
+                                return cell.mxObjectId.replace('#', '_');
+                            })(),
                             hv_bus,
                             lv_bus,
                             ...getAttributesAsObject(cell, {
@@ -1116,6 +1198,17 @@ function loadFlowPandaPower(a, b, c) {
                             typ: `Three Winding Transformer${counters.threeWindingTransformer++}`,
                             name: cell.mxObjectId.replace('#', '_'),
                             id: cell.id,
+                            userFriendlyName: (() => {
+                                // Check if the cell has a name attribute stored
+                                if (cell.value && cell.value.attributes) {
+                                    for (let i = 0; i < cell.value.attributes.length; i++) {
+                                        if (cell.value.attributes[i].nodeName === 'name') {
+                                            return cell.value.attributes[i].nodeValue;
+                                        }
+                                    }
+                                }
+                                return cell.mxObjectId.replace('#', '_');
+                            })(),
                             ...connections,
                             ...getAttributesAsObject(cell, {
                                 // Load flow parameters
@@ -1163,6 +1256,17 @@ function loadFlowPandaPower(a, b, c) {
                             typ: `Shunt Reactor${counters.shuntReactor++}`,
                             name: cell.mxObjectId.replace('#', '_'),
                             id: cell.id,
+                            userFriendlyName: (() => {
+                                // Check if the cell has a name attribute stored
+                                if (cell.value && cell.value.attributes) {
+                                    for (let i = 0; i < cell.value.attributes.length; i++) {
+                                        if (cell.value.attributes[i].nodeName === 'name') {
+                                            return cell.value.attributes[i].nodeValue;
+                                        }
+                                    }
+                                }
+                                return cell.mxObjectId.replace('#', '_');
+                            })(),
                             bus: getConnectedBusId(cell),
                             ...getAttributesAsObject(cell, {
                                 // Load flow parameters
@@ -1182,6 +1286,17 @@ function loadFlowPandaPower(a, b, c) {
                             typ: `Capacitor${counters.capacitor++}`,
                             name: cell.mxObjectId.replace('#', '_'),
                             id: cell.id,
+                            userFriendlyName: (() => {
+                                // Check if the cell has a name attribute stored
+                                if (cell.value && cell.value.attributes) {
+                                    for (let i = 0; i < cell.value.attributes.length; i++) {
+                                        if (cell.value.attributes[i].nodeName === 'name') {
+                                            return cell.value.attributes[i].nodeValue;
+                                        }
+                                    }
+                                }
+                                return cell.mxObjectId.replace('#', '_');
+                            })(),
                             bus: getConnectedBusId(cell),
                             ...getAttributesAsObject(cell, {
                                 // Load flow parameters
@@ -1200,6 +1315,17 @@ function loadFlowPandaPower(a, b, c) {
                             typ: `Load${counters.load++}`,
                             name: cell.mxObjectId.replace('#', '_'),
                             id: cell.id,
+                            userFriendlyName: (() => {
+                                // Check if the cell has a name attribute stored
+                                if (cell.value && cell.value.attributes) {
+                                    for (let i = 0; i < cell.value.attributes.length; i++) {
+                                        if (cell.value.attributes[i].nodeName === 'name') {
+                                            return cell.value.attributes[i].nodeValue;
+                                        }
+                                    }
+                                }
+                                return cell.mxObjectId.replace('#', '_');
+                            })(),
                             bus: getConnectedBusId(cell),
                             ...getAttributesAsObject(cell, {
                                 // Load flow parameters
@@ -1220,6 +1346,17 @@ function loadFlowPandaPower(a, b, c) {
                             typ: `Asymmetric Load${counters.asymmetricLoad++}`,
                             name: cell.mxObjectId.replace('#', '_'),
                             id: cell.id,
+                            userFriendlyName: (() => {
+                                // Check if the cell has a name attribute stored
+                                if (cell.value && cell.value.attributes) {
+                                    for (let i = 0; i < cell.value.attributes.length; i++) {
+                                        if (cell.value.attributes[i].nodeName === 'name') {
+                                            return cell.value.attributes[i].nodeValue;
+                                        }
+                                    }
+                                }
+                                return cell.mxObjectId.replace('#', '_');
+                            })(),
                             bus: getConnectedBusId(cell),
                             ...getAttributesAsObject(cell, {
                                 // Load flow parameters
@@ -1243,6 +1380,17 @@ function loadFlowPandaPower(a, b, c) {
                                 typ: `Impedance${counters.impedance++}`,
                                 name: cell.mxObjectId.replace('#', '_'),
                                 id: cell.id,
+                                userFriendlyName: (() => {
+                                    // Check if the cell has a name attribute stored
+                                    if (cell.value && cell.value.attributes) {
+                                        for (let i = 0; i < cell.value.attributes.length; i++) {
+                                            if (cell.value.attributes[i].nodeName === 'name') {
+                                                return cell.value.attributes[i].nodeValue;
+                                            }
+                                        }
+                                    }
+                                    return cell.mxObjectId.replace('#', '_');
+                                })(),
                                 ...getImpedanceConnections(cell),
                                 ...getAttributesAsObject(cell, {
                                     // Load flow parameters
@@ -1262,6 +1410,17 @@ function loadFlowPandaPower(a, b, c) {
                             typ: `Ward${counters.ward++}`,
                             name: cell.mxObjectId.replace('#', '_'),
                             id: cell.id,
+                            userFriendlyName: (() => {
+                                // Check if the cell has a name attribute stored
+                                if (cell.value && cell.value.attributes) {
+                                    for (let i = 0; i < cell.value.attributes.length; i++) {
+                                        if (cell.value.attributes[i].nodeName === 'name') {
+                                            return cell.value.attributes[i].nodeValue;
+                                        }
+                                    }
+                                }
+                                return cell.mxObjectId.replace('#', '_');
+                            })(),
                             bus: getConnectedBusId(cell),
                             ...getAttributesAsObject(cell, {
                                 // Load flow parameters
@@ -1279,6 +1438,17 @@ function loadFlowPandaPower(a, b, c) {
                             typ: `Extended Ward${counters.extendedWard++}`,
                             name: cell.mxObjectId.replace('#', '_'),
                             id: cell.id,
+                            userFriendlyName: (() => {
+                                // Check if the cell has a name attribute stored
+                                if (cell.value && cell.value.attributes) {
+                                    for (let i = 0; i < cell.value.attributes.length; i++) {
+                                        if (cell.value.attributes[i].nodeName === 'name') {
+                                            return cell.value.attributes[i].nodeValue;
+                                        }
+                                    }
+                                }
+                                return cell.mxObjectId.replace('#', '_');
+                            })(),
                             bus: getConnectedBusId(cell),
                             ...getAttributesAsObject(cell, {
                                 // Load flow parameters
@@ -1299,6 +1469,17 @@ function loadFlowPandaPower(a, b, c) {
                             typ: `Motor${counters.motor++}`,
                             name: cell.mxObjectId.replace('#', '_'),
                             id: cell.id,
+                            userFriendlyName: (() => {
+                                // Check if the cell has a name attribute stored
+                                if (cell.value && cell.value.attributes) {
+                                    for (let i = 0; i < cell.value.attributes.length; i++) {
+                                        if (cell.value.attributes[i].nodeName === 'name') {
+                                            return cell.value.attributes[i].nodeValue;
+                                        }
+                                    }
+                                }
+                                return cell.mxObjectId.replace('#', '_');
+                            })(),
                             bus: getConnectedBusId(cell),
                             ...getAttributesAsObject(cell, {
                                 // Load flow parameters
@@ -1325,6 +1506,17 @@ function loadFlowPandaPower(a, b, c) {
                             typ: `Storage${counters.storage++}`,
                             name: cell.mxObjectId.replace('#', '_'),
                             id: cell.id,
+                            userFriendlyName: (() => {
+                                // Check if the cell has a name attribute stored
+                                if (cell.value && cell.value.attributes) {
+                                    for (let i = 0; i < cell.value.attributes.length; i++) {
+                                        if (cell.value.attributes[i].nodeName === 'name') {
+                                            return cell.value.attributes[i].nodeValue;
+                                        }
+                                    }
+                                }
+                                return cell.mxObjectId.replace('#', '_');
+                            })(),
                             bus: getConnectedBusId(cell),
                             ...getAttributesAsObject(cell, {
                                 // Load flow parameters
@@ -1346,6 +1538,17 @@ function loadFlowPandaPower(a, b, c) {
                             typ: `SVC${counters.SVC++}`,
                             name: cell.mxObjectId.replace('#', '_'),
                             id: cell.id,
+                            userFriendlyName: (() => {
+                                // Check if the cell has a name attribute stored
+                                if (cell.value && cell.value.attributes) {
+                                    for (let i = 0; i < cell.value.attributes.length; i++) {
+                                        if (cell.value.attributes[i].nodeName === 'name') {
+                                            return cell.value.attributes[i].nodeValue;
+                                        }
+                                    }
+                                }
+                                return cell.mxObjectId.replace('#', '_');
+                            })(),
                             bus: getConnectedBusId(cell),
                             ...getAttributesAsObject(cell, {
                                 // Load flow parameters
@@ -1366,6 +1569,17 @@ function loadFlowPandaPower(a, b, c) {
                             typ: `TCSC${counters.TCSC++}`,
                             name: cell.mxObjectId.replace('#', '_'),
                             id: cell.id,
+                            userFriendlyName: (() => {
+                                // Check if the cell has a name attribute stored
+                                if (cell.value && cell.value.attributes) {
+                                    for (let i = 0; i < cell.value.attributes.length; i++) {
+                                        if (cell.value.attributes[i].nodeName === 'name') {
+                                            return cell.value.attributes[i].nodeValue;
+                                        }
+                                    }
+                                }
+                                return cell.mxObjectId.replace('#', '_');
+                            })(),
                             bus: getConnectedBusId(cell),
                             ...getAttributesAsObject(cell, {
                                 // Load flow parameters
@@ -1386,6 +1600,17 @@ function loadFlowPandaPower(a, b, c) {
                             typ: `SSC${counters.SSC++}`,
                             name: cell.mxObjectId.replace('#', '_'),
                             id: cell.id,
+                            userFriendlyName: (() => {
+                                // Check if the cell has a name attribute stored
+                                if (cell.value && cell.value.attributes) {
+                                    for (let i = 0; i < cell.value.attributes.length; i++) {
+                                        if (cell.value.attributes[i].nodeName === 'name') {
+                                            return cell.value.attributes[i].nodeValue;
+                                        }
+                                    }
+                                }
+                                return cell.mxObjectId.replace('#', '_');
+                            })(),
                             bus: getConnectedBusId(cell),
                             ...getAttributesAsObject(cell, {
                                 // Load flow parameters                       
@@ -1405,6 +1630,17 @@ function loadFlowPandaPower(a, b, c) {
                             typ: `DC Line${counters.dcLine++}`,
                             name: cell.mxObjectId.replace('#', '_'),
                             id: cell.id,
+                            userFriendlyName: (() => {
+                                // Check if the cell has a name attribute stored
+                                if (cell.value && cell.value.attributes) {
+                                    for (let i = 0; i < cell.value.attributes.length; i++) {
+                                        if (cell.value.attributes[i].nodeName === 'name') {
+                                            return cell.value.attributes[i].nodeValue;
+                                        }
+                                    }
+                                }
+                                return cell.mxObjectId.replace('#', '_');
+                            })(),
                             bus: getConnectedBusId(cell),
                             ...getAttributesAsObject(cell, {
                                 // Load flow parameters                       
@@ -1423,6 +1659,17 @@ function loadFlowPandaPower(a, b, c) {
                             typ: `Line${counters.line++}`,
                             name: cell.mxObjectId.replace('#', '_'),
                             id: cell.id,
+                            userFriendlyName: (() => {
+                                // Check if the cell has a name attribute stored
+                                if (cell.value && cell.value.attributes) {
+                                    for (let i = 0; i < cell.value.attributes.length; i++) {
+                                        if (cell.value.attributes[i].nodeName === 'name') {
+                                            return cell.value.attributes[i].nodeValue;
+                                        }
+                                    }
+                                }
+                                return cell.mxObjectId.replace('#', '_');
+                            })(),
                             ...getConnectedBuses(cell),
                             ...getAttributesAsObject(cell, {
                                 // Basic parameters
