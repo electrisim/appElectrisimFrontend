@@ -6545,37 +6545,82 @@ App.prototype.toggleCompactMode = function(visible)
 {
 	visible = (visible != null) ? visible : this.compactMode;
 	
+	// Safety checks for all elements before accessing their style properties
 	if (visible)
 	{
-		this.menubar.container.style.position = 'absolute';
-		this.menubar.container.style.paddingLeft = '59px';
-		this.menubar.container.style.paddingTop = '';
-		this.menubar.container.style.paddingBottom = '';
-		this.menubar.container.style.top = '34px';
-		this.toolbar.container.style.paddingLeft = '16px';
-		this.buttonContainer.style.visibility = 'visible';
-		this.appIcon.style.display = 'block';
-		this.fnameWrapper.style.display = 'block';
-		this.fnameWrapper.style.visibility = 'visible';
+		if (this.menubar && this.menubar.container) {
+			this.menubar.container.style.position = 'absolute';
+			this.menubar.container.style.paddingLeft = '59px';
+			this.menubar.container.style.paddingTop = '';
+			this.menubar.container.style.paddingBottom = '';
+			this.menubar.container.style.top = '34px';
+		}
+		
+		if (this.toolbar && this.toolbar.container) {
+			this.toolbar.container.style.paddingLeft = '16px';
+		}
+		
+		if (this.buttonContainer) {
+			this.buttonContainer.style.visibility = 'visible';
+		}
+		
+		if (this.appIcon) {
+			this.appIcon.style.display = 'block';
+		}
+		
+		if (this.fnameWrapper) {
+			this.fnameWrapper.style.display = 'block';
+			this.fnameWrapper.style.visibility = 'visible';
+		}
+		
 		this.menubarHeight = App.prototype.menubarHeight;
-		this.refresh();
-		this.toggleElement.style.backgroundImage = 'url(\'' + this.chevronUpImage + '\')';
+		
+		// Safety check for refresh method
+		if (typeof this.refresh === 'function') {
+			this.refresh();
+		}
+		
+		if (this.toggleElement && this.chevronUpImage) {
+			this.toggleElement.style.backgroundImage = 'url(\'' + this.chevronUpImage + '\')';
+		}
 	}
 	else
 	{
-		this.menubar.container.style.position = 'relative';
-		this.menubar.container.style.paddingLeft = '4px';
-		this.menubar.container.style.paddingTop = '0px';
-		this.menubar.container.style.paddingBottom = '0px';
-		this.menubar.container.style.top = '0px';
-		this.toolbar.container.style.paddingLeft = '8px';
-		this.buttonContainer.style.visibility = 'hidden';
-		this.appIcon.style.display = 'none';
-		this.fnameWrapper.style.display = 'none';
-		this.fnameWrapper.style.visibility = 'hidden';
+		if (this.menubar && this.menubar.container) {
+			this.menubar.container.style.position = 'relative';
+			this.menubar.container.style.paddingLeft = '4px';
+			this.menubar.container.style.paddingTop = '0px';
+			this.menubar.container.style.paddingBottom = '0px';
+			this.menubar.container.style.top = '0px';
+		}
+		
+		if (this.toolbar && this.toolbar.container) {
+			this.toolbar.container.style.paddingLeft = '8px';
+		}
+		
+		if (this.buttonContainer) {
+			this.buttonContainer.style.visibility = 'hidden';
+		}
+		
+		if (this.appIcon) {
+			this.appIcon.style.display = 'none';
+		}
+		
+		if (this.fnameWrapper) {
+			this.fnameWrapper.style.display = 'none';
+			this.fnameWrapper.style.visibility = 'hidden';
+		}
+		
 		this.menubarHeight = EditorUi.prototype.menubarHeight;
-		this.refresh();
-		this.toggleElement.style.backgroundImage = 'url(\'' + this.chevronDownImage + '\')';
+		
+		// Safety check for refresh method
+		if (typeof this.refresh === 'function') {
+			this.refresh();
+		}
+		
+		if (this.toggleElement && this.chevronDownImage) {
+			this.toggleElement.style.backgroundImage = 'url(\'' + this.chevronDownImage + '\')';
+		}
 	}
 	
 	this.compactMode = !visible;

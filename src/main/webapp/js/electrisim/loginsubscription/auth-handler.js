@@ -162,6 +162,14 @@ function createLoginForm(container) {
             <img src="https://www.google.com/favicon.ico" alt="Google" />
             Sign in with Google
         </button>
+        <button type="button" class="linkedin-btn">
+            <img src="https://content.linkedin.com/content/dam/me/business/en-us/amp/brand-site/v2/bg/LI-Bug.svg.original.svg" alt="LinkedIn" />
+            Sign in with LinkedIn
+        </button>
+        <button type="button" class="microsoft-btn">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_logo.svg" alt="Microsoft" />
+            Sign in with Microsoft
+        </button>
         <p>Don't have an account? <a href="#" id="register-link">Register</a></p>
         <div id="login-error" class="error-message"></div>
     `;
@@ -178,7 +186,16 @@ function createLoginForm(container) {
         try {
             const email = form.querySelector('#email').value;
             const password = form.querySelector('#password').value;
-            await login(email, password);
+            const response = await login(email, password);
+            
+            // Dispatch auth state change event
+            document.dispatchEvent(new CustomEvent('authStateChanged', {
+                detail: {
+                    isAuthenticated: true,
+                    user: response.user
+                }
+            }));
+            
             const baseUrl = config.isDevelopment 
                 ? '/src/main/webapp/index.html'
                 : '/index.html';
@@ -195,9 +212,33 @@ function createLoginForm(container) {
     form.querySelector('.google-btn').addEventListener('click', () => {
         // Use Railway backend URL directly for OAuth
         const backendUrl = config.isDevelopment
-            ? 'http://localhost:3000'
+            ? 'http://localhost:5502'
             : 'https://customers-production-16f8.up.railway.app';
         window.location.href = `${backendUrl}/api/auth/google`;
+    });
+
+    // Handle LinkedIn login
+    form.querySelector('.linkedin-btn').addEventListener('click', () => {
+        console.log('LinkedIn button clicked!');
+        // Use Railway backend URL directly for OAuth
+        const backendUrl = config.isDevelopment
+            ? 'http://localhost:5502'
+            : 'https://customers-production-16f8.up.railway.app';
+        const linkedinUrl = `${backendUrl}/api/auth/linkedin`;
+        console.log('Redirecting to:', linkedinUrl);
+        window.location.href = linkedinUrl;
+    });
+
+    // Handle Microsoft login
+    form.querySelector('.microsoft-btn').addEventListener('click', () => {
+        console.log('Microsoft button clicked!');
+        // Use Railway backend URL directly for OAuth
+        const backendUrl = config.isDevelopment
+            ? 'http://localhost:5502'
+            : 'https://customers-production-16f8.up.railway.app';
+        const microsoftUrl = `${backendUrl}/api/auth/microsoft`;
+        console.log('Redirecting to:', microsoftUrl);
+        window.location.href = microsoftUrl;
     });
     
     container.innerHTML = '';
@@ -233,6 +274,14 @@ function createRegisterForm(container) {
             <img src="https://www.google.com/favicon.ico" alt="Google" />
             Sign up with Google
         </button>
+        <button type="button" class="linkedin-btn">
+            <img src="https://content.linkedin.com/content/dam/me/business/en-us/amp/brand-site/v2/bg/LI-Bug.svg.original.svg" alt="LinkedIn" />
+            Sign up with LinkedIn
+        </button>
+        <button type="button" class="microsoft-btn">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_logo.svg" alt="Microsoft" />
+            Sign up with Microsoft
+        </button>
         <p>Already have an account? <a href="#" id="login-link">Login</a></p>
         <div id="register-error" class="error-message"></div>
     `;
@@ -244,7 +293,16 @@ function createRegisterForm(container) {
         const password = form.querySelector('#password').value;
         
         try {
-            await register(email, password, name);
+            const response = await register(email, password, name);
+            
+            // Dispatch auth state change event
+            document.dispatchEvent(new CustomEvent('authStateChanged', {
+                detail: {
+                    isAuthenticated: true,
+                    user: response.user
+                }
+            }));
+            
             window.location.reload(); // Reload page after successful registration
         } catch (error) {
             const errorElement = form.querySelector('#register-error');
@@ -256,9 +314,33 @@ function createRegisterForm(container) {
     form.querySelector('.google-btn').addEventListener('click', () => {
         // Use Railway backend URL directly for OAuth
         const backendUrl = config.isDevelopment
-            ? 'http://localhost:3000'
+            ? 'http://localhost:5502'
             : 'https://customers-production-16f8.up.railway.app';
         window.location.href = `${backendUrl}/api/auth/google`;
+    });
+
+    // Handle LinkedIn login
+    form.querySelector('.linkedin-btn').addEventListener('click', () => {
+        console.log('LinkedIn button clicked!');
+        // Use Railway backend URL directly for OAuth
+        const backendUrl = config.isDevelopment
+            ? 'http://localhost:5502'
+            : 'https://customers-production-16f8.up.railway.app';
+        const linkedinUrl = `${backendUrl}/api/auth/linkedin`;
+        console.log('Redirecting to:', linkedinUrl);
+        window.location.href = linkedinUrl;
+    });
+
+    // Handle Microsoft login
+    form.querySelector('.microsoft-btn').addEventListener('click', () => {
+        console.log('Microsoft button clicked!');
+        // Use Railway backend URL directly for OAuth
+        const backendUrl = config.isDevelopment
+            ? 'http://localhost:5502'
+            : 'https://customers-production-16f8.up.railway.app';
+        const microsoftUrl = `${backendUrl}/api/auth/microsoft`;
+        console.log('Redirecting to:', microsoftUrl);
+        window.location.href = microsoftUrl;
     });
     
     container.innerHTML = '';
@@ -305,6 +387,46 @@ const authHandler = {
 window.isAuthenticated = isAuthenticated;
 window.authHandler = authHandler;
 window.getCurrentUser = getCurrentUser;  // Make getCurrentUser globally available
+
+// Add fallback functions for app.min.js compatibility
+if (!window.isAuthenticated) {
+    window.isAuthenticated = () => {
+        return !!localStorage.getItem('token');
+    };
+}
+
+if (!window.getCurrentUser) {
+    window.getCurrentUser = () => {
+        const userStr = localStorage.getItem('user');
+        return userStr ? JSON.parse(userStr) : null;
+    };
+}
+
+// Dispatch events when auth state changes
+function dispatchAuthStateChange() {
+    document.dispatchEvent(new CustomEvent('authStateChanged', {
+        detail: {
+            isAuthenticated: isAuthenticated(),
+            user: getCurrentUser()
+        }
+    }));
+}
+
+// Override the original functions to dispatch events
+const originalIsAuthenticated = isAuthenticated;
+window.isAuthenticated = () => {
+    const result = originalIsAuthenticated();
+    // Dispatch event when called
+    setTimeout(dispatchAuthStateChange, 0);
+    return result;
+};
+
+// Override logout to dispatch event
+const originalLogout = logout;
+window.logout = () => {
+    originalLogout();
+    dispatchAuthStateChange();
+};
 
 // Add debug function to check user data
 function debugUserData() {

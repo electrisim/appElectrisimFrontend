@@ -541,5 +541,110 @@ window.checkSubscriptionStatus = async function() {
     }
 };
 
+// Function to fix customer ID mismatch
+async function fixCustomerIdMismatch() {
+    try {
+        const token = getAuthToken();
+        if (!token) {
+            console.error('No authentication token found');
+            alert('Please log in first');
+            return false;
+        }
+
+        console.log('🔧 Fixing customer ID mismatch...');
+
+        const response = await fetch(`${API_BASE_URL}/stripe/fix-customer-id`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to fix customer ID');
+        }
+
+        const data = await response.json();
+        console.log('✅ Customer ID fixed:', data);
+
+        // Update stored token with the new one
+        if (data.newToken) {
+            localStorage.setItem('token', data.newToken);
+            console.log('🔄 Updated authentication token');
+        }
+
+        // Update stored user data
+        if (data.user) {
+            localStorage.setItem('user', JSON.stringify(data.user));
+            console.log('🔄 Updated user data');
+        }
+
+        alert('Customer ID fixed! You can now use Stripe subscriptions.');
+        return true;
+
+    } catch (error) {
+        console.error('Error fixing customer ID:', error);
+        alert('Failed to fix customer ID: ' + error.message);
+        return false;
+    }
+}
+
+// Function to update customer ID to existing test mode customer
+async function updateCustomerIdToTest(testCustomerId) {
+    try {
+        const token = getAuthToken();
+        if (!token) {
+            console.error('No authentication token found');
+            alert('Please log in first');
+            return false;
+        }
+
+        console.log('🔄 Updating customer ID to test mode customer:', testCustomerId);
+
+        const response = await fetch(`${API_BASE_URL}/stripe/update-customer-id`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                newCustomerId: testCustomerId
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to update customer ID');
+        }
+
+        const data = await response.json();
+        console.log('✅ Customer ID updated:', data);
+
+        // Update stored token with the new one
+        if (data.newToken) {
+            localStorage.setItem('token', data.newToken);
+            console.log('🔄 Updated authentication token');
+        }
+
+        // Update stored user data
+        if (data.user) {
+            localStorage.setItem('user', JSON.stringify(data.user));
+            console.log('🔄 Updated user data');
+        }
+
+        alert(`Customer ID updated successfully!\nOld: ${data.oldCustomerId}\nNew: ${data.newCustomerId}`);
+        return true;
+
+    } catch (error) {
+        console.error('Error updating customer ID:', error);
+        alert('Failed to update customer ID: ' + error.message);
+        return false;
+    }
+}
+
 // Make other necessary functions global
 window.showSubscriptionModal = showSubscriptionModal;
+window.fixCustomerIdMismatch = fixCustomerIdMismatch;
+window.updateCustomerIdToTest = updateCustomerIdToTest;

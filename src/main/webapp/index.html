@@ -156,6 +156,16 @@
             { src: 'js/electrisim/loginsubscription/stripe-subscription.js', type: 'module', async: true }
         ];
 
+        // Add auth fallback functions for app.min.js compatibility
+        window.isAuthenticated = window.isAuthenticated || function() {
+            return !!localStorage.getItem('token');
+        };
+        
+        window.getCurrentUser = window.getCurrentUser || function() {
+            const userStr = localStorage.getItem('user');
+            return userStr ? JSON.parse(userStr) : null;
+        };
+
         // Define mxGraph scripts (dependent on mxClient)
         const mxGraphScripts = [
         //    { src: 'js/mxgraph/Init.js' }
@@ -173,6 +183,7 @@
 
         // Define application scripts (ES modules)
         const appScripts = [
+            { src: 'js/electrisim/auth-globals.js' },
             { src: 'js/app.min.js' },
            // { src: 'js/extensions.min.js' },
            // { src: 'js/shapes.min.js' },
@@ -434,6 +445,9 @@
 					// Load AG Grid library before app.min.js
 					mxscript('js/ag-grid-community.min.js', function()
 					{
+                        // Load auth-globals.js BEFORE app.min.js
+                    mxscript('js/electrisim/auth-globals.js', function()
+                    {
 						mxscript('js/app.min.js', function()
 						{
 							// Load Electrisim custom scripts after app.min.js
@@ -568,6 +582,7 @@
 							}
 						});
 					});
+                });
 				};
 				
 				if (!supportedDomain || mxIsElectron)
