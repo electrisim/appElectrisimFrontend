@@ -225,15 +225,17 @@ export class EditDataDialog {
                     
                     // Fine-tune column sizing after grid is ready (no visible jump)
                     try {
-                        const actualContainerWidth = gridDiv.clientWidth - 30;
-                        const columns = params.columnApi.getAllColumns();
-                        
-                        if (columns && columns.length > 0) {
-                            const totalUsedWidth = columns.length * (gridOptions.columnDefs[0]?.width || 150);
+                        if (params && params.columnApi && params.api && gridDiv) {
+                            const actualContainerWidth = gridDiv.clientWidth - 30;
+                            const columns = params.columnApi.getAllColumns();
                             
-                            // Only adjust if there's significant space left or overflow
-                            if (Math.abs(totalUsedWidth - actualContainerWidth) > 50) {
-                                params.api.sizeColumnsToFit();
+                            if (columns && columns.length > 0) {
+                                const totalUsedWidth = columns.length * (gridOptions.columnDefs[0]?.width || 150);
+                                
+                                // Only adjust if there's significant space left or overflow
+                                if (Math.abs(totalUsedWidth - actualContainerWidth) > 50) {
+                                    params.api.sizeColumnsToFit();
+                                }
                             }
                         }
                     } catch (error) {
@@ -244,6 +246,11 @@ export class EditDataDialog {
                 // Check if AG Grid is available
                 if (!window.agGrid) {
                     throw new Error('AG Grid library not loaded. Please ensure ag-grid-community.min.js is loaded before this module.');
+                }
+                
+                // Check if gridOptions is valid
+                if (!gridOptions || !gridOptions.columnDefs) {
+                    throw new Error('Grid configuration is invalid or missing. Please check the grid options.');
                 }
                 
                 const grid = new window.agGrid.Grid(gridDiv, gridOptions);
@@ -261,7 +268,7 @@ export class EditDataDialog {
         }
         
         // Add buttons at the bottom with ultra-compact layout
-        const buttonContainer = this.createButtonContainer(gridOptions);
+        const buttonContainer = this.createButtonContainer(gridOptions || {});
         buttonContainer.style.position = 'relative';
         buttonContainer.style.bottom = '0px';
         buttonContainer.style.marginTop = '2px';  // Minimal margin
@@ -455,6 +462,11 @@ export class EditDataDialog {
     }
     
     createButtonContainer(gridOptions) {
+        // Ensure gridOptions is defined
+        if (!gridOptions) {
+            gridOptions = {};
+        }
+        
         const buttonContainer = document.createElement('div');
         buttonContainer.style.marginTop = '4px';  // Reverted back to 4px
         buttonContainer.style.marginBottom = '0px';  // No bottom margin

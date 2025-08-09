@@ -1,6 +1,6 @@
 const config = {
     development: {
-      apiBaseUrl: 'http://localhost:3000/api',
+      apiBaseUrl: 'http://localhost:5502/api',
       frontendUrl: 'http://127.0.0.1:5501',
       stripePublishableKey: 'pk_test_51OOivlAd4ULYw2NbezAGuGZCcd12huJWoi4GHPmUZzz5SmuCaptFp9tcR8Tefcgpkzu8S5xkI1NG8P0VWQJktoxJ00IX6EC0nO',
       isDevelopment: true
