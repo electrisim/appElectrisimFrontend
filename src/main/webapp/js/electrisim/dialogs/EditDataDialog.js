@@ -8,9 +8,28 @@ export class EditDataDialog {
                 throw new Error('EditDataDialog requires both UI and cell parameters');
             }
 
+            // Check if there's already a dialog for this cell to prevent duplicates
+            if (cell._editDataDialogInstance) {
+                console.log('EditDataDialog already exists for this cell, returning existing instance');
+                return cell._editDataDialogInstance;
+            }
+            
+            // Check if there's already a dialog showing globally
+            if (window._globalDialogShowing) {
+                console.log('Global dialog already showing, ignoring this instance');
+                // Create a minimal container to prevent crashes
+                this.container = document.createElement('div');
+                this.container.style.display = 'none';
+                this.shouldShowDialog = false;
+                return;
+            }
+
             this.ui = ui;
             this.cell = cell;
             this.shouldShowDialog = true; // Flag to control whether dialog should be shown
+            
+            // Store this instance on the cell to prevent duplicates
+            cell._editDataDialogInstance = this;
             
             // Parse the cell style to get element type
             const style = cell.getStyle() || '';
@@ -65,6 +84,14 @@ export class EditDataDialog {
         this.container.style.display = 'none';
         this.container.innerHTML = '';
         
+        // Check if there's already a message dialog showing to prevent duplicates
+        if (window._notEditableMessageShowing || document.querySelector('.not-editable-message-dialog')) {
+            return; // Don't show another dialog if one is already visible
+        }
+        // Set global guards immediately to avoid race conditions from double invocation
+        window._notEditableMessageShowing = true;
+        window._globalDialogShowing = true;
+        
         // Use the styled message dialog
         this.showStyledMessageDialog(
             'Cannot Edit Element',
@@ -81,6 +108,14 @@ export class EditDataDialog {
         this.container.style.display = 'none';
         this.container.innerHTML = '';
         
+        // Check if there's already a message dialog showing to prevent duplicates
+        if (window._resultMessageShowing || document.querySelector('.not-editable-message-dialog')) {
+            return;
+        }
+        // Set global guards immediately to avoid race conditions
+        window._resultMessageShowing = true;
+        window._globalDialogShowing = true;
+
         // Use the styled message dialog
         this.showStyledMessageDialog(
             'Information',
@@ -93,6 +128,8 @@ export class EditDataDialog {
     createContainer() {
         // Create main container with proper sizing like the original
         const div = document.createElement('div');
+        // Mark as electrisim dialog to bypass duplicate guard in showDialog
+        try { div.classList.add('electrisim-dialog'); } catch(e) {}
         div.style.height = '100%';
         div.style.width = '100%';
         div.style.padding = '0px';  // Remove any padding
@@ -483,6 +520,7 @@ export class EditDataDialog {
         
         // Cancel button
         const cancelBtn = this.createButton('Cancel', () => {
+            this.cleanup();
             this.ui.hideDialog();
         });
         buttonContainer.appendChild(cancelBtn);
@@ -510,6 +548,7 @@ export class EditDataDialog {
         // Apply button
         const applyBtn = this.createButton('Apply', () => {
             this.applyChanges(gridOptions);
+            this.cleanup();
             this.ui.hideDialog();
         });
         applyBtn.className = 'geBtn gePrimaryBtn';
@@ -572,10 +611,27 @@ export class EditDataDialog {
         // The container is already set up in the constructor
         // This method is kept for compatibility
     }
+    
+    cleanup() {
+        // Clean up instance references
+        if (this.cell && this.cell._editDataDialogInstance) {
+            delete this.cell._editDataDialogInstance;
+        }
+        if (window._globalDialogShowing) {
+            delete window._globalDialogShowing;
+        }
+    }
 
     showStyledMessageDialog(title, message, accentColor, icon) {
+        // Check if there's already a message dialog showing
+        if (document.querySelector('.not-editable-message-dialog')) {
+            console.log('Message dialog already showing, ignoring duplicate');
+            return;
+        }
+        
         // Create overlay for modal effect
         const overlay = document.createElement('div');
+        overlay.className = 'not-editable-message-dialog';
         overlay.style.cssText = `
             position: fixed;
             top: 0;
@@ -674,6 +730,16 @@ export class EditDataDialog {
                 if (overlay.parentNode) {
                     overlay.parentNode.removeChild(overlay);
                 }
+                // Remove the class to allow future dialogs
+                overlay.className = '';
+                // Clean up the instance reference
+                if (this.cell && this.cell._editDataDialogInstance) {
+                    delete this.cell._editDataDialogInstance;
+                }
+                // Clear global guards
+                if (window._notEditableMessageShowing) delete window._notEditableMessageShowing;
+                if (window._resultMessageShowing) delete window._resultMessageShowing;
+                if (window._globalDialogShowing) delete window._globalDialogShowing;
             }, 200);
         };
 
@@ -692,6 +758,20 @@ export class EditDataDialog {
             }
         };
         document.addEventListener('keydown', handleKeyDown);
+        
+        // Also close on overlay click with proper cleanup
+        overlay.onclick = (e) => {
+            if (e.target === overlay) {
+                okButton.click();
+            }
+        };
+        
+        // Store cleanup function for external access
+        this.cleanup = () => {
+            if (this.cell && this.cell._editDataDialogInstance) {
+                delete this.cell._editDataDialogInstance;
+            }
+        };
 
         // Assemble the dialog
         buttonArea.appendChild(okButton);
