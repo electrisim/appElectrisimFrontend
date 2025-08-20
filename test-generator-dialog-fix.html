@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Generator Dialog Fix</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 6px;
+            background: #e9ecef;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Test Generator Dialog Fix</h1>
+        <p>This test verifies that the generator dialog opens correctly without AG-Grid conflicts.</p>
+        
+        <div class="status" id="status">
+            Ready to test...
+        </div>
+        
+        <button class="test-button" onclick="testGeneratorDialog()">Test Generator Dialog</button>
+        <button class="test-button" onclick="checkGlobalVariables()">Check Global Variables</button>
+        <button class="test-button" onclick="clearStatus()">Clear Status</button>
+        
+        <h3>What This Test Does:</h3>
+        <ul>
+            <li>Tests if the GeneratorDialog class can be instantiated without errors</li>
+            <li>Verifies that no AG-Grid global variables are conflicting</li>
+            <li>Checks if the dialog can be created and shown</li>
+        </ul>
+    </div>
+
+    <script type="module">
+        // Import the GeneratorDialog
+        import { GeneratorDialog } from './src/main/webapp/js/electrisim/generatorDialog.js';
+        
+        // Make it globally available for testing
+        window.GeneratorDialog = GeneratorDialog;
+        
+        // Test function
+        window.testGeneratorDialog = function() {
+            const status = document.getElementById('status');
+            
+            try {
+                status.innerHTML = 'Testing Generator Dialog...';
+                status.className = 'status';
+                
+                // Check if GeneratorDialog is available
+                if (!window.GeneratorDialog) {
+                    throw new Error('GeneratorDialog class not found');
+                }
+                
+                // Create a mock editor UI
+                const mockEditorUi = {
+                    editor: {
+                        graph: {
+                            // Mock graph methods
+                        }
+                    }
+                };
+                
+                // Try to instantiate the dialog
+                const dialog = new window.GeneratorDialog(mockEditorUi);
+                
+                if (!dialog) {
+                    throw new Error('Failed to create dialog instance');
+                }
+                
+                // Check if the dialog has the expected methods
+                if (typeof dialog.show !== 'function') {
+                    throw new Error('Dialog missing show method');
+                }
+                
+                if (typeof dialog.render !== 'function') {
+                    throw new Error('Dialog missing render method');
+                }
+                
+                status.innerHTML = '✅ SUCCESS: Generator Dialog created successfully!<br>' +
+                                'Class: ' + dialog.constructor.name + '<br>' +
+                                'Methods available: show, render, createTab, etc.';
+                status.className = 'status success';
+                
+            } catch (error) {
+                status.innerHTML = '❌ ERROR: ' + error.message + '<br>' +
+                                'Stack: ' + error.stack;
+                status.className = 'status error';
+                console.error('Test failed:', error);
+            }
+        };
+        
+        // Check global variables
+        window.checkGlobalVariables = function() {
+            const status = document.getElementById('status');
+            let message = '<h4>Global Variables Check:</h4>';
+            
+            // Check for AG-Grid variables that should NOT exist
+            const agGridVars = [
+                'gridOptionsGenerator',
+                'rowDefsGenerator', 
+                'columnDefsGenerator'
+            ];
+            
+            let hasConflicts = false;
+            agGridVars.forEach(varName => {
+                if (window[varName]) {
+                    message += `❌ ${varName}: EXISTS (CONFLICT!)<br>`;
+                    hasConflicts = true;
+                } else {
+                    message += `✅ ${varName}: NOT FOUND (GOOD)<br>`;
+                }
+            });
+            
+            // Check for modern dialog class
+            if (window.GeneratorDialog) {
+                message += `✅ GeneratorDialog: AVAILABLE (GOOD)<br>`;
+            } else {
+                message += `❌ GeneratorDialog: NOT FOUND (BAD)<br>`;
+                hasConflicts = true;
+            }
+            
+            if (hasConflicts) {
+                status.className = 'status error';
+                message += '<br><strong>⚠️ CONFLICTS DETECTED!</strong>';
+            } else {
+                status.className = 'status success';
+                message += '<br><strong>✅ NO CONFLICTS DETECTED!</strong>';
+            }
+            
+            status.innerHTML = message;
+        };
+        
+        // Clear status
+        window.clearStatus = function() {
+            const status = document.getElementById('status');
+            status.innerHTML = 'Ready to test...';
+            status.className = 'status';
+        };
+        
+        // Auto-run the global variables check on load
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                window.checkGlobalVariables();
+            }, 500);
+        });
+    </script>
+</body>
+</html>

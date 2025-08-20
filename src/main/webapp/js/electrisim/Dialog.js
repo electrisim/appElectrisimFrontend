@@ -9,6 +9,7 @@ export class Dialog {
         this.modalOverlay = null;
         this.ui = null;
         this.inputs = new Map();
+        this.cleanupCallback = null; // Callback to call when dialog is destroyed
     }
 
     show(callback, parameters = []) {
@@ -171,145 +172,42 @@ export class Dialog {
             borderTop: '1px solid #e9ecef'
         });
 
-        const cancelButton = document.createElement('button');
-        cancelButton.textContent = 'Cancel';
-        Object.assign(cancelButton.style, {
-            padding: '8px 16px',
-            backgroundColor: '#6c757d',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '14px',
-            fontWeight: '500',
-            transition: 'background-color 0.2s'
-        });
-        cancelButton.addEventListener('mouseenter', () => {
-            cancelButton.style.backgroundColor = '#5a6268';
-        });
-        cancelButton.addEventListener('mouseleave', () => {
-            cancelButton.style.backgroundColor = '#6c757d';
-        });
-
-        const calculateButton = document.createElement('button');
-        calculateButton.textContent = this.submitButtonText;
-        Object.assign(calculateButton.style, {
-            padding: '8px 16px',
-            backgroundColor: '#007bff',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '14px',
-            fontWeight: '500',
-            transition: 'background-color 0.2s'
-        });
-        calculateButton.addEventListener('mouseenter', () => {
-            if (!calculateButton.disabled) {
-                calculateButton.style.backgroundColor = '#0056b3';
-            }
-        });
-        calculateButton.addEventListener('mouseleave', () => {
-            if (!calculateButton.disabled) {
-                calculateButton.style.backgroundColor = '#007bff';
-            }
-        });
+        const cancelButton = this.createButton('Cancel', '#6c757d', '#5a6268');
+        const applyButton = this.createButton(this.submitButtonText, '#007bff', '#0056b3');
         
-        // Add disabled state styling
-        const updateButtonState = () => {
-            if (calculateButton.disabled) {
-                calculateButton.style.backgroundColor = '#6c757d';
-                calculateButton.style.cursor = 'not-allowed';
-                calculateButton.style.opacity = '0.6';
-            } else {
-                calculateButton.style.backgroundColor = '#007bff';
-                calculateButton.style.cursor = 'pointer';
-                calculateButton.style.opacity = '1';
-            }
-        };
-        
-        // Watch for disabled state changes
-        const observer = new MutationObserver(updateButtonState);
-        observer.observe(calculateButton, { attributes: true, attributeFilter: ['disabled'] });
-
-        // Button event handlers
         cancelButton.onclick = (e) => {
             e.preventDefault();
             this.destroy();
-            // Also hide the DrawIO dialog
             if (this.ui && typeof this.ui.hideDialog === 'function') {
                 this.ui.hideDialog();
             }
         };
 
-        calculateButton.onclick = async (e) => {
+        applyButton.onclick = (e) => {
             e.preventDefault();
+            const values = this.getFormValues();
+            console.log(`${this.title} values:`, values);
             
-            // Disable button to prevent multiple clicks
-            calculateButton.disabled = true;
-            const originalText = calculateButton.textContent;
-            calculateButton.textContent = 'Processing...';
+            if (this.callback) {
+                this.callback(values);
+            }
             
-            try {
-                const values = this.getFormValues();
-                console.log(`${this.title} values:`, values);
-                
-                if (callback) {
-                    // Check if callback is async by calling it and checking if it returns a Promise
-                    const result = callback(values);
-                    
-                    // If the callback returns a Promise, wait for it to resolve
-                    if (result && typeof result.then === 'function') {
-                        await result;
-                    }
-                }
-                
-                // Only destroy dialog if callback completed successfully
-                this.destroy();
-                // Also hide the DrawIO dialog
-                if (this.ui && typeof this.ui.hideDialog === 'function') {
-                    this.ui.hideDialog();
-                }
-            } catch (error) {
-                console.error('Error in dialog callback:', error);
-                // Re-enable button and restore text if there was an error
-                calculateButton.disabled = false;
-                calculateButton.textContent = originalText;
-                // Don't destroy dialog on error - let user try again
+            this.destroy();
+            if (this.ui && typeof this.ui.hideDialog === 'function') {
+                this.ui.hideDialog();
             }
         };
 
         buttonContainer.appendChild(cancelButton);
-        buttonContainer.appendChild(calculateButton);
+        buttonContainer.appendChild(applyButton);
         container.appendChild(buttonContainer);
 
         this.container = container;
 
-        // Show dialog using DrawIO's dialog system
+        // Use DrawIO's dialog system like externalGridDialog does
         if (this.ui && typeof this.ui.showDialog === 'function') {
-            // Calculate required height based on content (add space for buttons)
-            const minHeight = 350;
-            const maxHeight = Math.min(window.innerHeight * 0.8, 650);
-            const contentHeight = this.calculateContentHeight() + 80; // Add space for buttons
-            const dialogHeight = Math.max(minHeight, Math.min(contentHeight, maxHeight));
-            
-            // Create dialog wrapper for DrawIO system
-            const dialog = {
-                container: container,
-                init: function() {
-                    // Focus first input if available
-                    const firstInput = container.querySelector('input, select, textarea');
-                    if (firstInput) {
-                        setTimeout(() => firstInput.focus(), 100);
-                    }
-                }
-            };
-            
-            // Show dialog without callback - we handle buttons ourselves
-            this.ui.showDialog(dialog.container, 680, dialogHeight, true, false);
-            
-            // Initialize the dialog
-            dialog.init();
+            // The true, false parameters tell DrawIO not to create its own buttons
+            this.ui.showDialog(container, 680, 600, true, false);
         } else {
             this.showModalFallback(container);
         }
@@ -431,7 +329,10 @@ export class Dialog {
             cursor: 'pointer'
         });
         cancelButton.onclick = () => {
-            document.body.removeChild(overlay);
+            this.destroy();
+            if (document.body.contains(overlay)) {
+                document.body.removeChild(overlay);
+            }
         };
 
         const okButton = document.createElement('button');
@@ -444,12 +345,38 @@ export class Dialog {
             borderRadius: '4px',
             cursor: 'pointer'
         });
-        okButton.onclick = () => {
-            const values = this.getFormValues();
-            if (this.callback) {
-                this.callback(values);
+        okButton.onclick = async () => {
+            // Disable button to prevent multiple clicks
+            okButton.disabled = true;
+            const originalText = okButton.textContent;
+            okButton.textContent = 'Processing...';
+            
+            try {
+                const values = this.getFormValues();
+                console.log(`${this.title} values:`, values);
+                
+                if (this.callback) {
+                    // Check if callback is async by calling it and checking if it returns a Promise
+                    const result = this.callback(values);
+                    
+                    // If the callback returns a Promise, wait for it to resolve
+                    if (result && typeof result.then === 'function') {
+                        await result;
+                    }
+                }
+                
+                // Only destroy dialog if callback completed successfully
+                this.destroy();
+                if (document.body.contains(overlay)) {
+                    document.body.removeChild(overlay);
+                }
+            } catch (error) {
+                console.error('Error in dialog callback:', error);
+                // Re-enable button and restore text if there was an error
+                okButton.disabled = false;
+                okButton.textContent = originalText;
+                // Don't destroy dialog on error - let user try again
             }
-            document.body.removeChild(overlay);
         };
 
         buttonContainer.appendChild(cancelButton);
@@ -518,6 +445,15 @@ export class Dialog {
     }
 
     destroy() {
+        // Call cleanup callback if provided (for EditDataDialog cleanup)
+        if (this.cleanupCallback) {
+            try {
+                this.cleanupCallback();
+            } catch (error) {
+                console.error('Error in dialog cleanup callback:', error);
+            }
+        }
+        
         // Clean up modal overlay if using fallback
         if (this.modalOverlay && this.modalOverlay.parentNode) {
             document.body.removeChild(this.modalOverlay);
@@ -527,6 +463,7 @@ export class Dialog {
         this.container = null;
         this.modalOverlay = null;
         this.callback = null;
+        this.cleanupCallback = null;
         this.inputs.clear();
     }
 
@@ -614,6 +551,36 @@ export class Dialog {
             gap: '15px'
         });
         return grid;
+    }
+
+    createButton(text, bgColor, hoverColor) {
+        const button = document.createElement('button');
+        button.textContent = text;
+        Object.assign(button.style, {
+            padding: '8px 16px',
+            backgroundColor: bgColor,
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: '500',
+            transition: 'background-color 0.2s'
+        });
+        
+        button.addEventListener('mouseenter', () => {
+            if (!button.disabled) {
+                button.style.backgroundColor = hoverColor;
+            }
+        });
+        
+        button.addEventListener('mouseleave', () => {
+            if (!button.disabled) {
+                button.style.backgroundColor = bgColor;
+            }
+        });
+        
+        return button;
     }
 
     createButtonContainer(onSubmit, onCancel) {
