@@ -220,119 +220,70 @@ function useDataToInsertOnGraph(grafka, a, target, point) {
                 }
             });
 
-            // Force-directed placement parameters
-            const width = Math.ceil(Math.sqrt(busCount)) * 250;
-            const height = Math.ceil(Math.sqrt(busCount)) * 250;
-            const iterations = 50; // More iterations for better optimization
-            const k = 150; // Optimal distance between vertices
+            // Hierarchical placement parameters
+            const levelHeight = 200; // Vertical spacing between voltage levels
+            const busSpacing = 180;  // Horizontal spacing between buses on same level
+            const startX = x + 100;  // Starting X position
+            const startY = y + 100;  // Starting Y position
 
-            // Initialize positions randomly
+            // Group buses by voltage level
+            const voltageGroups = {};
+            busData.data.forEach((bus, index) => {
+                const [name, vn_kv, type, zone, inService] = bus;
+                const voltage = parseFloat(vn_kv);
+                
+                if (!voltageGroups[voltage]) {
+                    voltageGroups[voltage] = [];
+                }
+                voltageGroups[voltage].push({index, name, voltage});
+            });
+
+            // Sort voltage levels in descending order (highest voltage at top)
+            const sortedVoltages = Object.keys(voltageGroups).map(v => parseFloat(v)).sort((a, b) => b - a);
+            
+            // Calculate positions for each voltage level
             const busPositions = [];
             for (let i = 0; i < busCount; i++) {
-                busPositions[i] = {
-                    x: x + Math.random() * width,
-                    y: y + Math.random() * height,
-                    dx: 0,
-                    dy: 0
-                };
+                busPositions[i] = {x: 0, y: 0};
             }
 
-            // Run force-directed algorithm
-            for (let iter = 0; iter < iterations; iter++) {
-                // Reset forces
-                busPositions.forEach(pos => {
-                    pos.dx = 0;
-                    pos.dy = 0;
+            sortedVoltages.forEach((voltage, levelIndex) => {
+                const busesAtLevel = voltageGroups[voltage];
+                const levelY = startY + (levelIndex * levelHeight);
+                
+                // Center the buses horizontally at this voltage level
+                const totalWidth = (busesAtLevel.length - 1) * busSpacing;
+                const levelStartX = startX - (totalWidth / 2);
+                
+                busesAtLevel.forEach((busInfo, busIndex) => {
+                    const busX = levelStartX + (busIndex * busSpacing);
+                    busPositions[busInfo.index] = {
+                        x: busX,
+                        y: levelY
+                    };
                 });
+            });
 
-                // Calculate repulsive forces (all buses repel each other)
-                for (let i = 0; i < busCount; i++) {
-                    for (let j = i + 1; j < busCount; j++) {
-                        const dx = busPositions[j].x - busPositions[i].x;
-                        const dy = busPositions[j].y - busPositions[i].y;
-                        const distance = Math.sqrt(dx * dx + dy * dy) || 1;
-
-                        // Apply inverse square repulsive force
-                        const repulsiveForce = k * k / distance;
-                        const fx = dx / distance * repulsiveForce;
-                        const fy = dy / distance * repulsiveForce;
-
-                        busPositions[i].dx -= fx;
-                        busPositions[i].dy -= fy;
-                        busPositions[j].dx += fx;
-                        busPositions[j].dy += fy;
+            // Fine-tune positions based on transformer connections
+            // Move connected buses closer together if they're on different levels
+            transformerData.data.forEach((trafo) => {
+                const [name, std_type, hv_bus_no, lv_bus_no] = trafo;
+                
+                if (hv_bus_no < busCount && hv_bus_no >= 0 && lv_bus_no < busCount && lv_bus_no >= 0) {
+                    const hvBus = busData.data[hv_bus_no];
+                    const lvBus = busData.data[lv_bus_no];
+                    const hvVoltage = parseFloat(hvBus[1]);
+                    const lvVoltage = parseFloat(lvBus[1]);
+                    
+                    // If buses are on different voltage levels, align them vertically
+                    if (hvVoltage !== lvVoltage) {
+                        // Average their X positions to align them vertically
+                        const avgX = (busPositions[hv_bus_no].x + busPositions[lv_bus_no].x) / 2;
+                        busPositions[hv_bus_no].x = avgX;
+                        busPositions[lv_bus_no].x = avgX;
                     }
                 }
-
-                // Calculate attractive forces (connected buses attract each other)
-                for (let i = 0; i < busCount; i++) {
-                    for (let j = i + 1; j < busCount; j++) {
-                        if (busAdjacencyMatrix[i][j]) {
-                            const connectionStrength = busAdjacencyMatrix[i][j]; // 1 for lines, 2 for transformers
-                            const dx = busPositions[j].x - busPositions[i].x;
-                            const dy = busPositions[j].y - busPositions[i].y;
-                            const distance = Math.sqrt(dx * dx + dy * dy) || 1;
-
-                            // Apply linear attractive force (stronger for transformer connections)
-                            const attractiveForce = distance * distance / k * connectionStrength;
-                            const fx = dx / distance * attractiveForce;
-                            const fy = dy / distance * attractiveForce;
-
-                            busPositions[i].dx += fx;
-                            busPositions[i].dy += fy;
-                            busPositions[j].dx -= fx;
-                            busPositions[j].dy -= fy;
-                        }
-                    }
-                }
-
-                // Extra attractive force for buses connected to the same transformer
-                for (let t = 0; t < trafoCount; t++) {
-                    const trafo = transformerData.data[t];
-                    const [name, std_type, hv_bus_no, lv_bus_no] = trafo;
-
-                    // Check that indices are valid before processing
-                    if (hv_bus_no < busCount && hv_bus_no >= 0 && lv_bus_no < busCount && lv_bus_no >= 0) {
-                        // Extra strong attraction between HV and LV buses of the same transformer
-                        const dx = busPositions[lv_bus_no].x - busPositions[hv_bus_no].x;
-                        const dy = busPositions[lv_bus_no].y - busPositions[hv_bus_no].y;
-                        const distance = Math.sqrt(dx * dx + dy * dy) || 1;
-
-                        // Apply stronger attractive force for transformer-connected buses
-                        const attractiveForce = distance * distance / k * 3; // Stronger attraction
-                        const fx = dx / distance * attractiveForce;
-                        const fy = dy / distance * attractiveForce;
-
-                        busPositions[hv_bus_no].dx += fx;
-                        busPositions[hv_bus_no].dy += fy;
-                        busPositions[lv_bus_no].dx -= fx;
-                        busPositions[lv_bus_no].dy -= fy;
-                    }
-                }
-
-                // Update positions with calculated forces (with damping)
-                const damping = 0.85;
-                const coolDownFactor = 1 - (iter / iterations); // Gradually reduce movement
-
-                busPositions.forEach(pos => {
-                    // Limit maximum movement per iteration
-                    const maxMovement = 40 * coolDownFactor;
-                    const moveMagnitude = Math.sqrt(pos.dx * pos.dx + pos.dy * pos.dy);
-
-                    if (moveMagnitude > maxMovement) {
-                        const scale = maxMovement / moveMagnitude;
-                        pos.dx *= scale;
-                        pos.dy *= scale;
-                    }
-
-                    pos.x += pos.dx * damping * coolDownFactor;
-                    pos.y += pos.dy * damping * coolDownFactor;
-
-                    // Ensure positions stay within bounds
-                    pos.x = Math.max(x + 80, Math.min(x + width - 80, pos.x));
-                    pos.y = Math.max(y + 80, Math.min(y + height - 80, pos.y));
-                });
-            }
+            });
 
             // Create vertices using the calculated positions
             busData.data.forEach((bus, index) => {
@@ -376,39 +327,26 @@ function useDataToInsertOnGraph(grafka, a, target, point) {
                     return;
                 }
 
-                hv_bus = busData.data[hv_bus_no];
-                hv_bus_name = hv_bus[0];
+                let hv_bus = busData.data[hv_bus_no];
+                let hv_bus_name = hv_bus[0];
 
-                lv_bus = busData.data[lv_bus_no];
-                lv_bus_name = lv_bus[0];
+                let lv_bus = busData.data[lv_bus_no];
+                let lv_bus_name = lv_bus[0];
 
                 // Find the vertices for the connected buses
                 const hvBusVertex = findVertexByBusId(grafka, parent, hv_bus_name);
                 const lvBusVertex = findVertexByBusId(grafka, parent, lv_bus_name);
 
                 if (hvBusVertex && lvBusVertex) {
-                    // Calculate the midpoint between the two buses with a slight offset
+                    // Calculate the midpoint between the two buses
                     const hvX = hvBusVertex.geometry.x;
                     const hvY = hvBusVertex.geometry.y;
                     const lvX = lvBusVertex.geometry.x;
                     const lvY = lvBusVertex.geometry.y;
 
-                    // Determine if buses are more horizontally or vertically arranged
-                    const dx = Math.abs(hvX - lvX);
-                    const dy = Math.abs(hvY - lvY);
-
-                    let vertexX, vertexY;
-
-                    if (dx > dy) {
-                        // Buses are more horizontally arranged - place transformer between them
-                        vertexX = (hvX + lvX) / 2;
-                        // Place transformer slightly above the line connecting the buses
-                        vertexY = (hvY + lvY) / 2 - 40;
-                    } else {
-                        // Buses are more vertically arranged - place transformer slightly to the side
-                        vertexX = (hvX + lvX) / 2 + 60;
-                        vertexY = (hvY + lvY) / 2;
-                    }
+                    // Place transformer exactly between the HV and LV buses
+                    const vertexX = (hvX + lvX) / 2;
+                    const vertexY = (hvY + lvY) / 2;
 
                     // Use transformer symbol style
                     const trafoStyle = "shapeELXXX=Transformer; verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;strokeWidth=1;shape=mxgraph.electrical.signal_sources.current_source;";
@@ -530,13 +468,14 @@ function useDataToInsertOnGraph(grafka, a, target, point) {
             externalGridData.data.forEach((externalgrid, index) => {
                 const [name, bus_no, vm_pu, va_degree, slack_weight, in_service] = externalgrid;
 
-                bus = busData.data[bus_no]
-                bus_name = bus[0]
+                let bus = busData.data[bus_no];
+                let bus_name = bus[0];
 
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
 
-                const vertexX = busVertex.geometry.x + 60  // Position based on bus index
-                const vertexY = busVertex.geometry.y - 60;  // Position over buses
+                // Position external grid above the bus
+                const vertexX = busVertex.geometry.x;
+                const vertexY = busVertex.geometry.y - 80;
 
                 const styleExternalGrid = "verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=externalGrid;shapeELXXX=External Grid"
 
@@ -568,13 +507,15 @@ function useDataToInsertOnGraph(grafka, a, target, point) {
             generatorData.data.forEach((generator, index) => {
                 const [name, bus_no, p_mw, vm_pu, sn_mva, min_q_mvar, max_q_mvar, scaling, slack, in_service, slack_weight, type] = generator;
 
-                bus = busData.data[bus_no]
-                bus_name = bus[0]
+                let bus = busData.data[bus_no];
+                let bus_name = bus[0];
 
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
 
-                const vertexX = busVertex.geometry.x + 60  // Position based on bus index
-                const vertexY = busVertex.geometry.y + 60;  // Position below bus
+                // Position generator below the bus, slightly offset to avoid overlaps
+                const generatorOffset = index * 30; // Offset multiple generators on same bus
+                const vertexX = busVertex.geometry.x + generatorOffset;
+                const vertexY = busVertex.geometry.y + 80;
 
                 const styleGenerator = "pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.signal_sources.ac_source;shapeELXXX=Generator"
 
@@ -613,13 +554,15 @@ function useDataToInsertOnGraph(grafka, a, target, point) {
             staticGeneratorData.data.forEach((staticgenerator, index) => {
                 const [name, bus_no, p_mw, q_mvar, sn_mva, scaling, in_service, type, current_source] = staticgenerator;
 
-                bus = busData.data[bus_no]
-                bus_name = bus[0]
+                let bus = busData.data[bus_no];
+                let bus_name = bus[0];
 
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
 
-                const vertexX = busVertex.geometry.x + 60  // Position based on bus index
-                const vertexY = busVertex.geometry.y + 60;  // Position above buses
+                // Position static generator below the bus, offset to avoid overlaps
+                const staticGenOffset = index * 40; // Different offset for static generators
+                const vertexX = busVertex.geometry.x + staticGenOffset;
+                const vertexY = busVertex.geometry.y + 120;
 
                 const styleStaticGenerator = "verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.rot_mech.synchro;shapeELXXX=Static Generator"
 
@@ -654,8 +597,8 @@ function useDataToInsertOnGraph(grafka, a, target, point) {
             asymmetricStaticGeneratorData.data.forEach((asymmetricstaticgenerator, index) => {
                 const [name, bus_no, p_a_mw, q_a_mvar, p_b_mw, q_b_mvar, p_c_mw, q_c_mvar, sn_mva, scaling, in_service, type, current_source] = asymmetricstaticgenerator;
 
-                bus = busData.data[bus_no]
-                bus_name = bus[0]
+                let bus = busData.data[bus_no];
+                let bus_name = bus[0];
 
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
 
@@ -781,14 +724,14 @@ function useDataToInsertOnGraph(grafka, a, target, point) {
                     vk_lv_percent, vkr_hv_percent, vkr_mv_percent, vkr_lv_percent, pfe_kw,
                     i0_percent, shift_mv_degree, tap_side, tap_neutral, tap_min, tap_max, tap_step_percent, tap_step_degree, tap_pos, tap_at_star_point, in_service] = threewindingtransformer;
 
-                hv_bus = busData.data[hv_bus_no]
-                hv_bus_name = hv_bus[0]
+                let hv_bus = busData.data[hv_bus_no];
+                let hv_bus_name = hv_bus[0];
 
-                mv_bus = busData.data[mv_bus_no]
-                mv_bus_name = mv_bus[0]
+                let mv_bus = busData.data[mv_bus_no];
+                let mv_bus_name = mv_bus[0];
 
-                lv_bus = busData.data[lv_bus_no]
-                lv_bus_name = lv_bus[0]
+                let lv_bus = busData.data[lv_bus_no];
+                let lv_bus_name = lv_bus[0];
 
                 // Add edges to connect transformer to the HV and LV buses
                 const hvBusVertex = findVertexByBusId(grafka, parent, hv_bus_name);
@@ -864,8 +807,8 @@ function useDataToInsertOnGraph(grafka, a, target, point) {
             });
             shuntReactorData.data.forEach((shuntreactor, index) => {
                 const [bus_no, name, q_mvar, p_mw, vn_kv, step, max_step, in_service] = shuntreactor;
-                bus = busData.data[bus_no]
-                bus_name = bus[0]
+                let bus = busData.data[bus_no];
+                let bus_name = bus[0];
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
                 const vertexX = busVertex.geometry.x + 60  // Position based on bus index
                 const vertexY = busVertex.geometry.y + 60;  // Position below buses
@@ -930,13 +873,15 @@ function useDataToInsertOnGraph(grafka, a, target, point) {
             loadData.data.forEach((load, index) => {
                 const [name, bus_no, p_mw, q_mvar, const_z_percent, const_i_percent, sn_mva, scaling, type] = load;
 
-                bus = busData.data[bus_no]
-                bus_name = bus[0]
+                let bus = busData.data[bus_no];
+                let bus_name = bus[0];
 
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
 
-                const vertexX = busVertex.geometry.x + 60  // Position based on bus index
-                const vertexY = busVertex.geometry.y + 60;  // Position below buses
+                // Position load below the bus, offset to avoid overlaps with generators
+                const loadOffset = index * 35; // Different offset for loads
+                const vertexX = busVertex.geometry.x - 60 + loadOffset; // Position to the left of bus
+                const vertexY = busVertex.geometry.y + 80;
 
                 const loadStyle = "pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.signal_sources.signal_ground;shapeELXXX=Load"
 
@@ -970,8 +915,8 @@ function useDataToInsertOnGraph(grafka, a, target, point) {
             asymmetricLoadData.data.forEach((asymmetricload, index) => {
                 const [name, bus_no, p_a_mw, q_a_mvar, p_b_mw, q_b_mvar, p_c_mw, q_c_mvar, sn_mva, scaling, in_service, type] = asymmetricload;
 
-                bus = busData.data[bus_no]
-                bus_name = bus[0]
+                let bus = busData.data[bus_no];
+                let bus_name = bus[0];
 
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
 
@@ -1059,8 +1004,8 @@ function useDataToInsertOnGraph(grafka, a, target, point) {
             });
             wardData.data.forEach((ward, index) => {
                 const [name, bus_no, ps_mw, qs_mvar, qz_mvar, pz_mw, in_service] = ward;
-                bus = busData.data[bus_no]
-                bus_name = bus[0]
+                let bus = busData.data[bus_no];
+                let bus_name = bus[0];
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
                 const vertexX = busVertex.geometry.x + 60  // Position based on bus index
                 const vertexY = busVertex.geometry.y + 60;  // Position below buses
@@ -1090,8 +1035,8 @@ function useDataToInsertOnGraph(grafka, a, target, point) {
             });
             extendedWardData.data.forEach((extendedward, index) => {
                 const [name, bus_no, ps_mw, qs_mvar, qz_mvar, pz_mw, r_ohm, x_ohm, vm_pu, slack_weight, in_service] = extendedward;
-                bus = busData.data[bus_no]
-                bus_name = bus[0]
+                let bus = busData.data[bus_no];
+                let bus_name = bus[0];
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
                 const vertexX = busVertex.geometry.x + 60  // Position based on bus index
                 const vertexY = busVertex.geometry.y + 60;  // Position below buses
@@ -1125,8 +1070,8 @@ function useDataToInsertOnGraph(grafka, a, target, point) {
             });
             motorData.data.forEach((motor, index) => {
                 const [name, bus_no, pn_mech_mw, loading_percent, cos_phi, cos_phi_n, efficiency_percent, efficiency_n_percent, lrc_pu, vn_kv, scaling, in_service, rx] = motor;
-                bus = busData.data[bus_no]
-                bus_name = bus[0]
+                let bus = busData.data[bus_no];
+                let bus_name = bus[0];
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
                 const vertexX = busVertex.geometry.x + 60  // Position based on bus index
                 const vertexY = busVertex.geometry.y + 60;  // Position below buses
@@ -1164,8 +1109,8 @@ function useDataToInsertOnGraph(grafka, a, target, point) {
             });
             storageData.data.forEach((storage, index) => {
                 const [name, bus_no, p_mw, q_mvar, sn_mva, soc_percent, min_e_mwh, max_e_mwh, scaling, in_service, type] = storage;
-                bus = busData.data[bus_no]
-                bus_name = bus[0]
+                let bus = busData.data[bus_no];
+                let bus_name = bus[0];
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
                 const vertexX = busVertex.geometry.x + 60  // Position based on bus index
                 const vertexY = busVertex.geometry.y + 60;  // Position below buses
@@ -1201,8 +1146,8 @@ function useDataToInsertOnGraph(grafka, a, target, point) {
             });
             svcData.data.forEach((svc, index) => {
                 const [name, bus_no, x_l_ohm, x_cvar_ohm, set_vm_pu, thyristor_firing_angle_degree, controllable, in_service, min_angle_degree, max_angle_degree, type] = svc;
-                bus = busData.data[bus_no]
-                bus_name = bus[0]
+                let bus = busData.data[bus_no];
+                let bus_name = bus[0];
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
                 const vertexX = busVertex.geometry.x + 60  // Position based on bus index
                 const vertexY = busVertex.geometry.y + 60;  // Position below buses
@@ -1239,11 +1184,11 @@ function useDataToInsertOnGraph(grafka, a, target, point) {
             tcscData.data.forEach((tcsc, index) => {
                 const [name, from_bus_no, to_bus_no, x_l_ohm, x_cvar_ohm, set_p_to_mw,
                     thyristor_firing_angle_degree, controllable, in_service] = tcsc;
-                from_bus = busData.data[from_bus_no]
-                from_bus_name = from_bus[0]
+                let from_bus = busData.data[from_bus_no];
+                let from_bus_name = from_bus[0];
 
-                to_bus = busData.data[to_bus_no]
-                to_bus_name = to_bus[0]
+                let to_bus = busData.data[to_bus_no];
+                let to_bus_name = to_bus[0];
 
                 const hvBusVertex = findVertexByBusId(grafka, parent, from_bus_name);
                 const lvBusVertex = findVertexByBusId(grafka, parent, to_bus_name);
@@ -1322,7 +1267,7 @@ function useDataToInsertOnGraph(grafka, a, target, point) {
                         name,
                         fromBusVertex,
                         toBusVertex,
-                        lineStyle
+                        dclineStyle
                     );
 
                     // Configure line attributes

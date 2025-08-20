@@ -1,5 +1,26 @@
 // EditDataDialog.js - Dialog for editing cell data with AG-Grid support
 import { DIALOG_STYLES } from '../utils/dialogStyles.js';
+import { ExternalGridDialog } from '../externalGridDialog.js';
+import { AsymmetricLoadDialog } from '../asymmetricLoadDialog.js';
+import { AsymmetricStaticGeneratorDialog } from '../asymmetricStaticGeneratorDialog.js';
+import { CapacitorDialog } from '../capacitorDialog.js';
+import { DCLineDialog } from '../dcLineDialog.js';
+import { ExtendedWardDialog } from '../extendedWardDialog.js';
+import { GeneratorDialog } from '../generatorDialog.js';
+import { ImpedanceDialog } from '../impedanceDialog.js';
+import { LoadDialog } from '../loadDialog.js';
+import { MotorDialog } from '../motorDialog.js';
+import { ShuntReactorDialog } from '../shuntReactorDialog.js';
+import { SSCDialog } from '../SSCDialog.js';
+import { StaticGeneratorDialog } from '../staticGeneratorDialog.js';
+import { StorageDialog } from '../storageDialog.js';
+import { SVCDialog } from '../SVCDialog.js';
+import { TCSCDialog } from '../TCSCDialog.js';
+import { WardDialog } from '../wardDialog.js';
+import { BusDialog } from '../busDialog.js';
+import { TransformerDialog } from '../transformerBaseDialog.js';
+import { ThreeWindingTransformerDialog } from '../threeWindingTransformerBaseDialog.js';
+import { LineDialog } from '../lineBaseDialog.js';
 
 export class EditDataDialog {
     constructor(ui, cell) {
@@ -49,6 +70,132 @@ export class EditDataDialog {
             
             if (this.elementType === "Result") {
                 this.handleResultElement();
+                return;
+            }
+            
+            // Handle External Grid with new tabbed dialog
+            if (this.elementType === "External Grid") {
+                this.handleExternalGrid();
+                return;
+            }
+            
+            // Handle Asymmetric Load with new tabbed dialog
+            if (this.elementType === "Asymmetric Load") {
+                this.handleAsymmetricLoad();
+                return;
+            }
+            
+            // Handle Asymmetric Static Generator with new tabbed dialog
+            if (this.elementType === "Asymmetric Static Generator") {
+                this.handleAsymmetricStaticGenerator();
+                return;
+            }
+            
+            // Handle Capacitor with new tabbed dialog
+            if (this.elementType === "Capacitor") {
+                this.handleCapacitor();
+                return;
+            }
+            
+            // Handle DC Line with new tabbed dialog
+            if (this.elementType === "DC Line") {
+                this.handleDCLine();
+                return;
+            }
+            
+            // Handle Extended Ward with new tabbed dialog
+            if (this.elementType === "Extended Ward") {
+                this.handleExtendedWard();
+                return;
+            }
+            
+            // Handle Generator with new tabbed dialog
+            if (this.elementType === "Generator") {
+                this.handleGenerator();
+                return;
+            }
+            
+            // Handle Impedance with new tabbed dialog
+            if (this.elementType === "Impedance") {
+                this.handleImpedance();
+                return;
+            }
+            
+            // Handle Load with new tabbed dialog
+            if (this.elementType === "Load") {
+                this.handleLoad();
+                return;
+            }
+            
+            // Handle Motor with new tabbed dialog
+            if (this.elementType === "Motor") {
+                this.handleMotor();
+                return;
+            }
+            
+            // Handle Shunt Reactor with new tabbed dialog
+            if (this.elementType === "Shunt Reactor") {
+                this.handleShuntReactor();
+                return;
+            }
+            
+            // Handle SSC (STATCOM) with new tabbed dialog
+            if (this.elementType === "SSC(STATCOM)") {
+                this.handleSSC();
+                return;
+            }
+            
+            // Handle Static Generator with new tabbed dialog
+            if (this.elementType === "Static Generator") {
+                this.handleStaticGenerator();
+                return;
+            }
+            
+            // Handle Storage with new tabbed dialog
+            if (this.elementType === "Storage") {
+                this.handleStorage();
+                return;
+            }
+            
+            // Handle SVC with new tabbed dialog
+            if (this.elementType === "SVC") {
+                this.handleSVC();
+                return;
+            }
+            
+            // Handle TCSC with new tabbed dialog
+            if (this.elementType === "TCSC") {
+                this.handleTCSC();
+                return;
+            }
+            
+            // Handle Ward with new tabbed dialog
+            if (this.elementType === "Ward") {
+                this.handleWard();
+                return;
+            }
+            
+            // Handle Bus with new tabbed dialog
+            if (this.elementType === "Bus") {
+                this.handleBus();
+                return;
+            }
+            
+            // Handle Transformer with new tabbed dialog
+            if (this.elementType === "Transformer") {
+                this.handleTransformer();
+                return;
+            }
+            
+            // Handle Three Winding Transformer with new tabbed dialog
+            if (this.elementType === "Three Winding Transformer") {
+                this.handleThreeWindingTransformer();
+                return;
+            }
+            
+            // Handle Line with new tabbed dialog
+            if (this.elementType === "Line") {
+                this.handleLine();
                 return;
             }
             
@@ -125,7 +272,2230 @@ export class EditDataDialog {
         );
     }
     
+    handleExternalGrid() {
+        this.shouldShowDialog = false; // Prevent main dialog from being shown
+        
+        // Set container to a minimal hidden div to prevent appendChild errors
+        this.container.style.display = 'none';
+        this.container.innerHTML = '';
+        
+        // Check if there's already a dialog showing to prevent duplicates
+        if (window._globalDialogShowing || document.querySelector('.modal-overlay')) {
+            console.log('External Grid dialog: Another dialog is already showing, ignoring request');
+            return;
+        }
+        
+        // Set global guards to prevent duplicate dialogs
+        window._globalDialogShowing = true;
+        
+        // Set cell dialog flag
+        if (this.cell) {
+            this.cell._dialogShowing = true;
+        }
+        
+        try {
+            // Create the new External Grid Dialog
+            const externalGridDialog = new ExternalGridDialog(this.ui);
+            
+            // Set cleanup callback to ensure proper cleanup regardless of how dialog is closed
+            this.setDialogCleanup(externalGridDialog);
+            
+            // Populate the dialog with current cell data
+            this.populateExternalGridDialog(externalGridDialog);
+            
+            // Show the dialog
+            externalGridDialog.show((values) => {
+                console.log('External Grid dialog values received:', values);
+                
+                // Apply the values back to the cell
+                this.applyExternalGridValues(values);
+                
+                // Clean up
+                this.cleanup();
+                
+                // Clear global dialog flag (this is also done in dialog.destroy() but adding here for safety)
+                if (window._globalDialogShowing) {
+                    delete window._globalDialogShowing;
+                }
+                
+                // Clear cell dialog flag
+                if (this.cell && this.cell._dialogShowing) {
+                    delete this.cell._dialogShowing;
+                }
+            });
+            
+        } catch (error) {
+            console.error('Error showing External Grid dialog:', error);
+            
+            // Clean up on error
+            this.cleanup();
+            if (window._globalDialogShowing) {
+                delete window._globalDialogShowing;
+            }
+            if (this.cell && this.cell._dialogShowing) {
+                delete this.cell._dialogShowing;
+            }
+            
+            // Show error message
+            alert('Error opening External Grid dialog: ' + error.message);
+        }
+    }
+    
+    handleAsymmetricLoad() {
+        this.shouldShowDialog = false; // Prevent main dialog from being shown
+        
+        // Set container to a minimal hidden div to prevent appendChild errors
+        this.container.style.display = 'none';
+        this.container.innerHTML = '';
+        
+        // Check if there's already a dialog showing to prevent duplicates
+        if (window._globalDialogShowing || document.querySelector('.modal-overlay')) {
+            console.log('Asymmetric Load dialog: Another dialog is already showing, ignoring request');
+            return;
+        }
+        
+        // Set global guards to prevent duplicate dialogs
+        window._globalDialogShowing = true;
+        
+        // Set cell dialog flag
+        if (this.cell) {
+            this.cell._dialogShowing = true;
+        }
+        
+        try {
+            // Create the new Asymmetric Load Dialog
+            const asymmetricLoadDialog = new AsymmetricLoadDialog(this.ui);
+            
+            // Set cleanup callback to ensure proper cleanup regardless of how dialog is closed
+            this.setDialogCleanup(asymmetricLoadDialog);
+            
+            // Populate the dialog with current cell data BEFORE showing it
+            asymmetricLoadDialog.populateDialog(this.cell.value);
+            
+            // Show the dialog
+            asymmetricLoadDialog.show((values) => {
+                console.log('Asymmetric Load dialog values received:', values);
+                
+                // Apply the values back to the cell
+                this.applyAsymmetricLoadValues(values);
+                
+                // Clean up
+                this.cleanup();
+                
+                // Clear global dialog flag (this is also done in dialog.destroy() but adding here for safety)
+                if (window._globalDialogShowing) {
+                    delete window._globalDialogShowing;
+                }
+                
+                // Clear cell dialog flag
+                if (this.cell && this.cell._dialogShowing) {
+                    delete this.cell._dialogShowing;
+                }
+            });
+            
+        } catch (error) {
+            console.error('Error showing Asymmetric Load dialog:', error);
+            
+            // Clean up on error
+            this.cleanup();
+            if (window._globalDialogShowing) {
+                delete window._globalDialogShowing;
+            }
+            if (this.cell && this.cell._dialogShowing) {
+                delete this.cell._dialogShowing;
+            }
+            
+            // Show error message
+            alert('Error opening Asymmetric Load dialog: ' + error.message);
+        }
+    }
+    
+    // Handle Asymmetric Static Generator
+    handleAsymmetricStaticGenerator() {
+        this.shouldShowDialog = false; // Prevent main dialog from being shown
+        
+        // Set container to a minimal hidden div to prevent appendChild errors
+        this.container.style.display = 'none';
+        this.container.innerHTML = '';
+        
+        // Check if there's already a dialog showing to prevent duplicates
+        if (window._globalDialogShowing || document.querySelector('.modal-overlay')) {
+            console.log('Asymmetric Static Generator dialog: Another dialog is already showing, ignoring request');
+            return;
+        }
+        
+        // Set global guards to prevent duplicate dialogs
+        window._globalDialogShowing = true;
+        
+        // Set cell dialog flag
+        if (this.cell) {
+            this.cell._dialogShowing = true;
+        }
+        
+        try {
+            // Create the new Asymmetric Static Generator Dialog
+            const asymmetricStaticGeneratorDialog = new AsymmetricStaticGeneratorDialog(this.ui);
+            this.setDialogCleanup(asymmetricStaticGeneratorDialog);
+            
+            // Populate the dialog with current cell data BEFORE showing it
+            asymmetricStaticGeneratorDialog.populateDialog(this.cell.value);
+            
+            // Show the dialog
+            asymmetricStaticGeneratorDialog.show((values) => {
+                console.log('Asymmetric Static Generator dialog values received:', values);
+                
+                // Apply the values back to the cell
+                this.applyAsymmetricStaticGeneratorValues(values);
+                
+                // Clean up
+                this.cleanup();
+                
+                // Clear global dialog flag (this is also done in dialog.destroy() but adding here for safety)
+                if (window._globalDialogShowing) {
+                    delete window._globalDialogShowing;
+                }
+                
+                // Clear cell dialog flag
+                if (this.cell && this.cell._dialogShowing) {
+                    delete this.cell._dialogShowing;
+                }
+            });
+            
+        } catch (error) {
+            console.error('Error showing Asymmetric Static Generator dialog:', error);
+            
+            // Clean up on error
+            this.cleanup();
+            if (window._globalDialogShowing) {
+                delete window._globalDialogShowing;
+            }
+            if (this.cell && this.cell._dialogShowing) {
+                delete this.cell._dialogShowing;
+            }
+            
+            // Show error message
+            alert('Error opening Asymmetric Static Generator dialog: ' + error.message);
+        }
+    }
+    
+    // Handle Capacitor
+    handleCapacitor() {
+        this.shouldShowDialog = false; // Prevent main dialog from being shown
+        
+        // Set container to a minimal hidden div to prevent appendChild errors
+        this.container.style.display = 'none';
+        this.container.innerHTML = '';
+        
+        // Check if there's already a dialog showing to prevent duplicates
+        if (window._globalDialogShowing || document.querySelector('.modal-overlay')) {
+            console.log('Capacitor dialog: Another dialog is already showing, ignoring request');
+            return;
+        }
+        
+        // Set global guards to prevent duplicate dialogs
+        window._globalDialogShowing = true;
+        
+        // Set cell dialog flag
+        if (this.cell) {
+            this.cell._dialogShowing = true;
+        }
+        
+        try {
+            // Create the new Capacitor Dialog
+            const capacitorDialog = new CapacitorDialog(this.ui);
+            this.setDialogCleanup(capacitorDialog);
+            
+            // Populate the dialog with current cell data BEFORE showing it
+            capacitorDialog.populateDialog(this.cell.value);
+            
+            // Show the dialog
+            capacitorDialog.show((values) => {
+                console.log('Capacitor dialog values received:', values);
+                
+                // Apply the values back to the cell
+                this.applyCapacitorValues(values);
+                
+                // Clean up
+                this.cleanup();
+                
+                // Clear global dialog flag (this is also done in dialog.destroy() but adding here for safety)
+                if (window._globalDialogShowing) {
+                    delete window._globalDialogShowing;
+                }
+                
+                // Clear cell dialog flag
+                if (this.cell && this.cell._dialogShowing) {
+                    delete this.cell._dialogShowing;
+                }
+            });
+            
+        } catch (error) {
+            console.error('Error showing Capacitor dialog:', error);
+            
+            // Clean up on error
+            this.cleanup();
+            if (window._globalDialogShowing) {
+                delete window._globalDialogShowing;
+            }
+            if (this.cell && this.cell._dialogShowing) {
+                delete this.cell._dialogShowing;
+            }
+            
+            // Show error message
+            alert('Error opening Capacitor dialog: ' + error.message);
+        }
+    }
+    
+    // Handle DC Line
+    handleDCLine() {
+        this.shouldShowDialog = false; // Prevent main dialog from being shown
+        
+        // Set container to a minimal hidden div to prevent appendChild errors
+        this.container.style.display = 'none';
+        this.container.innerHTML = '';
+        
+        // Check if there's already a dialog showing to prevent duplicates
+        if (window._globalDialogShowing || document.querySelector('.modal-overlay')) {
+            console.log('DC Line dialog: Another dialog is already showing, ignoring request');
+            return;
+        }
+        
+        // Set global guards to prevent duplicate dialogs
+        window._globalDialogShowing = true;
+        
+        // Set cell dialog flag
+        if (this.cell) {
+            this.cell._dialogShowing = true;
+        }
+        
+        try {
+            // Create the new DC Line Dialog
+            const dcLineDialog = new DCLineDialog(this.ui);
+            this.setDialogCleanup(dcLineDialog);
+            
+            // Populate the dialog with current cell data BEFORE showing it
+            dcLineDialog.populateDialog(this.cell.value);
+            
+            // Show the dialog
+            dcLineDialog.show((values) => {
+                console.log('DC Line dialog values received:', values);
+                
+                // Apply the values back to the cell
+                this.applyDCLineValues(values);
+                
+                // Clean up
+                this.cleanup();
+                
+                // Clear global dialog flag (this is also done in dialog.destroy() but adding here for safety)
+                if (window._globalDialogShowing) {
+                    delete window._globalDialogShowing;
+                }
+                
+                // Clear cell dialog flag
+                if (this.cell && this.cell._dialogShowing) {
+                    delete this.cell._dialogShowing;
+                }
+            });
+            
+        } catch (error) {
+            console.error('Error showing DC Line dialog:', error);
+            
+            // Clean up on error
+            this.cleanup();
+            if (window._globalDialogShowing) {
+                delete window._globalDialogShowing;
+            }
+            if (this.cell && this.cell._dialogShowing) {
+                delete this.cell._dialogShowing;
+            }
+            
+            // Show error message
+            alert('Error opening DC Line dialog: ' + error.message);
+        }
+    }
+    
+    // Handle Extended Ward
+    handleExtendedWard() {
+        this.shouldShowDialog = false; // Prevent main dialog from being shown
+        
+        // Set container to a minimal hidden div to prevent appendChild errors
+        this.container.style.display = 'none';
+        this.container.innerHTML = '';
+        
+        // Check if there's already a dialog showing to prevent duplicates
+        if (window._globalDialogShowing || document.querySelector('.modal-overlay')) {
+            console.log('Extended Ward dialog: Another dialog is already showing, ignoring request');
+            return;
+        }
+        
+        // Set global guards to prevent duplicate dialogs
+        window._globalDialogShowing = true;
+        
+        // Set cell dialog flag
+        if (this.cell) {
+            this.cell._dialogShowing = true;
+        }
+        
+        try {
+            // Create the new Extended Ward Dialog
+            const extendedWardDialog = new ExtendedWardDialog(this.ui);
+            this.setDialogCleanup(extendedWardDialog);
+            
+            // Populate the dialog with current cell data BEFORE showing it
+            extendedWardDialog.populateDialog(this.cell.value);
+            
+            // Show the dialog
+            extendedWardDialog.show((values) => {
+                console.log('Extended Ward dialog values received:', values);
+                
+                // Apply the values back to the cell
+                this.applyExtendedWardValues(values);
+                
+                // Clean up
+                this.cleanup();
+                
+                // Clear global dialog flag (this is also done in dialog.destroy() but adding here for safety)
+                if (window._globalDialogShowing) {
+                    delete window._globalDialogShowing;
+                }
+                
+                // Clear cell dialog flag
+                if (this.cell && this.cell._dialogShowing) {
+                    delete this.cell._dialogShowing;
+                }
+            });
+            
+        } catch (error) {
+            console.error('Error showing Extended Ward dialog:', error);
+            
+            // Clean up on error
+            this.cleanup();
+            if (window._globalDialogShowing) {
+                delete window._globalDialogShowing;
+            }
+            if (this.cell && this.cell._dialogShowing) {
+                delete this.cell._dialogShowing;
+            }
+            
+            // Show error message
+            alert('Error opening Extended Ward dialog: ' + error.message);
+        }
+    }
+    
+    // Handle Generator
+    handleGenerator() {
+        this.shouldShowDialog = false; // Prevent main dialog from being shown
+        
+        // Set container to a minimal hidden div to prevent appendChild errors
+        this.container.style.display = 'none';
+        this.container.innerHTML = '';
+        
+        // Check if there's already a dialog showing to prevent duplicates
+        if (window._globalDialogShowing || document.querySelector('.modal-overlay')) {
+            console.log('Generator dialog: Another dialog is already showing, ignoring request');
+            return;
+        }
+        
+        // Set global guards to prevent duplicate dialogs
+        window._globalDialogShowing = true;
+        
+        // Set cell dialog flag
+        if (this.cell) {
+            this.cell._dialogShowing = true;
+        }
+        
+        try {
+            // Create the new Generator Dialog
+            const generatorDialog = new GeneratorDialog(this.ui);
+            
+            // Set cleanup callback to ensure proper cleanup regardless of how dialog is closed
+            this.setDialogCleanup(generatorDialog);
+            
+            // Populate the dialog with current cell data BEFORE showing it
+            generatorDialog.populateDialog(this.cell.value);
+            
+            // Show the dialog
+            generatorDialog.show((values) => {
+                console.log('Generator dialog values received:', values);
+                
+                // Apply the values back to the cell
+                this.applyGeneratorValues(values);
+                
+                // Clean up
+                this.cleanup();
+                
+                // Clear global dialog flag (this is also done in dialog.destroy() but adding here for safety)
+                if (window._globalDialogShowing) {
+                    delete window._globalDialogShowing;
+                }
+                
+                // Clear cell dialog flag
+                if (this.cell && this.cell._dialogShowing) {
+                    delete this.cell._dialogShowing;
+                }
+            });
+            
+        } catch (error) {
+            console.error('Error showing Generator dialog:', error);
+            
+            // Clean up on error
+            this.cleanup();
+            if (window._globalDialogShowing) {
+                delete window._globalDialogShowing;
+            }
+            if (this.cell && this.cell._dialogShowing) {
+                delete this.cell._dialogShowing;
+            }
+            
+            // Show error message
+            alert('Error opening Generator dialog: ' + error.message);
+        }
+    }
+    
+    // Handle Impedance
+    handleImpedance() {
+        this.shouldShowDialog = false; // Prevent main dialog from being shown
+        
+        // Set container to a minimal hidden div to prevent appendChild errors
+        this.container.style.display = 'none';
+        this.container.innerHTML = '';
+        
+        // Check if there's already a dialog showing to prevent duplicates
+        if (window._globalDialogShowing || document.querySelector('.modal-overlay')) {
+            console.log('Impedance dialog: Another dialog is already showing, ignoring request');
+            return;
+        }
+        
+        // Set global guards to prevent duplicate dialogs
+        window._globalDialogShowing = true;
+        
+        // Set cell dialog flag
+        if (this.cell) {
+            this.cell._dialogShowing = true;
+        }
+        
+        try {
+            // Create the new Impedance Dialog
+            const impedanceDialog = new ImpedanceDialog(this.ui);
+            this.setDialogCleanup(impedanceDialog);
+            
+            // Populate the dialog with current cell data BEFORE showing it
+            impedanceDialog.populateDialog(this.cell.value);
+            
+            // Show the dialog
+            impedanceDialog.show((values) => {
+                console.log('Impedance dialog values received:', values);
+                
+                // Apply the values back to the cell
+                this.applyImpedanceValues(values);
+                
+                // Clean up
+                this.cleanup();
+                
+                // Clear global dialog flag (this is also done in dialog.destroy() but adding here for safety)
+                if (window._globalDialogShowing) {
+                    delete window._globalDialogShowing;
+                }
+                
+                // Clear cell dialog flag
+                if (this.cell && this.cell._dialogShowing) {
+                    delete this.cell._dialogShowing;
+                }
+            });
+            
+        } catch (error) {
+            console.error('Error showing Impedance dialog:', error);
+            
+            // Clean up on error
+            this.cleanup();
+            if (window._globalDialogShowing) {
+                delete window._globalDialogShowing;
+            }
+            if (this.cell && this.cell._dialogShowing) {
+                delete this.cell._dialogShowing;
+            }
+            
+            // Show error message
+            alert('Error opening Impedance dialog: ' + error.message);
+        }
+    }
+    
+    // Handle Load
+    handleLoad() {
+        this.shouldShowDialog = false; // Prevent main dialog from being shown
+        
+        // Set container to a minimal hidden div to prevent appendChild errors
+        this.container.style.display = 'none';
+        this.container.innerHTML = '';
+        
+        // Check if there's already a dialog showing to prevent duplicates
+        if (window._globalDialogShowing || document.querySelector('.modal-overlay')) {
+            console.log('Load dialog: Another dialog is already showing, ignoring request');
+            return;
+        }
+        
+        // Set global guards to prevent duplicate dialogs
+        window._globalDialogShowing = true;
+        
+        // Set cell dialog flag
+        if (this.cell) {
+            this.cell._dialogShowing = true;
+        }
+        
+        try {
+            // Create the new Load Dialog
+            const loadDialog = new LoadDialog(this.ui);
+            this.setDialogCleanup(loadDialog);
+            
+            // Populate the dialog with current cell data BEFORE showing it
+            loadDialog.populateDialog(this.cell.value);
+            
+            // Show the dialog
+            loadDialog.show((values) => {
+                console.log('Load dialog values received:', values);
+                
+                // Apply the values back to the cell
+                this.applyLoadValues(values);
+                
+                // Clean up
+                this.cleanup();
+                
+                // Clear global dialog flag (this is also done in dialog.destroy() but adding here for safety)
+                if (window._globalDialogShowing) {
+                    delete window._globalDialogShowing;
+                }
+                
+                // Clear cell dialog flag
+                if (this.cell && this.cell._dialogShowing) {
+                    delete this.cell._dialogShowing;
+                }
+            });
+            
+        } catch (error) {
+            console.error('Error showing Load dialog:', error);
+            
+            // Clean up on error
+            this.cleanup();
+            if (window._globalDialogShowing) {
+                delete window._globalDialogShowing;
+            }
+            if (this.cell && this.cell._dialogShowing) {
+                delete this.cell._dialogShowing;
+            }
+            
+            // Show error message
+            alert('Error opening Load dialog: ' + error.message);
+        }
+    }
+    
+    // Handle Motor
+    handleMotor() {
+        this.shouldShowDialog = false; // Prevent main dialog from being shown
+        
+        // Set container to a minimal hidden div to prevent appendChild errors
+        this.container.style.display = 'none';
+        this.container.innerHTML = '';
+        
+        // Check if there's already a dialog showing to prevent duplicates
+        if (window._globalDialogShowing || document.querySelector('.modal-overlay')) {
+            console.log('Motor dialog: Another dialog is already showing, ignoring request');
+            return;
+        }
+        
+        // Set global guards to prevent duplicate dialogs
+        window._globalDialogShowing = true;
+        
+        // Set cell dialog flag
+        if (this.cell) {
+            this.cell._dialogShowing = true;
+        }
+        
+        try {
+            // Create the new Motor Dialog
+            const motorDialog = new MotorDialog(this.ui);
+            this.setDialogCleanup(motorDialog);
+            
+            // Populate the dialog with current cell data BEFORE showing it
+            motorDialog.populateDialog(this.cell.value);
+            
+            // Show the dialog
+            motorDialog.show((values) => {
+                console.log('Motor dialog values received:', values);
+                
+                // Apply the values back to the cell
+                this.applyMotorValues(values);
+                
+                // Clean up
+                this.cleanup();
+                
+                // Clear global dialog flag (this is also done in dialog.destroy() but adding here for safety)
+                if (window._globalDialogShowing) {
+                    delete window._globalDialogShowing;
+                }
+                
+                // Clear cell dialog flag
+                if (this.cell && this.cell._dialogShowing) {
+                    delete this.cell._dialogShowing;
+                }
+            });
+            
+        } catch (error) {
+            console.error('Error showing Motor dialog:', error);
+            
+            // Clean up on error
+            this.cleanup();
+            if (window._globalDialogShowing) {
+                delete window._globalDialogShowing;
+            }
+            if (this.cell && this.cell._dialogShowing) {
+                delete this.cell._dialogShowing;
+            }
+            
+            // Show error message
+            alert('Error opening Motor dialog: ' + error.message);
+        }
+    }
+    
+    // Handle Shunt Reactor
+    handleShuntReactor() {
+        this.shouldShowDialog = false; // Prevent main dialog from being shown
+        
+        // Set container to a minimal hidden div to prevent appendChild errors
+        this.container.style.display = 'none';
+        this.container.innerHTML = '';
+        
+        // Check if there's already a dialog showing to prevent duplicates
+        if (window._globalDialogShowing || document.querySelector('.modal-overlay')) {
+            console.log('Shunt Reactor dialog: Another dialog is already showing, ignoring request');
+            return;
+        }
+        
+        // Set global guards to prevent duplicate dialogs
+        window._globalDialogShowing = true;
+        
+        // Set cell dialog flag
+        if (this.cell) {
+            this.cell._dialogShowing = true;
+        }
+        
+        try {
+            // Create the new Shunt Reactor Dialog
+            const shuntReactorDialog = new ShuntReactorDialog(this.ui);
+            this.setDialogCleanup(shuntReactorDialog);
+            
+            // Populate the dialog with current cell data BEFORE showing it
+            shuntReactorDialog.populateDialog(this.cell.value);
+            
+            // Show the dialog
+            shuntReactorDialog.show((values) => {
+                console.log('Shunt Reactor dialog values received:', values);
+                
+                // Apply the values back to the cell
+                this.applyShuntReactorValues(values);
+                
+                // Clean up
+                this.cleanup();
+                
+                // Clear global dialog flag (this is also done in dialog.destroy() but adding here for safety)
+                if (window._globalDialogShowing) {
+                    delete window._globalDialogShowing;
+                }
+                
+                // Clear cell dialog flag
+                if (this.cell && this.cell._dialogShowing) {
+                    delete this.cell._dialogShowing;
+                }
+            });
+            
+            // Populate the dialog with current cell data AFTER it's shown
+            setTimeout(() => {
+                shuntReactorDialog.populateDialog(this.cell.value);
+            }, 100);
+            
+        } catch (error) {
+            console.error('Error showing Shunt Reactor dialog:', error);
+            
+            // Clean up on error
+            this.cleanup();
+            if (window._globalDialogShowing) {
+                delete window._globalDialogShowing;
+            }
+            if (this.cell && this.cell._dialogShowing) {
+                delete this.cell._dialogShowing;
+            }
+            
+            // Show error message
+            alert('Error opening Shunt Reactor dialog: ' + error.message);
+        }
+    }
+    
+    // Handle SSC (STATCOM)
+    handleSSC() {
+        this.shouldShowDialog = false; // Prevent main dialog from being shown
+        
+        // Set container to a minimal hidden div to prevent appendChild errors
+        this.container.style.display = 'none';
+        this.container.innerHTML = '';
+        
+        // Check if there's already a dialog showing to prevent duplicates
+        if (window._globalDialogShowing || document.querySelector('.modal-overlay')) {
+            console.log('SSC dialog: Another dialog is already showing, ignoring request');
+            return;
+        }
+        
+        // Set global guards to prevent duplicate dialogs
+        window._globalDialogShowing = true;
+        
+        // Set cell dialog flag
+        if (this.cell) {
+            this.cell._dialogShowing = true;
+        }
+        
+        try {
+            // Create the new SSC Dialog
+            const sscDialog = new SSCDialog(this.ui);
+            this.setDialogCleanup(sscDialog);
+            
+            // Populate the dialog with current cell data BEFORE showing it
+            sscDialog.populateDialog(this.cell.value);
+            
+            // Show the dialog
+            sscDialog.show((values) => {
+                console.log('SSC dialog values received:', values);
+                
+                // Apply the values back to the cell
+                this.applySSCValues(values);
+                
+                // Clean up
+                this.cleanup();
+                
+                // Clear global dialog flag (this is also done in dialog.destroy() but adding here for safety)
+                if (window._globalDialogShowing) {
+                    delete window._globalDialogShowing;
+                }
+                
+                // Clear cell dialog flag
+                if (this.cell && this.cell._dialogShowing) {
+                    delete this.cell._dialogShowing;
+                }
+            });
+            
+            // Populate the dialog with current cell data AFTER it's shown
+            setTimeout(() => {
+                sscDialog.populateDialog(this.cell.value);
+            }, 100);
+            
+        } catch (error) {
+            console.error('Error showing SSC dialog:', error);
+            
+            // Clean up on error
+            this.cleanup();
+            if (window._globalDialogShowing) {
+                delete window._globalDialogShowing;
+            }
+            if (this.cell && this.cell._dialogShowing) {
+                delete this.cell._dialogShowing;
+            }
+            
+            // Show error message
+            alert('Error opening SSC dialog: ' + error.message);
+        }
+    }
+    
+    // Handle Static Generator
+    handleStaticGenerator() {
+        this.shouldShowDialog = false; // Prevent main dialog from being shown
+        
+        // Set container to a minimal hidden div to prevent appendChild errors
+        this.container.style.display = 'none';
+        this.container.innerHTML = '';
+        
+        // Check if there's already a dialog showing to prevent duplicates
+        if (window._globalDialogShowing || document.querySelector('.modal-overlay')) {
+            console.log('Static Generator dialog: Another dialog is already showing, ignoring request');
+            return;
+        }
+        
+        // Set global guards to prevent duplicate dialogs
+        window._globalDialogShowing = true;
+        
+        // Set cell dialog flag
+        if (this.cell) {
+            this.cell._dialogShowing = true;
+        }
+        
+        try {
+            // Create the new Static Generator Dialog
+            const staticGeneratorDialog = new StaticGeneratorDialog(this.ui);
+            this.setDialogCleanup(staticGeneratorDialog);
+            
+            // Populate the dialog with current cell data BEFORE showing it
+            staticGeneratorDialog.populateDialog(this.cell.value);
+            
+            // Show the dialog
+            staticGeneratorDialog.show((values) => {
+                console.log('Static Generator dialog values received:', values);
+                
+                // Apply the values back to the cell
+                this.applyStaticGeneratorValues(values);
+                
+                // Clean up
+                this.cleanup();
+                
+                // Clear global dialog flag (this is also done in dialog.destroy() but adding here for safety)
+                if (window._globalDialogShowing) {
+                    delete window._globalDialogShowing;
+                }
+                
+                // Clear cell dialog flag
+                if (this.cell && this.cell._dialogShowing) {
+                    delete this.cell._dialogShowing;
+                }
+            });
+            
+            // Populate the dialog with current cell data AFTER it's shown
+            setTimeout(() => {
+                staticGeneratorDialog.populateDialog(this.cell.value);
+            }, 100);
+            
+        } catch (error) {
+            console.error('Error showing Static Generator dialog:', error);
+            
+            // Clean up on error
+            this.cleanup();
+            if (window._globalDialogShowing) {
+                delete window._globalDialogShowing;
+            }
+            if (this.cell && this.cell._dialogShowing) {
+                delete this.cell._dialogShowing;
+            }
+            
+            // Show error message
+            alert('Error opening Static Generator dialog: ' + error.message);
+        }
+    }
+    
+    // Handle Storage
+    handleStorage() {
+        this.shouldShowDialog = false; // Prevent main dialog from being shown
+        
+        // Set container to a minimal hidden div to prevent appendChild errors
+        this.container.style.display = 'none';
+        this.container.innerHTML = '';
+        
+        // Check if there's already a dialog showing to prevent duplicates
+        if (window._globalDialogShowing || document.querySelector('.modal-overlay')) {
+            console.log('Storage dialog: Another dialog is already showing, ignoring request');
+            return;
+        }
+        
+        // Set global guards to prevent duplicate dialogs
+        window._globalDialogShowing = true;
+        
+        // Set cell dialog flag
+        if (this.cell) {
+            this.cell._dialogShowing = true;
+        }
+        
+        try {
+            // Create the new Storage Dialog
+            const storageDialog = new StorageDialog(this.ui);
+            this.setDialogCleanup(storageDialog);
+            
+            // Populate the dialog with current cell data BEFORE showing it
+            storageDialog.populateDialog(this.cell.value);
+            
+            // Show the dialog
+            storageDialog.show((values) => {
+                console.log('Storage dialog values received:', values);
+                
+                // Apply the values back to the cell
+                this.applyStorageValues(values);
+                
+                // Clean up
+                this.cleanup();
+                
+                // Clear global dialog flag (this is also done in dialog.destroy() but adding here for safety)
+                if (window._globalDialogShowing) {
+                    delete window._globalDialogShowing;
+                }
+                
+                // Clear cell dialog flag
+                if (this.cell && this.cell._dialogShowing) {
+                    delete this.cell._dialogShowing;
+                }
+            });
+            
+            // Populate the dialog with current cell data AFTER it's shown
+            setTimeout(() => {
+                storageDialog.populateDialog(this.cell.value);
+            }, 100);
+            
+        } catch (error) {
+            console.error('Error showing Storage dialog:', error);
+            
+            // Clean up on error
+            this.cleanup();
+            if (window._globalDialogShowing) {
+                delete window._globalDialogShowing;
+            }
+            if (this.cell && this.cell._dialogShowing) {
+                delete this.cell._dialogShowing;
+            }
+            
+            // Show error message
+            alert('Error opening Storage dialog: ' + error.message);
+        }
+    }
+    
+    // Handle SVC
+    handleSVC() {
+        this.shouldShowDialog = false; // Prevent main dialog from being shown
+        
+        // Set container to a minimal hidden div to prevent appendChild errors
+        this.container.style.display = 'none';
+        this.container.innerHTML = '';
+        
+        // Check if there's already a dialog showing to prevent duplicates
+        if (window._globalDialogShowing || document.querySelector('.modal-overlay')) {
+            console.log('SVC dialog: Another dialog is already showing, ignoring request');
+            return;
+        }
+        
+        // Set global guards to prevent duplicate dialogs
+        window._globalDialogShowing = true;
+        
+        // Set cell dialog flag
+        if (this.cell) {
+            this.cell._dialogShowing = true;
+        }
+        
+        try {
+            // Create the new SVC Dialog
+            const svcDialog = new SVCDialog(this.ui);
+            this.setDialogCleanup(svcDialog);
+            
+            // Populate the dialog with current cell data BEFORE showing it
+            svcDialog.populateDialog(this.cell.value);
+            
+            // Show the dialog
+            svcDialog.show((values) => {
+                console.log('SVC dialog values received:', values);
+                
+                // Apply the values back to the cell
+                this.applySVCValues(values);
+                
+                // Clean up
+                this.cleanup();
+                
+                // Clear global dialog flag (this is also done in dialog.destroy() but adding here for safety)
+                if (window._globalDialogShowing) {
+                    delete window._globalDialogShowing;
+                }
+                
+                // Clear cell dialog flag
+                if (this.cell && this.cell._dialogShowing) {
+                    delete this.cell._dialogShowing;
+                }
+            });
+            
+            // Populate the dialog with current cell data AFTER it's shown
+            setTimeout(() => {
+                svcDialog.populateDialog(this.cell.value);
+            }, 100);
+            
+        } catch (error) {
+            console.error('Error showing SVC dialog:', error);
+            
+            // Clean up on error
+            this.cleanup();
+            if (window._globalDialogShowing) {
+                delete window._globalDialogShowing;
+            }
+            if (this.cell && this.cell._dialogShowing) {
+                delete this.cell._dialogShowing;
+            }
+            
+            // Show error message
+            alert('Error opening SVC dialog: ' + error.message);
+        }
+    }
+    
+    // Handle TCSC
+    handleTCSC() {
+        this.shouldShowDialog = false; // Prevent main dialog from being shown
+        
+        // Set container to a minimal hidden div to prevent appendChild errors
+        this.container.style.display = 'none';
+        this.container.innerHTML = '';
+        
+        // Check if there's already a dialog showing to prevent duplicates
+        if (window._globalDialogShowing || document.querySelector('.modal-overlay')) {
+            console.log('TCSC dialog: Another dialog is already showing, ignoring request');
+            return;
+        }
+        
+        // Set global guards to prevent duplicate dialogs
+        window._globalDialogShowing = true;
+        
+        // Set cell dialog flag
+        if (this.cell) {
+            this.cell._dialogShowing = true;
+        }
+        
+        try {
+            // Create the new TCSC Dialog
+            const tcscDialog = new TCSCDialog(this.ui);
+            this.setDialogCleanup(tcscDialog);
+            
+            // Populate the dialog with current cell data BEFORE showing it
+            tcscDialog.populateDialog(this.cell.value);
+            
+            // Show the dialog
+            tcscDialog.show((values) => {
+                console.log('TCSC dialog values received:', values);
+                
+                // Apply the values back to the cell
+                this.applyTCSCValues(values);
+                
+                // Clean up
+                this.cleanup();
+                
+                // Clear global dialog flag (this is also done in dialog.destroy() but adding here for safety)
+                if (window._globalDialogShowing) {
+                    delete window._globalDialogShowing;
+                }
+                
+                // Clear cell dialog flag
+                if (this.cell && this.cell._dialogShowing) {
+                    delete this.cell._dialogShowing;
+                }
+            });
+            
+            // Populate the dialog with current cell data AFTER it's shown
+            setTimeout(() => {
+                tcscDialog.populateDialog(this.cell.value);
+            }, 100);
+            
+        } catch (error) {
+            console.error('Error showing TCSC dialog:', error);
+            
+            // Clean up on error
+            this.cleanup();
+            if (window._globalDialogShowing) {
+                delete window._globalDialogShowing;
+            }
+            if (this.cell && this.cell._dialogShowing) {
+                delete this.cell._dialogShowing;
+            }
+            
+            // Show error message
+            alert('Error opening TCSC dialog: ' + error.message);
+        }
+    }
+    
+    // Handle Ward
+    handleWard() {
+        this.shouldShowDialog = false; // Prevent main dialog from being shown
+        
+        // Set container to a minimal hidden div to prevent appendChild errors
+        this.container.style.display = 'none';
+        this.container.innerHTML = '';
+        
+        // Check if there's already a dialog showing to prevent duplicates
+        if (window._globalDialogShowing || document.querySelector('.modal-overlay')) {
+            console.log('Ward dialog: Another dialog is already showing, ignoring request');
+            return;
+        }
+        
+        // Set global guards to prevent duplicate dialogs
+        window._globalDialogShowing = true;
+        
+        // Set cell dialog flag
+        if (this.cell) {
+            this.cell._dialogShowing = true;
+        }
+        
+        try {
+            // Create the new Ward Dialog
+            const wardDialog = new WardDialog(this.ui);
+            this.setDialogCleanup(wardDialog);
+            
+            // Populate the dialog with current cell data BEFORE showing it
+            wardDialog.populateDialog(this.cell.value);
+            
+            // Show the dialog
+            wardDialog.show((values) => {
+                console.log('Ward dialog values received:', values);
+                
+                // Apply the values back to the cell
+                this.applyWardValues(values);
+                
+                // Clean up
+                this.cleanup();
+                
+                // Clear global dialog flag (this is also done in dialog.destroy() but adding here for safety)
+                if (window._globalDialogShowing) {
+                    delete window._globalDialogShowing;
+                }
+                
+                // Clear cell dialog flag
+                if (this.cell && this.cell._dialogShowing) {
+                    delete this.cell._dialogShowing;
+                }
+            });
+            
+            // Populate the dialog with current cell data AFTER it's shown
+            setTimeout(() => {
+                wardDialog.populateDialog(this.cell.value);
+            }, 100);
+            
+        } catch (error) {
+            console.error('Error showing Ward dialog:', error);
+            
+            // Clean up on error
+            this.cleanup();
+            if (window._globalDialogShowing) {
+                delete window._globalDialogShowing;
+            }
+            if (this.cell && this.cell._dialogShowing) {
+                delete this.cell._dialogShowing;
+            }
+            
+            // Show error message
+            alert('Error opening Ward dialog: ' + error.message);
+        }
+    }
+    
+    // Handle Bus
+    handleBus() {
+        this.shouldShowDialog = false; // Prevent main dialog from being shown
+        
+        // Set container to a minimal hidden div to prevent appendChild errors
+        this.container.style.display = 'none';
+        this.container.innerHTML = '';
+        
+        // Check if there's already a dialog showing to prevent duplicates
+        if (window._globalDialogShowing || document.querySelector('.modal-overlay')) {
+            console.log('Bus dialog: Another dialog is already showing, ignoring request');
+            return;
+        }
+        
+        // Set global guards to prevent duplicate dialogs
+        window._globalDialogShowing = true;
+        
+        // Set cell dialog flag
+        if (this.cell) {
+            this.cell._dialogShowing = true;
+        }
+        
+        try {
+            // Create the new Bus Dialog
+            const busDialog = new BusDialog(this.ui);
+            this.setDialogCleanup(busDialog);
+            
+            // Populate the dialog with current cell data BEFORE showing it
+            busDialog.populateDialog(this.cell.value);
+            
+            // Show the dialog
+            busDialog.show((values) => {
+                console.log('Bus dialog values received:', values);
+                
+                // Apply the values back to the cell
+                this.applyBusValues(values);
+                
+                // Clean up
+                this.cleanup();
+                
+                // Clear global dialog flag (this is also done in dialog.destroy() but adding here for safety)
+                if (window._globalDialogShowing) {
+                    delete window._globalDialogShowing;
+                }
+                
+                // Clear cell dialog flag
+                if (this.cell && this.cell._dialogShowing) {
+                    delete this.cell._dialogShowing;
+                }
+            });
+            
+            // Populate the dialog with current cell data AFTER it's shown
+            setTimeout(() => {
+                busDialog.populateDialog(this.cell.value);
+            }, 100);
+            
+        } catch (error) {
+            console.error('Error showing Bus dialog:', error);
+            
+            // Clean up on error
+            this.cleanup();
+            if (window._globalDialogShowing) {
+                delete window._globalDialogShowing;
+            }
+            if (this.cell && this.cell._dialogShowing) {
+                delete this.cell._dialogShowing;
+            }
+            
+            // Show error message
+            alert('Error opening Bus dialog: ' + error.message);
+        }
+    }
+    
+    // Handle Transformer
+    handleTransformer() {
+        this.shouldShowDialog = false; // Prevent main dialog from being shown
+        
+        // Set container to a minimal hidden div to prevent appendChild errors
+        this.container.style.display = 'none';
+        this.container.innerHTML = '';
+        
+        // Check if there's already a dialog showing to prevent duplicates
+        if (window._globalDialogShowing || document.querySelector('.modal-overlay')) {
+            console.log('Transformer dialog: Another dialog is already showing, ignoring request');
+            return;
+        }
+        
+        // Set global guards to prevent duplicate dialogs
+        window._globalDialogShowing = true;
+        
+        // Set cell dialog flag
+        if (this.cell) {
+            this.cell._dialogShowing = true;
+        }
+        
+        try {
+            // Create the new Transformer Dialog
+            const transformerDialog = new TransformerDialog(this.ui);
+            this.setDialogCleanup(transformerDialog);
+            
+            // Populate the dialog with current cell data BEFORE showing it
+            transformerDialog.populateDialog(this.cell.value);
+            
+            // Show the dialog
+            transformerDialog.show((values) => {
+                console.log('Transformer dialog values received:', values);
+                
+                // Apply the values back to the cell
+                this.applyTransformerValues(values);
+                
+                // Clean up
+                this.cleanup();
+                
+                // Clear global dialog flag (this is also done in dialog.destroy() but adding here for safety)
+                if (window._globalDialogShowing) {
+                    delete window._globalDialogShowing;
+                }
+                
+                // Clear cell dialog flag
+                if (this.cell && this.cell._dialogShowing) {
+                    delete this.cell._dialogShowing;
+                }
+            });
+            
+        } catch (error) {
+            console.error('Error showing Transformer dialog:', error);
+            
+            // Clean up on error
+            this.cleanup();
+            if (window._globalDialogShowing) {
+                delete window._globalDialogShowing;
+            }
+            if (this.cell && this.cell._dialogShowing) {
+                delete this.cell._dialogShowing;
+            }
+            
+            // Show error message
+            alert('Error opening Transformer dialog: ' + error.message);
+        }
+    }
+    
+    // Handle Three Winding Transformer
+    handleThreeWindingTransformer() {
+        this.shouldShowDialog = false; // Prevent main dialog from being shown
+        
+        // Set container to a minimal hidden div to prevent appendChild errors
+        this.container.style.display = 'none';
+        this.container.innerHTML = '';
+        
+        // Check if there's already a dialog showing to prevent duplicates
+        if (window._globalDialogShowing || document.querySelector('.modal-overlay')) {
+            console.log('Three Winding Transformer dialog: Another dialog is already showing, ignoring request');
+            return;
+        }
+        
+        // Set global guards to prevent duplicate dialogs
+        window._globalDialogShowing = true;
+        
+        // Set cell dialog flag
+        if (this.cell) {
+            this.cell._dialogShowing = true;
+        }
+        
+        try {
+            // Create the new Three Winding Transformer Dialog
+            const threeWindingTransformerDialog = new ThreeWindingTransformerDialog(this.ui);
+            this.setDialogCleanup(threeWindingTransformerDialog);
+            
+            // Populate the dialog with current cell data BEFORE showing it
+            threeWindingTransformerDialog.populateDialog(this.cell.value);
+            
+            // Show the dialog
+            threeWindingTransformerDialog.show((values) => {
+                console.log('Three Winding Transformer dialog values received:', values);
+                
+                // Apply the values back to the cell
+                this.applyThreeWindingTransformerValues(values);
+                
+                // Clean up
+                this.cleanup();
+                
+                // Clear global dialog flag (this is also done in dialog.destroy() but adding here for safety)
+                if (window._globalDialogShowing) {
+                    delete window._globalDialogShowing;
+                }
+                
+                // Clear cell dialog flag
+                if (this.cell && this.cell._dialogShowing) {
+                    delete this.cell._dialogShowing;
+                }
+            });
+            
+        } catch (error) {
+            console.error('Error showing Three Winding Transformer dialog:', error);
+            
+            // Clean up on error
+            this.cleanup();
+            if (window._globalDialogShowing) {
+                delete window._globalDialogShowing;
+            }
+            if (this.cell && this.cell._dialogShowing) {
+                delete this.cell._dialogShowing;
+            }
+            
+            // Show error message
+            alert('Error opening Three Winding Transformer dialog: ' + error.message);
+        }
+    }
+    
+    // Handle Line
+    handleLine() {
+        this.shouldShowDialog = false; // Prevent main dialog from being shown
+        
+        // Set container to a minimal hidden div to prevent appendChild errors
+        this.container.style.display = 'none';
+        this.container.innerHTML = '';
+        
+        // Check if there's already a dialog showing to prevent duplicates
+        if (window._globalDialogShowing || document.querySelector('.modal-overlay')) {
+            console.log('Line dialog: Another dialog is already showing, ignoring request');
+            return;
+        }
+        
+        // Set global guards to prevent duplicate dialogs
+        window._globalDialogShowing = true;
+        
+        // Set cell dialog flag
+        if (this.cell) {
+            this.cell._dialogShowing = true;
+        }
+        
+        try {
+            // Create the new Line Dialog
+            const lineDialog = new LineDialog(this.ui);
+            this.setDialogCleanup(lineDialog);
+            
+            // Populate the dialog with current cell data BEFORE showing it
+            lineDialog.populateDialog(this.cell.value);
+            
+            // Show the dialog
+            lineDialog.show((values) => {
+                console.log('Line dialog values received:', values);
+                
+                // Apply the values back to the cell
+                this.applyLineValues(values);
+                
+                // Clean up
+                this.cleanup();
+                
+                // Clear global dialog flag (this is also done in dialog.destroy() but adding here for safety)
+                if (window._globalDialogShowing) {
+                    delete window._globalDialogShowing;
+                }
+                
+                // Clear cell dialog flag
+                if (this.cell && this.cell._dialogShowing) {
+                    delete this.cell._dialogShowing;
+                }
+            });
+            
+        } catch (error) {
+            console.error('Error showing Line dialog:', error);
+            
+            // Clean up on error
+            this.cleanup();
+            if (window._globalDialogShowing) {
+                delete window._globalDialogShowing;
+            }
+            if (this.cell && this.cell._dialogShowing) {
+                delete this.cell._dialogShowing;
+            }
+            
+            // Show error message
+            alert('Error opening Line dialog: ' + error.message);
+        }
+    }
+    
+    populateAsymmetricLoadDialog(dialog) {
+        // Get current values from the cell and populate the dialog
+        if (this.cell.value && this.cell.value.attributes) {
+            for (let i = 0; i < this.cell.value.attributes.length; i++) {
+                const attribute = this.cell.value.attributes[i];
+                const attributeName = attribute.name;
+                const attributeValue = attribute.value;
+                
+                // Update the dialog's parameter values
+                const powerParam = dialog.powerParameters.find(p => p.id === attributeName);
+                if (powerParam) {
+                    if (powerParam.type === 'checkbox') {
+                        powerParam.value = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        powerParam.value = attributeValue.toString();
+                    }
+                }
+                
+                const reactiveParam = dialog.reactivePowerParameters.find(p => p.id === attributeName);
+                if (reactiveParam) {
+                    reactiveParam.value = attributeValue.toString();
+                }
+                
+                const configParam = dialog.configParameters.find(p => p.id === attributeName);
+                if (configParam) {
+                    if (configParam.type === 'checkbox') {
+                        configParam.value = attributeValue === 'true' || attributeValue === true;
+                    } else if (configParam.type === 'select') {
+                        configParam.value = attributeValue;
+                    } else {
+                        configParam.value = attributeValue.toString();
+                    }
+                }
+            }
+        }
+    }
+    
+    applyAsymmetricLoadValues(values) {
+        // Apply the values from the dialog back to the cell
+        if (!this.cell.value) {
+            // Create the value object if it doesn't exist
+            this.cell.value = mxUtils.createXmlDocument().createElement('object');
+        }
+        
+        // Update cell attributes with the new values
+        for (const [attributeName, attributeValue] of Object.entries(values)) {
+            this.cell.value.setAttribute(attributeName, attributeValue);
+        }
+        
+        console.log('Asymmetric Load values applied to cell');
+    }
+    
+    populateExternalGridDialog(dialog) {
+        // Get current values from the cell and populate the dialog
+        if (this.cell.value && this.cell.value.attributes) {
+            for (let i = 0; i < this.cell.value.attributes.length; i++) {
+                const attribute = this.cell.value.attributes[i];
+                const attributeName = attribute.name;
+                const attributeValue = attribute.value;
+                
+                // Update the dialog's parameter values
+                const loadFlowParam = dialog.loadFlowParameters.find(p => p.id === attributeName);
+                if (loadFlowParam) {
+                    loadFlowParam.value = attributeValue;
+                }
+                
+                const shortCircuitParam = dialog.shortCircuitParameters.find(p => p.id === attributeName);
+                if (shortCircuitParam) {
+                    shortCircuitParam.value = attributeValue.toString();
+                }
+                
+                const opfParam = dialog.opfParameters.find(p => p.id === attributeName);
+                if (opfParam) {
+                    if (opfParam.type === 'checkbox') {
+                        opfParam.value = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        opfParam.value = attributeValue.toString();
+                    }
+                }
+            }
+        }
+    }
+    
+    applyExternalGridValues(values) {
+        // Apply the values from the dialog back to the cell
+        if (!this.cell.value) {
+            // Create the value object if it doesn't exist
+            this.cell.value = mxUtils.createXmlDocument().createElement('object');
+        }
+        
+        // Update cell attributes with the new values
+        for (const [attributeName, attributeValue] of Object.entries(values)) {
+            this.cell.value.setAttribute(attributeName, attributeValue);
+        }
+        
+        console.log('External Grid values applied to cell');
+    }
+    
+    // Populate methods for modern dialogs
+    populateAsymmetricStaticGeneratorDialog(dialog) {
+        // Get current values from the cell and populate the dialog
+        if (this.cell.value && this.cell.value.attributes) {
+            for (let i = 0; i < this.cell.value.attributes.length; i++) {
+                const attribute = this.cell.value.attributes[i];
+                const attributeName = attribute.name;
+                const attributeValue = attribute.value;
+                
+                // Update the dialog's parameter values based on parameter structure
+                // This is a generic implementation - adjust based on actual dialog structure
+                if (dialog.inputs && dialog.inputs.has(attributeName)) {
+                    const input = dialog.inputs.get(attributeName);
+                    if (input.type === 'checkbox') {
+                        input.checked = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        input.value = attributeValue;
+                    }
+                }
+            }
+        }
+    }
+    
+    populateCapacitorDialog(dialog) {
+        // Get current values from the cell and populate the dialog
+        if (this.cell.value && this.cell.value.attributes) {
+            for (let i = 0; i < this.cell.value.attributes.length; i++) {
+                const attribute = this.cell.value.attributes[i];
+                const attributeName = attribute.name;
+                const attributeValue = attribute.value;
+                
+                // Update the dialog's parameter values based on parameter structure
+                if (dialog.inputs && dialog.inputs.has(attributeName)) {
+                    const input = dialog.inputs.get(attributeName);
+                    if (input.type === 'checkbox') {
+                        input.checked = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        input.value = attributeValue;
+                    }
+                }
+            }
+        }
+    }
+    
+    populateDCLineDialog(dialog) {
+        // Get current values from the cell and populate the dialog
+        if (this.cell.value && this.cell.value.attributes) {
+            for (let i = 0; i < this.cell.value.attributes.length; i++) {
+                const attribute = this.cell.value.attributes[i];
+                const attributeName = attribute.name;
+                const attributeValue = attribute.value;
+                
+                // Update the dialog's parameter values based on parameter structure
+                if (dialog.inputs && dialog.inputs.has(attributeName)) {
+                    const input = dialog.inputs.get(attributeName);
+                    if (input.type === 'checkbox') {
+                        input.checked = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        input.value = attributeValue;
+                    }
+                }
+            }
+        }
+    }
+    
+    populateExtendedWardDialog(dialog) {
+        // Get current values from the cell and populate the dialog
+        if (this.cell.value && this.cell.value.attributes) {
+            for (let i = 0; i < this.cell.value.attributes.length; i++) {
+                const attribute = this.cell.value.attributes[i];
+                const attributeName = attribute.name;
+                const attributeValue = attribute.value;
+                
+                // Update the dialog's parameter values based on parameter structure
+                if (dialog.inputs && dialog.inputs.has(attributeName)) {
+                    const input = dialog.inputs.get(attributeName);
+                    if (input.type === 'checkbox') {
+                        input.checked = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        input.value = attributeValue;
+                    }
+                }
+            }
+        }
+    }
+    
+    populateGeneratorDialog(dialog) {
+        // Get current values from the cell and populate the dialog
+        if (this.cell.value && this.cell.value.attributes) {
+            for (let i = 0; i < this.cell.value.attributes.length; i++) {
+                const attribute = this.cell.value.attributes[i];
+                const attributeName = attribute.name;
+                const attributeValue = attribute.value;
+                
+                // Update the dialog's parameter values based on parameter structure
+                if (dialog.inputs && dialog.inputs.has(attributeName)) {
+                    const input = dialog.inputs.get(attributeName);
+                    if (input.type === 'checkbox') {
+                        input.checked = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        input.value = attributeValue;
+                    }
+                }
+            }
+        }
+    }
+    
+    populateImpedanceDialog(dialog) {
+        // Get current values from the cell and populate the dialog
+        if (this.cell.value && this.cell.value.attributes) {
+            for (let i = 0; i < this.cell.value.attributes.length; i++) {
+                const attribute = this.cell.value.attributes[i];
+                const attributeName = attribute.name;
+                const attributeValue = attribute.value;
+                
+                // Update the dialog's parameter values based on parameter structure
+                if (dialog.inputs && dialog.inputs.has(attributeName)) {
+                    const input = dialog.inputs.get(attributeName);
+                    if (input.type === 'checkbox') {
+                        input.checked = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        input.value = attributeValue;
+                    }
+                }
+            }
+        }
+    }
+    
+    populateLoadDialog(dialog) {
+        // Get current values from the cell and populate the dialog
+        if (this.cell.value && this.cell.value.attributes) {
+            for (let i = 0; i < this.cell.value.attributes.length; i++) {
+                const attribute = this.cell.value.attributes[i];
+                const attributeName = attribute.name;
+                const attributeValue = attribute.value;
+                
+                // Update the dialog's parameter values based on parameter structure
+                if (dialog.inputs && dialog.inputs.has(attributeName)) {
+                    const input = dialog.inputs.get(attributeName);
+                    if (input.type === 'checkbox') {
+                        input.checked = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        input.value = attributeValue;
+                    }
+                }
+            }
+        }
+    }
+    
+    populateMotorDialog(dialog) {
+        // Get current values from the cell and populate the dialog
+        if (this.cell.value && this.cell.value.attributes) {
+            for (let i = 0; i < this.cell.value.attributes.length; i++) {
+                const attribute = this.cell.value.attributes[i];
+                const attributeName = attribute.name;
+                const attributeValue = attribute.value;
+                
+                // Update the dialog's parameter values based on parameter structure
+                if (dialog.inputs && dialog.inputs.has(attributeName)) {
+                    const input = dialog.inputs.get(attributeName);
+                    if (input.type === 'checkbox') {
+                        input.checked = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        input.value = attributeValue;
+                    }
+                }
+            }
+        }
+    }
+    
+    populateShuntReactorDialog(dialog) {
+        // Get current values from the cell and populate the dialog
+        if (this.cell.value && this.cell.value.attributes) {
+            for (let i = 0; i < this.cell.value.attributes.length; i++) {
+                const attribute = this.cell.value.attributes[i];
+                const attributeName = attribute.name;
+                const attributeValue = attribute.value;
+                
+                // Update the dialog's parameter values based on parameter structure
+                if (dialog.inputs && dialog.inputs.has(attributeName)) {
+                    const input = dialog.inputs.get(attributeName);
+                    if (input.type === 'checkbox') {
+                        input.checked = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        input.value = attributeValue;
+                    }
+                }
+            }
+        }
+    }
+    
+    populateSSCDialog(dialog) {
+        // Get current values from the cell and populate the dialog
+        if (this.cell.value && this.cell.value.attributes) {
+            for (let i = 0; i < this.cell.value.attributes.length; i++) {
+                const attribute = this.cell.value.attributes[i];
+                const attributeName = attribute.name;
+                const attributeValue = attribute.value;
+                
+                // Update the dialog's parameter values based on parameter structure
+                if (dialog.inputs && dialog.inputs.has(attributeName)) {
+                    const input = dialog.inputs.get(attributeName);
+                    if (input.type === 'checkbox') {
+                        input.checked = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        input.value = attributeValue;
+                    }
+                }
+            }
+        }
+    }
+    
+    populateStaticGeneratorDialog(dialog) {
+        // Get current values from the cell and populate the dialog
+        if (this.cell.value && this.cell.value.attributes) {
+            for (let i = 0; i < this.cell.value.attributes.length; i++) {
+                const attribute = this.cell.value.attributes[i];
+                const attributeName = attribute.name;
+                const attributeValue = attribute.value;
+                
+                // Update the dialog's parameter values based on parameter structure
+                if (dialog.inputs && dialog.inputs.has(attributeName)) {
+                    const input = dialog.inputs.get(attributeName);
+                    if (input.type === 'checkbox') {
+                        input.checked = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        input.value = attributeValue;
+                    }
+                }
+            }
+        }
+    }
+    
+    populateStorageDialog(dialog) {
+        // Get current values from the cell and populate the dialog
+        if (this.cell.value && this.cell.value.attributes) {
+            for (let i = 0; i < this.cell.value.attributes.length; i++) {
+                const attribute = this.cell.value.attributes[i];
+                const attributeName = attribute.name;
+                const attributeValue = attribute.value;
+                
+                // Update the dialog's parameter values based on parameter structure
+                if (dialog.inputs && dialog.inputs.has(attributeName)) {
+                    const input = dialog.inputs.get(attributeName);
+                    if (input.type === 'checkbox') {
+                        input.checked = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        input.value = attributeValue;
+                    }
+                }
+            }
+        }
+    }
+    
+    populateSVCDialog(dialog) {
+        // Get current values from the cell and populate the dialog
+        if (this.cell.value && this.cell.value.attributes) {
+            for (let i = 0; i < this.cell.value.attributes.length; i++) {
+                const attribute = this.cell.value.attributes[i];
+                const attributeName = attribute.name;
+                const attributeValue = attribute.value;
+                
+                // Update the dialog's parameter values based on parameter structure
+                if (dialog.inputs && dialog.inputs.has(attributeName)) {
+                    const input = dialog.inputs.get(attributeName);
+                    if (input.type === 'checkbox') {
+                        input.checked = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        input.value = attributeValue;
+                    }
+                }
+            }
+        }
+    }
+    
+    populateTCSCDialog(dialog) {
+        // Get current values from the cell and populate the dialog
+        if (this.cell.value && this.cell.value.attributes) {
+            for (let i = 0; i < this.cell.value.attributes.length; i++) {
+                const attribute = this.cell.value.attributes[i];
+                const attributeName = attribute.name;
+                const attributeValue = attribute.value;
+                
+                // Update the dialog's parameter values based on parameter structure
+                if (dialog.inputs && dialog.inputs.has(attributeName)) {
+                    const input = dialog.inputs.get(attributeName);
+                    if (input.type === 'checkbox') {
+                        input.checked = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        input.value = attributeValue;
+                    }
+                }
+            }
+        }
+    }
+    
+    populateWardDialog(dialog) {
+        // Get current values from the cell and populate the method
+        if (this.cell.value && this.cell.value.attributes) {
+            for (let i = 0; i < this.cell.value.attributes.length; i++) {
+                const attribute = this.cell.value.attributes[i];
+                const attributeName = attribute.name;
+                const attributeValue = attribute.value;
+                
+                // Update the dialog's parameter values based on parameter structure
+                if (dialog.inputs && dialog.inputs.has(attributeName)) {
+                    const input = dialog.inputs.get(attributeName);
+                    if (input.type === 'checkbox') {
+                        input.checked = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        input.value = attributeValue;
+                    }
+                }
+            }
+        }
+    }
+    
+    populateBusDialog(dialog) {
+        // Get current values from the cell and populate the dialog
+        if (this.cell.value && this.cell.value.attributes) {
+            for (let i = 0; i < this.cell.value.attributes.length; i++) {
+                const attribute = this.cell.value.attributes[i];
+                const attributeName = attribute.name;
+                const attributeValue = attribute.value;
+                
+                if (dialog.inputs && dialog.inputs.has(attributeName)) {
+                    const input = dialog.inputs.get(attributeName);
+                    if (input.type === 'checkbox') {
+                        input.checked = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        input.value = attributeValue;
+                    }
+                }
+            }
+        }
+    }
+    
+    populateTransformerDialog(dialog) {
+        // Get current values from the cell and populate the dialog
+        if (this.cell.value && this.cell.value.attributes) {
+            for (let i = 0; i < this.cell.value.attributes.length; i++) {
+                const attribute = this.cell.value.attributes[i];
+                const attributeName = attribute.name;
+                const attributeValue = attribute.value;
+                
+                if (dialog.inputs && dialog.inputs.has(attributeName)) {
+                    const input = dialog.inputs.get(attributeName);
+                    if (input.type === 'checkbox') {
+                        input.checked = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        input.value = attributeValue;
+                    }
+                }
+            }
+        }
+    }
+    
+    populateThreeWindingTransformerDialog(dialog) {
+        // Get current values from the cell and populate the dialog
+        if (this.cell.value && this.cell.value.attributes) {
+            for (let i = 0; i < this.cell.value.attributes.length; i++) {
+                const attribute = this.cell.value.attributes[i];
+                const attributeName = attribute.name;
+                const attributeValue = attribute.value;
+                
+                if (dialog.inputs && dialog.inputs.has(attributeName)) {
+                    const input = dialog.inputs.get(attributeName);
+                    if (input.type === 'checkbox') {
+                        input.checked = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        input.value = attributeValue;
+                    }
+                }
+            }
+        }
+    }
+    
+    // Apply methods for modern dialogs
+    applyAsymmetricStaticGeneratorValues(values) {
+        // Apply the values from the dialog back to the cell
+        if (!this.cell.value) {
+            // Create the value object if it doesn't exist
+            this.cell.value = mxUtils.createXmlDocument().createElement('object');
+        }
+        
+        // Update cell attributes with the new values
+        for (const [attributeName, attributeValue] of Object.entries(values)) {
+            this.cell.value.setAttribute(attributeName, attributeValue);
+        }
+        
+        console.log('Asymmetric Static Generator values applied to cell');
+    }
+    
+    applyCapacitorValues(values) {
+        // Apply the values from the dialog back to the cell
+        if (!this.cell.value) {
+            // Create the value object if it doesn't exist
+            this.cell.value = mxUtils.createXmlDocument().createElement('object');
+        }
+        
+        // Update cell attributes with the new values
+        for (const [attributeName, attributeValue] of Object.entries(values)) {
+            this.cell.value.setAttribute(attributeName, attributeValue);
+        }
+        
+        console.log('Capacitor values applied to cell');
+    }
+    
+    applyDCLineValues(values) {
+        // Apply the values from the dialog back to the cell
+        if (!this.cell.value) {
+            // Create the value object if it doesn't exist
+            this.cell.value = mxUtils.createXmlDocument().createElement('object');
+        }
+        
+        // Update cell attributes with the new values
+        for (const [attributeName, attributeValue] of Object.entries(values)) {
+            this.cell.value.setAttribute(attributeName, attributeValue);
+        }
+        
+        console.log('DC Line values applied to cell');
+    }
+    
+    applyExtendedWardValues(values) {
+        // Apply the values from the dialog back to the cell
+        if (!this.cell.value) {
+            // Create the value object if it doesn't exist
+            this.cell.value = mxUtils.createXmlDocument().createElement('object');
+        }
+        
+        // Update cell attributes with the new values
+        for (const [attributeName, attributeValue] of Object.entries(values)) {
+            this.cell.value.setAttribute(attributeName, attributeValue);
+        }
+        
+        console.log('Extended Ward values applied to cell');
+    }
+    
+    applyGeneratorValues(values) {
+        // Apply the values from the dialog back to the cell
+        if (!this.cell.value) {
+            // Create the value object if it doesn't exist
+            this.cell.value = mxUtils.createXmlDocument().createElement('object');
+        }
+        
+        // Update cell attributes with the new values
+        for (const [attributeName, attributeValue] of Object.entries(values)) {
+            this.cell.value.setAttribute(attributeName, attributeValue);
+        }
+        
+        console.log('Generator values applied to cell');
+    }
+    
+    applyImpedanceValues(values) {
+        // Apply the values from the dialog back to the cell
+        if (!this.cell.value) {
+            // Create the value object if it doesn't exist
+            this.cell.value = mxUtils.createXmlDocument().createElement('object');
+        }
+        
+        // Update cell attributes with the new values
+        for (const [attributeName, attributeValue] of Object.entries(values)) {
+            this.cell.value.setAttribute(attributeName, attributeValue);
+        }
+        
+        console.log('Impedance values applied to cell');
+    }
+    
+    applyLoadValues(values) {
+        // Apply the values from the dialog back to the cell
+        if (!this.cell.value) {
+            // Create the value object if it doesn't exist
+            this.cell.value = mxUtils.createXmlDocument().createElement('object');
+        }
+        
+        // Update cell attributes with the new values
+        for (const [attributeName, attributeValue] of Object.entries(values)) {
+            this.cell.value.setAttribute(attributeName, attributeValue);
+        }
+        
+        console.log('Load values applied to cell');
+    }
+    
+    applyMotorValues(values) {
+        // Apply the values from the dialog back to the cell
+        if (!this.cell.value) {
+            // Create the value object if it doesn't exist
+            this.cell.value = mxUtils.createXmlDocument().createElement('object');
+        }
+        
+        // Update cell attributes with the new values
+        for (const [attributeName, attributeValue] of Object.entries(values)) {
+            this.cell.value.setAttribute(attributeName, attributeValue);
+        }
+        
+        console.log('Motor values applied to cell');
+    }
+    
+    applyShuntReactorValues(values) {
+        // Apply the values from the dialog back to the cell
+        if (!this.cell.value) {
+            // Create the value object if it doesn't exist
+            this.cell.value = mxUtils.createXmlDocument().createElement('object');
+        }
+        
+        // Update cell attributes with the new values
+        for (const [attributeName, attributeValue] of Object.entries(values)) {
+            this.cell.value.setAttribute(attributeName, attributeValue);
+        }
+        
+        console.log('Shunt Reactor values applied to cell');
+    }
+    
+    applySSCValues(values) {
+        // Apply the values from the dialog back to the cell
+        if (!this.cell.value) {
+            // Create the value object if it doesn't exist
+            this.cell.value = mxUtils.createXmlDocument().createElement('object');
+        }
+        
+        // Update cell attributes with the new values
+        for (const [attributeName, attributeValue] of Object.entries(values)) {
+            this.cell.value.setAttribute(attributeName, attributeValue);
+        }
+        
+        console.log('SSC values applied to cell');
+    }
+    
+    applyStaticGeneratorValues(values) {
+        // Apply the values from the dialog back to the cell
+        if (!this.cell.value) {
+            // Create the value object if it doesn't exist
+            this.cell.value = mxUtils.createXmlDocument().createElement('object');
+        }
+        
+        // Update cell attributes with the new values
+        for (const [attributeName, attributeValue] of Object.entries(values)) {
+            this.cell.value.setAttribute(attributeName, attributeValue);
+        }
+        
+        console.log('Static Generator values applied to cell');
+    }
+    
+    applyStorageValues(values) {
+        // Apply the values from the cell back to the cell
+        if (!this.cell.value) {
+            // Create the value object if it doesn't exist
+            this.cell.value = mxUtils.createXmlDocument().createElement('object');
+        }
+        
+        // Update cell attributes with the new values
+        for (const [attributeName, attributeValue] of Object.entries(values)) {
+            this.cell.value.setAttribute(attributeName, attributeValue);
+        }
+        
+        console.log('Storage values applied to cell');
+    }
+    
+    applySVCValues(values) {
+        // Apply the values from the dialog back to the cell
+        if (!this.cell.value) {
+            // Create the value object if it doesn't exist
+            this.cell.value = mxUtils.createXmlDocument().createElement('object');
+        }
+        
+        // Update cell attributes with the new values
+        for (const [attributeName, attributeValue] of Object.entries(values)) {
+            this.cell.value.setAttribute(attributeName, attributeValue);
+        }
+        
+        console.log('SVC values applied to cell');
+    }
+    
+    applyTCSCValues(values) {
+        // Apply the values from the dialog back to the cell
+        if (!this.cell.value) {
+            // Create the value object if it doesn't exist
+            this.cell.value = mxUtils.createXmlDocument().createElement('object');
+        }
+        
+        // Update cell attributes with the new values
+        for (const [attributeName, attributeValue] of Object.entries(values)) {
+            this.cell.value.setAttribute(attributeName, attributeValue);
+        }
+        
+        console.log('TCSC values applied to cell');
+    }
+    
+    applyWardValues(values) {
+        // Apply the values from the dialog back to the cell
+        if (!this.cell.value) {
+            // Create the value object if it doesn't exist
+            this.cell.value = mxUtils.createXmlDocument().createElement('object');
+        }
+        
+        // Update cell attributes with the new values
+        for (const [attributeName, attributeValue] of Object.entries(values)) {
+            this.cell.value.setAttribute(attributeName, attributeValue);
+        }
+        
+        console.log('Ward values applied to cell');
+    }
+    
+    applyBusValues(values) {
+        // Apply the values from the dialog back to the cell
+        if (!this.cell.value) {
+            this.cell.value = mxUtils.createXmlDocument().createElement('object');
+        }
+        
+        for (const [attributeName, attributeValue] of Object.entries(values)) {
+            this.cell.value.setAttribute(attributeName, attributeValue);
+        }
+        
+        console.log('Bus values applied to cell');
+    }
+    
+    applyTransformerValues(values) {
+        // Apply the values from the dialog back to the cell
+        if (!this.cell.value) {
+            this.cell.value = mxUtils.createXmlDocument().createElement('object');
+        }
+        
+        for (const [attributeName, attributeValue] of Object.entries(values)) {
+            this.cell.value.setAttribute(attributeName, attributeValue);
+        }
+        
+        console.log('Transformer values applied to cell');
+    }
+    
+    applyThreeWindingTransformerValues(values) {
+        // Apply the values from the dialog back to the cell
+        if (!this.cell.value) {
+            this.cell.value = mxUtils.createXmlDocument().createElement('object');
+        }
+        
+        for (const [attributeName, attributeValue] of Object.entries(values)) {
+            this.cell.value.setAttribute(attributeName, attributeValue);
+        }
+        
+        console.log('Three Winding Transformer values applied to cell');
+    }
+    
     createContainer() {
+        // Check if we should show the main dialog (modern dialogs set this to false)
+        if (this.shouldShowDialog === false) {
+            // Create a minimal hidden container to prevent errors
+            const div = document.createElement('div');
+            div.style.display = 'none';
+            div.style.visibility = 'hidden';
+            div.style.position = 'absolute';
+            div.style.left = '-9999px';
+            return div;
+        }
+        
         // Create main container with proper sizing like the original
         const div = document.createElement('div');
         // Mark as electrisim dialog to bypass duplicate guard in showDialog
@@ -152,6 +2522,11 @@ export class EditDataDialog {
         
         // Get grid configuration based on element type
         const { gridOptions, rowDefs } = this.getGridConfiguration();
+        
+        // Early return if no grid configuration (modern dialogs)
+        if (!gridOptions || !rowDefs) {
+            return div;
+        }
         
         if (gridOptions && rowDefs) {
             // Initialize AG-Grid
@@ -320,16 +2695,21 @@ export class EditDataDialog {
     }
     
     getGridConfiguration() {
+        // Check if we should show the main dialog (modern dialogs set this to false)
+        if (this.shouldShowDialog === false) {
+            return { gridOptions: null, rowDefs: null };
+        }
+        
         // Get grid configuration based on element type
         const configs = {
             'External Grid': () => ({ 
-                gridOptions: window.gridOptionsExternalGrid, 
-                rowDefs: window.rowDefsExternalGrid,
+                gridOptions: null, // Modern dialog handles this
+                rowDefs: null,
                 helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/ext_grid.html'
             }),
             'Generator': () => ({ 
-                gridOptions: window.gridOptionsGenerator, 
-                rowDefs: window.rowDefsGenerator,
+                gridOptions: null, // Modern dialog handles this
+                rowDefs: null,
                 helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/gen.html'
             }),
             'Static Generator': () => ({ 
@@ -338,13 +2718,13 @@ export class EditDataDialog {
                 helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/sgen.html'
             }),
             'Asymmetric Static Generator': () => ({ 
-                gridOptions: window.gridOptionsAsymmetricStaticGenerator, 
-                rowDefs: window.rowDefsAsymmetricStaticGenerator,
+                gridOptions: null, // Modern dialog handles this
+                rowDefs: null,
                 helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/asymmetric_sgen.html'
             }),
             'Bus': () => ({ 
-                gridOptions: window.gridOptionsBus, 
-                rowDefs: window.rowDefsBus,
+                gridOptions: null, // Modern dialog handles this
+                rowDefs: null,
                 helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/bus.html'
             }),
             'Shunt Reactor': () => ({ 
@@ -353,59 +2733,59 @@ export class EditDataDialog {
                 helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/shunt.html'
             }),
             'Capacitor': () => ({ 
-                gridOptions: window.gridOptionsCapacitor, 
-                rowDefs: window.rowDefsCapacitor,
+                gridOptions: null, // Modern dialog handles this
+                rowDefs: null,
                 helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/shunt.html'
             }),
             'Load': () => ({ 
-                gridOptions: window.gridOptionsLoad, 
-                rowDefs: window.rowDefsLoad,
+                gridOptions: null, // Modern dialog handles this
+                rowDefs: null,
                 helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/load.html'
             }),
             'Asymmetric Load': () => ({ 
-                gridOptions: window.gridOptionsAsymmetricLoad, 
-                rowDefs: window.rowDefsAsymmetricLoad,
+                gridOptions: null, // Modern dialog handles this
+                rowDefs: null,
                 helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/asymmetric_load.html'
             }),
             'Impedance': () => ({ 
-                gridOptions: window.gridOptionsImpedance, 
-                rowDefs: window.rowDefsImpedance,
+                gridOptions: null, // Modern dialog handles this
+                rowDefs: null,
                 helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/impedance.html'
             }),
             'Ward': () => ({ 
-                gridOptions: window.gridOptionsWard, 
-                rowDefs: window.rowDefsWard,
+                gridOptions: null, // Modern dialog handles this
+                rowDefs: null,
                 helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/ward.html'
             }),
             'Extended Ward': () => ({ 
-                gridOptions: window.gridOptionsExtendedWard, 
-                rowDefs: window.rowDefsExtendedWard,
+                gridOptions: null, // Modern dialog handles this
+                rowDefs: null,
                 helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/xward.html'
             }),
             'Motor': () => ({ 
-                gridOptions: window.gridOptionsMotor, 
-                rowDefs: window.rowDefsMotor,
+                gridOptions: null, // Modern dialog handles this
+                rowDefs: null,
                 helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/motor.html'
             }),
             'Storage': () => ({ 
-                gridOptions: window.gridOptionsStorage, 
-                rowDefs: window.rowDefsStorage,
+                gridOptions: null, // Modern dialog handles this
+                rowDefs: null,
                 helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/storage.html'
             }),
             'DC Line': () => ({ 
-                gridOptions: window.gridOptionsDCLine, 
-                rowDefs: window.rowDefsDCLine,
+                gridOptions: null, // Modern dialog handles this
+                rowDefs: null,
                 helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/dcline.html'
             }),
             'Transformer': () => ({ 
-                gridOptions: window.gridOptionsTransformerBase, 
-                rowDefs: window.rowDefsTransformerBase,
+                gridOptions: null, // Modern dialog handles this
+                rowDefs: null,
                 helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/trafo.html',
                 hasLibrary: true
             }),
             'Three Winding Transformer': () => ({ 
-                gridOptions: window.gridOptionsThreeWindingTransformerBase, 
-                rowDefs: window.rowDefsThreeWindingTransformerBase,
+                gridOptions: null, // Modern dialog handles this
+                rowDefs: null,
                 helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/trafo3w.html',
                 hasLibrary: true
             }),
@@ -416,20 +2796,20 @@ export class EditDataDialog {
                 hasLibrary: true
             }),
             'SVC': () => ({ 
-                gridOptions: window.gridOptionsSVC, 
-                rowDefs: window.rowDefsSVC,
+                gridOptions: null, // Modern dialog handles this
+                rowDefs: null,
                 helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/svc.html',
                 hasLibrary: true
             }),
             'TCSC': () => ({ 
-                gridOptions: window.gridOptionsTCSC, 
-                rowDefs: window.rowDefsTCSC,
+                gridOptions: null, // Modern dialog handles this
+                rowDefs: null,
                 helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/tcsc.html',
                 hasLibrary: true
             }),
             'SSC': () => ({ 
-                gridOptions: window.gridOptionsSSC, 
-                rowDefs: window.rowDefsSSC,
+                gridOptions: null, // Modern dialog handles this
+                rowDefs: null,
                 helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/ssc.html',
                 hasLibrary: true
             })
@@ -612,6 +2992,19 @@ export class EditDataDialog {
         // This method is kept for compatibility
     }
     
+    // Helper method to set cleanup callback on modern dialogs
+    setDialogCleanup(dialog) {
+        dialog.cleanupCallback = () => {
+            this.cleanup();
+            if (window._globalDialogShowing) {
+                delete window._globalDialogShowing;
+            }
+            if (this.cell && this.cell._dialogShowing) {
+                delete this.cell._dialogShowing;
+            }
+        };
+    }
+
     cleanup() {
         // Clean up instance references
         if (this.cell && this.cell._editDataDialogInstance) {
@@ -772,6 +3165,315 @@ export class EditDataDialog {
                 delete this.cell._editDataDialogInstance;
             }
         };
+    }
+    
+    populateLineDialog(dialog) {
+        // First, populate all inputs with their default values
+        if (dialog.inputs) {
+            dialog.inputs.forEach((input, key) => {
+                // Get the default value from the dialog's data
+                let defaultValue = '';
+                if (dialog.data && dialog.data[key] !== undefined) {
+                    defaultValue = dialog.data[key];
+                }
+                
+                // Set the default value
+                if (input.type === 'checkbox') {
+                    input.checked = Boolean(defaultValue);
+                } else if (input.tagName === 'SELECT') {
+                    input.value = defaultValue;
+                } else {
+                    input.value = defaultValue.toString();
+                }
+            });
+        }
+        
+        // Then, override with any existing cell attributes
+        if (this.cell.value && this.cell.value.attributes) {
+            for (let i = 0; i < this.cell.value.attributes.length; i++) {
+                const attribute = this.cell.value.attributes[i];
+                const attributeName = attribute.name;
+                const attributeValue = attribute.value;
+                
+                // Update the dialog's parameter values based on parameter structure
+                if (dialog.inputs && dialog.inputs.has(attributeName)) {
+                    const input = dialog.inputs.get(attributeName);
+                    
+                    if (input.type === 'checkbox') {
+                        input.checked = attributeValue === 'true' || attributeValue === true;
+                    } else if (input.tagName === 'SELECT') {
+                        input.value = attributeValue;
+                    } else {
+                        input.value = attributeValue.toString();
+                    }
+                }
+            }
+        }
+        
+        console.log('Populated Line dialog with cell data');
+    }
+    
+    applyLineValues(values) {
+        console.log('=== applyLineValues called ===');
+        console.log('Values to apply:', values);
+        
+        // Apply the values back to the cell
+        if (this.cell.value) {
+            console.log('Cell value exists, proceeding with attribute update');
+            
+            // Store the original cell value for comparison
+            const originalCellValue = this.cell.value.cloneNode(true);
+            console.log('Original cell value before modification:', originalCellValue);
+            
+            // Clear existing attributes by removing them individually
+            if (this.cell.value.attributes) {
+                console.log(`Clearing ${this.cell.value.attributes.length} existing attributes`);
+                
+                // Get a copy of attribute names to avoid modifying while iterating
+                const attributeNames = [];
+                for (let i = 0; i < this.cell.value.attributes.length; i++) {
+                    attributeNames.push(this.cell.value.attributes[i].name);
+                }
+                
+                // Remove each attribute
+                attributeNames.forEach(name => {
+                    console.log(`  Removing attribute: ${name}`);
+                    this.cell.value.removeAttribute(name);
+                });
+            }
+            
+            // Add new attributes from values
+            console.log('Adding new attributes:');
+            Object.keys(values).forEach(key => {
+                const value = values[key];
+                console.log(`  Setting ${key} = ${value} (${typeof value})`);
+                this.cell.value.setAttribute(key, value);
+            });
+            
+            // Verify attributes were set
+            console.log('Verification - final cell attributes:');
+            if (this.cell.value.attributes) {
+                for (let i = 0; i < this.cell.value.attributes.length; i++) {
+                    const attr = this.cell.value.attributes[i];
+                    console.log(`  ${attr.name}: ${attr.value}`);
+                }
+            }
+            
+            // Update the cell display in the graph model
+            if (this.graph) {
+                // Use beginUpdate/endUpdate to ensure atomic operation
+                this.graph.model.beginUpdate();
+                try {
+                    this.graph.model.setValue(this.cell, this.cell.value);
+                    console.log('Updated cell display via graph.model.setValue');
+                    
+                    // Force a refresh of the cell
+                    this.graph.refresh(this.cell);
+                    console.log('Forced cell refresh');
+                    
+                    // Verify the cell value is still correct after update
+                    const updatedCellValue = this.graph.model.getValue(this.cell);
+                    console.log('Cell value after graph update:', updatedCellValue);
+                    
+                    if (updatedCellValue && updatedCellValue.attributes) {
+                        console.log('Verification - cell attributes after graph update:');
+                        for (let i = 0; i < updatedCellValue.attributes.length; i++) {
+                            const attr = updatedCellValue.attributes[i];
+                            console.log(`  ${attr.name}: ${attr.value}`);
+                        }
+                    }
+                    
+                    // Add a temporary listener to detect if the cell value changes after our update
+                    const cellChangeListener = (sender, evt) => {
+                        const changes = evt.getProperty('edit').changes;
+                        for (let i = 0; i < changes.length; i++) {
+                            const change = changes[i];
+                            if (change.cell === this.cell && change.value !== this.cell.value) {
+                                console.log('🚨 WARNING: Cell value was changed by another process!');
+                                console.log('  Original value we set:', this.cell.value);
+                                console.log('  New value after change:', change.value);
+                                console.log('  Change type:', change.constructor.name);
+                            }
+                        }
+                    };
+                    
+                    // Add the listener temporarily
+                    this.graph.model.addListener(mxEvent.CHANGE, cellChangeListener);
+                    
+                    // Remove the listener after a short delay
+                    setTimeout(() => {
+                        this.graph.model.removeListener(mxEvent.CHANGE, cellChangeListener);
+                        console.log('Removed temporary cell change listener');
+                    }, 1000);
+                    
+                } finally {
+                    this.graph.model.endUpdate();
+                    console.log('Graph model update completed');
+                }
+            } else {
+                console.log('WARNING: No graph available for cell display update');
+            }
+            
+            console.log('=== applyLineValues completed ===');
+        } else {
+            console.log('ERROR: Cell value is null/undefined');
+        }
+    }
+    
+    populateTransformerDialog(dialog) {
+        // First, populate all inputs with their default values
+        if (dialog.inputs) {
+            dialog.inputs.forEach((input, key) => {
+                // Get the default value from the dialog's data
+                let defaultValue = '';
+                if (dialog.data && dialog.data[key] !== undefined) {
+                    defaultValue = dialog.data[key];
+                }
+                
+                // Set the default value
+                if (input.type === 'checkbox') {
+                    input.checked = Boolean(defaultValue);
+                } else if (input.tagName === 'SELECT') {
+                    input.value = defaultValue;
+                } else {
+                    input.value = defaultValue.toString();
+                }
+            });
+        }
+        
+        // Then, override with any existing cell attributes
+        if (this.cell.value && this.cell.value.attributes) {
+            for (let i = 0; i < this.cell.value.attributes.length; i++) {
+                const attribute = this.cell.value.attributes[i];
+                const attributeName = attribute.name;
+                const attributeValue = attribute.value;
+                
+                // Update the dialog's parameter values based on parameter structure
+                if (dialog.inputs && dialog.inputs.has(attributeName)) {
+                    const input = dialog.inputs.get(attributeName);
+                    
+                    if (input.type === 'checkbox') {
+                        input.checked = attributeValue === 'true' || attributeValue === true;
+                    } else if (input.tagName === 'SELECT') {
+                        input.value = attributeValue;
+                    } else {
+                        input.value = attributeValue.toString();
+                    }
+                }
+            }
+        }
+        
+        console.log('Populated Transformer dialog with cell data');
+    }
+    
+    applyTransformerValues(values) {
+        // Apply the values back to the cell
+        if (this.cell.value) {
+            // Clear existing attributes by removing them individually
+            if (this.cell.value.attributes) {
+                // Get a copy of attribute names to avoid modifying while iterating
+                const attributeNames = [];
+                for (let i = 0; i < this.cell.value.attributes.length; i++) {
+                    attributeNames.push(this.cell.value.attributes[i].name);
+                }
+                
+                // Remove each attribute
+                attributeNames.forEach(name => {
+                    this.cell.value.removeAttribute(name);
+                });
+            }
+            
+            // Add new attributes from values
+            Object.keys(values).forEach(key => {
+                const value = values[key];
+                this.cell.value.setAttribute(key, value);
+            });
+            
+            // Update the cell display
+            if (this.graph) {
+                this.graph.model.setValue(this.cell, this.cell.value);
+            }
+            
+            console.log('Applied Transformer values to cell:', values);
+        }
+    }
+    
+    populateThreeWindingTransformerDialog(dialog) {
+        // First, populate all inputs with their default values
+        if (dialog.inputs) {
+            dialog.inputs.forEach((input, key) => {
+                // Get the default value from the dialog's data
+                let defaultValue = '';
+                if (dialog.data && dialog.data[key] !== undefined) {
+                    defaultValue = dialog.data[key];
+                }
+                
+                // Set the default value
+                if (input.type === 'checkbox') {
+                    input.checked = Boolean(defaultValue);
+                } else if (input.tagName === 'SELECT') {
+                    input.value = defaultValue;
+                } else {
+                    input.value = defaultValue.toString();
+                }
+            });
+        }
+        
+        // Then, override with any existing cell attributes
+        if (this.cell.value && this.cell.value.attributes) {
+            for (let i = 0; i < this.cell.value.attributes.length; i++) {
+                const attribute = this.cell.value.attributes[i];
+                const attributeName = attribute.name;
+                const attributeValue = attribute.value;
+                
+                // Update the dialog's parameter values based on parameter structure
+                if (dialog.inputs && dialog.inputs.has(attributeName)) {
+                    const input = dialog.inputs.get(attributeName);
+                    
+                    if (input.type === 'checkbox') {
+                        input.checked = attributeValue === 'true' || attributeValue === true;
+                    } else if (input.tagName === 'SELECT') {
+                        input.value = attributeValue;
+                    } else {
+                        input.value = attributeValue.toString();
+                    }
+                }
+            }
+        }
+        
+        console.log('Populated Three Winding Transformer dialog with cell data');
+    }
+    
+    applyThreeWindingTransformerValues(values) {
+        // Apply the values back to the cell
+        if (this.cell.value) {
+            // Clear existing attributes by removing them individually
+            if (this.cell.value.attributes) {
+                // Get a copy of attribute names to avoid modifying while iterating
+                const attributeNames = [];
+                for (let i = 0; i < this.cell.value.attributes.length; i++) {
+                    attributeNames.push(this.cell.value.attributes[i].name);
+                }
+                
+                // Remove each attribute
+                attributeNames.forEach(name => {
+                    this.cell.value.removeAttribute(name);
+                });
+            }
+            
+            // Add new attributes from values
+            Object.keys(values).forEach(key => {
+                const value = values[key];
+                this.cell.value.setAttribute(key, value);
+            });
+            
+            // Update the cell display
+            if (this.graph) {
+                this.graph.model.setValue(this.cell, this.cell.value);
+            }
+            
+            console.log('Applied Three Winding Transformer values to cell:', values);
+        }
 
         // Assemble the dialog
         buttonArea.appendChild(okButton);
@@ -814,4 +3516,4 @@ EditDataDialog.placeholderHelpLink = 'https://pandapower.readthedocs.io/en/lates
 // Make EditDataDialog available globally for legacy compatibility
 if (typeof window !== 'undefined') {
     window.EditDataDialog = EditDataDialog;
-} 
+}

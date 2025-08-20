@@ -10,7 +10,7 @@ import { gridOptionsExtendedWard } from '../extendedWardDialog.js';
 import { gridOptionsGenerator } from '../generatorDialog.js';
 import { gridOptionsImpedance } from '../impedanceDialog.js';
 import { gridOptionsLineBaseDialog } from '../lineBaseDialog.js';
-import { gridOptionsLineDialog } from '../lineDialog.js';
+import { gridOptionsLineLibrary } from '../lineLibraryDialog.js';
 import { gridOptionsLoad } from '../loadDialog.js';
 import { gridOptionsMotor } from '../motorDialog.js';
 import { gridOptionsShuntReactor } from '../shuntReactorDialog.js';
@@ -20,9 +20,9 @@ import { gridOptionsStorage } from '../storageDialog.js';
 import { gridOptionsSVC } from '../SVCDialog.js';
 import { gridOptionsTCSC } from '../TCSCDialog.js';
 import { gridOptionsThreeWindingTransformerBase } from '../threeWindingTransformerBaseDialog.js';
-import { gridOptionsThreeWindingTransformerLibrary } from '../threeWindingTransformerLibrary.js';
+import { gridOptionsThreeWindingTransformerLibrary } from '../threeWindingTransformerLibraryDialog.js';
 import { gridOptionsTransformerBase } from '../transformerBaseDialog.js';
-import { gridOptionsTransformerLibrary } from '../transformerDialog.js';
+import { gridOptionsTransformerLibrary } from '../transformerLibraryDialog.js';
 import { gridOptionsWard } from '../wardDialog.js';
 
 // Function to initialize all grid options
@@ -37,7 +37,7 @@ export function initializeGridOptions() {
     window.gridOptionsGenerator = gridOptionsGenerator;
     window.gridOptionsImpedance = gridOptionsImpedance;
     window.gridOptionsLineBaseDialog = gridOptionsLineBaseDialog;
-    window.gridOptionsLineDialog = gridOptionsLineDialog;
+    window.gridOptionsLineDialog = gridOptionsLineLibrary;
     window.gridOptionsLoad = gridOptionsLoad;
     window.gridOptionsMotor = gridOptionsMotor;
     window.gridOptionsShuntReactor = gridOptionsShuntReactor;

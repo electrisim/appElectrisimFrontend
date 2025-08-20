@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>External Grid Dialog Example</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .example-button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+        }
+        .example-button:hover {
+            background-color: #0056b3;
+        }
+        .output {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 20px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .description {
+            background-color: #e3f2fd;
+            border: 1px solid #bbdefb;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: #1565c0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>External Grid Dialog Example</h1>
+        
+        <div class="description">
+            <h3>New Tabbed Dialog Features:</h3>
+            <ul>
+                <li><strong>Column-based Layout:</strong> Each parameter is displayed in its own row with field name and description</li>
+                <li><strong>Load Flow Tab:</strong> Contains parameters used in load flow calculations (Name, Voltage Magnitude, Voltage Angle)</li>
+                <li><strong>Short Circuit Tab:</strong> Contains parameters used in short circuit calculations (Power ratings, R/X ratios)</li>
+                <li><strong>Visible Descriptions:</strong> All headerTooltips are now displayed as descriptions alongside field names</li>
+            </ul>
+        </div>
+
+        <button class="example-button" onclick="showExternalGridDialog()">
+            Open External Grid Dialog
+        </button>
+
+        <button class="example-button" onclick="showLegacyGridExample()">
+            Show Legacy Grid Data
+        </button>
+
+        <div id="output" class="output" style="display: none;">
+            Output will appear here...
+        </div>
+    </div>
+
+    <!-- Import the dialog module -->
+    <script type="module">
+        import { ExternalGridDialog, defaultExternalGridData, gridOptionsExternalGrid } from './src/main/webapp/js/electrisim/externalGridDialog.js';
+        
+        // Make the dialog available globally for the example
+        window.ExternalGridDialog = ExternalGridDialog;
+        window.defaultExternalGridData = defaultExternalGridData;
+        window.gridOptionsExternalGrid = gridOptionsExternalGrid;
+        
+        // Example function to show the dialog
+        window.showExternalGridDialog = function() {
+            const dialog = new ExternalGridDialog();
+            
+            dialog.show((values) => {
+                console.log('Dialog values received:', values);
+                
+                // Display the results
+                const output = document.getElementById('output');
+                output.style.display = 'block';
+                output.textContent = 'External Grid Parameters:\n\n' + 
+                    JSON.stringify(values, null, 2);
+                
+                // You can now use these values in your application
+                // For example, update the grid data, send to server, etc.
+                alert('Parameters saved! Check the output below and browser console.');
+            });
+        };
+        
+        // Example function to show legacy grid data
+        window.showLegacyGridExample = function() {
+            const output = document.getElementById('output');
+            output.style.display = 'block';
+            output.textContent = 'Legacy Grid Options Structure:\n\n' + 
+                JSON.stringify(window.gridOptionsExternalGrid, null, 2);
+        };
+    </script>
+</body>
+</html>
