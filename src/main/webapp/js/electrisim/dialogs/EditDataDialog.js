@@ -30,9 +30,14 @@ export class EditDataDialog {
             }
 
             // Check if there's already a dialog for this cell to prevent duplicates
-            if (cell._editDataDialogInstance) {
+            // Use a global WeakMap to avoid storing references on cells that get encoded
+            if (!window._editDataDialogInstances) {
+                window._editDataDialogInstances = new WeakMap();
+            }
+            
+            if (window._editDataDialogInstances.has(cell)) {
                 console.log('EditDataDialog already exists for this cell, returning existing instance');
-                return cell._editDataDialogInstance;
+                return window._editDataDialogInstances.get(cell);
             }
             
             // Check if there's already a dialog showing globally
@@ -49,8 +54,11 @@ export class EditDataDialog {
             this.cell = cell;
             this.shouldShowDialog = true; // Flag to control whether dialog should be shown
             
-            // Store this instance on the cell to prevent duplicates
-            cell._editDataDialogInstance = this;
+            // Add flag to prevent encoding issues
+            this._isEditDataDialog = true;
+            
+            // Store this instance on the cell to prevent duplicates using WeakMap
+            window._editDataDialogInstances.set(cell, this);
             
             // Parse the cell style to get element type
             const style = cell.getStyle() || '';
@@ -3007,8 +3015,8 @@ export class EditDataDialog {
 
     cleanup() {
         // Clean up instance references
-        if (this.cell && this.cell._editDataDialogInstance) {
-            delete this.cell._editDataDialogInstance;
+        if (this.cell && window._editDataDialogInstances && window._editDataDialogInstances.has(this.cell)) {
+            window._editDataDialogInstances.delete(this.cell);
         }
         if (window._globalDialogShowing) {
             delete window._globalDialogShowing;
@@ -3126,8 +3134,8 @@ export class EditDataDialog {
                 // Remove the class to allow future dialogs
                 overlay.className = '';
                 // Clean up the instance reference
-                if (this.cell && this.cell._editDataDialogInstance) {
-                    delete this.cell._editDataDialogInstance;
+                if (this.cell && window._editDataDialogInstances && window._editDataDialogInstances.has(this.cell)) {
+                    window._editDataDialogInstances.delete(this.cell);
                 }
                 // Clear global guards
                 if (window._notEditableMessageShowing) delete window._notEditableMessageShowing;
@@ -3161,8 +3169,8 @@ export class EditDataDialog {
         
         // Store cleanup function for external access
         this.cleanup = () => {
-            if (this.cell && this.cell._editDataDialogInstance) {
-                delete this.cell._editDataDialogInstance;
+            if (this.cell && window._editDataDialogInstances && window._editDataDialogInstances.has(this.cell)) {
+                window._editDataDialogInstances.delete(this.cell);
             }
         };
     }
@@ -3512,6 +3520,43 @@ export class EditDataDialog {
 
 // Set default help link
 EditDataDialog.placeholderHelpLink = 'https://pandapower.readthedocs.io/en/latest/elements.html';
+
+// Prevent EditDataDialog from being encoded by mxCodec
+EditDataDialog.prototype.encode = function() {
+    // Return null to prevent encoding
+    return null;
+};
+
+// Register a custom codec to handle EditDataDialog objects
+// This will be registered later when mxCodecRegistry is available
+window.addEventListener('load', function() {
+    if (typeof mxCodecRegistry !== 'undefined' && typeof mxObjectCodec !== 'undefined') {
+        try {
+            // Create a dummy template for the codec
+            const template = {
+                constructor: EditDataDialog,
+                ui: null,
+                cell: null,
+                container: null
+            };
+            
+            const editDataDialogCodec = new mxObjectCodec(template, ['ui', 'cell', 'container']);
+            editDataDialogCodec.encode = function() {
+                // Always return null to prevent encoding
+                return null;
+            };
+            editDataDialogCodec.decode = function() {
+                // Always return null to prevent decoding
+                return null;
+            };
+            
+            mxCodecRegistry.register(editDataDialogCodec);
+            console.log('EditDataDialog codec registered successfully');
+        } catch (e) {
+            console.warn('Could not register EditDataDialog codec:', e);
+        }
+    }
+});
 
 // Make EditDataDialog available globally for legacy compatibility
 if (typeof window !== 'undefined') {
