@@ -71,44 +71,74 @@ KeyError: 'parallel'
 - The code directly accessed `in_data[x]['parallel']` without checking if the field exists
 - Different transformer types had different field sets
 
+### 3. Type Conversion Error (isnan not supported)
+
+**Error**:
+```
+TypeError: ufunc 'isnan' not supported for the input types, and the inputs could not be safely coerced to any supported types according to the casting rule ''safe''
+    at pandapower.create.create_transformer_from_parameters
+```
+
+**Root Cause**:
+- All data from frontend comes as strings (JSON format)
+- Pandapower expects numeric types for mathematical operations like `numpy.isnan()`
+- Zero-sequence parameters (`vk0_percent`, `vkr0_percent`, etc.) were passed as strings causing the isnan error
+
 **Solution Applied**:
 
-1. **Added Safe Field Access with Defaults**:
+1. **Added Safe Field Access with Defaults and Type Conversion**:
    ```python
-   # Before (causing KeyError):
-   parallel=in_data[x]['parallel']
+   # Helper functions for safe type conversion
+   def safe_float(value, default=None):
+       if value is None or value == 'None' or value == '':
+           return default
+       try:
+           return float(value)
+       except (ValueError, TypeError):
+           return default
    
-   # After (with safe defaults):
-   parallel_value = in_data[x].get('parallel', 1)
-   vector_group = in_data[x].get('vector_group', None)
-   vk0_percent = in_data[x].get('vk0_percent', None)
-   vkr0_percent = in_data[x].get('vkr0_percent', None)
-   mag0_percent = in_data[x].get('mag0_percent', None)
-   si0_hv_partial = in_data[x].get('si0_hv_partial', None)
+   def safe_int(value, default=1):
+       if value is None or value == 'None' or value == '':
+           return default
+       try:
+           return int(value)
+       except (ValueError, TypeError):
+           return default
+   
+   # Before (causing KeyError and TypeError):
+   parallel=in_data[x]['parallel']  # KeyError if missing
+   vk0_percent=in_data[x]['vk0_percent']  # String causes isnan error
+   
+   # After (with safe defaults and type conversion):
+   parallel_value = safe_int(in_data[x].get('parallel', 1), 1)
+   vk0_percent = safe_float(in_data[x].get('vk0_percent', None))
    ```
 
-2. **Parameter Dictionary Approach**:
+2. **Parameter Dictionary Approach with Type Conversion**:
    ```python
-   # Create parameter dictionary for cleaner code
+   # Create parameter dictionary with proper type conversion
    transformer_params = {
        'hv_bus': eval(in_data[x]['hv_bus']),
        'lv_bus': eval(in_data[x]['lv_bus']),
-       'parallel': parallel_value,
-       # ... other required parameters
+       'sn_mva': safe_float(in_data[x]['sn_mva']),  # String -> Float
+       'parallel': parallel_value,                 # String -> Int
+       'vk_percent': safe_float(in_data[x]['vk_percent']),  # String -> Float
+       # ... other parameters with proper type conversion
    }
    
    # Add optional parameters only if they exist and are not None
-   if vector_group is not None:
-       transformer_params['vector_group'] = vector_group
+   if vk0_percent is not None:
+       transformer_params['vk0_percent'] = vk0_percent  # Now Float, not String
    
    pp.create_transformer_from_parameters(net, **transformer_params)
    ```
 
 **Files Modified**: 
-- `pandapower_electrisim.py` (lines 212-257)
+- `pandapower_electrisim.py` (lines 42-61, 229-274)
 
-**Test File Created**: 
-- `test_transformer_parallel_fix.py` (backend validation tests)
+**Test Files Created**: 
+- `test_transformer_parallel_fix.py` (backend KeyError validation tests)
+- `test_numeric_conversion_fix.py` (backend type conversion validation tests)
 
 ## Data Analysis
 
@@ -151,26 +181,33 @@ KeyError: 'parallel'
 ✅ Optional transformer parameters handled gracefully  
 ✅ Parameter dictionary creation works correctly  
 ✅ No KeyError exceptions thrown  
+✅ String to numeric conversion works correctly  
+✅ Zero-sequence parameters converted to proper float types  
+✅ All converted values compatible with numpy.isnan()  
+✅ Safe conversion handles None, empty strings, and invalid values  
 
 ## Impact
 
 **Before Fixes**:
 - Frontend: Maximum call stack size exceeded due to circular references
-- Backend: KeyError crash during short circuit simulation
-- User: Cannot run short circuit analysis
+- Backend: KeyError crash during short circuit simulation  
+- Backend: TypeError with isnan function for string parameters
+- User: Cannot run load flow or short circuit analysis
 
 **After Fixes**:
 - Frontend: EditDataDialog works without encoding errors
-- Backend: All transformer types processed successfully
-- User: Can successfully run short circuit simulations
+- Backend: All transformer types processed successfully with proper type conversion
+- Backend: All numeric parameters correctly typed for pandapower compatibility
+- User: Can successfully run both load flow and short circuit simulations
 
 ## Verification
 
 To verify the fixes are working:
 
 1. **Frontend**: Open `test-editdatadialog-fix.html` in browser and run validation tests
-2. **Backend**: Run `python test_transformer_parallel_fix.py` to verify transformer handling
-3. **Full Integration**: Submit the original data that caused the error and verify successful processing
+2. **Backend KeyError Fix**: Run `python test_transformer_parallel_fix.py` to verify transformer handling
+3. **Backend Type Conversion Fix**: Run `python test_numeric_conversion_fix.py` to verify numeric conversion
+4. **Full Integration**: Submit the original data that caused the errors and verify successful processing of both load flow and short circuit simulations
 
 ## Future Considerations
 
@@ -183,11 +220,12 @@ To verify the fixes are working:
 
 ### Created:
 - `test-editdatadialog-fix.html` - Frontend test validation
-- `test_transformer_parallel_fix.py` - Backend test validation
+- `test_transformer_parallel_fix.py` - Backend KeyError test validation  
+- `test_numeric_conversion_fix.py` - Backend type conversion test validation
 - `FIXES_APPLIED_SUMMARY.md` - This documentation
 
 ### Modified:
 - `src/main/webapp/js/electrisim/dialogs/EditDataDialog.js` - Fixed circular references
-- `pandapower_electrisim.py` - Fixed missing field handling
+- `pandapower_electrisim.py` - Fixed missing field handling and type conversion
 
 All fixes have been thoroughly tested and are ready for production use.
