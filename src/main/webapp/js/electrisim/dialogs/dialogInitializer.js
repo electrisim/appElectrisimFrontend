@@ -1,12 +1,14 @@
 // dialogInitializer.js - Ensures proper dialog initialization
 import { EditDataDialog } from './EditDataDialog.js';
 import { LoadFlowDialog } from './LoadFlowDialog.js';
+import { OpenDSSLoadFlowDialog } from './OpenDSSLoadFlowDialog.js';
 import { ComponentsDataDialog } from './ComponentsDataDialog.js';
 
 // Make dialogs available globally for legacy code compatibility
 window.EditDataDialog = EditDataDialog;
 window.ComponentsDataDialog = ComponentsDataDialog;
 window.LoadFlowDialog = LoadFlowDialog;
+window.OpenDSSLoadFlowDialog = OpenDSSLoadFlowDialog;
 
         // Wait for all dependencies to be ready
         function waitForApp(callback) {
@@ -42,6 +44,16 @@ function initializeDialogs() {
         if (!window.ComponentsDataDialog) {
             window.ComponentsDataDialog = ComponentsDataDialog;
             console.log('ComponentsDataDialog made available globally');
+        }
+
+        if (!window.LoadFlowDialog) {
+            window.LoadFlowDialog = LoadFlowDialog;
+            console.log('LoadFlowDialog made available globally');
+        }
+
+        if (!window.OpenDSSLoadFlowDialog) {
+            window.OpenDSSLoadFlowDialog = OpenDSSLoadFlowDialog;
+            console.log('OpenDSSLoadFlowDialog made available globally');
         }
 
         // Store original method as backup
@@ -98,120 +110,101 @@ function initializeDialogs() {
                 
                 // Check if the dialog should be shown (for special cases like Result elements)
                 if (dialog.shouldShowDialog === false) {
-                    console.log('Dialog should not be shown for this cell');
+                    console.log('Dialog should not be shown for this cell type');
+                    cell._dialogShowing = false;
+                    window._globalDialogShowing = false;
                     return;
                 }
                 
-                // Get current screen dimensions for full-width dialog
-                const screenWidth = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
-                const screenHeight = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+                dialog.show();
                 
-                // Calculate dynamic width: full screen width with margins, minimum 1200px
-                const dialogWidth = Math.max(screenWidth - 40, 1200);
-                
-                // Ultra-compact dialog height: 75px grid + 28px buttons + 15px margins = 118px
-                const dialogHeight = 118;
-                
-                // Show the dialog with full-width dimensions
-                this.showDialog(dialog.container, dialogWidth, dialogHeight, true, false, null, false);
-                
-                // Initialize the dialog
-                dialog.init();
-                
-                // Add cleanup when dialog is closed
-                const originalClose = this.closeDialog;
-                this.closeDialog = function() {
-                    if (cell._dialogShowing) {
-                        delete cell._dialogShowing;
-                    }
-                    if (window._globalDialogShowing) {
-                        delete window._globalDialogShowing;
-                    }
-                    if (originalClose) {
-                        return originalClose.apply(this, arguments);
-                    }
+                // Clean up flags when dialog is closed
+                const cleanup = () => {
+                    cell._dialogShowing = false;
+                    window._globalDialogShowing = false;
                 };
                 
-                console.log(`Custom EditDataDialog shown: ${dialogWidth}x${dialogHeight}`);
+                // Store cleanup callback
+                dialog.cleanupCallback = cleanup;
+                
             } catch (error) {
                 console.error('Error in custom showDataDialog:', error);
-                // Fallback to original method if available
-                if (originalShowDataDialog && typeof originalShowDataDialog === 'function') {
-                    console.log('Falling back to original showDataDialog');
-                    return originalShowDataDialog.call(this, cell);
-                }
+                // Reset flags on error
+                if (cell) cell._dialogShowing = false;
+                window._globalDialogShowing = false;
             }
         };
 
-        // Override the LoadFlowDialog method
-        EditorUi.prototype.showLoadFlowDialogPandaPower = function(title, okButtonText, callback) {
-            const dialog = new LoadFlowDialog(this);
-            dialog.show((values) => {
-                if (callback) {
-                    callback(values);
-                }
-            });
-            return dialog;
-        };
-
-        // Expose custom function globally so app.min.js can defer to it
-        try { window.customShowDataDialog = customShowDataDialog; } catch (e) {}
-
-        // Assign the custom function to the prototype (force replacement right away)
+        // Override the showDataDialog method
         EditorUi.prototype.showDataDialog = customShowDataDialog;
 
-        // Guard the core showDialog to prevent duplicate overlays while one is active
-        if (!EditorUi.prototype._originalShowDialogGuarded) {
-            const _origShowDialog = EditorUi.prototype.showDialog;
-            EditorUi.prototype.showDialog = function(elt, w, h, modal, closable, onClose, noScroll, transparent, onResize, ignoreBgClick) {
+        // Add load flow dialog methods
+        if (!EditorUi.prototype.showLoadFlowDialog) {
+            EditorUi.prototype.showLoadFlowDialog = function(title, buttonText, callback) {
                 try {
-                    // If a global dialog is showing and this is not our own electrisim dialog, block it
-                    const isElectrisim = elt && elt.classList && elt.classList.contains('electrisim-dialog');
-                    if (window._globalDialogShowing && !isElectrisim) {
-                        console.warn('Blocked duplicate dialog while another is active');
-                        return;
+                    console.log('showLoadFlowDialog called');
+                    
+                    if (window.LoadFlowDialog) {
+                        const dialog = new window.LoadFlowDialog(this);
+                        dialog.show(callback);
+                    } else {
+                        console.error('LoadFlowDialog not available');
+                        alert('Load Flow dialog is not available');
                     }
-                } catch (e) {}
-                return _origShowDialog.apply(this, arguments);
+                } catch (error) {
+                    console.error('Error showing LoadFlowDialog:', error);
+                    alert('Error showing Load Flow dialog: ' + error.message);
+                }
             };
-            EditorUi.prototype._originalShowDialogGuarded = true;
         }
-        
-        console.log('All dialog overrides initialized successfully');
-        
-        // Mark as initialized to prevent duplicate initialization
-        EditorUi.prototype._dialogOverridesInitialized = true;
-        
-        // Verify the override worked
-        console.log('showDataDialog override verification:', {
-            isOverridden: EditorUi.prototype.showDataDialog.toString().includes('ComponentsDataDialog'),
-            EditDataDialogAvailable: typeof window.EditDataDialog !== 'undefined',
-            ComponentsDataDialogAvailable: typeof window.ComponentsDataDialog !== 'undefined'
-        });
-        
-        // Set up a periodic check to ensure our override is still active and no duplicate dialogs
-        setInterval(() => {
-            try {
-                if (!EditorUi.prototype.showDataDialog.toString().includes('ComponentsDataDialog')) {
-                    console.warn('showDataDialog override was lost, re-applying...');
-                    EditorUi.prototype.showDataDialog = customShowDataDialog;
-                }
-                // Hard guard: if there are multiple .geDialog overlays, keep only the last
-                const overlays = document.querySelectorAll('.mxWindow, .geDialog');
-                if (overlays && overlays.length > 1) {
-                    for (let i = 0; i < overlays.length - 1; i++) {
-                        overlays[i].parentNode && overlays[i].parentNode.removeChild(overlays[i]);
+
+        // Add OpenDSS load flow dialog method
+        if (!EditorUi.prototype.showLoadFlowDialogOpenDSS) {
+            EditorUi.prototype.showLoadFlowDialogOpenDSS = function(title, buttonText, callback) {
+                try {
+                    console.log('showLoadFlowDialogOpenDSS called');
+                    
+                    if (window.OpenDSSLoadFlowDialog) {
+                        const dialog = new window.OpenDSSLoadFlowDialog(this);
+                        dialog.show(callback);
+                    } else {
+                        console.error('OpenDSSLoadFlowDialog not available');
+                        alert('OpenDSS Load Flow dialog is not available');
                     }
+                } catch (error) {
+                    console.error('Error showing OpenDSSLoadFlowDialog:', error);
+                    alert('Error showing OpenDSS Load Flow dialog: ' + error.message);
                 }
-            } catch (e) {
-                // noop
-            }
-        }, 1000);
+            };
+        }
+
+        // Mark as initialized
+        EditorUi.prototype._dialogOverridesInitialized = true;
+        console.log('Dialog overrides initialized successfully');
         
     } catch (error) {
-        console.error('Error initializing dialog overrides:', error);
+        console.error('Error initializing dialogs:', error);
     }
 }
 
-// Initialize when everything is ready
-waitForApp(initializeDialogs); 
+// Initialize when the page is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        waitForApp(initializeDialogs);
+    });
+} else {
+    waitForApp(initializeDialogs);
+}
+
+// Also try to initialize when the window loads (fallback)
+window.addEventListener('load', () => {
+    setTimeout(() => {
+        if (!EditorUi.prototype._dialogOverridesInitialized) {
+            console.log('Attempting to initialize dialogs on window load...');
+            waitForApp(initializeDialogs);
+        }
+    }, 1000);
+});
+
+// Export for potential use in other modules
+export { initializeDialogs, waitForApp }; 
