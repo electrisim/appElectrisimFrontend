@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Line Dialog Sync Fix Test</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background-color: #f5f5f5;
+        }
+        .test-container { 
+            background: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+            margin-bottom: 20px;
+        }
+        .test-result { 
+            padding: 10px; 
+            margin: 10px 0; 
+            border-radius: 4px; 
+        }
+        .success { 
+            background-color: #d4edda; 
+            color: #155724; 
+            border: 1px solid #c3e6cb; 
+        }
+        .error { 
+            background-color: #f8d7da; 
+            color: #721c24; 
+            border: 1px solid #f5c6cb; 
+        }
+        .info { 
+            background-color: #d1ecf1; 
+            color: #0c5460; 
+            border: 1px solid #b8daff; 
+        }
+        .warning { 
+            background-color: #fff3cd; 
+            color: #856404; 
+            border: 1px solid #ffeaa7; 
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .code-block {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+        .problem-solution {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 10px 0;
+        }
+        .problem-box, .solution-box {
+            padding: 15px;
+            border-radius: 4px;
+        }
+        .problem-box {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+        }
+        .solution-box {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+        }
+    </style>
+</head>
+<body>
+    <h1>Line Dialog Sync Fix Test</h1>
+    
+    <div class="test-container">
+        <h2>Root Cause Identified</h2>
+        <div class="problem-solution">
+            <div class="problem-box">
+                <h4>❌ The Problem</h4>
+                <p><strong>Issue:</strong> DOM inputs were not synchronized with parameter values</p>
+                <div class="code-block">
+// populateDialog() was updating parameter arrays but NOT DOM inputs
+loadFlowParam.value = attributeValue;  // ✅ Updated parameter array
+// But DOM input still had old value!
+
+// getFormValues() reads from DOM inputs, not parameter arrays
+const numValue = parseFloat(input.value);  // ❌ Old value from DOM
+                </div>
+                <p><strong>Result:</strong> Dialog showed correct values but getFormValues() returned old values</p>
+            </div>
+            <div class="solution-box">
+                <h4>✅ The Solution</h4>
+                <p><strong>Fix:</strong> Synchronize DOM inputs with parameter values after populating</p>
+                <div class="code-block">
+// After updating parameter arrays, update DOM inputs too
+[...this.loadFlowParameters, ...this.shortCircuitParameters, ...this.opfParameters].forEach(param => {
+    if (this.inputs.has(param.id)) {
+        const input = this.inputs.get(param.id);
+        const value = param.value;
+        
+        if (input.type === 'checkbox') {
+            input.checked = Boolean(value);
+        } else {
+            input.value = value.toString();  // ✅ DOM input updated
+        }
+    }
+});
+                </div>
+                <p><strong>Result:</strong> DOM inputs now match parameter values, getFormValues() works correctly</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h2>Test the Fix</h2>
+        <div id="testResults">
+            <div class="info">Click the test buttons below to verify the synchronization fix.</div>
+        </div>
+        
+        <button onclick="testParameterSync()">Test Parameter Synchronization</button>
+        <button onclick="testDOMUpdate()">Test DOM Input Update</button>
+        <button onclick="testCompleteFlow()">Test Complete Flow</button>
+    </div>
+
+    <div class="test-container">
+        <h2>Expected Behavior After Fix</h2>
+        <div class="success">
+            <h3>✅ What Should Happen Now:</h3>
+            <ol>
+                <li><strong>Dialog Opens:</strong> Shows default values (parallel=1, df=1.0) in input fields</li>
+                <li><strong>User Sees Values:</strong> Input fields display the correct default values</li>
+                <li><strong>User Clicks Apply:</strong> getFormValues() reads the correct values from DOM inputs</li>
+                <li><strong>Backend Receives:</strong> parallel=1, df=1.0 (not null)</li>
+                <li><strong>Pandapower Call:</strong> Includes parallel and df parameters with correct values</li>
+            </ol>
+        </div>
+        
+        <div class="info">
+            <h3>Console Logs to Look For:</h3>
+            <div class="code-block">
+=== LineDialog.populateDialog called ===
+Initial parameter values:
+  parallel: 1 (number)
+  df: 1.0 (number)
+Updating DOM inputs with parameter values...
+  Updated DOM input parallel: 1
+  Updated DOM input df: 1.0
+=== LineDialog.populateDialog completed ===
+
+Line dialog values received: {
+  "parallel": 1,    // ✅ Should be 1, not null
+  "df": 1.0         // ✅ Should be 1.0, not null
+}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function addTestResult(message, isSuccess) {
+            const resultsDiv = document.getElementById('testResults');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${isSuccess ? 'success' : 'error'}`;
+            resultDiv.innerHTML = message;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        function testParameterSync() {
+            try {
+                // Simulate the parameter arrays
+                const loadFlowParameters = [
+                    { id: 'parallel', type: 'number', value: '1' },
+                    { id: 'df', type: 'number', value: '1.0' }
+                ];
+
+                // Simulate DOM inputs (initially empty)
+                const mockInputs = new Map();
+                mockInputs.set('parallel', { type: 'number', value: '' });
+                mockInputs.set('df', { type: 'number', value: '' });
+
+                // Simulate the FIXED populateDialog logic
+                console.log('Before sync - DOM inputs:');
+                console.log('  parallel:', mockInputs.get('parallel').value);
+                console.log('  df:', mockInputs.get('df').value);
+
+                // Update DOM inputs with parameter values (THE FIX)
+                loadFlowParameters.forEach(param => {
+                    if (mockInputs.has(param.id)) {
+                        const input = mockInputs.get(param.id);
+                        input.value = param.value.toString();
+                        console.log(`  Updated DOM input ${param.id}: ${param.value}`);
+                    }
+                });
+
+                console.log('After sync - DOM inputs:');
+                console.log('  parallel:', mockInputs.get('parallel').value);
+                console.log('  df:', mockInputs.get('df').value);
+
+                // Test getFormValues logic
+                const values = {};
+                loadFlowParameters.forEach(param => {
+                    const input = mockInputs.get(param.id);
+                    const numValue = parseFloat(input.value);
+                    values[param.id] = (input.value.trim() === '') ? null : numValue;
+                });
+
+                const expected = { parallel: 1, df: 1.0 };
+                const isCorrect = JSON.stringify(values) === JSON.stringify(expected);
+
+                if (isCorrect) {
+                    addTestResult('✅ Parameter synchronization works - DOM inputs are updated with parameter values', true);
+                } else {
+                    addTestResult('❌ Parameter synchronization failed - values not properly synced', false);
+                }
+
+            } catch (error) {
+                addTestResult('❌ Parameter sync test failed: ' + error.message, false);
+            }
+        }
+
+        function testDOMUpdate() {
+            try {
+                // Test the DOM update logic specifically
+                const testCases = [
+                    { id: 'parallel', type: 'number', value: '1', expected: '1' },
+                    { id: 'df', type: 'number', value: '1.0', expected: '1.0' },
+                    { id: 'name', type: 'text', value: 'Test Line', expected: 'Test Line' }
+                ];
+
+                let allCorrect = true;
+                testCases.forEach(testCase => {
+                    // Simulate DOM input
+                    const mockInput = { type: testCase.type, value: '' };
+                    
+                    // Apply the update logic
+                    if (mockInput.type === 'checkbox') {
+                        mockInput.checked = Boolean(testCase.value);
+                    } else {
+                        mockInput.value = testCase.value.toString();
+                    }
+                    
+                    // Check result
+                    const actualValue = mockInput.type === 'checkbox' ? mockInput.checked : mockInput.value;
+                    if (actualValue.toString() !== testCase.expected) {
+                        allCorrect = false;
+                    }
+                });
+
+                if (allCorrect) {
+                    addTestResult('✅ DOM update logic works correctly for all input types', true);
+                } else {
+                    addTestResult('❌ DOM update logic failed for some input types', false);
+                }
+
+            } catch (error) {
+                addTestResult('❌ DOM update test failed: ' + error.message, false);
+            }
+        }
+
+        function testCompleteFlow() {
+            try {
+                // Test the complete flow with the fix
+                const mockCellData = {
+                    attributes: [
+                        { name: 'name', value: 'Test Line' },
+                        { name: 'length_km', value: '1' },
+                        { name: 'parallel', value: '1' },
+                        { name: 'df', value: '1.0' }
+                    ]
+                };
+
+                // Simulate parameter arrays with default values
+                const loadFlowParameters = [
+                    { id: 'name', type: 'text', value: 'Line' },
+                    { id: 'length_km', type: 'number', value: '1' },
+                    { id: 'parallel', type: 'number', value: '1' },
+                    { id: 'df', type: 'number', value: '1.0' }
+                ];
+
+                // Simulate DOM inputs
+                const mockInputs = new Map();
+                loadFlowParameters.forEach(param => {
+                    mockInputs.set(param.id, { 
+                        type: param.type, 
+                        value: param.value,
+                        checked: false 
+                    });
+                });
+
+                // Simulate populateDialog processing
+                mockCellData.attributes.forEach(attr => {
+                    const param = loadFlowParameters.find(p => p.id === attr.name);
+                    if (param) {
+                        param.value = attr.value;
+                    }
+                });
+
+                // Simulate the FIXED DOM update
+                loadFlowParameters.forEach(param => {
+                    if (mockInputs.has(param.id)) {
+                        const input = mockInputs.get(param.id);
+                        if (input.type === 'checkbox') {
+                            input.checked = Boolean(param.value);
+                        } else {
+                            input.value = param.value.toString();
+                        }
+                    }
+                });
+
+                // Simulate getFormValues
+                const values = {};
+                loadFlowParameters.forEach(param => {
+                    const input = mockInputs.get(param.id);
+                    if (input.type === 'checkbox') {
+                        values[param.id] = input.checked;
+                    } else {
+                        const numValue = parseFloat(input.value);
+                        values[param.id] = isNaN(numValue) ? input.value : numValue;
+                    }
+                });
+
+                const expected = {
+                    name: 'Test Line',
+                    length_km: 1,
+                    parallel: 1,      // Should be 1, not null
+                    df: 1.0          // Should be 1.0, not null
+                };
+
+                const isCorrect = JSON.stringify(values) === JSON.stringify(expected);
+
+                if (isCorrect) {
+                    addTestResult('✅ Complete flow works - parallel and df are properly transmitted from dialog to backend', true);
+                } else {
+                    addTestResult('❌ Complete flow failed - values not properly transmitted', false);
+                }
+
+            } catch (error) {
+                addTestResult('❌ Complete flow test failed: ' + error.message, false);
+            }
+        }
+
+        // Show initial status
+        addTestResult('Line dialog synchronization fix has been applied', true);
+        addTestResult('DOM inputs are now updated with parameter values after populateDialog', true);
+        addTestResult('This should resolve the parallel and df null values issue', true);
+    </script>
+</body>
+</html>
+

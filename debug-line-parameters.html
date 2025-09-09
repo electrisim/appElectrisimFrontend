@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Line Parameters</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background-color: #f5f5f5;
+        }
+        .test-container { 
+            background: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+            margin-bottom: 20px;
+        }
+        .code-block {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            background-color: #e8f4fd;
+            border: 1px solid #b8daff;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Debug Line Parameters</h1>
+    
+    <div class="test-container">
+        <h2>Test Line Dialog getFormValues() Method</h2>
+        <p>This test simulates the exact logic from the LineDialog to see what values are generated.</p>
+        
+        <button onclick="testLineDialogValues()">Test Line Dialog Values</button>
+        <button onclick="testParameterProcessing()">Test Parameter Processing</button>
+        <button onclick="testCompleteFlow()">Test Complete Flow</button>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        function addResult(message) {
+            const resultsDiv = document.getElementById('results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = 'result';
+            resultDiv.innerHTML = message;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        function testLineDialogValues() {
+            try {
+                // Simulate the LineDialog getFormValues method
+                const mockInputs = new Map();
+                
+                // Create mock inputs with default values
+                mockInputs.set('name', { type: 'text', value: 'Test Line' });
+                mockInputs.set('length_km', { type: 'number', value: '1' });
+                mockInputs.set('r_ohm_per_km', { type: 'number', value: '0.571' });
+                mockInputs.set('x_ohm_per_km', { type: 'number', value: '0.201' });
+                mockInputs.set('c_nf_per_km', { type: 'number', value: '150' });
+                mockInputs.set('g_us_per_km', { type: 'number', value: '0' });
+                mockInputs.set('max_i_ka', { type: 'number', value: '0.235' });
+                mockInputs.set('type', { tagName: 'SELECT', value: 'cs' });
+                mockInputs.set('in_service', { type: 'checkbox', checked: true });
+                mockInputs.set('parallel', { type: 'number', value: '1' });  // Default value
+                mockInputs.set('df', { type: 'number', value: '1.0' });      // Default value
+                mockInputs.set('r0_ohm_per_km', { type: 'number', value: '1' });
+                mockInputs.set('x0_ohm_per_km', { type: 'number', value: '1' });
+                mockInputs.set('c0_nf_per_km', { type: 'number', value: '1' });
+                mockInputs.set('endtemp_degree', { type: 'number', value: '250' });
+
+                // Simulate the getFormValues logic
+                const values = {};
+                
+                // Simulate the parameter arrays
+                const loadFlowParameters = [
+                    { id: 'name', type: 'text' },
+                    { id: 'length_km', type: 'number' },
+                    { id: 'r_ohm_per_km', type: 'number' },
+                    { id: 'x_ohm_per_km', type: 'number' },
+                    { id: 'c_nf_per_km', type: 'number' },
+                    { id: 'g_us_per_km', type: 'number' },
+                    { id: 'max_i_ka', type: 'number' },
+                    { id: 'type', type: 'select' },
+                    { id: 'in_service', type: 'checkbox' },
+                    { id: 'parallel', type: 'number' },
+                    { id: 'df', type: 'number' }
+                ];
+
+                const shortCircuitParameters = [
+                    { id: 'r0_ohm_per_km', type: 'number' },
+                    { id: 'x0_ohm_per_km', type: 'number' },
+                    { id: 'c0_nf_per_km', type: 'number' },
+                    { id: 'endtemp_degree', type: 'number' }
+                ];
+
+                const opfParameters = [];
+
+                // Process all parameters
+                [...loadFlowParameters, ...shortCircuitParameters, ...opfParameters].forEach(param => {
+                    if (mockInputs.has(param.id)) {
+                        const input = mockInputs.get(param.id);
+                        if (input.type === 'checkbox') {
+                            values[param.id] = input.checked;
+                        } else if (input.tagName === 'SELECT') {
+                            values[param.id] = input.value;
+                        } else {
+                            // For optional parameters, only convert empty strings to null for backend
+                            const optionalParams = ['parallel', 'df'];
+                            if (optionalParams.includes(param.id)) {
+                                const numValue = parseFloat(input.value);
+                                values[param.id] = (input.value.trim() === '') ? null : numValue;
+                            } else {
+                                const numValue = parseFloat(input.value);
+                                values[param.id] = isNaN(numValue) ? input.value : numValue;
+                            }
+                        }
+                    }
+                });
+
+                addResult(`
+                    <h3>Line Dialog Values Generated:</h3>
+                    <div class="code-block">${JSON.stringify(values, null, 2)}</div>
+                    <p><strong>Key Values:</strong></p>
+                    <ul>
+                        <li>parallel: ${values.parallel} (type: ${typeof values.parallel})</li>
+                        <li>df: ${values.df} (type: ${typeof values.df})</li>
+                    </ul>
+                `);
+
+            } catch (error) {
+                addResult(`<p style="color: red;">Error: ${error.message}</p>`);
+            }
+        }
+
+        function testParameterProcessing() {
+            try {
+                // Test different input scenarios
+                const testCases = [
+                    { input: '1', expected: 1, description: 'parallel = "1"' },
+                    { input: '1.0', expected: 1.0, description: 'df = "1.0"' },
+                    { input: '2', expected: 2, description: 'parallel = "2"' },
+                    { input: '0.8', expected: 0.8, description: 'df = "0.8"' },
+                    { input: '', expected: null, description: 'empty string' },
+                    { input: '0', expected: 0, description: 'zero value' }
+                ];
+
+                let results = '<h3>Parameter Processing Test:</h3>';
+                
+                testCases.forEach(testCase => {
+                    const numValue = parseFloat(testCase.input);
+                    const result = (testCase.input.trim() === '') ? null : numValue;
+                    const isCorrect = result === testCase.expected;
+                    
+                    results += `
+                        <div style="margin: 10px 0; padding: 10px; border: 1px solid ${isCorrect ? '#d4edda' : '#f8d7da'}; background-color: ${isCorrect ? '#d4edda' : '#f8d7da'};">
+                            <strong>${testCase.description}</strong><br>
+                            Input: "${testCase.input}" → Result: ${result} (Expected: ${testCase.expected}) 
+                            ${isCorrect ? '✅' : '❌'}
+                        </div>
+                    `;
+                });
+
+                addResult(results);
+
+            } catch (error) {
+                addResult(`<p style="color: red;">Error: ${error.message}</p>`);
+            }
+        }
+
+        function testCompleteFlow() {
+            try {
+                // Simulate the complete flow from dialog to backend
+                const dialogValues = {
+                    name: 'Test Line',
+                    length_km: 1,
+                    r_ohm_per_km: 0.571,
+                    x_ohm_per_km: 0.201,
+                    c_nf_per_km: 150,
+                    g_us_per_km: 0,
+                    max_i_ka: 0.235,
+                    type: 'cs',
+                    in_service: true,
+                    parallel: 1,        // This should be preserved
+                    df: 1.0,           // This should be preserved
+                    r0_ohm_per_km: 1,
+                    x0_ohm_per_km: 1,
+                    c0_nf_per_km: 1,
+                    endtemp_degree: 250
+                };
+
+                // Simulate backend processing
+                const backendData = {
+                    'typ': 'Line17',
+                    'name': dialogValues.name,
+                    'id': 'test-id',
+                    'busFrom': 'bus1',
+                    'busTo': 'bus2',
+                    'length_km': dialogValues.length_km.toString(),
+                    'parallel': dialogValues.parallel,
+                    'df': dialogValues.df,
+                    'r_ohm_per_km': dialogValues.r_ohm_per_km.toString(),
+                    'x_ohm_per_km': dialogValues.x_ohm_per_km.toString(),
+                    'c_nf_per_km': dialogValues.c_nf_per_km.toString(),
+                    'g_us_per_km': dialogValues.g_us_per_km.toString(),
+                    'max_i_ka': dialogValues.max_i_ka.toString(),
+                    'type': dialogValues.type,
+                    'r0_ohm_per_km': dialogValues.r0_ohm_per_km.toString(),
+                    'x0_ohm_per_km': dialogValues.x0_ohm_per_km.toString(),
+                    'c0_nf_per_km': dialogValues.c0_nf_per_km.toString(),
+                    'endtemp_degree': dialogValues.endtemp_degree.toString()
+                };
+
+                addResult(`
+                    <h3>Complete Flow Test:</h3>
+                    <p><strong>Dialog Values:</strong></p>
+                    <div class="code-block">${JSON.stringify(dialogValues, null, 2)}</div>
+                    
+                    <p><strong>Backend Data (what should be sent):</strong></p>
+                    <div class="code-block">${JSON.stringify(backendData, null, 2)}</div>
+                    
+                    <p><strong>Key Check:</strong></p>
+                    <ul>
+                        <li>parallel: ${backendData.parallel} (should be 1, not null)</li>
+                        <li>df: ${backendData.df} (should be 1.0, not null)</li>
+                    </ul>
+                `);
+
+            } catch (error) {
+                addResult(`<p style="color: red;">Error: ${error.message}</p>`);
+            }
+        }
+
+        // Run initial test
+        testLineDialogValues();
+    </script>
+</body>
+</html>
+

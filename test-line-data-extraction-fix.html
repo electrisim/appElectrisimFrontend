@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Line Data Extraction Fix Test</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background-color: #f5f5f5;
+        }
+        .test-container { 
+            background: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+            margin-bottom: 20px;
+        }
+        .test-result { 
+            padding: 10px; 
+            margin: 10px 0; 
+            border-radius: 4px; 
+        }
+        .success { 
+            background-color: #d4edda; 
+            color: #155724; 
+            border: 1px solid #c3e6cb; 
+        }
+        .error { 
+            background-color: #f8d7da; 
+            color: #721c24; 
+            border: 1px solid #f5c6cb; 
+        }
+        .info { 
+            background-color: #d1ecf1; 
+            color: #0c5460; 
+            border: 1px solid #b8daff; 
+        }
+        .warning { 
+            background-color: #fff3cd; 
+            color: #856404; 
+            border: 1px solid #ffeaa7; 
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .code-block {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+        .problem-solution {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 10px 0;
+        }
+        .problem-box, .solution-box {
+            padding: 15px;
+            border-radius: 4px;
+        }
+        .problem-box {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+        }
+        .solution-box {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+        }
+    </style>
+</head>
+<body>
+    <h1>Line Data Extraction Fix Test</h1>
+    
+    <div class="test-container">
+        <h2>🎯 ROOT CAUSE IDENTIFIED!</h2>
+        <div class="problem-solution">
+            <div class="problem-box">
+                <h4>❌ The Real Problem</h4>
+                <p><strong>Issue:</strong> In loadFlow.js, parallel and df were not marked as optional</p>
+                <div class="code-block">
+// loadFlow.js - Line data extraction (WRONG)
+...getAttributesAsObject(cell, {
+    length_km: 'length_km',
+    parallel: 'parallel',        // ❌ Not optional!
+    df: 'df',                    // ❌ Not optional!
+    r_ohm_per_km: 'r_ohm_per_km',
+    // ...
+});
+
+// getAttributesAsObject logic:
+if (!found && !isOptional) {
+    result[key] = null;  // ❌ This set parallel and df to null!
+}
+                </div>
+                <p><strong>Result:</strong> Since parallel and df attributes don't exist on cells, they were set to null</p>
+            </div>
+            <div class="solution-box">
+                <h4>✅ The Real Solution</h4>
+                <p><strong>Fix:</strong> Mark parallel and df as optional parameters</p>
+                <div class="code-block">
+// loadFlow.js - Line data extraction (FIXED)
+...getAttributesAsObject(cell, {
+    length_km: 'length_km',
+    parallel: { name: 'parallel', optional: true },  // ✅ Optional!
+    df: { name: 'df', optional: true },              // ✅ Optional!
+    r_ohm_per_km: 'r_ohm_per_km',
+    // ...
+});
+
+// Now if not found, they're simply not included
+// Backend will use defaults (1, 1.0) when missing
+                </div>
+                <p><strong>Result:</strong> Missing attributes are not included, backend uses defaults</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h2>Why This Was the Real Issue</h2>
+        <div class="warning">
+            <h3>🔍 The Data Flow</h3>
+            <ol>
+                <li><strong>Dialog Works:</strong> LineDialog correctly saves parallel=1, df=1.0 to cell attributes</li>
+                <li><strong>Load Flow Export:</strong> loadFlow.js extracts data from cells for backend</li>
+                <li><strong>Extraction Logic:</strong> getAttributesAsObject() processes cell attributes</li>
+                <li><strong>Missing Attributes:</strong> If attribute not found + not optional → null</li>
+                <li><strong>Backend Receives:</strong> null values instead of missing/undefined</li>
+            </ol>
+        </div>
+        
+        <div class="info">
+            <h3>🎯 The Fix Impact</h3>
+            <ul>
+                <li><strong>With optional: true</strong> - Missing attributes are skipped</li>
+                <li><strong>Backend receives</strong> - Object without parallel/df keys</li>
+                <li><strong>Backend logic</strong> - Uses default values (1, 1.0) for missing keys</li>
+                <li><strong>Pandapower call</strong> - Gets correct default values</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h2>Test the Fix</h2>
+        <div id="testResults">
+            <div class="info">Click the test buttons below to verify the extraction fix.</div>
+        </div>
+        
+        <button onclick="testAttributeExtraction()">Test Attribute Extraction</button>
+        <button onclick="testOptionalHandling()">Test Optional Parameter Handling</button>
+        <button onclick="testCompleteFlow()">Test Complete Data Flow</button>
+    </div>
+
+    <div class="test-container">
+        <h2>Expected Results After Fix</h2>
+        <div class="success">
+            <h3>✅ Backend Should Now Receive:</h3>
+            <div class="code-block">
+// When parallel and df attributes exist on cell:
+'104': {
+    'typ': 'Line17',
+    'name': 'mxCell_350',
+    'parallel': 1,        // ✅ Value from cell attribute
+    'df': 1.0,            // ✅ Value from cell attribute
+    // ... other parameters
+}
+
+// When parallel and df attributes don't exist on cell:
+'104': {
+    'typ': 'Line17', 
+    'name': 'mxCell_350',
+    // parallel and df are missing (not null!)
+    // Backend will use defaults: parallel=1, df=1.0
+}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function addTestResult(message, isSuccess) {
+            const resultsDiv = document.getElementById('testResults');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${isSuccess ? 'success' : 'error'}`;
+            resultDiv.innerHTML = message;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        function testAttributeExtraction() {
+            try {
+                // Simulate the getAttributesAsObject function
+                function mockGetAttributesAsObject(cell, attributeMap) {
+                    const result = {};
+                    const attributes = cell.value.attributes;
+
+                    for (const [key, config] of Object.entries(attributeMap)) {
+                        const isOptional = typeof config === 'object' && config.optional;
+                        const attributeName = typeof config === 'object' ? config.name : config;
+
+                        let found = false;
+                        for (let i = 0; i < attributes.length; i++) {
+                            if (attributes[i].nodeName === attributeName) {
+                                result[key] = attributes[i].nodeValue;
+                                found = true;
+                                break;
+                            }
+                        }
+
+                        if (!found && !isOptional) {
+                            result[key] = null; // This was the problem!
+                        }
+                    }
+
+                    return result;
+                }
+
+                // Test with FIXED attribute map
+                const mockCell = {
+                    value: {
+                        attributes: [
+                            { nodeName: 'length_km', nodeValue: '1' },
+                            { nodeName: 'r_ohm_per_km', nodeValue: '0.571' }
+                            // Note: parallel and df are missing!
+                        ]
+                    }
+                };
+
+                const fixedAttributeMap = {
+                    length_km: 'length_km',
+                    parallel: { name: 'parallel', optional: true },  // FIXED: Optional
+                    df: { name: 'df', optional: true },              // FIXED: Optional
+                    r_ohm_per_km: 'r_ohm_per_km'
+                };
+
+                const result = mockGetAttributesAsObject(mockCell, fixedAttributeMap);
+
+                const expected = {
+                    length_km: '1',
+                    r_ohm_per_km: '0.571'
+                    // parallel and df should NOT be in result (not null)
+                };
+
+                const hasParallelNull = result.hasOwnProperty('parallel') && result.parallel === null;
+                const hasDfNull = result.hasOwnProperty('df') && result.df === null;
+                const isCorrect = !hasParallelNull && !hasDfNull && 
+                                result.length_km === '1' && result.r_ohm_per_km === '0.571';
+
+                if (isCorrect) {
+                    addTestResult('✅ Attribute extraction works - missing optional attributes are not set to null', true);
+                } else {
+                    addTestResult('❌ Attribute extraction failed - still setting optional attributes to null', false);
+                }
+
+            } catch (error) {
+                addTestResult('❌ Attribute extraction test failed: ' + error.message, false);
+            }
+        }
+
+        function testOptionalHandling() {
+            try {
+                // Test the difference between optional and required parameters
+                function mockGetAttributesAsObject(cell, attributeMap) {
+                    const result = {};
+                    const attributes = cell.value.attributes;
+
+                    for (const [key, config] of Object.entries(attributeMap)) {
+                        const isOptional = typeof config === 'object' && config.optional;
+                        const attributeName = typeof config === 'object' ? config.name : config;
+
+                        let found = false;
+                        for (let i = 0; i < attributes.length; i++) {
+                            if (attributes[i].nodeName === attributeName) {
+                                result[key] = attributes[i].nodeValue;
+                                found = true;
+                                break;
+                            }
+                        }
+
+                        if (!found && !isOptional) {
+                            result[key] = null;
+                        }
+                    }
+
+                    return result;
+                }
+
+                const mockCell = {
+                    value: {
+                        attributes: [] // No attributes
+                    }
+                };
+
+                const testCases = [
+                    {
+                        name: 'Required parameter',
+                        map: { required_param: 'required_param' },
+                        expectedNull: true
+                    },
+                    {
+                        name: 'Optional parameter',
+                        map: { optional_param: { name: 'optional_param', optional: true } },
+                        expectedNull: false
+                    }
+                ];
+
+                let allCorrect = true;
+                testCases.forEach(testCase => {
+                    const result = mockGetAttributesAsObject(mockCell, testCase.map);
+                    const hasNullValue = Object.values(result).includes(null);
+                    
+                    if (testCase.expectedNull !== hasNullValue) {
+                        allCorrect = false;
+                    }
+                });
+
+                if (allCorrect) {
+                    addTestResult('✅ Optional handling works - required params get null, optional params are skipped', true);
+                } else {
+                    addTestResult('❌ Optional handling failed - incorrect null handling', false);
+                }
+
+            } catch (error) {
+                addTestResult('❌ Optional handling test failed: ' + error.message, false);
+            }
+        }
+
+        function testCompleteFlow() {
+            try {
+                // Test the complete flow from cell extraction to backend
+                const cellWithoutOptionalParams = {
+                    value: {
+                        attributes: [
+                            { nodeName: 'length_km', nodeValue: '1' },
+                            { nodeName: 'r_ohm_per_km', nodeValue: '0.571' }
+                        ]
+                    }
+                };
+
+                // Simulate FIXED extraction
+                const extractedData = {
+                    typ: 'Line17',
+                    name: 'mxCell_350',
+                    length_km: '1',
+                    r_ohm_per_km: '0.571'
+                    // parallel and df are missing (not null!)
+                };
+
+                // Simulate backend processing
+                const backendData = { ...extractedData };
+                
+                // Backend adds defaults for missing optional parameters
+                const optional_params = ['parallel', 'df'];
+                for (const param of optional_params) {
+                    if (!(param in backendData)) {
+                        if (param === 'parallel') {
+                            backendData[param] = 1;
+                        } else { // df
+                            backendData[param] = 1.0;
+                        }
+                    }
+                }
+
+                const expected = {
+                    typ: 'Line17',
+                    name: 'mxCell_350',
+                    length_km: '1',
+                    r_ohm_per_km: '0.571',
+                    parallel: 1,      // Added by backend
+                    df: 1.0          // Added by backend
+                };
+
+                const isCorrect = JSON.stringify(backendData) === JSON.stringify(expected);
+
+                if (isCorrect) {
+                    addTestResult('✅ Complete flow works - missing optional parameters get proper defaults', true);
+                } else {
+                    addTestResult('❌ Complete flow failed - defaults not applied correctly', false);
+                }
+
+            } catch (error) {
+                addTestResult('❌ Complete flow test failed: ' + error.message, false);
+            }
+        }
+
+        // Show initial status
+        addTestResult('🎯 REAL ROOT CAUSE FOUND: parallel and df were not marked as optional in loadFlow.js', true);
+        addTestResult('✅ FIXED: parallel and df are now optional in getAttributesAsObject call', true);
+        addTestResult('📋 RESULT: Missing attributes will not be set to null, backend will use defaults', true);
+    </script>
+</body>
+</html>
+

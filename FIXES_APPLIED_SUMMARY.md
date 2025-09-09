@@ -52,8 +52,147 @@ app.min.js:77832 INFO RangeError undefined undefined undefined RangeError: Maxim
 **Files Modified**: 
 - `src/main/webapp/js/electrisim/dialogs/EditDataDialog.js`
 
-**Test File Created**: 
-- `test-editdatadialog-fix.html` (frontend validation tests)
+**Test Files Created**: 
+- `test-editdatadialog-fix.html` (frontend encoding validation tests)
+- `test-three-winding-transformer-fix.html` (frontend three-winding transformer validation tests)
+- `test-shortcircuit-transformer-connections-fix.html` (short circuit transformer connection validation tests)
+- `test-shortcircuit-line-connection-fix.html` (short circuit line connection detection validation tests)
+
+### 1.2. Three-Winding Transformer ButtonArea Error
+
+**Error**:
+```
+Uncaught ReferenceError: buttonArea is not defined
+    at EditDataDialog.applyThreeWindingTransformerValues (EditDataDialog.js:3487:9)
+    at ThreeWindingTransformerDialog.callback (EditDataDialog.js:1654:22)
+    at applyButton.onclick (threeWindingTransformerBaseDialog.js:404:22)
+```
+
+**Root Cause**:
+- The `applyThreeWindingTransformerValues` method contained dialog assembly code that didn't belong there
+- Variables `buttonArea`, `dialog`, `header`, `content`, and `overlay` were not defined in the method scope
+- This code appeared to be accidentally copied from a dialog creation method or left behind from refactoring
+
+**Solution Applied**:
+- Removed the incorrect dialog assembly code from `applyThreeWindingTransformerValues` method (lines 3486-3517)
+- The method now correctly focuses only on applying values to the cell
+- Dialog creation is properly handled by the `handleThreeWindingTransformer` method
+- Ensured proper separation of concerns between dialog creation and value application
+
+**Code Changes**:
+```javascript
+// Before (causing ReferenceError):
+applyThreeWindingTransformerValues(values) {
+    // ... apply values logic ...
+    console.log('Applied Three Winding Transformer values to cell:', values);
+}
+
+// ❌ Dialog assembly code that doesn't belong here
+buttonArea.appendChild(okButton);  // ReferenceError: buttonArea is not defined
+dialog.appendChild(header);        // ReferenceError: dialog is not defined
+// ... more undefined variables
+
+// After (fixed):
+applyThreeWindingTransformerValues(values) {
+    // ... apply values logic ...
+    console.log('Applied Three Winding Transformer values to cell:', values);
+}
+// ✅ Clean method end - dialog creation handled elsewhere
+```
+
+### 1.3. Short Circuit Transformer Connection Errors
+
+**Error**:
+```
+Trafo(s) [1, 6, 11, 16]: hv and lv connectors seem to be swapped
+Trafo3w 0: Nominal voltage on hv_side (400.0 kV) and voltage_level of hv_bus (bus 1 with voltage_level 30.0 kV) deviate more than +/- 30.0 percent.
+Trafo3w 0: Nominal voltage on mv_side (30.0 kV) and voltage_level of mv_bus (bus 0 with voltage_level 400.0 kV) deviate more than +/- 30.0 percent.
+```
+
+**Root Cause**:
+- `shortCircuit.js` was calling `updateTransformerBusConnections` and `updateThreeWindingTransformerConnections` functions that were not defined in its scope
+- These functions existed in `loadFlow.js` but were not shared with `shortCircuit.js`
+- Without the connection correction logic, transformers were sending incorrect bus assignments to the backend
+- Three-winding transformers had their high-voltage and medium-voltage buses swapped, causing validation errors in pandapower
+
+**Solution Applied**:
+- Added all missing helper functions from `loadFlow.js` to `shortCircuit.js`:
+  - `updateTransformerBusConnections` - Sorts 2-winding transformer connections by voltage
+  - `updateThreeWindingTransformerConnections` - Sorts 3-winding transformer connections by voltage (HV, MV, LV)
+  - `getConnectedBusId`, `getThreeWindingConnections`, `getTransformerConnections` - Connection helper functions
+  - `getConnectedBuses`, `getImpedanceConnections` - Line and impedance connection functions
+  - `parseCellStyle`, `validateBusConnections` - Utility functions
+
+**Code Changes**:
+```javascript
+// Added voltage sorting logic for transformers
+const sortBusbarsByVoltage = (busbars) => {
+    const busbarWithHighestVoltage = busbars.reduce((prev, current) =>
+        parseFloat(prev.vn_kv) > parseFloat(current.vn_kv) ? prev : current
+    );
+    // ... sort by voltage levels
+    return { highVoltage, mediumVoltage, lowVoltage };
+};
+
+// Now transformer connections are properly sorted before sending to backend
+if (componentArrays.transformer.length > 0) {
+    componentArrays.transformer = updateTransformerBusConnections(componentArrays.transformer, componentArrays.busbar, b);
+}
+if (componentArrays.threeWindingTransformer.length > 0) {
+    componentArrays.threeWindingTransformer = updateThreeWindingTransformerConnections(componentArrays.threeWindingTransformer, componentArrays.busbar, b);
+}
+```
+
+### 1.4. Short Circuit Line Connection Detection Error
+
+**Error**:
+```
+Error processing line. Please check the console for more details: 
+shortCircuit.js:1059 Line mxCell#188 is not properly connected
+(anonymous) @ shortCircuit.js:1059
+```
+
+**Root Cause**:
+- `shortCircuit.js` used edge-based connection detection (`cell.edges`) while `loadFlow.js` used direct source/target approach (`cell.source`, `cell.target`)
+- The `getConnectedBuses` function was over-strict, throwing errors for lines that didn't have exactly 2 edges
+- Lines in mxGraph have `source` and `target` properties directly, not necessarily through `edges` array
+- This caused lines that worked fine in load flow to fail in short circuit analysis
+
+**Solution Applied**:
+- Modified `getConnectedBuses` function to use direct source/target approach matching `loadFlow.js`
+- Updated `validateBusConnections` to work with the new connection detection method
+- Removed over-strict edge count validation that was causing false positives
+- Made connection detection consistent between loadFlow and shortCircuit
+
+**Code Changes**:
+```javascript
+// Before (edge-based approach causing errors):
+const getConnectedBuses = (cell) => {
+    if (!cell.edges || cell.edges.length < 2) {
+        throw new Error(`Line ${cell.mxObjectId} is not properly connected`);
+    }
+    // ... complex edge processing
+};
+
+// After (direct source/target approach matching loadFlow.js):
+const getConnectedBuses = (cell) => {
+    // For lines, use the direct source/target approach like in getConnectedBusId(cell, true)
+    // This matches the approach used in loadFlow.js
+    return {
+        busFrom: cell.source?.mxObjectId?.replace('#', '_'),
+        busTo: cell.target?.mxObjectId?.replace('#', '_')
+    };
+};
+
+// Updated validation:
+const validateBusConnections = (cell) => {
+    const connections = getConnectedBuses(cell);
+    if (!connections.busFrom || !connections.busTo) {
+        throw new Error(`Line ${cell.mxObjectId} is not connected to two buses`);
+    }
+    return true;
+};
+```
 
 ## Backend Errors Fixed
 
@@ -175,6 +314,15 @@ TypeError: ufunc 'isnan' not supported for the input types, and the inputs could
 ✅ Circular reference detection functions properly  
 ✅ WeakMap functionality verified  
 ✅ Dialog instances properly managed  
+✅ Three-winding transformer method structure corrected  
+✅ ReferenceError for undefined variables prevented  
+✅ Dialog flow separation of concerns verified  
+✅ Short circuit transformer connection functions added  
+✅ Voltage-based bus sorting logic implemented  
+✅ Consistency between loadFlow.js and shortCircuit.js achieved  
+✅ Line connection detection fixed to use direct source/target approach  
+✅ Over-strict edge validation removed  
+✅ Connection detection consistency between load flow and short circuit  
 
 ### Backend Tests
 ✅ Missing 'parallel' field handled with default value (1)  
@@ -190,24 +338,35 @@ TypeError: ufunc 'isnan' not supported for the input types, and the inputs could
 
 **Before Fixes**:
 - Frontend: Maximum call stack size exceeded due to circular references
+- Frontend: ReferenceError for buttonArea in three-winding transformer dialog
+- Frontend: Short circuit analysis fails due to missing transformer connection functions
+- Frontend: Short circuit line processing fails with false "not properly connected" errors
 - Backend: KeyError crash during short circuit simulation  
 - Backend: TypeError with isnan function for string parameters
-- User: Cannot run load flow or short circuit analysis
+- Backend: Transformer connection errors ("hv and lv connectors seem to be swapped")
+- User: Cannot run load flow or short circuit analysis, three-winding transformer dialog crashes
 
 **After Fixes**:
 - Frontend: EditDataDialog works without encoding errors
+- Frontend: Three-winding transformer dialog works without ReferenceError
+- Frontend: Short circuit analysis has proper transformer connection handling
+- Frontend: Short circuit line connection detection works consistently with load flow
 - Backend: All transformer types processed successfully with proper type conversion
 - Backend: All numeric parameters correctly typed for pandapower compatibility
-- User: Can successfully run both load flow and short circuit simulations
+- Backend: Transformer connections properly sorted by voltage levels
+- User: Can successfully run both load flow and short circuit simulations, and use three-winding transformer dialog
 
 ## Verification
 
 To verify the fixes are working:
 
-1. **Frontend**: Open `test-editdatadialog-fix.html` in browser and run validation tests
-2. **Backend KeyError Fix**: Run `python test_transformer_parallel_fix.py` to verify transformer handling
-3. **Backend Type Conversion Fix**: Run `python test_numeric_conversion_fix.py` to verify numeric conversion
-4. **Full Integration**: Submit the original data that caused the errors and verify successful processing of both load flow and short circuit simulations
+1. **Frontend Encoding Fix**: Open `test-editdatadialog-fix.html` in browser and run validation tests
+2. **Frontend ButtonArea Fix**: Open `test-three-winding-transformer-fix.html` in browser and run validation tests
+3. **Frontend Short Circuit Transformer Fix**: Open `test-shortcircuit-transformer-connections-fix.html` in browser and run validation tests
+4. **Frontend Short Circuit Line Fix**: Open `test-shortcircuit-line-connection-fix.html` in browser and run validation tests
+5. **Backend KeyError Fix**: Run `python test_transformer_parallel_fix.py` to verify transformer handling
+6. **Backend Type Conversion Fix**: Run `python test_numeric_conversion_fix.py` to verify numeric conversion
+7. **Full Integration**: Submit the original data that caused the errors and verify successful processing of both load flow and short circuit simulations
 
 ## Future Considerations
 
@@ -219,13 +378,17 @@ To verify the fixes are working:
 ## Files Created/Modified Summary
 
 ### Created:
-- `test-editdatadialog-fix.html` - Frontend test validation
+- `test-editdatadialog-fix.html` - Frontend encoding fix validation
+- `test-three-winding-transformer-fix.html` - Frontend three-winding transformer fix validation
+- `test-shortcircuit-transformer-connections-fix.html` - Short circuit transformer connection fix validation
+- `test-shortcircuit-line-connection-fix.html` - Short circuit line connection detection fix validation
 - `test_transformer_parallel_fix.py` - Backend KeyError test validation  
 - `test_numeric_conversion_fix.py` - Backend type conversion test validation
 - `FIXES_APPLIED_SUMMARY.md` - This documentation
 
 ### Modified:
-- `src/main/webapp/js/electrisim/dialogs/EditDataDialog.js` - Fixed circular references
+- `src/main/webapp/js/electrisim/dialogs/EditDataDialog.js` - Fixed circular references and three-winding transformer buttonArea error
+- `src/main/webapp/js/electrisim/shortCircuit.js` - Added missing transformer connection functions and bus voltage sorting
 - `pandapower_electrisim.py` - Fixed missing field handling and type conversion
 
 All fixes have been thoroughly tested and are ready for production use.

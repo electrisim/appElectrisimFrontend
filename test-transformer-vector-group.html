@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Transformer Vector Group Parameter</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Test Transformer Vector Group Parameter</h1>
+        
+        <div class="test-section">
+            <h3>Test 1: Check Load Flow Parameters Array</h3>
+            <button onclick="testLoadFlowParameters()">Check Load Flow Parameters</button>
+            <div id="loadflow-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test 2: Create Transformer Dialog</h3>
+            <button onclick="createTransformerDialog()">Create Dialog</button>
+            <div id="dialog-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test 3: Check Vector Group in Dialog</h3>
+            <button onclick="checkVectorGroup()">Check Vector Group</button>
+            <div id="vectorgroup-result" class="result"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Mock the required modules
+        window.Dialog = class Dialog {
+            constructor(title, buttonText) {
+                this.title = title;
+                this.buttonText = buttonText;
+            }
+        };
+
+        // Import the transformer dialog
+        import { TransformerDialog, defaultTransformerData } from './src/main/webapp/js/electrisim/transformerBaseDialog.js';
+
+        // Make it globally available
+        window.TransformerDialog = TransformerDialog;
+        window.defaultTransformerData = defaultTransformerData;
+
+        // Test functions
+        window.testLoadFlowParameters = function() {
+            try {
+                const dialog = new TransformerDialog();
+                const loadFlowParams = dialog.loadFlowParameters;
+                
+                const result = document.getElementById('loadflow-result');
+                result.textContent = `Load Flow Parameters Count: ${loadFlowParams.length}\n\n`;
+                
+                loadFlowParams.forEach((param, index) => {
+                    result.textContent += `${index + 1}. ${param.id}: ${param.label} (${param.type})\n`;
+                });
+                
+                // Check specifically for vector_group
+                const vectorGroupParam = loadFlowParams.find(p => p.id === 'vector_group');
+                if (vectorGroupParam) {
+                    result.textContent += `\n✅ Vector Group found: ${JSON.stringify(vectorGroupParam, null, 2)}`;
+                } else {
+                    result.textContent += `\n❌ Vector Group NOT found in Load Flow parameters`;
+                }
+            } catch (error) {
+                document.getElementById('loadflow-result').textContent = `Error: ${error.message}`;
+            }
+        };
+
+        window.createTransformerDialog = function() {
+            try {
+                const dialog = new TransformerDialog();
+                const result = document.getElementById('dialog-result');
+                
+                result.textContent = `Dialog created successfully!\n`;
+                result.textContent += `Load Flow Parameters: ${dialog.loadFlowParameters.length}\n`;
+                result.textContent += `Short Circuit Parameters: ${dialog.shortCircuitParameters.length}\n`;
+                result.textContent += `OPF Parameters: ${dialog.opfParameters.length}\n`;
+                
+                // Check if vector_group is in load flow parameters
+                const vectorGroupInLoadFlow = dialog.loadFlowParameters.find(p => p.id === 'vector_group');
+                const vectorGroupInShortCircuit = dialog.shortCircuitParameters.find(p => p.id === 'vector_group');
+                
+                result.textContent += `\nVector Group in Load Flow: ${vectorGroupInLoadFlow ? 'YES' : 'NO'}\n`;
+                result.textContent += `Vector Group in Short Circuit: ${vectorGroupInShortCircuit ? 'YES' : 'NO'}\n`;
+                
+            } catch (error) {
+                document.getElementById('dialog-result').textContent = `Error: ${error.message}`;
+            }
+        };
+
+        window.checkVectorGroup = function() {
+            try {
+                const dialog = new TransformerDialog();
+                const result = document.getElementById('vectorgroup-result');
+                
+                // Check default data
+                result.textContent = `Default Vector Group: ${defaultTransformerData.vector_group}\n\n`;
+                
+                // Check load flow parameters
+                const vectorGroupParam = dialog.loadFlowParameters.find(p => p.id === 'vector_group');
+                if (vectorGroupParam) {
+                    result.textContent += `Vector Group Parameter Found:\n`;
+                    result.textContent += `- ID: ${vectorGroupParam.id}\n`;
+                    result.textContent += `- Label: ${vectorGroupParam.label}\n`;
+                    result.textContent += `- Type: ${vectorGroupParam.type}\n`;
+                    result.textContent += `- Value: ${vectorGroupParam.value}\n`;
+                    result.textContent += `- Options: ${vectorGroupParam.options ? vectorGroupParam.options.join(', ') : 'None'}\n`;
+                } else {
+                    result.textContent += `❌ Vector Group parameter not found in Load Flow parameters\n`;
+                }
+                
+            } catch (error) {
+                document.getElementById('vectorgroup-result').textContent = `Error: ${error.message}`;
+            }
+        };
+    </script>
+</body>
+</html>

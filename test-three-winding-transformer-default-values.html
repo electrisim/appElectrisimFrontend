@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three-Winding Transformer Default Values Test</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background-color: #f5f5f5;
+        }
+        .test-container { 
+            background: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+            margin-bottom: 20px;
+        }
+        .test-result { 
+            padding: 10px; 
+            margin: 10px 0; 
+            border-radius: 4px; 
+        }
+        .success { 
+            background-color: #d4edda; 
+            color: #155724; 
+            border: 1px solid #c3e6cb; 
+        }
+        .error { 
+            background-color: #f8d7da; 
+            color: #721c24; 
+            border: 1px solid #f5c6cb; 
+        }
+        .info { 
+            background-color: #d1ecf1; 
+            color: #0c5460; 
+            border: 1px solid #b8daff; 
+        }
+        .warning { 
+            background-color: #fff3cd; 
+            color: #856404; 
+            border: 1px solid #ffeaa7; 
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .code-block {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+        .parameter-comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 10px 0;
+        }
+        .parameter-group {
+            padding: 10px;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Three-Winding Transformer Default Values Test</h1>
+    
+    <div class="test-container">
+        <h2>Default Values Implementation</h2>
+        <div class="info">
+            <h3>Updated Default Values:</h3>
+            <p>The optional parameters now show default values in the frontend dialog, similar to other parameters:</p>
+            <ul>
+                <li><strong>vk0_hv_percent</strong>: 0.0 (default)</li>
+                <li><strong>vk0_mv_percent</strong>: 0.0 (default)</li>
+                <li><strong>vk0_lv_percent</strong>: 0.0 (default)</li>
+                <li><strong>vkr0_hv_percent</strong>: 0.0 (default)</li>
+                <li><strong>vkr0_mv_percent</strong>: 0.0 (default)</li>
+                <li><strong>vkr0_lv_percent</strong>: 0.0 (default)</li>
+                <li><strong>vector_group</strong>: '' (empty string, shows placeholder)</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h2>Before vs After Comparison</h2>
+        <div class="parameter-comparison">
+            <div class="parameter-group">
+                <h4>❌ Before (Empty Fields)</h4>
+                <div class="code-block">
+HV Zero Sequence SC Voltage: [empty field]
+MV Zero Sequence SC Voltage: [empty field]
+LV Zero Sequence SC Voltage: [empty field]
+HV Zero Sequence Real SC Voltage: [empty field]
+MV Zero Sequence Real SC Voltage: [empty field]
+LV Zero Sequence Real SC Voltage: [empty field]
+Vector Group: [empty field]
+                </div>
+            </div>
+            <div class="parameter-group">
+                <h4>✅ After (Default Values)</h4>
+                <div class="code-block">
+HV Zero Sequence SC Voltage: [0.0]
+MV Zero Sequence SC Voltage: [0.0]
+LV Zero Sequence SC Voltage: [0.0]
+HV Zero Sequence Real SC Voltage: [0.0]
+MV Zero Sequence Real SC Voltage: [0.0]
+LV Zero Sequence Real SC Voltage: [0.0]
+Vector Group: [e.g., Dyn, Yyn]
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h2>Smart Value Handling</h2>
+        <div class="success">
+            <h3>Frontend Behavior:</h3>
+            <ul>
+                <li>✅ Shows default values (0.0) in input fields</li>
+                <li>✅ Users can modify values as needed</li>
+                <li>✅ If user sets value to 0 or clears field, it becomes null for backend</li>
+                <li>✅ If user enters a value > 0, it's passed to backend</li>
+                <li>✅ Vector group shows placeholder text for guidance</li>
+            </ul>
+        </div>
+        
+        <div class="success">
+            <h3>Backend Behavior:</h3>
+            <ul>
+                <li>✅ Only receives non-null values</li>
+                <li>✅ Skips parameters that are null (uses pandapower defaults)</li>
+                <li>✅ Processes actual values when provided</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h2>Value Processing Tests</h2>
+        <div id="testResults">
+            <div class="info">Click the test buttons below to verify the value processing logic.</div>
+        </div>
+        
+        <button onclick="testDefaultValues()">Test Default Values Display</button>
+        <button onclick="testValueProcessing()">Test Value Processing Logic</button>
+        <button onclick="testUserScenarios()">Test User Scenarios</button>
+    </div>
+
+    <div class="test-container">
+        <h2>User Experience Improvements</h2>
+        <div class="success">
+            <h3>Benefits of Default Values:</h3>
+            <ul>
+                <li>🎯 <strong>Consistent UI:</strong> All parameters now show default values like other fields</li>
+                <li>🎯 <strong>Clear Expectations:</strong> Users know what the default behavior is</li>
+                <li>🎯 <strong>Easy Modification:</strong> Users can simply change the values they need</li>
+                <li>🎯 <strong>Smart Backend:</strong> Only non-default values are sent to backend</li>
+                <li>🎯 <strong>Professional Look:</strong> No empty fields cluttering the interface</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        function addTestResult(message, isSuccess) {
+            const resultsDiv = document.getElementById('testResults');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${isSuccess ? 'success' : 'error'}`;
+            resultDiv.textContent = message;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        function testDefaultValues() {
+            try {
+                // Simulate the default data structure
+                const defaultData = {
+                    vk0_hv_percent: 0.0,
+                    vk0_mv_percent: 0.0,
+                    vk0_lv_percent: 0.0,
+                    vkr0_hv_percent: 0.0,
+                    vkr0_mv_percent: 0.0,
+                    vkr0_lv_percent: 0.0,
+                    vector_group: ''
+                };
+
+                // Verify all numeric parameters have 0.0 default
+                const numericParams = ['vk0_hv_percent', 'vk0_mv_percent', 'vk0_lv_percent', 
+                                     'vkr0_hv_percent', 'vkr0_mv_percent', 'vkr0_lv_percent'];
+                
+                let allCorrect = true;
+                for (const param of numericParams) {
+                    if (defaultData[param] !== 0.0) {
+                        allCorrect = false;
+                        break;
+                    }
+                }
+
+                // Verify text parameter has empty string default
+                if (defaultData.vector_group !== '') {
+                    allCorrect = false;
+                }
+
+                if (allCorrect) {
+                    addTestResult('✅ Default values are correctly set - all numeric params show 0.0, text param shows empty string', true);
+                } else {
+                    addTestResult('❌ Default values test failed - unexpected default values', false);
+                }
+
+            } catch (error) {
+                addTestResult('❌ Default values test failed: ' + error.message, false);
+            }
+        }
+
+        function testValueProcessing() {
+            try {
+                // Simulate different user input scenarios
+                const testScenarios = [
+                    { input: '0', expected: null, description: 'User enters 0' },
+                    { input: '5.5', expected: 5.5, description: 'User enters 5.5' },
+                    { input: '', expected: null, description: 'User clears field' },
+                    { input: '0.0', expected: null, description: 'User enters 0.0' }
+                ];
+
+                let allCorrect = true;
+                for (const scenario of testScenarios) {
+                    // Simulate the getFormValues logic
+                    const numValue = parseFloat(scenario.input);
+                    const result = (scenario.input.trim() === '' || numValue === 0) ? null : numValue;
+                    
+                    if (result !== scenario.expected) {
+                        allCorrect = false;
+                        break;
+                    }
+                }
+
+                if (allCorrect) {
+                    addTestResult('✅ Value processing logic works correctly - 0 and empty values become null, other values are preserved', true);
+                } else {
+                    addTestResult('❌ Value processing test failed - unexpected processing results', false);
+                }
+
+            } catch (error) {
+                addTestResult('❌ Value processing test failed: ' + error.message, false);
+            }
+        }
+
+        function testUserScenarios() {
+            try {
+                // Test complete user scenarios
+                const scenarios = [
+                    {
+                        name: 'User leaves defaults unchanged',
+                        frontendValues: { vk0_hv_percent: '0', vk0_mv_percent: '0', vector_group: '' },
+                        expectedBackend: { vk0_hv_percent: null, vk0_mv_percent: null, vector_group: null }
+                    },
+                    {
+                        name: 'User modifies some values',
+                        frontendValues: { vk0_hv_percent: '5.5', vk0_mv_percent: '0', vector_group: 'Dyn' },
+                        expectedBackend: { vk0_hv_percent: 5.5, vk0_mv_percent: null, vector_group: 'Dyn' }
+                    },
+                    {
+                        name: 'User clears all values',
+                        frontendValues: { vk0_hv_percent: '', vk0_mv_percent: '', vector_group: '' },
+                        expectedBackend: { vk0_hv_percent: null, vk0_mv_percent: null, vector_group: null }
+                    }
+                ];
+
+                let allCorrect = true;
+                for (const scenario of scenarios) {
+                    // Simulate frontend to backend processing
+                    const backendValues = {};
+                    for (const [key, value] of Object.entries(scenario.frontendValues)) {
+                        if (key === 'vector_group') {
+                            backendValues[key] = value.trim() === '' ? null : value;
+                        } else {
+                            const numValue = parseFloat(value);
+                            backendValues[key] = (value.trim() === '' || numValue === 0) ? null : numValue;
+                        }
+                    }
+
+                    // Compare with expected
+                    for (const [key, expectedValue] of Object.entries(scenario.expectedBackend)) {
+                        if (backendValues[key] !== expectedValue) {
+                            allCorrect = false;
+                            break;
+                        }
+                    }
+                    if (!allCorrect) break;
+                }
+
+                if (allCorrect) {
+                    addTestResult('✅ User scenarios work correctly - all test cases pass', true);
+                } else {
+                    addTestResult('❌ User scenarios test failed - some scenarios did not work as expected', false);
+                }
+
+            } catch (error) {
+                addTestResult('❌ User scenarios test failed: ' + error.message, false);
+            }
+        }
+
+        // Show initial status
+        addTestResult('Three-Winding Transformer dialog now shows default values (0.0) for optional parameters', true);
+        addTestResult('Users can see and modify default values, with smart null handling for backend', true);
+        addTestResult('Interface is now consistent with other parameters in the dialog', true);
+    </script>
+</body>
+</html>

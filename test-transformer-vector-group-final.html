@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Transformer Vector Group - Final Fix</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .cache-info {
+            background-color: #cce5ff;
+            color: #004085;
+            border: 1px solid #99ccff;
+            margin-bottom: 20px;
+            padding: 15px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Test Transformer Vector Group - Final Fix</h1>
+        
+        <div class="cache-info">
+            <h3>📌 Cache Busting Instructions:</h3>
+            <p><strong>If you're still not seeing the Vector Group parameter:</strong></p>
+            <ol>
+                <li><strong>Hard Refresh:</strong> Press <code>Ctrl + F5</code> or <code>Ctrl + Shift + R</code></li>
+                <li><strong>Clear Browser Cache:</strong> Go to your browser settings and clear cache</li>
+                <li><strong>Force Reload:</strong> Open Developer Tools (F12) → Network tab → Check "Disable cache"</li>
+                <li><strong>Private/Incognito Mode:</strong> Open the application in a private browsing window</li>
+            </ol>
+        </div>
+        
+        <div class="test-section">
+            <h3>Test 1: Two-Winding Transformer Vector Group</h3>
+            <button onclick="testTwoWindingTransformer()">Test Two-Winding Transformer</button>
+            <div id="two-winding-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test 2: Three-Winding Transformer Vector Group</h3>
+            <button onclick="testThreeWindingTransformer()">Test Three-Winding Transformer</button>
+            <div id="three-winding-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test 3: Comprehensive Vector Group Check</h3>
+            <button onclick="testBothTransformers()">Test Both Transformers</button>
+            <div id="both-result" class="result"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Mock the required modules
+        window.Dialog = class Dialog {
+            constructor(title, buttonText) {
+                this.title = title;
+                this.buttonText = buttonText;
+            }
+        };
+
+        // Import both transformer dialogs
+        import { TransformerDialog, defaultTransformerData } from './src/main/webapp/js/electrisim/transformerBaseDialog.js';
+        import { ThreeWindingTransformerDialog, defaultThreeWindingTransformerData } from './src/main/webapp/js/electrisim/threeWindingTransformerBaseDialog.js';
+
+        // Make them globally available
+        window.TransformerDialog = TransformerDialog;
+        window.ThreeWindingTransformerDialog = ThreeWindingTransformerDialog;
+        window.defaultTransformerData = defaultTransformerData;
+        window.defaultThreeWindingTransformerData = defaultThreeWindingTransformerData;
+
+        // Test functions
+        window.testTwoWindingTransformer = function() {
+            try {
+                const dialog = new TransformerDialog();
+                const result = document.getElementById('two-winding-result');
+                
+                result.textContent = `=== TWO-WINDING TRANSFORMER TEST ===\n\n`;
+                result.textContent += `Default vector_group: ${defaultTransformerData.vector_group}\n`;
+                result.textContent += `Load Flow Parameters: ${dialog.loadFlowParameters.length}\n`;
+                result.textContent += `Short Circuit Parameters: ${dialog.shortCircuitParameters.length}\n\n`;
+                
+                // Check if vector_group is in load flow parameters
+                const vectorGroupInLoadFlow = dialog.loadFlowParameters.find(p => p.id === 'vector_group');
+                const vectorGroupInShortCircuit = dialog.shortCircuitParameters.find(p => p.id === 'vector_group');
+                
+                if (vectorGroupInLoadFlow) {
+                    result.textContent += `✅ Vector Group found in Load Flow tab:\n`;
+                    result.textContent += `   - Label: ${vectorGroupInLoadFlow.label}\n`;
+                    result.textContent += `   - Type: ${vectorGroupInLoadFlow.type}\n`;
+                    result.textContent += `   - Value: ${vectorGroupInLoadFlow.value}\n`;
+                    result.textContent += `   - Options: ${vectorGroupInLoadFlow.options.length} options\n`;
+                } else {
+                    result.textContent += `❌ Vector Group NOT found in Load Flow tab\n`;
+                }
+                
+                if (vectorGroupInShortCircuit) {
+                    result.textContent += `❌ ERROR: Vector Group still in Short Circuit tab\n`;
+                } else {
+                    result.textContent += `✅ Vector Group correctly removed from Short Circuit tab\n`;
+                }
+                
+                if (vectorGroupInLoadFlow && !vectorGroupInShortCircuit) {
+                    result.className = 'result success';
+                    result.textContent += `\n🎉 SUCCESS: Two-winding transformer fixed correctly!`;
+                } else {
+                    result.className = 'result error';
+                    result.textContent += `\n💥 ERROR: Two-winding transformer not fixed correctly!`;
+                }
+                
+            } catch (error) {
+                const result = document.getElementById('two-winding-result');
+                result.className = 'result error';
+                result.textContent = `Error: ${error.message}\n\nStack: ${error.stack}`;
+            }
+        };
+
+        window.testThreeWindingTransformer = function() {
+            try {
+                const dialog = new ThreeWindingTransformerDialog();
+                const result = document.getElementById('three-winding-result');
+                
+                result.textContent = `=== THREE-WINDING TRANSFORMER TEST ===\n\n`;
+                result.textContent += `Default vector_group: ${defaultThreeWindingTransformerData.vector_group}\n`;
+                result.textContent += `Load Flow Parameters: ${dialog.loadFlowParameters.length}\n`;
+                result.textContent += `Short Circuit Parameters: ${dialog.shortCircuitParameters.length}\n\n`;
+                
+                // Check if vector_group is in load flow parameters
+                const vectorGroupInLoadFlow = dialog.loadFlowParameters.find(p => p.id === 'vector_group');
+                const vectorGroupInShortCircuit = dialog.shortCircuitParameters.find(p => p.id === 'vector_group');
+                
+                if (vectorGroupInLoadFlow) {
+                    result.textContent += `✅ Vector Group found in Load Flow tab:\n`;
+                    result.textContent += `   - Label: ${vectorGroupInLoadFlow.label}\n`;
+                    result.textContent += `   - Type: ${vectorGroupInLoadFlow.type}\n`;
+                    result.textContent += `   - Value: ${vectorGroupInLoadFlow.value}\n`;
+                    if (vectorGroupInLoadFlow.options) {
+                        result.textContent += `   - Options: ${vectorGroupInLoadFlow.options.length} options\n`;
+                    }
+                } else {
+                    result.textContent += `❌ Vector Group NOT found in Load Flow tab\n`;
+                }
+                
+                if (vectorGroupInShortCircuit) {
+                    result.textContent += `❌ ERROR: Vector Group still in Short Circuit tab\n`;
+                } else {
+                    result.textContent += `✅ Vector Group correctly removed from Short Circuit tab\n`;
+                }
+                
+                if (vectorGroupInLoadFlow && !vectorGroupInShortCircuit) {
+                    result.className = 'result success';
+                    result.textContent += `\n🎉 SUCCESS: Three-winding transformer fixed correctly!`;
+                } else {
+                    result.className = 'result error';
+                    result.textContent += `\n💥 ERROR: Three-winding transformer not fixed correctly!`;
+                }
+                
+            } catch (error) {
+                const result = document.getElementById('three-winding-result');
+                result.className = 'result error';
+                result.textContent = `Error: ${error.message}\n\nStack: ${error.stack}`;
+            }
+        };
+
+        window.testBothTransformers = function() {
+            try {
+                const twoWindingDialog = new TransformerDialog();
+                const threeWindingDialog = new ThreeWindingTransformerDialog();
+                const result = document.getElementById('both-result');
+                
+                result.textContent = `=== COMPREHENSIVE TRANSFORMER TEST ===\n\n`;
+                
+                // Test two-winding
+                const twoWindingVectorGroupInLoadFlow = twoWindingDialog.loadFlowParameters.find(p => p.id === 'vector_group');
+                const twoWindingVectorGroupInShortCircuit = twoWindingDialog.shortCircuitParameters.find(p => p.id === 'vector_group');
+                
+                // Test three-winding
+                const threeWindingVectorGroupInLoadFlow = threeWindingDialog.loadFlowParameters.find(p => p.id === 'vector_group');
+                const threeWindingVectorGroupInShortCircuit = threeWindingDialog.shortCircuitParameters.find(p => p.id === 'vector_group');
+                
+                result.textContent += `Two-Winding Transformer:\n`;
+                result.textContent += `   ✅ Vector Group in Load Flow: ${twoWindingVectorGroupInLoadFlow ? 'YES' : 'NO'}\n`;
+                result.textContent += `   ✅ Vector Group removed from Short Circuit: ${!twoWindingVectorGroupInShortCircuit ? 'YES' : 'NO'}\n\n`;
+                
+                result.textContent += `Three-Winding Transformer:\n`;
+                result.textContent += `   ✅ Vector Group in Load Flow: ${threeWindingVectorGroupInLoadFlow ? 'YES' : 'NO'}\n`;
+                result.textContent += `   ✅ Vector Group removed from Short Circuit: ${!threeWindingVectorGroupInShortCircuit ? 'YES' : 'NO'}\n\n`;
+                
+                const allCorrect = twoWindingVectorGroupInLoadFlow && !twoWindingVectorGroupInShortCircuit &&
+                                 threeWindingVectorGroupInLoadFlow && !threeWindingVectorGroupInShortCircuit;
+                
+                if (allCorrect) {
+                    result.className = 'result success';
+                    result.textContent += `🎉 ALL TESTS PASSED!\n`;
+                    result.textContent += `Both transformers have Vector Group correctly placed in Load Flow tab!\n\n`;
+                    result.textContent += `📝 Instructions:\n`;
+                    result.textContent += `1. Clear your browser cache\n`;
+                    result.textContent += `2. Hard refresh your application (Ctrl+F5)\n`;
+                    result.textContent += `3. Open a transformer dialog and check the Load Flow tab\n`;
+                    result.textContent += `4. You should now see "Vector Group" in the Load Flow tab!`;
+                } else {
+                    result.className = 'result warning';
+                    result.textContent += `⚠️ SOME TESTS FAILED!\n`;
+                    result.textContent += `Check individual test results above for details.`;
+                }
+                
+            } catch (error) {
+                const result = document.getElementById('both-result');
+                result.className = 'result error';
+                result.textContent = `Error: ${error.message}\n\nStack: ${error.stack}`;
+            }
+        };
+
+        // Auto-run comprehensive test on load
+        setTimeout(() => {
+            window.testBothTransformers();
+        }, 1000);
+    </script>
+</body>
+</html>

@@ -28,7 +28,15 @@ export const defaultThreeWindingTransformerData = {
     tap_step_percent: 1.0,
     tap_pos: 0.0,
     tap_phase_shifter: false,
-    in_service: true
+    in_service: true,
+    // Zero sequence parameters (optional)
+    vk0_hv_percent: 0.0,
+    vk0_mv_percent: 0.0,
+    vk0_lv_percent: 0.0,
+    vkr0_hv_percent: 0.0,
+    vkr0_mv_percent: 0.0,
+    vkr0_lv_percent: 0.0,
+    vector_group: 'Dyn11'
 };
 
 export class ThreeWindingTransformerDialog extends Dialog {
@@ -110,6 +118,15 @@ export class ThreeWindingTransformerDialog extends Dialog {
                 description: 'Specifies if the transformer is in service (True/False)',
                 type: 'checkbox',
                 value: this.data.in_service
+            },
+            {
+                id: 'vector_group',
+                label: 'Vector Group',
+                symbol: 'vector_group',
+                description: 'Vector group of the transformer (e.g., Dyn11, Yd11, Yy0)',
+                type: 'select',
+                value: this.data.vector_group,
+                options: ['Dyn11', 'Yd11', 'Yy0', 'Dd0', 'Yz11', 'Dz0', 'Yd1', 'Yd11', 'Dyn1', 'Dyn11']
             }
         ];
         
@@ -202,6 +219,60 @@ export class ThreeWindingTransformerDialog extends Dialog {
                 type: 'number',
                 value: this.data.shift_lv_degree.toString(),
                 step: '0.1'
+            },
+            {
+                id: 'vk0_hv_percent',
+                label: 'HV Zero Sequence SC Voltage (vk0_hv_percent)',
+                description: 'Zero sequence short circuit voltage in percent of high voltage side (optional)',
+                type: 'number',
+                value: this.data.vk0_hv_percent.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'vk0_mv_percent',
+                label: 'MV Zero Sequence SC Voltage (vk0_mv_percent)',
+                description: 'Zero sequence short circuit voltage in percent of medium voltage side (optional)',
+                type: 'number',
+                value: this.data.vk0_mv_percent.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'vk0_lv_percent',
+                label: 'LV Zero Sequence SC Voltage (vk0_lv_percent)',
+                description: 'Zero sequence short circuit voltage in percent of low voltage side (optional)',
+                type: 'number',
+                value: this.data.vk0_lv_percent.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'vkr0_hv_percent',
+                label: 'HV Zero Sequence Real SC Voltage (vkr0_hv_percent)',
+                description: 'Zero sequence real part of short circuit voltage in percent of high voltage side (optional)',
+                type: 'number',
+                value: this.data.vkr0_hv_percent.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'vkr0_mv_percent',
+                label: 'MV Zero Sequence Real SC Voltage (vkr0_mv_percent)',
+                description: 'Zero sequence real part of short circuit voltage in percent of medium voltage side (optional)',
+                type: 'number',
+                value: this.data.vkr0_mv_percent.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'vkr0_lv_percent',
+                label: 'LV Zero Sequence Real SC Voltage (vkr0_lv_percent)',
+                description: 'Zero sequence real part of short circuit voltage in percent of low voltage side (optional)',
+                type: 'number',
+                value: this.data.vkr0_lv_percent.toString(),
+                step: '0.1',
+                min: '0'
             }
         ];
         
@@ -687,11 +758,25 @@ export class ThreeWindingTransformerDialog extends Dialog {
             const input = this.inputs.get(param.id);
             if (input) {
                 if (param.type === 'number') {
-                    values[param.id] = parseFloat(input.value) || 0;
+                    // For optional parameters, convert 0 or empty strings to null for backend
+                    const optionalParams = ['vk0_hv_percent', 'vk0_mv_percent', 'vk0_lv_percent', 
+                                         'vkr0_hv_percent', 'vkr0_mv_percent', 'vkr0_lv_percent'];
+                    if (optionalParams.includes(param.id)) {
+                        const numValue = parseFloat(input.value);
+                        values[param.id] = (input.value.trim() === '' || numValue === 0) ? null : numValue;
+                    } else {
+                        values[param.id] = parseFloat(input.value) || 0;
+                    }
                 } else if (param.type === 'checkbox') {
                     values[param.id] = input.checked;
                 } else {
-                    values[param.id] = input.value;
+                    // For text inputs, convert empty strings to null for optional parameters
+                    const optionalTextParams = ['vector_group'];
+                    if (optionalTextParams.includes(param.id)) {
+                        values[param.id] = input.value.trim() === '' ? null : input.value;
+                    } else {
+                        values[param.id] = input.value;
+                    }
                 }
             }
         });
@@ -795,7 +880,15 @@ export class ThreeWindingTransformerDialog extends Dialog {
             'tap_step_percent': transformerData.tap_step_percent || 1,
             'tap_pos': transformerData.tap_pos || 0,
             'tap_phase_shifter': transformerData.tap_phase_shifter === 'True' || transformerData.tap_phase_shifter === true,
-            'in_service': true
+            'in_service': true,
+            // Optional zero sequence parameters
+            'vk0_hv_percent': transformerData.vk0_hv_percent || 0,
+            'vk0_mv_percent': transformerData.vk0_mv_percent || 0,
+            'vk0_lv_percent': transformerData.vk0_lv_percent || 0,
+            'vkr0_hv_percent': transformerData.vkr0_hv_percent || 0,
+            'vkr0_mv_percent': transformerData.vkr0_mv_percent || 0,
+            'vkr0_lv_percent': transformerData.vkr0_lv_percent || 0,
+            'vector_group': transformerData.vector_group || ''
         };
 
         // Update input values
@@ -809,7 +902,12 @@ export class ThreeWindingTransformerDialog extends Dialog {
                 } else if (input.tagName === 'SELECT') {
                     input.value = value;
                 } else {
-                    input.value = value.toString();
+                    // Handle values for optional parameters
+                    if (value === null || value === undefined) {
+                        input.value = '';
+                    } else {
+                        input.value = value.toString();
+                    }
                 }
             }
         });

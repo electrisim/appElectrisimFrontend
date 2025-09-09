@@ -3482,39 +3482,6 @@ export class EditDataDialog {
             
             console.log('Applied Three Winding Transformer values to cell:', values);
         }
-
-        // Assemble the dialog
-        buttonArea.appendChild(okButton);
-        dialog.appendChild(header);
-        dialog.appendChild(content);
-        dialog.appendChild(buttonArea);
-        overlay.appendChild(dialog);
-
-        // Add CSS animations
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes slideIn {
-                from {
-                    opacity: 0;
-                    transform: translateY(-20px) scale(0.95);
-                }
-                to {
-                    opacity: 1;
-                    transform: translateY(0) scale(1);
-                }
-            }
-            @keyframes fadeOut {
-                from { opacity: 1; }
-                to { opacity: 0; }
-            }
-        `;
-        document.head.appendChild(style);
-
-        // Add to document
-        document.body.appendChild(overlay);
-
-        // Focus the OK button for keyboard accessibility
-        setTimeout(() => okButton.focus(), 100);
     }
 }
 

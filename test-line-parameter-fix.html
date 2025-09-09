@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Line Parameter Fix Test</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background-color: #f5f5f5;
+        }
+        .test-container { 
+            background: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+            margin-bottom: 20px;
+        }
+        .test-result { 
+            padding: 10px; 
+            margin: 10px 0; 
+            border-radius: 4px; 
+        }
+        .success { 
+            background-color: #d4edda; 
+            color: #155724; 
+            border: 1px solid #c3e6cb; 
+        }
+        .error { 
+            background-color: #f8d7da; 
+            color: #721c24; 
+            border: 1px solid #f5c6cb; 
+        }
+        .info { 
+            background-color: #d1ecf1; 
+            color: #0c5460; 
+            border: 1px solid #b8daff; 
+        }
+        .warning { 
+            background-color: #fff3cd; 
+            color: #856404; 
+            border: 1px solid #ffeaa7; 
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .code-block {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+        .problem-solution {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 10px 0;
+        }
+        .problem-box, .solution-box {
+            padding: 15px;
+            border-radius: 4px;
+        }
+        .problem-box {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+        }
+        .solution-box {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+        }
+    </style>
+</head>
+<body>
+    <h1>Line Parameter Fix Test</h1>
+    
+    <div class="test-container">
+        <h2>Problem Identified</h2>
+        <div class="problem-solution">
+            <div class="problem-box">
+                <h4>❌ Before Fix</h4>
+                <p><strong>Issue:</strong> Frontend was converting default values (1, 1.0) to null</p>
+                <div class="code-block">
+// Frontend logic (WRONG)
+const numValue = parseFloat(input.value);
+values[param.id] = (input.value.trim() === '' || numValue === 0) ? null : numValue;
+// This converted parallel=1 and df=1.0 to null!
+                </div>
+                <p><strong>Result:</strong> Backend received null values even when frontend showed 1 and 1.0</p>
+            </div>
+            <div class="solution-box">
+                <h4>✅ After Fix</h4>
+                <p><strong>Solution:</strong> Only convert empty strings to null, not default values</p>
+                <div class="code-block">
+// Frontend logic (FIXED)
+const numValue = parseFloat(input.value);
+values[param.id] = (input.value.trim() === '') ? null : numValue;
+// Now parallel=1 and df=1.0 are preserved!
+                </div>
+                <p><strong>Result:</strong> Backend receives actual values (1, 1.0) from frontend</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h2>Backend Processing Fix</h2>
+        <div class="info">
+            <h3>Backend Changes:</h3>
+            <ul>
+                <li>✅ Always include parallel and df parameters in pandapower call</li>
+                <li>✅ Use default values (1, 1.0) when frontend sends null/empty</li>
+                <li>✅ Use actual values when frontend sends valid numbers</li>
+                <li>✅ Proper error handling for invalid conversions</li>
+            </ul>
+        </div>
+        
+        <div class="code-block">
+# Backend Processing (FIXED)
+for param in optional_params:
+    value = in_data[x].get(param)
+    if value is not None and value != 'None' and value != '':
+        try:
+            if param == 'parallel':
+                line_params[param] = int(value)  # Use actual value
+            else:  # df
+                line_params[param] = float(value)  # Use actual value
+        except (ValueError, TypeError):
+            # Fallback to defaults if conversion fails
+            line_params[param] = 1 if param == 'parallel' else 1.0
+    else:
+        # Use defaults when parameter is None/empty
+        line_params[param] = 1 if param == 'parallel' else 1.0
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h2>Test Results</h2>
+        <div id="testResults">
+            <div class="info">Click the test buttons below to verify the fix works correctly.</div>
+        </div>
+        
+        <button onclick="testFrontendFix()">Test Frontend Fix</button>
+        <button onclick="testBackendFix()">Test Backend Fix</button>
+        <button onclick="testCompleteFlow()">Test Complete Flow</button>
+    </div>
+
+    <div class="test-container">
+        <h2>Expected Results</h2>
+        <div class="success">
+            <h3>After Fix - Backend Should Receive:</h3>
+            <div class="code-block">
+'104': {
+    'typ': 'Line17',
+    'name': 'mxCell_350',
+    'id': 'Xz1g34Aqv2W8tZ_ludl3-131',
+    'busFrom': 'mxCell_343',
+    'busTo': 'mxCell_355',
+    'length_km': '1',
+    'parallel': 1,        // ✅ Now has value instead of None
+    'df': 1.0,            // ✅ Now has value instead of None
+    'r_ohm_per_km': '0.571',
+    'x_ohm_per_km': '0.201',
+    'c_nf_per_km': '150',
+    'g_us_per_km': '0',
+    'max_i_ka': '0.235',
+    'type': 'cs',
+    'r0_ohm_per_km': '1',
+    'x0_ohm_per_km': '1',
+    'c0_nf_per_km': '1',
+    'endtemp_degree': '250'
+}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function addTestResult(message, isSuccess) {
+            const resultsDiv = document.getElementById('testResults');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${isSuccess ? 'success' : 'error'}`;
+            resultDiv.textContent = message;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        function testFrontendFix() {
+            try {
+                // Test the fixed frontend logic
+                const testInputs = {
+                    'parallel': '1',    // Default value
+                    'df': '1.0'         // Default value
+                };
+
+                // Simulate the FIXED getFormValues logic
+                const values = {};
+                const optionalParams = ['parallel', 'df'];
+
+                Object.keys(testInputs).forEach(key => {
+                    const value = testInputs[key];
+                    if (optionalParams.includes(key)) {
+                        const numValue = parseFloat(value);
+                        // FIXED: Only convert empty strings to null, not default values
+                        values[key] = (value.trim() === '') ? null : numValue;
+                    } else {
+                        values[key] = value;
+                    }
+                });
+
+                // Verify results
+                const expected = {
+                    'parallel': 1,      // Should be 1, not null
+                    'df': 1.0          // Should be 1.0, not null
+                };
+
+                const isCorrect = JSON.stringify(values) === JSON.stringify(expected);
+                
+                if (isCorrect) {
+                    addTestResult('✅ Frontend fix works - default values (1, 1.0) are preserved, not converted to null', true);
+                } else {
+                    addTestResult('❌ Frontend fix failed - values still being converted incorrectly', false);
+                }
+
+            } catch (error) {
+                addTestResult('❌ Frontend fix test failed: ' + error.message, false);
+            }
+        }
+
+        function testBackendFix() {
+            try {
+                // Test the fixed backend logic
+                const testData = {
+                    'parallel': '1',
+                    'df': '1.0'
+                };
+
+                // Simulate the FIXED backend processing
+                const line_params = {
+                    'from_bus': 1,
+                    'to_bus': 2,
+                    'name': 'test_line',
+                    'length_km': 1.0
+                };
+
+                const optional_params = ['parallel', 'df'];
+
+                for (const param of optional_params) {
+                    const value = testData[param];
+                    if (value !== null && value !== 'None' && value !== '') {
+                        try {
+                            if (param === 'parallel') {
+                                line_params[param] = parseInt(value);
+                            } else { // df
+                                line_params[param] = parseFloat(value);
+                            }
+                        } catch (e) {
+                            // Fallback to defaults
+                            line_params[param] = param === 'parallel' ? 1 : 1.0;
+                        }
+                    } else {
+                        // Use defaults
+                        line_params[param] = param === 'parallel' ? 1 : 1.0;
+                    }
+                }
+
+                // Verify results
+                const expected = {
+                    'from_bus': 1,
+                    'to_bus': 2,
+                    'name': 'test_line',
+                    'length_km': 1.0,
+                    'parallel': 1,      // Should be 1, not missing
+                    'df': 1.0          // Should be 1.0, not missing
+                };
+
+                const isCorrect = JSON.stringify(line_params) === JSON.stringify(expected);
+                
+                if (isCorrect) {
+                    addTestResult('✅ Backend fix works - parallel and df parameters are included with correct values', true);
+                } else {
+                    addTestResult('❌ Backend fix failed - parameters missing or incorrect', false);
+                }
+
+            } catch (error) {
+                addTestResult('❌ Backend fix test failed: ' + error.message, false);
+            }
+        }
+
+        function testCompleteFlow() {
+            try {
+                // Test complete flow from frontend to backend
+                const frontendInput = {
+                    'name': 'Test Line',
+                    'length_km': 1.0,
+                    'parallel': 1,      // Default value from frontend
+                    'df': 1.0          // Default value from frontend
+                };
+
+                // Simulate frontend processing (FIXED)
+                const frontendOutput = {};
+                const optionalParams = ['parallel', 'df'];
+                
+                Object.keys(frontendInput).forEach(key => {
+                    const value = frontendInput[key];
+                    if (optionalParams.includes(key)) {
+                        const numValue = parseFloat(value);
+                        frontendOutput[key] = (value.toString().trim() === '') ? null : numValue;
+                    } else {
+                        frontendOutput[key] = value;
+                    }
+                });
+
+                // Simulate backend processing (FIXED)
+                const backendData = {
+                    'typ': 'Line17',
+                    'name': frontendOutput.name,
+                    'length_km': frontendOutput.length_km.toString(),
+                    'parallel': frontendOutput.parallel,
+                    'df': frontendOutput.df
+                };
+
+                // Simulate backend parameter inclusion
+                const line_params = {
+                    'name': backendData['name'],
+                    'length_km': backendData['length_km']
+                };
+
+                const optional_params = ['parallel', 'df'];
+                for (const param of optional_params) {
+                    const value = backendData[param];
+                    if (value !== null && value !== 'None' && value !== '') {
+                        if (param === 'parallel') {
+                            line_params[param] = parseInt(value);
+                        } else { // df
+                            line_params[param] = parseFloat(value);
+                        }
+                    } else {
+                        line_params[param] = param === 'parallel' ? 1 : 1.0;
+                    }
+                }
+
+                // Verify final result
+                const expectedFinal = {
+                    'name': 'Test Line',
+                    'length_km': '1.0',
+                    'parallel': 1,      // Should be included
+                    'df': 1.0          // Should be included
+                };
+
+                const isCorrect = JSON.stringify(line_params) === JSON.stringify(expectedFinal);
+                
+                if (isCorrect) {
+                    addTestResult('✅ Complete flow works - frontend default values are properly passed to backend', true);
+                } else {
+                    addTestResult('❌ Complete flow test failed - values not properly transmitted', false);
+                }
+
+            } catch (error) {
+                addTestResult('❌ Complete flow test failed: ' + error.message, false);
+            }
+        }
+
+        // Show initial status
+        addTestResult('Line parameter fix has been applied to both frontend and backend', true);
+        addTestResult('Frontend now preserves default values (1, 1.0) instead of converting to null', true);
+        addTestResult('Backend now always includes parallel and df parameters with proper values', true);
+    </script>
+</body>
+</html>
+

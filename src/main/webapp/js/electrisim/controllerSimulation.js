@@ -62,6 +62,31 @@ const getAttributesAsObject = (cell, attributeMap) => {
         if (!found && !isOptional) {
             console.warn(`Missing required attribute ${key} with name ${attributeName}`);
             result[key] = null;
+        } else if (!found && isOptional) {
+            // For optional parameters, include them with default values if not found
+            if (key === 'parallel') {
+                console.log(`⚠ ${key} not found, using default value: 1`);
+                result[key] = '1';  // Default parallel lines/transformers
+            } else if (key === 'df') {
+                console.log(`⚠ ${key} not found, using default value: 1.0`);
+                result[key] = '1.0';  // Default derating factor
+            } else if (key === 'vector_group') {
+                console.log(`⚠ ${key} not found, using default value: Dyn11`);
+                result[key] = 'Dyn11';  // Default vector group
+            } else if (key === 'vk0_percent') {
+                console.log(`⚠ ${key} not found, using default value: 0.0`);
+                result[key] = '0.0';  // Will be set to vk_percent in backend if needed
+            } else if (key === 'vkr0_percent') {
+                console.log(`⚠ ${key} not found, using default value: 0.0`);
+                result[key] = '0.0';  // Will be set to vkr_percent in backend if needed
+            } else if (key === 'mag0_percent') {
+                console.log(`⚠ ${key} not found, using default value: 0.0`);
+                result[key] = '0.0';  // Default zero sequence magnetizing current
+            } else if (key === 'si0_hv_partial') {
+                console.log(`⚠ ${key} not found, using default value: 0.0`);
+                result[key] = '0.0';  // Default zero sequence partial current
+            }
+            // Note: Other optional parameters can be left undefined as they truly are optional
         }
     }
     return result;
