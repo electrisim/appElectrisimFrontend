@@ -16,7 +16,10 @@ export const defaultLineData = {
     x0_ohm_per_km: 0.0,
     c0_nf_per_km: 0.0,
     endtemp_degree: 250.0,
-    in_service: true
+    in_service: true,
+    // Optional parameters
+    parallel: 1,
+    df: 1.0
 };
 
 export class LineDialog extends Dialog {
@@ -106,6 +109,25 @@ export class LineDialog extends Dialog {
                 description: 'Specifies if the line is in service (True/False)',
                 type: 'checkbox',
                 value: this.data.in_service
+            },
+            {
+                id: 'parallel',
+                label: 'Parallel Line Systems (parallel)',
+                description: 'Number of parallel line systems (optional, default: 1)',
+                type: 'number',
+                value: this.data.parallel.toString(),
+                step: '1',
+                min: '1'
+            },
+            {
+                id: 'df',
+                label: 'Derating Factor (df)',
+                description: 'Derating factor: maximum current of line in relation to nominal current of line (from 0 to 1, default: 1.0)',
+                type: 'number',
+                value: this.data.df.toString(),
+                step: '0.1',
+                min: '0',
+                max: '1'
             }
         ];
         
@@ -575,8 +597,20 @@ export class LineDialog extends Dialog {
                 } else if (input.tagName === 'SELECT') {
                     values[param.id] = input.value;
                 } else {
-                    const numValue = parseFloat(input.value);
-                    values[param.id] = isNaN(numValue) ? input.value : numValue;
+                    // For parallel and df parameters, always include them with defaults if empty
+                    const defaultParams = ['parallel', 'df'];
+                    if (defaultParams.includes(param.id)) {
+                        const numValue = parseFloat(input.value);
+                        if (input.value.trim() === '' || isNaN(numValue)) {
+                            // Use default values
+                            values[param.id] = param.id === 'parallel' ? 1 : 1.0;
+                        } else {
+                            values[param.id] = numValue;
+                        }
+                    } else {
+                        const numValue = parseFloat(input.value);
+                        values[param.id] = isNaN(numValue) ? input.value : numValue;
+                    }
                 }
             }
         });
@@ -667,7 +701,9 @@ export class LineDialog extends Dialog {
             'x0_ohm_per_km': lineData.x0_ohm_per_km || 0,
             'c0_nf_per_km': lineData.c0_nf_per_km || 0,
             'endtemp_degree': lineData.endtemp_degree || 250,
-            'in_service': true
+            'in_service': true,
+            'parallel': lineData.parallel || 1,
+            'df': lineData.df || 1.0
         };
 
         // Update input values
@@ -756,6 +792,24 @@ export class LineDialog extends Dialog {
         console.log('Final parameter values:');
         [...this.loadFlowParameters, ...this.shortCircuitParameters, ...this.opfParameters].forEach(param => {
             console.log(`  ${param.id}: ${param.value} (${param.type})`);
+        });
+        
+        // Update DOM inputs with the parameter values
+        console.log('Updating DOM inputs with parameter values...');
+        [...this.loadFlowParameters, ...this.shortCircuitParameters, ...this.opfParameters].forEach(param => {
+            if (this.inputs.has(param.id)) {
+                const input = this.inputs.get(param.id);
+                const value = param.value;
+                
+                if (input.type === 'checkbox') {
+                    input.checked = Boolean(value);
+                } else if (input.tagName === 'SELECT') {
+                    input.value = value;
+                } else {
+                    input.value = value.toString();
+                }
+                console.log(`  Updated DOM input ${param.id}: ${value}`);
+            }
         });
         
         console.log('=== LineDialog.populateDialog completed ===');

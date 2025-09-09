@@ -59,6 +59,15 @@ const getAttributesAsObject = (cell, attributeMap) => {
         const isOptional = typeof config === 'object' && config.optional;
         const attributeName = typeof config === 'object' ? config.name : config;
 
+        // Debug logging for parallel and df parameters
+        if (key === 'parallel' || key === 'df') {
+            console.log(`\n=== DEBUG: Extracting ${key} ===`);
+            console.log(`Looking for attribute name: ${attributeName}`);
+            console.log(`Cell has ${attributes.length} attributes:`);
+            for (let i = 0; i < attributes.length; i++) {
+                console.log(`  [${i}] ${attributes[i].nodeName} = ${attributes[i].nodeValue}`);
+            }
+        }
 
         // Find the attribute by name in the attributes collection
         let found = false;
@@ -66,6 +75,9 @@ const getAttributesAsObject = (cell, attributeMap) => {
             if (attributes[i].nodeName === attributeName) {
                 result[key] = attributes[i].nodeValue;
                 found = true;
+                if (key === 'parallel' || key === 'df') {
+                    console.log(`✓ Found ${key}: ${attributes[i].nodeValue}`);
+                }
                 break;
             }
         }
@@ -73,6 +85,31 @@ const getAttributesAsObject = (cell, attributeMap) => {
         if (!found && !isOptional) {
             console.warn(`Missing required attribute ${key} with name ${attributeName}`);
             result[key] = null;
+        } else if (!found && isOptional) {
+            // For optional parameters, include them with default values if not found
+            if (key === 'parallel') {
+                console.log(`⚠ ${key} not found, using default value: 1`);
+                result[key] = '1';  // Default parallel lines/transformers
+            } else if (key === 'df') {
+                console.log(`⚠ ${key} not found, using default value: 1.0`);
+                result[key] = '1.0';  // Default derating factor
+            } else if (key === 'vector_group') {
+                console.log(`⚠ ${key} not found, using default value: Dyn11`);
+                result[key] = 'Dyn11';  // Default vector group
+            } else if (key === 'vk0_percent') {
+                console.log(`⚠ ${key} not found, using default value: 0.0`);
+                result[key] = '0.0';  // Will be set to vk_percent in backend if needed
+            } else if (key === 'vkr0_percent') {
+                console.log(`⚠ ${key} not found, using default value: 0.0`);
+                result[key] = '0.0';  // Will be set to vkr_percent in backend if needed
+            } else if (key === 'mag0_percent') {
+                console.log(`⚠ ${key} not found, using default value: 0.0`);
+                result[key] = '0.0';  // Default zero sequence magnetizing current
+            } else if (key === 'si0_hv_partial') {
+                console.log(`⚠ ${key} not found, using default value: 0.0`);
+                result[key] = '0.0';  // Default zero sequence partial current
+            }
+            // Note: Other optional parameters can be left undefined as they truly are optional
         }
     }
 
@@ -1170,14 +1207,14 @@ function loadFlowPandaPower(a, b, c) {
                                 vk_percent: 'vk_percent',
                                 pfe_kw: 'pfe_kw',
                                 i0_percent: 'i0_percent',
-                                vector_group: 'vector_group',
-                                vk0_percent: 'vk0_percent',
-                                vkr0_percent: 'vkr0_percent',
-                                mag0_percent: 'mag0_percent',
-                                si0_hv_partial: 'si0_hv_partial',
+                                vector_group: { name: 'vector_group', optional: true },
+                                vk0_percent: { name: 'vk0_percent', optional: true },
+                                vkr0_percent: { name: 'vkr0_percent', optional: true },
+                                mag0_percent: { name: 'mag0_percent', optional: true },
+                                si0_hv_partial: { name: 'si0_hv_partial', optional: true },
+                                parallel: { name: 'parallel', optional: true },
 
                                 // Optional parameters
-                                parallel: { name: 'parallel', optional: true },
                                 shift_degree: { name: 'shift_degree', optional: true },
                                 tap_side: { name: 'tap_side', optional: true },
                                 tap_pos: { name: 'tap_pos', optional: true },
@@ -1674,8 +1711,8 @@ function loadFlowPandaPower(a, b, c) {
                             ...getAttributesAsObject(cell, {
                                 // Basic parameters
                                 length_km: 'length_km',
-                                parallel: 'parallel',
-                                df: 'df',
+                                parallel: { name: 'parallel', optional: true },
+                                df: { name: 'df', optional: true },
 
                                 // Load flow parameters
                                 r_ohm_per_km: 'r_ohm_per_km',

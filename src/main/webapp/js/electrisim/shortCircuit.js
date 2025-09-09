@@ -188,6 +188,268 @@ window.shortCircuitPandaPower = function(a, b, c) {
         }
     }
 
+    // Helper functions for transformer connections (imported from loadFlow.js logic)
+    
+    // Helper function for regular transformer connections  
+    const updateTransformerBusConnections = (transformerArray, busbarArray, graphModel) => {
+        const getTransformerCell = (transformerId) => {
+            const cell = graphModel.getModel().getCell(transformerId);
+            if (!cell) {
+                throw new Error(`Invalid transformer cell: ${transformerId}`);
+            }
+            return cell;
+        };
+
+        const updateTransformerStyle = (cell, color) => {
+            const style = graphModel.getModel().getStyle(cell);
+            const newStyle = mxUtils.setStyle(style, mxConstants.STYLE_STROKECOLOR, color);
+            graphModel.setCellStyle(newStyle, [cell]);
+        };
+
+        const findConnectedBusbars = (hvBusName, lvBusName) => {
+            const bus1 = busbarArray.find(element => element.name === hvBusName);
+            const bus2 = busbarArray.find(element => element.name === lvBusName);
+
+            if (!bus1 || !bus2) {
+                throw new Error("Transformer is not connected to valid busbars.");
+            }
+
+            return [bus1, bus2];
+        };
+
+        const sortBusbarsByVoltage = (busbars) => {
+            if (busbars.length !== 2) {
+                throw new Error("Transformer requires exactly two busbars.");
+            }
+
+            const [bus1, bus2] = busbars;
+            const voltage1 = parseFloat(bus1.vn_kv);
+            const voltage2 = parseFloat(bus2.vn_kv);
+
+            return voltage1 > voltage2 ? 
+                { highVoltage: bus1.name, lowVoltage: bus2.name } :
+                { highVoltage: bus2.name, lowVoltage: bus1.name };
+        };
+
+        const processTransformer = (transformer) => {
+            const transformerCell = getTransformerCell(transformer.id);
+
+            try {
+                const connectedBusbars = findConnectedBusbars(transformer.hv_bus, transformer.lv_bus);
+                updateTransformerStyle(transformerCell, 'black');
+                const { highVoltage, lowVoltage } = sortBusbarsByVoltage(connectedBusbars);
+
+                return {
+                    ...transformer,
+                    hv_bus: highVoltage,
+                    lv_bus: lowVoltage
+                };
+
+            } catch (error) {
+                console.log(`Error processing transformer ${transformer.id}:`, error.message);
+                updateTransformerStyle(transformerCell, 'red');
+                alert('The transformer is not connected to the bus. Please check the transformer highlighted in red and connect it to the appropriate bus.');
+                return transformer;
+            }
+        };
+
+        return transformerArray.map(transformer => processTransformer(transformer));
+    };
+
+    // Helper function for three-winding transformer connections
+    const updateThreeWindingTransformerConnections = (threeWindingTransformerArray, busbarArray, graphModel) => {
+        const getTransformerCell = (transformerId) => {
+            const cell = graphModel.getModel().getCell(transformerId);
+            if (!cell) {
+                throw new Error(`Invalid three-winding transformer cell: ${transformerId}`);
+            }
+            return cell;
+        };
+
+        const updateTransformerStyle = (cell, color) => {
+            const style = graphModel.getModel().getStyle(cell);
+            const newStyle = mxUtils.setStyle(style, mxConstants.STYLE_STROKECOLOR, color);
+            graphModel.setCellStyle(newStyle, [cell]);
+        };
+
+        const findConnectedBusbars = (hvBusName, mvBusName, lvBusName) => {
+            const bus1 = busbarArray.find(element => element.name === hvBusName);
+            const bus2 = busbarArray.find(element => element.name === mvBusName);
+            const bus3 = busbarArray.find(element => element.name === lvBusName);
+
+            if (!bus1 || !bus2 || !bus3) {
+                throw new Error("Three-winding transformer is not connected to valid busbars.");
+            }
+
+            return [bus1, bus2, bus3];
+        };
+
+        const sortBusbarsByVoltage = (busbars) => {
+            if (busbars.length !== 3) {
+                throw new Error("Three-winding transformer requires exactly three busbars.");
+            }
+
+            const busbarWithHighestVoltage = busbars.reduce((prev, current) =>
+                parseFloat(prev.vn_kv) > parseFloat(current.vn_kv) ? prev : current
+            );
+
+            const busbarWithLowestVoltage = busbars.reduce((prev, current) =>
+                parseFloat(prev.vn_kv) < parseFloat(current.vn_kv) ? prev : current
+            );
+
+            const busbarWithMiddleVoltage = busbars.find(
+                element => element.name !== busbarWithHighestVoltage.name &&
+                    element.name !== busbarWithLowestVoltage.name
+            );
+
+            return {
+                highVoltage: busbarWithHighestVoltage.name,
+                mediumVoltage: busbarWithMiddleVoltage.name,
+                lowVoltage: busbarWithLowestVoltage.name
+            };
+        };
+
+        const processThreeWindingTransformer = (transformer) => {
+            const transformerCell = getTransformerCell(transformer.id);
+
+            try {
+                const connectedBusbars = findConnectedBusbars(
+                    transformer.hv_bus,
+                    transformer.mv_bus,
+                    transformer.lv_bus
+                );
+
+                updateTransformerStyle(transformerCell, 'black');
+                const { highVoltage, mediumVoltage, lowVoltage } = sortBusbarsByVoltage(connectedBusbars);
+
+                return {
+                    ...transformer,
+                    hv_bus: highVoltage,
+                    mv_bus: mediumVoltage,
+                    lv_bus: lowVoltage
+                };
+
+            } catch (error) {
+                console.log(`Error processing three-winding transformer ${transformer.id}:`, error.message);
+                updateTransformerStyle(transformerCell, 'red');
+                alert('The three-winding transformer is not connected to the bus. Please check the three-winding transformer highlighted in red and connect it to the appropriate bus.');
+                return transformer;
+            }
+        };
+
+        return threeWindingTransformerArray.map(transformer =>
+            processThreeWindingTransformer(transformer)
+        );
+    };
+
+    // Helper functions for getting connections
+    const getConnectedBusId = (cell, isLine = false) => {
+        if (isLine) {                 
+            return {            
+                busFrom: cell.source?.mxObjectId?.replace('#', '_'),
+                busTo: cell.target?.mxObjectId?.replace('#', '_')
+            };            
+        }
+        const edge = cell.edges[0];
+        if (!edge) {
+            return null;
+        }
+
+        if (!edge.target && !edge.source) {
+            return null;
+        }
+
+        if (edge.target && edge.target.mxObjectId !== cell.mxObjectId) {
+            return edge.target.mxObjectId.replace('#', '_');
+        } else if (edge.source && edge.source.mxObjectId !== cell.mxObjectId) {
+            return edge.source.mxObjectId.replace('#', '_');
+        }
+        
+        return null;
+    };
+
+    const getThreeWindingConnections = (cell) => {
+        const [lvEdge, mvEdge, hvEdge] = cell.edges;
+        const getConnectedBus = (edge) =>
+            (edge.target.mxObjectId !== cell.mxObjectId ?
+                edge.target.mxObjectId : edge.source.mxObjectId).replace('#', '_');
+
+        return {
+            hv_bus: getConnectedBus(hvEdge),
+            mv_bus: getConnectedBus(mvEdge),
+            lv_bus: getConnectedBus(lvEdge)
+        };
+    };
+
+    const getTransformerConnections = (cell) => {
+        const [hvEdge, lvEdge] = cell.edges;
+        const getConnectedBus = (edge) =>
+            (edge.target.mxObjectId !== cell.mxObjectId ?
+                edge.target.mxObjectId : edge.source.mxObjectId).replace('#', '_');
+
+        return {
+            hv_bus: getConnectedBus(hvEdge),
+            lv_bus: getConnectedBus(lvEdge)
+        };
+    };
+
+    // Add other helper functions that might be missing
+    const getConnectedBuses = (cell) => {
+        // For lines, use the direct source/target approach like in getConnectedBusId(cell, true)
+        // This matches the approach used in loadFlow.js
+        return {
+            busFrom: cell.source?.mxObjectId?.replace('#', '_'),
+            busTo: cell.target?.mxObjectId?.replace('#', '_')
+        };
+    };
+
+    const getImpedanceConnections = (cell) => {
+        if (!cell.edges || cell.edges.length < 2) {
+            throw new Error(`Impedance ${cell.mxObjectId} must be connected to exactly two buses`);
+        }
+        
+        const [edge1, edge2] = cell.edges;
+        
+        const getBusId = (edge) => {
+            if (edge.target && edge.target.mxObjectId !== cell.mxObjectId) {
+                return edge.target.mxObjectId.replace('#', '_');
+            } else if (edge.source && edge.source.mxObjectId !== cell.mxObjectId) {
+                return edge.source.mxObjectId.replace('#', '_');
+            }
+            throw new Error(`Invalid edge connection for impedance ${cell.mxObjectId}`);
+        };
+
+        return {
+            busFrom: getBusId(edge1),
+            busTo: getBusId(edge2)
+        };
+    };
+
+    const parseCellStyle = (styleString) => {
+        if (!styleString) return null;
+        
+        const styleObj = {};
+        const pairs = styleString.split(';');
+        
+        pairs.forEach(pair => {
+            const [key, value] = pair.split('=');
+            if (key && value) {
+                styleObj[key] = value;
+            }
+        });
+        
+        return styleObj;
+    };
+
+    const validateBusConnections = (cell) => {
+        const connections = getConnectedBuses(cell);
+        if (!connections.busFrom || !connections.busTo) {
+            throw new Error(`Line ${cell.mxObjectId} is not connected to two buses`);
+        }
+        
+        return true;
+    };
+
     // Main function execution
     if (b.isEnabled() && !b.isCellLocked(b.getDefaultParent())) {
         // Use modern ShortCircuitDialog directly
@@ -399,11 +661,11 @@ window.shortCircuitPandaPower = function(a, b, c) {
                                 vk_percent: 'vk_percent',
                                 pfe_kw: 'pfe_kw',
                                 i0_percent: 'i0_percent',
-                                vector_group: 'vector_group',
-                                vk0_percent: 'vk0_percent',
-                                vkr0_percent: 'vkr0_percent',
-                                mag0_percent: 'mag0_percent',
-                                si0_hv_partial: 'si0_hv_partial',
+                                vector_group: { name: 'vector_group', optional: true },
+                                vk0_percent: { name: 'vk0_percent', optional: true },
+                                vkr0_percent: { name: 'vkr0_percent', optional: true },
+                                mag0_percent: { name: 'mag0_percent', optional: true },
+                                si0_hv_partial: { name: 'si0_hv_partial', optional: true },
 
                                 // Optional parameters
                                 parallel: { name: 'parallel', optional: true },
@@ -746,8 +1008,8 @@ window.shortCircuitPandaPower = function(a, b, c) {
                                 ...getAttributesAsObject(cell, {
                                     // Basic parameters
                                     length_km: 'length_km',
-                                    parallel: 'parallel',
-                                    df: 'df',
+                                    parallel: { name: 'parallel', optional: true },
+                                    df: { name:'df', optional: true },
 
                                     // Load flow parameters
                                     r_ohm_per_km: 'r_ohm_per_km',

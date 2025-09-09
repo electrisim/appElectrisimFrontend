@@ -3,6 +3,7 @@ import { rowDefsTransformerLibrary, gridOptionsTransformerLibrary, columnDefsTra
 import { LibraryDialogManager } from './LibraryDialogManager.js';
 
 // Default values for transformer parameters (based on pandapower documentation)
+// Updated: Vector Group moved to Load Flow tab
 export const defaultTransformerData = {
     name: "Transformer",
     sn_mva: 0.0,
@@ -21,7 +22,14 @@ export const defaultTransformerData = {
     tap_step_degree: 0.0,
     tap_pos: 0.0,
     tap_phase_shifter: false,
-    in_service: true
+    in_service: true,
+    // Short circuit parameters with defaults
+    vector_group: "Dyn11",
+    vk0_percent: 0.0,  // Will be set to vk_percent if not specified
+    vkr0_percent: 0.0, // Will be set to vkr_percent if not specified
+    mag0_percent: 0.0,
+    si0_hv_partial: 0.0,
+    parallel: 1
 };
 
 export class TransformerDialog extends Dialog {
@@ -84,6 +92,15 @@ export class TransformerDialog extends Dialog {
                 description: 'Specifies if the transformer is in service (True/False)',
                 type: 'checkbox',
                 value: this.data.in_service
+            },
+            {
+                id: 'vector_group',
+                label: 'Vector Group',
+                symbol: 'vector_group',
+                description: 'Vector group of the transformer (e.g., Dyn11, Yd11, Yy0)',
+                type: 'select',
+                value: this.data.vector_group,
+                options: ['Dyn11', 'Yd11', 'Yy0', 'Dd0', 'Yz11', 'Dz0', 'Yd1', 'Yd11', 'Dyn1', 'Dyn11']
             }
         ];
         
@@ -142,6 +159,65 @@ export class TransformerDialog extends Dialog {
                 type: 'number',
                 value: this.data.shift_degree.toString(),
                 step: '0.1'
+            }
+            
+        ];
+        
+        // Short Circuit parameters
+        this.shortCircuitParameters = [
+            {
+                id: 'vk0_percent',
+                label: 'Zero Sequence SC Voltage',
+                symbol: 'vk0_percent',
+                unit: '%',
+                description: 'Zero sequence short circuit voltage in percent (>=0). If not specified, defaults to vk_percent',
+                type: 'number',
+                value: this.data.vk0_percent.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'vkr0_percent',
+                label: 'Zero Sequence SC Voltage Real Part',
+                symbol: 'vkr0_percent',
+                unit: '%',
+                description: 'Zero sequence real part of short circuit voltage in percent (>=0). If not specified, defaults to vkr_percent',
+                type: 'number',
+                value: this.data.vkr0_percent.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'mag0_percent',
+                label: 'Zero Sequence Magnetizing Current',
+                symbol: 'mag0_percent',
+                unit: '%',
+                description: 'Zero sequence magnetizing current in percent (>=0)',
+                type: 'number',
+                value: this.data.mag0_percent.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'si0_hv_partial',
+                label: 'Zero Sequence Partial Current',
+                symbol: 'si0_hv_partial',
+                unit: '%',
+                description: 'Zero sequence partial current on HV side in percent (>=0)',
+                type: 'number',
+                value: this.data.si0_hv_partial.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'parallel',
+                label: 'Parallel Transformers',
+                symbol: 'parallel',
+                description: 'Number of parallel transformer systems (optional, default: 1)',
+                type: 'number',
+                value: this.data.parallel.toString(),
+                step: '1',
+                min: '1'
             }
         ];
         
