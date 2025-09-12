@@ -4,9 +4,12 @@
 
 This repository contains the frontend code for **[Electrisim](https://app.electrisim.com/)** - an open-source web-based application for comprehensive power system modeling, simulation, and analysis. Electrisim provides powerful tools for electrical engineers and power system professionals to perform:
 
-- **Power Flow Analysis** - Steady-state analysis of power systems
-- **Optimal Power Flow (OPF)** - Economic dispatch and optimization
-- **Short-Circuit Analysis** - Fault analysis and protection system design  
+🌐 **Online Application**: [app.electrisim.com](https://app.electrisim.com/)  
+📁 **Backend Repository**: [Backend Code](https://github.com/electrisim/appElectrisimBackend)
+
+- **Power Flow Analysis** 
+- **Optimal Power Flow (OPF)** 
+- **Short-Circuit Analysis** 
 - **Contingency Analysis** 
 - **Controller Simulation** 
 - **Time Series Simulation** 
