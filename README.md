@@ -1,28 +1,292 @@
+# Electrisim Frontend
+
 [![Build Status](https://travis-ci.com/jgraph/drawio.svg?branch=master)](https://travis-ci.com/jgraph/drawio)
 
-About
------
-[diagrams.net](https://app.diagrams.net), [previously draw.io](https://www.diagrams.net/blog/move-diagrams-net), is an online diagramming web site that delivers the source in this project.
+## About
 
-License
--------
-The source code in this repo is licensed under the Apache v2.
+This repository contains the frontend code for **[Electrisim](https://app.electrisim.com/)** - an open-source web-based application for comprehensive power system modeling, simulation, and analysis. Electrisim provides powerful tools for electrical engineers and power system professionals to perform:
 
-Development
------------
+- **Power Flow Analysis** - Steady-state analysis of power systems
+- **Optimal Power Flow (OPF)** - Economic dispatch and optimization
+- **Short-Circuit Analysis** - Fault analysis and protection system design  
+- **Contingency Analysis** - System reliability and security assessment
+- **Controller Simulation** - Dynamic behavior modeling
+- **Time Series Simulation** - Long-term system analysis
 
-A development guide is being started on the GitHub project wiki. There is a [draw.io](http://stackoverflow.com/questions/tagged/draw.io) tag on Stack Overflow currently, please make sure any questions adhere to their guidelines for questions.
+🌐 **Live Application**: [app.electrisim.com](https://app.electrisim.com/)
 
-The [mxGraph documentation](https://jgraph.github.io/mxgraph/) provides a lot of the docs for the bottom part of the stack. There is an [mxgraph tag on SO](http://stackoverflow.com/questions/tagged/mxgraph).
+> **Note**: Currently optimized for desktop web browsers. Mobile support is under development.
 
-Running
--------
-One way to run diagrams.net is to fork this project, [publish the master branch to GitHub pages](https://help.github.com/categories/github-pages-basics/) and the [pages sites](https://jgraph.github.io/drawio/src/main/webapp/index.html) will have the full editor functionality (sans the integrations).
+## Features
 
-Another way is to use [the recommended Docker project](https://github.com/jgraph/docker-drawio) or to download [draw.io Desktop](https://get.diagrams.net).
+- **Intuitive Graphical Interface** - Drag-and-drop power system modeling
+- **Industry-Standard Components** - Generators, transformers, transmission lines, loads, and more
+- **Advanced Analysis Tools** - Comprehensive simulation capabilities
+- **Real-time Collaboration** - Cloud-based with multi-user support
+- **Export/Import** - Multiple file formats supported
+- **Open Source** - Transparent and extensible codebase
 
-The full packaged .war of the client and servlets is built when the project is tagged and available on the [releases page](https://github.com/jgraph/draw.io/releases).
+## Technology Stack
 
-Supported Browsers
-------------------
-diagrams.net supports IE 11, Chrome 70+, Firefox 70+, Safari 11+, Opera 50+, Native Android browser 7x+, the default browser in the current and previous major iOS versions (e.g. 11.2.x and 10.3.x) and Edge 79+.
+- **Frontend Framework**: Custom JavaScript with mxGraph library
+- **Graphics Engine**: mxGraph for diagramming capabilities
+- **Build System**: Node.js with custom deployment scripts
+- **Authentication**: OAuth integration
+- **Cloud Storage**: Integration with Google Drive, OneDrive, Dropbox
+- **Mathematical Engine**: Integration with pandapower for calculations
+
+## Prerequisites
+
+Before deploying Electrisim, ensure you have the following installed:
+
+- **Node.js** (version 14.0 or higher)
+- **npm** (Node Package Manager)
+- **Git** (for version control)
+- **Web Server** (Apache, Nginx, or similar for production deployment)
+
+## Step-by-Step Deployment Guide
+
+### 1. Clone the Repository
+
+```bash
+git clone <repository-url>
+cd appElectrisim
+```
+
+### 2. Install Dependencies
+
+```bash
+npm install
+```
+
+This will install the required Node.js dependencies including:
+- `nodemailer` for email functionality
+- `cross-env` for environment variable management
+
+### 3. Environment Configuration
+
+#### For Development Environment:
+```bash
+npm run deploy:dev
+```
+
+#### For Production Environment:
+```bash
+npm run deploy:prod
+```
+
+The deployment script will automatically:
+- Copy the appropriate route configuration (`_routes.dev.json` for dev, `_routes.json` for prod)
+- Set up environment-specific settings
+
+### 4. Web Server Setup
+
+#### Option A: Simple Local Development Server
+
+For quick testing, you can use any static file server:
+
+```bash
+# Using Python (if installed)
+cd src/main/webapp
+python -m http.server 8080
+
+# Using Node.js serve package
+npx serve src/main/webapp -p 8080
+```
+
+#### Option B: Apache Web Server
+
+1. Copy the contents of `src/main/webapp/` to your Apache document root (e.g., `/var/www/html/` or `C:\xampp\htdocs\`)
+
+2. Configure Apache virtual host:
+```apache
+<VirtualHost *:80>
+    ServerName your-domain.com
+    DocumentRoot /path/to/webapp
+    
+    # Enable compression
+    LoadModule deflate_module modules/mod_deflate.so
+    <Location />
+        SetOutputFilter DEFLATE
+    </Location>
+    
+    # Set cache headers
+    <FilesMatch "\.(js|css|png|jpg|gif|ico)$">
+        ExpiresActive On
+        ExpiresDefault "access plus 1 month"
+    </FilesMatch>
+</VirtualHost>
+```
+
+#### Option C: Nginx Web Server
+
+1. Copy webapp files to Nginx document root
+
+2. Configure Nginx:
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+    root /path/to/webapp;
+    index index.html;
+    
+    # Enable gzip compression
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml;
+    
+    # Cache static assets
+    location ~* \.(js|css|png|jpg|gif|ico)$ {
+        expires 1M;
+        add_header Cache-Control "public, immutable";
+    }
+    
+    # Handle SPA routing
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+```
+
+### 5. SSL/HTTPS Configuration (Production)
+
+For production deployments, configure SSL:
+
+#### Using Certbot (Let's Encrypt):
+```bash
+sudo certbot --nginx -d your-domain.com
+```
+
+#### Or configure SSL manually in your web server configuration.
+
+### 6. Backend Integration
+
+Electrisim requires a backend service for:
+- User authentication
+- File storage/management  
+- Simulation calculations
+- Real-time collaboration
+
+Ensure your backend is deployed and update the API endpoints in:
+- `src/main/webapp/js/electrisim/config/environment.js`
+- Route configuration files (`_routes.json`, `_routes.dev.json`)
+
+### 7. Testing the Deployment
+
+1. Navigate to your deployed URL
+2. Verify the application loads correctly
+3. Test core functionality:
+   - Creating new diagrams
+   - Adding power system components
+   - Running basic simulations
+   - Saving/loading files
+
+### 8. Monitoring and Maintenance
+
+#### Enable Application Monitoring:
+- Configure Smartlook analytics (already integrated)
+- Set up error tracking and logging
+- Monitor performance metrics
+
+#### Regular Updates:
+```bash
+git pull origin main
+npm install  # Install any new dependencies
+npm run deploy:prod  # Rebuild for production
+# Copy updated files to web server
+```
+
+## Development Setup
+
+### For Contributors and Developers:
+
+1. **Fork and Clone**:
+```bash
+git clone <your-fork-url>
+cd appElectrisim
+```
+
+2. **Install Development Dependencies**:
+```bash
+npm install
+```
+
+3. **Run Development Server**:
+```bash
+npm run deploy:dev
+cd src/main/webapp
+python -m http.server 8000
+```
+
+4. **Development Workflow**:
+   - Main application code is in `src/main/webapp/js/electrisim/`
+   - Modify components and test locally
+   - Use browser developer tools for debugging
+   - Submit pull requests for contributions
+
+## Configuration Files
+
+- `package.json` - Node.js dependencies and scripts
+- `_routes.dev.json` - Development environment routes
+- `_routes.json` - Production environment routes  
+- `src/main/webapp/js/electrisim/config/environment.js` - Environment configuration
+
+## Troubleshooting
+
+### Common Issues:
+
+1. **Application won't load**:
+   - Check browser console for JavaScript errors
+   - Verify all static files are accessible
+   - Ensure web server configuration is correct
+
+2. **Authentication problems**:
+   - Verify backend API endpoints
+   - Check OAuth configuration
+   - Ensure HTTPS is configured for production
+
+3. **Performance issues**:
+   - Enable gzip compression
+   - Configure proper caching headers
+   - Consider using a CDN for static assets
+
+4. **Mobile compatibility**:
+   - Current version is optimized for desktop browsers
+   - Mobile support is under active development
+
+## Contributing
+
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md).
+
+### Development Areas:
+- UI/UX improvements
+- Mobile responsiveness
+- New analysis features
+- Performance optimizations
+- Testing and documentation
+
+## License
+
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+
+## Support
+
+- **Documentation**: [GitHub Wiki](../../wiki)
+- **Issues**: [GitHub Issues](../../issues)
+- **Discussions**: [GitHub Discussions](../../discussions)
+- **Stack Overflow**: Use the `electrisim` tag
+
+## Roadmap
+
+🚧 **Active Development Areas**:
+- Enhanced mobile support
+- Real-time collaborative editing
+- Advanced visualization features
+- Machine learning integration
+- Extended simulation capabilities
+- Improved performance optimization
+
+---
+
+**Electrisim** - Empowering electrical engineers with modern, accessible power system analysis tools.
+
+For backend repository and API documentation, visit: [Backend Repository](../appElectrisimBackend/)
