@@ -24,10 +24,11 @@ export const defaultTransformerData = {
     tap_phase_shifter: false,
     in_service: true,
     // Short circuit parameters with defaults
-    vector_group: "Dyn11",
+    vector_group: "Dyn",
     vk0_percent: 0.0,  // Will be set to vk_percent if not specified
     vkr0_percent: 0.0, // Will be set to vkr_percent if not specified
     mag0_percent: 0.0,
+    mag0_rx: 0.0,      // Zero sequence magnetizing r/x ratio
     si0_hv_partial: 0.0,
     parallel: 1
 };
@@ -97,58 +98,10 @@ export class TransformerDialog extends Dialog {
                 id: 'vector_group',
                 label: 'Vector Group',
                 symbol: 'vector_group',
-                description: 'Vector group of the transformer (e.g., Dyn11, Yd11, Yy0)',
+                description: 'Vector group of the transformer (e.g., Dyn, Yd, Yy)',
                 type: 'select',
                 value: this.data.vector_group,
-                options: ['Dyn11', 'Yd11', 'Yy0', 'Dd0', 'Yz11', 'Dz0', 'Yd1', 'Yd11', 'Dyn1', 'Dyn11']
-            }
-        ];
-        
-        // Short Circuit parameters
-        this.shortCircuitParameters = [
-            {
-                id: 'vk_percent',
-                label: 'Short Circuit Voltage',
-                symbol: 'vk_percent',
-                unit: '%',
-                description: 'Short circuit voltage in percent (>0)',
-                type: 'number',
-                value: this.data.vk_percent.toString(),
-                step: '0.1',
-                min: '0'
-            },
-            {
-                id: 'vkr_percent',
-                label: 'Real Part of SC Voltage',
-                symbol: 'vkr_percent',
-                unit: '%',
-                description: 'Real part of short circuit voltage in percent (>=0)',
-                type: 'number',
-                value: this.data.vkr_percent.toString(),
-                step: '0.1',
-                min: '0'
-            },
-            {
-                id: 'pfe_kw',
-                label: 'Iron Losses',
-                symbol: 'pfe_kw',
-                unit: 'kW',
-                description: 'Iron losses in kW (>=0)',
-                type: 'number',
-                value: this.data.pfe_kw.toString(),
-                step: '0.1',
-                min: '0'
-            },
-            {
-                id: 'i0_percent',
-                label: 'Open Loop Losses',
-                symbol: 'i0_percent',
-                unit: '%',
-                description: 'Open loop losses in percent (>=0)',
-                type: 'number',
-                value: this.data.i0_percent.toString(),
-                step: '0.1',
-                min: '0'
+                options: ['Dyn', 'Yd', 'Yy', 'Dd', 'Yz', 'Dz']
             },
             {
                 id: 'shift_degree',
@@ -159,55 +112,6 @@ export class TransformerDialog extends Dialog {
                 type: 'number',
                 value: this.data.shift_degree.toString(),
                 step: '0.1'
-            }
-            
-        ];
-        
-        // Short Circuit parameters
-        this.shortCircuitParameters = [
-            {
-                id: 'vk0_percent',
-                label: 'Zero Sequence SC Voltage',
-                symbol: 'vk0_percent',
-                unit: '%',
-                description: 'Zero sequence short circuit voltage in percent (>=0). If not specified, defaults to vk_percent',
-                type: 'number',
-                value: this.data.vk0_percent.toString(),
-                step: '0.1',
-                min: '0'
-            },
-            {
-                id: 'vkr0_percent',
-                label: 'Zero Sequence SC Voltage Real Part',
-                symbol: 'vkr0_percent',
-                unit: '%',
-                description: 'Zero sequence real part of short circuit voltage in percent (>=0). If not specified, defaults to vkr_percent',
-                type: 'number',
-                value: this.data.vkr0_percent.toString(),
-                step: '0.1',
-                min: '0'
-            },
-            {
-                id: 'mag0_percent',
-                label: 'Zero Sequence Magnetizing Current',
-                symbol: 'mag0_percent',
-                unit: '%',
-                description: 'Zero sequence magnetizing current in percent (>=0)',
-                type: 'number',
-                value: this.data.mag0_percent.toString(),
-                step: '0.1',
-                min: '0'
-            },
-            {
-                id: 'si0_hv_partial',
-                label: 'Zero Sequence Partial Current',
-                symbol: 'si0_hv_partial',
-                unit: '%',
-                description: 'Zero sequence partial current on HV side in percent (>=0)',
-                type: 'number',
-                value: this.data.si0_hv_partial.toString(),
-                step: '0.1',
-                min: '0'
             },
             {
                 id: 'parallel',
@@ -218,11 +122,7 @@ export class TransformerDialog extends Dialog {
                 value: this.data.parallel.toString(),
                 step: '1',
                 min: '1'
-            }
-        ];
-        
-        // OPF (Optimal Power Flow) parameters
-        this.opfParameters = [
+            },
             {
                 id: 'tap_side',
                 label: 'Tap Side',
@@ -298,6 +198,110 @@ export class TransformerDialog extends Dialog {
                 value: this.data.tap_phase_shifter
             }
         ];
+        
+        // Short Circuit parameters
+        this.shortCircuitParameters = [
+            {
+                id: 'vk_percent',
+                label: 'Short Circuit Voltage',
+                symbol: 'vk_percent',
+                unit: '%',
+                description: 'Short circuit voltage in percent (>0)',
+                type: 'number',
+                value: this.data.vk_percent.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'vkr_percent',
+                label: 'Real Part of SC Voltage',
+                symbol: 'vkr_percent',
+                unit: '%',
+                description: 'Real part of short circuit voltage in percent (>=0)',
+                type: 'number',
+                value: this.data.vkr_percent.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'pfe_kw',
+                label: 'Iron Losses',
+                symbol: 'pfe_kw',
+                unit: 'kW',
+                description: 'Iron losses in kW (>=0)',
+                type: 'number',
+                value: this.data.pfe_kw.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'i0_percent',
+                label: 'Open Loop Losses',
+                symbol: 'i0_percent',
+                unit: '%',
+                description: 'Open loop losses in percent (>=0)',
+                type: 'number',
+                value: this.data.i0_percent.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'vk0_percent',
+                label: 'Zero Sequence SC Voltage',
+                symbol: 'vk0_percent',
+                unit: '%',
+                description: 'Zero sequence short circuit voltage in percent (>=0). If not specified, defaults to vk_percent',
+                type: 'number',
+                value: this.data.vk0_percent.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'vkr0_percent',
+                label: 'Zero Sequence SC Voltage Real Part',
+                symbol: 'vkr0_percent',
+                unit: '%',
+                description: 'Zero sequence real part of short circuit voltage in percent (>=0). If not specified, defaults to vkr_percent',
+                type: 'number',
+                value: this.data.vkr0_percent.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'mag0_percent',
+                label: 'Zero Sequence Magnetizing Current',
+                symbol: 'mag0_percent',
+                unit: '%',
+                description: 'Zero sequence magnetizing current in percent (>=0)',
+                type: 'number',
+                value: this.data.mag0_percent.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'mag0_rx',
+                label: 'Zero Sequence Magnetizing R/X Ratio',
+                symbol: 'mag0_rx',
+                unit: '',
+                description: 'Zero sequence magnetizing r/x ratio (>=0)',
+                type: 'number',
+                value: this.data.mag0_rx.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'si0_hv_partial',
+                label: 'Zero Sequence Partial Current',
+                symbol: 'si0_hv_partial',
+                unit: '%',
+                description: 'Zero sequence partial current on HV side in percent (>=0)',
+                type: 'number',
+                value: this.data.si0_hv_partial.toString(),
+                step: '0.1',
+                min: '0'
+            }
+        ];
+        
     }
     
     getDescription() {
@@ -357,11 +361,9 @@ export class TransformerDialog extends Dialog {
         // Create tabs
         const loadFlowTab = this.createTab('Load Flow', 'loadflow', this.currentTab === 'loadflow');
         const shortCircuitTab = this.createTab('Short Circuit', 'shortcircuit', this.currentTab === 'shortcircuit');
-        const opfTab = this.createTab('OPF', 'opf', this.currentTab === 'opf');
         
         tabContainer.appendChild(loadFlowTab);
         tabContainer.appendChild(shortCircuitTab);
-        tabContainer.appendChild(opfTab);
         container.appendChild(tabContainer);
 
         // Create content area
@@ -379,11 +381,9 @@ export class TransformerDialog extends Dialog {
         // Create tab content containers
         const loadFlowContent = this.createTabContent('loadflow', this.loadFlowParameters);
         const shortCircuitContent = this.createTabContent('shortcircuit', this.shortCircuitParameters);
-        const opfContent = this.createTabContent('opf', this.opfParameters);
         
         contentArea.appendChild(loadFlowContent);
         contentArea.appendChild(shortCircuitContent);
-        contentArea.appendChild(opfContent);
         container.appendChild(contentArea);
 
         // Add button container
@@ -454,9 +454,8 @@ export class TransformerDialog extends Dialog {
         this.container = container;
         
         // Tab click handlers
-        loadFlowTab.onclick = () => this.switchTab('loadflow', loadFlowTab, [shortCircuitTab, opfTab], loadFlowContent, [shortCircuitContent, opfContent]);
-        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [loadFlowTab, opfTab], shortCircuitContent, [loadFlowContent, opfContent]);
-        opfTab.onclick = () => this.switchTab('opf', opfTab, [loadFlowTab, shortCircuitTab], opfContent, [loadFlowContent, shortCircuitContent]);
+        loadFlowTab.onclick = () => this.switchTab('loadflow', loadFlowTab, [shortCircuitTab], loadFlowContent, [shortCircuitContent]);
+        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [loadFlowTab], shortCircuitContent, [loadFlowContent]);
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
@@ -734,7 +733,7 @@ export class TransformerDialog extends Dialog {
         const values = {};
         
         // Collect all parameter values from all tabs
-        [...this.loadFlowParameters, ...this.shortCircuitParameters, ...this.opfParameters].forEach(param => {
+        [...this.loadFlowParameters, ...this.shortCircuitParameters].forEach(param => {
             const input = this.inputs.get(param.id);
             if (input) {
                 if (param.type === 'number') {
@@ -888,14 +887,6 @@ export class TransformerDialog extends Dialog {
                     }
                 }
                 
-                const opfParam = this.opfParameters.find(p => p.id === attributeName);
-                if (opfParam) {
-                    if (opfParam.type === 'checkbox') {
-                        opfParam.value = attributeValue === 'true' || attributeValue === true;
-                    } else {
-                        opfParam.value = attributeValue;
-                    }
-                }
             }
         }
         

@@ -75,7 +75,13 @@ window.shortCircuitPandaPower = function(a, b, c) {
     };
 
     // Helper function to format numbers
-    const formatNumber = (num, decimals = 3) => num.toFixed(decimals);
+    const formatNumber = (num, decimals = 3) => {
+        // Handle NaN, null, undefined, or string 'NaN' values
+        if (num === null || num === undefined || num === 'NaN' || (typeof num === 'number' && isNaN(num))) {
+            return 'N/A';
+        }
+        return parseFloat(num).toFixed(decimals);
+    };
     const replaceUnderscores = name => name.replace('_', '#');
 
     // Error handler

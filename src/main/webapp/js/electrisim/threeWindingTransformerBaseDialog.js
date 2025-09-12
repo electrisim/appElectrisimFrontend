@@ -36,7 +36,7 @@ export const defaultThreeWindingTransformerData = {
     vkr0_hv_percent: 0.0,
     vkr0_mv_percent: 0.0,
     vkr0_lv_percent: 0.0,
-    vector_group: 'Dyn11'
+    vector_group: 'YNyn0d'
 };
 
 export class ThreeWindingTransformerDialog extends Dialog {
@@ -123,10 +123,66 @@ export class ThreeWindingTransformerDialog extends Dialog {
                 id: 'vector_group',
                 label: 'Vector Group',
                 symbol: 'vector_group',
-                description: 'Vector group of the transformer (e.g., Dyn11, Yd11, Yy0)',
+                description: 'Vector group of the transformer (e.g., YNynd, YNdyn, YNdd)',
                 type: 'select',
                 value: this.data.vector_group,
-                options: ['Dyn11', 'Yd11', 'Yy0', 'Dd0', 'Yz11', 'Dz0', 'Yd1', 'Yd11', 'Dyn1', 'Dyn11']
+                options: ['YNynd', 'YNdyn', 'YNdd']
+            },
+            {
+                id: 'tap_side',
+                label: 'Tap Side (tap_side)',
+                description: 'Where the tap changer is located (hv, mv, lv)',
+                type: 'select',
+                value: this.data.tap_side,
+                options: ['hv', 'mv', 'lv']
+            },
+            {
+                id: 'tap_neutral',
+                label: 'Tap Neutral Position (tap_neutral)',
+                description: 'Tap position where no voltage shift is present',
+                type: 'number',
+                value: this.data.tap_neutral.toString(),
+                step: '1'
+            },
+            {
+                id: 'tap_min',
+                label: 'Minimum Tap Position (tap_min)',
+                description: 'Minimum tap position',
+                type: 'number',
+                value: this.data.tap_min.toString(),
+                step: '1'
+            },
+            {
+                id: 'tap_max',
+                label: 'Maximum Tap Position (tap_max)',
+                description: 'Maximum tap position',
+                type: 'number',
+                value: this.data.tap_max.toString(),
+                step: '1'
+            },
+            {
+                id: 'tap_step_percent',
+                label: 'Tap Step Size (tap_step_percent)',
+                description: 'Tap step size in percent (>0)',
+                type: 'number',
+                value: this.data.tap_step_percent.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'tap_pos',
+                label: 'Current Tap Position (tap_pos)',
+                description: 'Current tap position of the transformer. Defaults to tap_neutral if not set',
+                type: 'number',
+                value: this.data.tap_pos.toString(),
+                step: '1'
+            },
+            {
+                id: 'tap_phase_shifter',
+                label: 'Phase Shifter (tap_phase_shifter)',
+                description: 'Whether the transformer is an ideal phase shifter (True/False)',
+                type: 'checkbox',
+                value: this.data.tap_phase_shifter
             }
         ];
         
@@ -276,65 +332,6 @@ export class ThreeWindingTransformerDialog extends Dialog {
             }
         ];
         
-        // OPF (Optimal Power Flow) parameters
-        this.opfParameters = [
-            {
-                id: 'tap_side',
-                label: 'Tap Side (tap_side)',
-                description: 'Where the tap changer is located (hv, mv, lv)',
-                type: 'select',
-                value: this.data.tap_side,
-                options: ['hv', 'mv', 'lv']
-            },
-            {
-                id: 'tap_neutral',
-                label: 'Tap Neutral Position (tap_neutral)',
-                description: 'Tap position where no voltage shift is present',
-                type: 'number',
-                value: this.data.tap_neutral.toString(),
-                step: '1'
-            },
-            {
-                id: 'tap_min',
-                label: 'Minimum Tap Position (tap_min)',
-                description: 'Minimum tap position',
-                type: 'number',
-                value: this.data.tap_min.toString(),
-                step: '1'
-            },
-            {
-                id: 'tap_max',
-                label: 'Maximum Tap Position (tap_max)',
-                description: 'Maximum tap position',
-                type: 'number',
-                value: this.data.tap_max.toString(),
-                step: '1'
-            },
-            {
-                id: 'tap_step_percent',
-                label: 'Tap Step Size (tap_step_percent)',
-                description: 'Tap step size in percent (>0)',
-                type: 'number',
-                value: this.data.tap_step_percent.toString(),
-                step: '0.1',
-                min: '0'
-            },
-            {
-                id: 'tap_pos',
-                label: 'Current Tap Position (tap_pos)',
-                description: 'Current tap position of the transformer. Defaults to tap_neutral if not set',
-                type: 'number',
-                value: this.data.tap_pos.toString(),
-                step: '1'
-            },
-            {
-                id: 'tap_phase_shifter',
-                label: 'Phase Shifter (tap_phase_shifter)',
-                description: 'Whether the transformer is an ideal phase shifter (True/False)',
-                type: 'checkbox',
-                value: this.data.tap_phase_shifter
-            }
-        ];
     }
     
     getDescription() {
@@ -394,11 +391,9 @@ export class ThreeWindingTransformerDialog extends Dialog {
         // Create tabs
         const loadFlowTab = this.createTab('Load Flow', 'loadflow', this.currentTab === 'loadflow');
         const shortCircuitTab = this.createTab('Short Circuit', 'shortcircuit', this.currentTab === 'shortcircuit');
-        const opfTab = this.createTab('OPF', 'opf', this.currentTab === 'opf');
         
         tabContainer.appendChild(loadFlowTab);
         tabContainer.appendChild(shortCircuitTab);
-        tabContainer.appendChild(opfTab);
         container.appendChild(tabContainer);
 
         // Create content area
@@ -416,11 +411,9 @@ export class ThreeWindingTransformerDialog extends Dialog {
         // Create tab content containers
         const loadFlowContent = this.createTabContent('loadflow', this.loadFlowParameters);
         const shortCircuitContent = this.createTabContent('shortcircuit', this.shortCircuitParameters);
-        const opfContent = this.createTabContent('opf', this.opfParameters);
         
         contentArea.appendChild(loadFlowContent);
         contentArea.appendChild(shortCircuitContent);
-        contentArea.appendChild(opfContent);
         container.appendChild(contentArea);
 
         // Add button container
@@ -491,9 +484,8 @@ export class ThreeWindingTransformerDialog extends Dialog {
         this.container = container;
         
         // Tab click handlers
-        loadFlowTab.onclick = () => this.switchTab('loadflow', loadFlowTab, [shortCircuitTab, opfTab], loadFlowContent, [shortCircuitContent, opfContent]);
-        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [loadFlowTab, opfTab], shortCircuitContent, [loadFlowContent, opfContent]);
-        opfTab.onclick = () => this.switchTab('opf', opfTab, [loadFlowTab, shortCircuitTab], opfContent, [loadFlowContent, shortCircuitContent]);
+        loadFlowTab.onclick = () => this.switchTab('loadflow', loadFlowTab, [shortCircuitTab], loadFlowContent, [shortCircuitContent]);
+        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [loadFlowTab], shortCircuitContent, [loadFlowContent]);
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
@@ -754,7 +746,7 @@ export class ThreeWindingTransformerDialog extends Dialog {
         const values = {};
         
         // Collect all parameter values from all tabs
-        [...this.loadFlowParameters, ...this.shortCircuitParameters, ...this.opfParameters].forEach(param => {
+        [...this.loadFlowParameters, ...this.shortCircuitParameters].forEach(param => {
             const input = this.inputs.get(param.id);
             if (input) {
                 if (param.type === 'number') {
@@ -939,15 +931,6 @@ export class ThreeWindingTransformerDialog extends Dialog {
                         shortCircuitParam.value = attributeValue === 'true' || attributeValue === true;
                     } else {
                         shortCircuitParam.value = attributeValue;
-                    }
-                }
-                
-                const opfParam = this.opfParameters.find(p => p.id === attributeName);
-                if (opfParam) {
-                    if (opfParam.type === 'checkbox') {
-                        opfParam.value = attributeValue === 'true' || attributeValue === true;
-                    } else {
-                        opfParam.value = attributeValue;
                     }
                 }
             }
