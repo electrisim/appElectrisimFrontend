@@ -1,7 +1,5 @@
 # Electrisim Frontend
 
-[![Build Status](https://travis-ci.com/jgraph/drawio.svg?branch=master)](https://travis-ci.com/jgraph/drawio)
-
 ## About
 
 This repository contains the frontend code for **[Electrisim](https://app.electrisim.com/)** - an open-source web-based application for comprehensive power system modeling, simulation, and analysis. Electrisim provides powerful tools for electrical engineers and power system professionals to perform:
@@ -9,13 +7,13 @@ This repository contains the frontend code for **[Electrisim](https://app.electr
 - **Power Flow Analysis** - Steady-state analysis of power systems
 - **Optimal Power Flow (OPF)** - Economic dispatch and optimization
 - **Short-Circuit Analysis** - Fault analysis and protection system design  
-- **Contingency Analysis** - System reliability and security assessment
-- **Controller Simulation** - Dynamic behavior modeling
-- **Time Series Simulation** - Long-term system analysis
+- **Contingency Analysis** 
+- **Controller Simulation** 
+- **Time Series Simulation** 
 
 🌐 **Live Application**: [app.electrisim.com](https://app.electrisim.com/)
 
-> **Note**: Currently optimized for desktop web browsers. Mobile support is under development.
+> **Note**: Currently optimized for desktop web browsers. No Mobile support
 
 ## Features
 
@@ -278,12 +276,10 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 ## Roadmap
 
 🚧 **Active Development Areas**:
-- Enhanced mobile support
-- Real-time collaborative editing
+- Extended simulation capabilities by introducing other open-source projects (currently focused on pandapower and OpenDSS)
 - Advanced visualization features
-- Machine learning integration
-- Extended simulation capabilities
-- Improved performance optimization
+- Improving performance optimization
+- Integrating AI
 
 ---
 
