@@ -461,10 +461,131 @@ window.shortCircuitPandaPower = function(a, b, c) {
         // Use modern ShortCircuitDialog directly
         const dialog = new ShortCircuitDialog(a);
         dialog.show(function (a, c) {
+        
+        // Global simulation counter for performance tracking
+        if (!globalThis.shortCircuitRunCount) {
+            globalThis.shortCircuitRunCount = 0;
+        }
+        globalThis.shortCircuitRunCount++;
+        const runNumber = globalThis.shortCircuitRunCount;
+        const startTime = performance.now();
+        console.log(`=== SHORT CIRCUIT SIMULATION #${runNumber} STARTED ===`);
+        
+        // Initialize performance optimization caches
+        const modelCache = new Map();
+        const cellCache = new Map();
+        const nameCache = new Map();
+        const attributeCache = new Map();
+        console.log('Starting fresh simulation with clean caches');
+        
         // Cache commonly used functions and values
         const getModel = b.getModel.bind(b);
         const model = getModel();
-        const cellsArray = model.getDescendants();
+        
+        // Get all cells using multiple comprehensive methods to ensure we catch result cells
+        let cellsArray = model.getDescendants();
+        
+        // Also try to get cells from the root parent to ensure we get all children
+        const defaultParent = b.getDefaultParent();
+        const childCells = model.getChildCells(defaultParent, true, true);
+        
+        // Get all cells from the model's cells object (most comprehensive)
+        const allModelCells = [];
+        const modelCells = model.cells;
+        if (modelCells) {
+            for (const cellId in modelCells) {
+                const cell = modelCells[cellId];
+                if (cell) {
+                    allModelCells.push(cell);
+                }
+            }
+        }
+        
+        // Combine and deduplicate cells
+        const allCellIds = new Set();
+        const combinedCells = [];
+        
+        [...cellsArray, ...childCells, ...allModelCells].forEach(cell => {
+            if (cell && cell.id && !allCellIds.has(cell.id)) {
+                allCellIds.add(cell.id);
+                combinedCells.push(cell);
+            }
+        });
+        
+        cellsArray = combinedCells;
+        console.log(`Processing ${cellsArray.length} cells (descendants: ${model.getDescendants().length}, children: ${childCells.length}, model.cells: ${allModelCells.length})...`);
+        console.log(`Initial memory check - cellsArray length: ${cellsArray.length}`);
+
+        // SIMPLE DIRECT RESULT CLEANUP: Use the working pattern from contingencyAnalysis.js
+        console.log('=== DIRECT RESULT CLEANUP ===');
+        const directCleanupStart = performance.now();
+        let directlyRemoved = 0;
+        
+        // Use content-based detection for short circuit result cells
+        model.beginUpdate();
+        try {
+            for (let i = cellsArray.length - 1; i >= 0; i--) {
+                const cell = cellsArray[i];
+                if (cell && cell.getValue) {
+                    const value = cell.getValue();
+                    const style = cell.getStyle();
+                    
+                    // Check for result cell by style (original approach)
+                    if (style && style.includes("Result")) {
+                        console.log(`Removing result cell by style: ${cell.id} - Style: ${style}`);
+                        model.remove(model.getCell(cell.id));
+                        directlyRemoved++;
+                        continue;
+                    }
+                    
+                    // Check for result cell by content patterns (NEW - based on your example)
+                    if (value && typeof value === 'string') {
+                        const lowerValue = value.toLowerCase();
+                        // Short circuit specific patterns
+                        if (lowerValue.includes('ikss[ka]') || 
+                            lowerValue.includes('ip[ka]') || 
+                            lowerValue.includes('ith[ka]') ||
+                            lowerValue.includes('rk[ohm]') ||
+                            lowerValue.includes('xk[ohm]') ||
+                            // Load flow patterns that might remain from previous calculations
+                            (lowerValue.includes('u[pu]') && lowerValue.includes('p[mw]')) ||
+                            (lowerValue.includes('u[degree]') && lowerValue.includes('q[mvar]')) ||
+                            lowerValue.includes('pf:') ||
+                            lowerValue.includes('q/p:')) {
+                            console.log(`Removing result cell by content: ${cell.id} - Value snippet: ${value.substring(0, 100).replace(/\n/g, ' ')}...`);
+                            model.remove(model.getCell(cell.id));
+                            directlyRemoved++;
+                        }
+                    }
+                }
+            }
+        } finally {
+            model.endUpdate();
+        }
+        
+        const directCleanupTime = performance.now() - directCleanupStart;
+        console.log(`Direct cleanup completed: ${directlyRemoved} cells removed in ${directCleanupTime.toFixed(2)}ms`);
+        console.log('=== END DIRECT CLEANUP ===');
+        
+        // Force a graph refresh/repaint to ensure visual cleanup
+        if (directlyRemoved > 0) {
+            console.log('Forcing graph refresh after result cleanup...');
+            try {
+                b.refresh();
+                if (b.view && b.view.validate) {
+                    b.view.validate();
+                }
+                if (b.repaint) {
+                    b.repaint();
+                }
+            } catch (refreshError) {
+                console.warn('Graph refresh error (non-critical):', refreshError);
+            }
+            
+            // Refresh cellsArray after cleanup
+            cellsArray = model.getDescendants();
+            console.log(`Updated cellsArray length after cleanup and refresh: ${cellsArray.length}`);
+        }
 
         apka.spinner.spin(document.body, "Waiting for results...")
 
@@ -524,22 +645,97 @@ window.shortCircuitPandaPower = function(a, b, c) {
                 user_email: userEmail  // Add user email to simulation data
             });
 
-            // Process cells
+            // Process cells with performance optimization
+            const cellProcessingStart = performance.now();
+            
+            // First pass: collect result cells to remove and valid cells to process
+            const resultCellsToRemove = [];
+            const validCells = [];
+            
             cellsArray.forEach(cell => {
-                // Remove previous results
-                if (cell.getStyle()?.includes("Result")) {
-                    model.remove(model.getCell(cell.id));
+                // Check for result cells by style OR content
+                const cellStyle = cell.getStyle();
+                const value = cell.getValue();
+                
+                // Style-based detection
+                if (cellStyle && cellStyle.includes("Result")) {
+                    resultCellsToRemove.push(cell);
                     return;
                 }
+                
+                // Content-based detection (for result labels like your example)
+                if (value && typeof value === 'string') {
+                    const lowerValue = value.toLowerCase();
+                    if (lowerValue.includes('ikss[ka]') || 
+                        lowerValue.includes('ip[ka]') || 
+                        lowerValue.includes('ith[ka]') ||
+                        lowerValue.includes('rk[ohm]') ||
+                        lowerValue.includes('xk[ohm]') ||
+                        // Load flow patterns that might remain
+                        (lowerValue.includes('u[pu]') && lowerValue.includes('p[mw]')) ||
+                        (lowerValue.includes('u[degree]') && lowerValue.includes('q[mvar]')) ||
+                        lowerValue.includes('pf:') ||
+                        lowerValue.includes('q/p:')) {
+                        resultCellsToRemove.push(cell);
+                        return;
+                    }
+                }
 
-                const style = parseCellStyle(cell.getStyle());
+                const style = parseCellStyle(cellStyle);
                 if (!style) return;
 
                 const componentType = style.shapeELXXX;
-                if (!componentType) return;
-
                 if (!componentType || componentType == 'NotEditableLine') return;
+                
+                validCells.push({ cell, style, componentType });
+            });
+            
+            // Batch remove result cells for better performance
+            let resultCellsRemoved = 0;
+            const removalStart = performance.now();
+            
+            // Debug: Log what we found for result cells
+            console.log(`Found ${resultCellsToRemove.length} result cells to remove`);
+            if (resultCellsToRemove.length > 0) {
+                console.log('Result cells details:');
+                resultCellsToRemove.forEach((cell, index) => {
+                    console.log(`  ${index + 1}. ID: ${cell.id}, Style: ${cell.getStyle()}, Value: ${typeof cell.value === 'string' ? cell.value.substring(0, 50) + '...' : cell.value}`);
+                });
+            }
+            
+            if (resultCellsToRemove.length > 0) {
+                console.log(`Removing ${resultCellsToRemove.length} result cells from previous short circuit simulation...`);
+                try {
+                    model.beginUpdate();
+                    resultCellsToRemove.forEach(cell => {
+                        const cellToRemove = model.getCell(cell.id);
+                        if (cellToRemove) {
+                            model.remove(cellToRemove);
+                            resultCellsRemoved++;
+                            console.log(`Removed result cell: ${cell.id}`);
+                        } else {
+                            console.warn(`Could not find cell to remove: ${cell.id}`);
+                        }
+                    });
+                } finally {
+                    model.endUpdate();
+                }
+                console.log(`Successfully removed ${resultCellsRemoved} result cells`);
+            } else {
+                console.log('No result cells to remove (first run or already clean)');
+            }
+            
+            const removalTime = performance.now() - removalStart;
+            const cellProcessingTime = performance.now() - cellProcessingStart;
+            console.log(`Cell processing: ${cellProcessingTime.toFixed(2)}ms (removed ${resultCellsRemoved} result cells in ${removalTime.toFixed(2)}ms, found ${validCells.length} valid cells)`);
 
+            // Process valid cells with optimized attribute extraction
+            const componentProcessingStart = performance.now();
+            let processedComponents = 0;
+            
+            validCells.forEach(({ cell, style, componentType }) => {
+                processedComponents++;
+                
                 // Create base data for component
                 let baseData;
                 if (componentType === 'Line' || componentType === 'DCLine') {
@@ -1051,6 +1247,9 @@ window.shortCircuitPandaPower = function(a, b, c) {
                         break;
                 }
             });
+            
+            const componentProcessingTime = performance.now() - componentProcessingStart;
+            console.log(`Component processing: ${componentProcessingTime.toFixed(2)}ms (${processedComponents} components)`);
 
             //b - graphModel 
             if (componentArrays.transformer.length > 0) {
@@ -1084,7 +1283,21 @@ window.shortCircuitPandaPower = function(a, b, c) {
             ];
 
             const obj = Object.assign({}, array);
-            console.log(JSON.stringify(obj));
+            console.log('Short Circuit data prepared:', JSON.stringify(obj));
+            
+            // Log performance summary
+            const totalProcessingTime = performance.now() - startTime;
+            console.log(`=== SHORT CIRCUIT PERFORMANCE SUMMARY ===`);
+            console.log(`Run #${runNumber} - Total processing: ${totalProcessingTime.toFixed(2)}ms`);
+            console.log(`Components processed: ${processedComponents}`);
+            console.log(`Result cells removed: ${resultCellsRemoved}`);
+            
+            // Clean up caches to prevent memory accumulation
+            console.log(`Simulation completed. Cache sizes - cells: ${cellCache.size}, names: ${nameCache.size}, attributes: ${attributeCache.size}`);
+            cellCache.clear();
+            nameCache.clear();
+            attributeCache.clear();
+            console.log('Caches cleared for next simulation');
 
             // Process network data
             processNetworkData("https://03dht3kc-5000.euw.devtunnels.ms/", obj, b, grafka);

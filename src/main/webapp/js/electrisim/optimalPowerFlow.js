@@ -142,6 +142,23 @@ function optimalPowerFlowPandaPower(a, b, c) {
             
             const dialog = new DialogClass(a);
             dialog.show(function (params, perGenLimits) {
+                
+                // Global simulation counter for performance tracking
+                if (!globalThis.opfRunCount) {
+                    globalThis.opfRunCount = 0;
+                }
+                globalThis.opfRunCount++;
+                const runNumber = globalThis.opfRunCount;
+                const startTime = performance.now();
+                console.log(`=== OPTIMAL POWER FLOW SIMULATION #${runNumber} STARTED ===`);
+                
+                // Initialize performance optimization caches
+                const modelCache = new Map();
+                const cellCache = new Map();
+                const nameCache = new Map();
+                const attributeCache = new Map();
+                console.log('Starting fresh simulation with clean caches');
+                
                 apka.spinner.spin(document.body, "Waiting for optimal power flow results...");
 
                 // Extract min/max from params (find their indices)
@@ -215,10 +232,18 @@ function optimalPowerFlowPandaPower(a, b, c) {
                         user_email: userEmail  // Add user email to simulation data
                     });
 
-                        // Process cells
+                        // Process cells with performance optimization
+                        const cellProcessingStart = performance.now();
+                        console.log(`Processing ${cellsArray.length} cells...`);
+                        
+                        // First pass: collect result cells to remove and valid cells to process
+                        const resultCellsToRemove = [];
+                        const validCells = [];
+                        
                         cellsArray.forEach(cell => {
+                            // Collect result cells for batch removal
                             if (cell.getStyle()?.includes("Result")) {
-                                model.remove(model.getCell(cell.id));
+                                resultCellsToRemove.push(cell);
                                 return;
                             }
 
@@ -227,6 +252,43 @@ function optimalPowerFlowPandaPower(a, b, c) {
 
                             const componentType = style.shapeELXXX;
                             if (!componentType || componentType == 'NotEditableLine') return;
+                            
+                            validCells.push({ cell, style, componentType });
+                        });
+                        
+                        // Batch remove result cells for better performance
+                        let resultCellsRemoved = 0;
+                        const removalStart = performance.now();
+                        
+                        if (resultCellsToRemove.length > 0) {
+                            console.log(`Removing ${resultCellsToRemove.length} result cells from previous simulation...`);
+                            try {
+                                model.beginUpdate();
+                                resultCellsToRemove.forEach(cell => {
+                                    const cellToRemove = model.getCell(cell.id);
+                                    if (cellToRemove) {
+                                        model.remove(cellToRemove);
+                                        resultCellsRemoved++;
+                                    }
+                                });
+                            } finally {
+                                model.endUpdate();
+                            }
+                            console.log(`Successfully removed ${resultCellsRemoved} result cells`);
+                        } else {
+                            console.log('No result cells to remove (first run or already clean)');
+                        }
+                        
+                        const removalTime = performance.now() - removalStart;
+                        const cellProcessingTime = performance.now() - cellProcessingStart;
+                        console.log(`Cell processing: ${cellProcessingTime.toFixed(2)}ms (removed ${resultCellsRemoved} result cells in ${removalTime.toFixed(2)}ms, found ${validCells.length} valid cells)`);
+
+                        // Process valid cells with optimized processing
+                        const componentProcessingStart = performance.now();
+                        let processedComponents = 0;
+                        
+                        validCells.forEach(({ cell, style, componentType }) => {
+                            processedComponents++;
 
                             // Get user-friendly name from grid data if available
                             let userFriendlyName = cell.mxObjectId.replace('#', '_'); // fallback to technical ID
@@ -391,6 +453,9 @@ function optimalPowerFlowPandaPower(a, b, c) {
                                     break;
                             }
                         });
+                        
+                        const componentProcessingTime = performance.now() - componentProcessingStart;
+                        console.log(`Component processing: ${componentProcessingTime.toFixed(2)}ms (${processedComponents} components)`);
 
                         // Combine all arrays
                         const array = [
@@ -404,6 +469,20 @@ function optimalPowerFlowPandaPower(a, b, c) {
 
                         const obj = Object.assign({}, array);
                         console.log('OPF Data:', JSON.stringify(obj));
+                        
+                        // Log performance summary
+                        const totalProcessingTime = performance.now() - startTime;
+                        console.log(`=== OPF PERFORMANCE SUMMARY ===`);
+                        console.log(`Run #${runNumber} - Total processing: ${totalProcessingTime.toFixed(2)}ms`);
+                        console.log(`Components processed: ${processedComponents}`);
+                        console.log(`Result cells removed: ${resultCellsRemoved}`);
+                        
+                        // Clean up caches to prevent memory accumulation
+                        console.log(`Simulation completed. Cache sizes - cells: ${cellCache.size}, names: ${nameCache.size}, attributes: ${attributeCache.size}`);
+                        cellCache.clear();
+                        nameCache.clear();
+                        attributeCache.clear();
+                        console.log('Caches cleared for next simulation');
 
                         // Send to backend
                         processNetworkData("https://03dht3kc-5000.euw.devtunnels.ms/", obj, b, grafka);

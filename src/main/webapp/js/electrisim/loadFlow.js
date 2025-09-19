@@ -40,80 +40,53 @@ const getConnectedBusId = (cell, isLine = false) => {
     return Object.fromEntries(pairs);
 };
 
-// Helper function to get attributes as object
+// Optimized helper function to get attributes as object with caching
 const getAttributesAsObject = (cell, attributeMap) => {
     const result = {};
-    //console.log('cell in getAttributes', cell);
-
-    // Make sure cell has all the required properties
-    if (!cell || !cell.value || !cell.value.attributes) {
+    
+    // Quick validation
+    if (!cell?.value?.attributes) {
         console.warn('Cell is missing required properties');
         return result;
     }
 
-    // Get all available attributes
+    // Create attribute lookup map for O(1) access instead of O(n) loop
+    const attributeLookup = new Map();
     const attributes = cell.value.attributes;
- 
-    // Process each requested attribute by name instead of index
+    for (let i = 0; i < attributes.length; i++) {
+        attributeLookup.set(attributes[i].nodeName, attributes[i].nodeValue);
+    }
+
+    // Default values for optional parameters
+    const defaults = {
+        parallel: '1',
+        df: '1.0',
+        vector_group: 'Dyn11',
+        vk0_percent: '0.0',
+        vkr0_percent: '0.0',
+        mag0_percent: '0.0',
+        si0_hv_partial: '0.0',
+        step: '1',
+        max_step: '1',
+        scaling: '1.0'
+    };
+
+    // Process attributes efficiently
     for (const [key, config] of Object.entries(attributeMap)) {
         const isOptional = typeof config === 'object' && config.optional;
         const attributeName = typeof config === 'object' ? config.name : config;
-
-      
-        // Debug logging for parallel and df parameters
-        if (key === 'parallel' || key === 'df') {
-          //  console.log(`\n=== DEBUG: Extracting ${key} ===`);
-         //   console.log(`Looking for attribute name: ${attributeName}`);
-          //  console.log(`Cell has ${attributes.length} attributes:`);
-          //  for (let i = 0; i < attributes.length; i++) {
-          //      console.log(`  [${i}] ${attributes[i].nodeName} = ${attributes[i].nodeValue}`);
-          //  }
-        }
-
-        // Find the attribute by name in the attributes collection
-        let found = false;
-        for (let i = 0; i < attributes.length; i++) {
-            if (attributes[i].nodeName === attributeName) {
-                result[key] = attributes[i].nodeValue;
-                found = true;
-                if (key === 'parallel' || key === 'df') {
-                //     console.log(`✓ Found ${key}: ${attributes[i].nodeValue}`);
-                }
-                break;
-            }
-        }
-
-        if (!found && !isOptional) {
+        
+        const value = attributeLookup.get(attributeName);
+        
+        if (value !== undefined) {
+            result[key] = value;
+        } else if (!isOptional) {
             console.warn(`Missing required attribute ${key} with name ${attributeName}`);
             result[key] = null;
-        } else if (!found && isOptional) {
-            // For optional parameters, include them with default values if not found
-            if (key === 'parallel') {
-                console.log(`⚠ ${key} not found, using default value: 1`);
-                result[key] = '1';  // Default parallel lines/transformers
-            } else if (key === 'df') {
-                console.log(`⚠ ${key} not found, using default value: 1.0`);
-                result[key] = '1.0';  // Default derating factor
-            } else if (key === 'vector_group') {
-                console.log(`⚠ ${key} not found, using default value: Dyn11`);
-                result[key] = 'Dyn11';  // Default vector group
-            } else if (key === 'vk0_percent') {
-                console.log(`⚠ ${key} not found, using default value: 0.0`);
-                result[key] = '0.0';  // Will be set to vk_percent in backend if needed
-            } else if (key === 'vkr0_percent') {
-                console.log(`⚠ ${key} not found, using default value: 0.0`);
-                result[key] = '0.0';  // Will be set to vkr_percent in backend if needed
-            } else if (key === 'mag0_percent') {
-                console.log(`⚠ ${key} not found, using default value: 0.0`);
-                result[key] = '0.0';  // Default zero sequence magnetizing current
-            } else if (key === 'si0_hv_partial') {
-                console.log(`⚠ ${key} not found, using default value: 0.0`);
-                result[key] = '0.0';  // Default zero sequence partial current
-            }
-            // Note: Other optional parameters can be left undefined as they truly are optional
+        } else if (defaults[key]) {
+            result[key] = defaults[key];
         }
     }
-        
 
     return result;
 };
@@ -384,7 +357,77 @@ const COMPONENT_TYPES = {
 import { DIALOG_STYLES } from './utils/dialogStyles.js';
 import { LoadFlowDialog } from './dialogs/LoadFlowDialog.js';
 
+// Advanced payload compression function to reduce data transfer size
+const compressPayload = (obj) => {
+    const compressed = {};
+    
+    // Fields that backend expects as strings for eval() - MUST remain as strings
+    const fieldsToKeepAsStrings = new Set([
+        'frequency', 'bus', 'busFrom', 'busTo', 'hv_bus', 'mv_bus', 'lv_bus'
+    ]);
+    
+    // For now, don't remove any default values to ensure backend compatibility
+    // Backend expects all fields to be present, even with default values
+    const defaultValues = {};
+    
+    // Note: Field abbreviations would break backend compatibility, so we keep original names
+    
+    Object.keys(obj).forEach(key => {
+        const item = obj[key];
+        if (item && typeof item === 'object') {
+            const compressedItem = {};
+            
+            Object.keys(item).forEach(prop => {
+                const value = item[prop];
+                if (value !== null && value !== undefined && value !== '' && value !== 'undefined') {
+                    // Skip default values to reduce payload size
+                    if (defaultValues[prop] && String(value) === String(defaultValues[prop])) {
+                        return;
+                    }
+                    
+                    // Keep certain fields as strings for backend eval() compatibility
+                    if (fieldsToKeepAsStrings.has(prop)) {
+                        compressedItem[prop] = String(value);
+                    } else if (typeof value === 'string' && !isNaN(value) && value !== '') {
+                        // Convert other numeric strings to numbers for optimization
+                        compressedItem[prop] = parseFloat(value);
+                    } else {
+                        compressedItem[prop] = value;
+                    }
+                }
+            });
+            
+            if (Object.keys(compressedItem).length > 0) {
+                compressed[key] = compressedItem;
+            }
+        }
+    });
+    
+    return compressed;
+};
+
+// Batch execution helper to prevent UI blocking
+const executeInBatches = async (operations, batchSize = 5) => {
+    for (let i = 0; i < operations.length; i += batchSize) {
+        const batch = operations.slice(i, i + batchSize);
+        
+        // Execute batch
+        batch.forEach(operation => operation());
+        
+        // Yield control to browser if more batches remain
+        if (i + batchSize < operations.length) {
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
+    }
+};
+
 function loadFlowPandaPower(a, b, c) {
+
+    // Performance monitoring with run tracking
+    globalThis.simulationRunCount++;
+    const runNumber = globalThis.simulationRunCount;
+    const startTime = performance.now();
+    console.log(`=== LOAD FLOW SIMULATION #${runNumber} STARTED ===`);
 
     // Create counters object
     const counters = {
@@ -409,6 +452,59 @@ function loadFlowPandaPower(a, b, c) {
         SSC: 0,
         dcLine: 0,
         line: 0
+    };
+
+    // Clear all caches at the start of each simulation to prevent memory accumulation
+    const modelCache = b.getModel();
+    const cellCache = new Map(); // Cache for getCell operations - fresh for each run
+    const nameCache = new Map(); // Cache for userFriendlyName lookups - fresh for each run
+    const attributeCache = new Map(); // Cache for getAttributesAsObject results - fresh for each run
+    
+    // Log cache status for debugging
+    console.log('Starting fresh simulation with clean caches');
+    
+    // Helper function to get cached cell
+    const getCachedCell = (cellId) => {
+        if (cellCache.has(cellId)) {
+            return cellCache.get(cellId);
+        }
+        const cell = modelCache.getCell(cellId);
+        cellCache.set(cellId, cell);
+        return cell;
+    };
+    
+    // Optimized userFriendlyName function with caching
+    const getUserFriendlyName = (cell) => {
+        const cellId = cell.id;
+        if (nameCache.has(cellId)) {
+            return nameCache.get(cellId);
+        }
+        
+        let name = cell.mxObjectId.replace('#', '_'); // default fallback
+        if (cell.value && cell.value.attributes) {
+            for (let i = 0; i < cell.value.attributes.length; i++) {
+                if (cell.value.attributes[i].nodeName === 'name') {
+                    name = cell.value.attributes[i].nodeValue;
+                    break;
+                }
+            }
+        }
+        
+        nameCache.set(cellId, name);
+        return name;
+    };
+    
+    // Highly optimized cached version with simplified key generation
+    const getCachedAttributes = (cell, attributeMap) => {
+        // Use simpler cache key for better performance
+        const cacheKey = `${cell.id}_${Object.keys(attributeMap).length}`;
+        if (attributeCache.has(cacheKey)) {
+            return attributeCache.get(cacheKey);
+        }
+        
+        const result = getAttributesAsObject(cell, attributeMap);
+        attributeCache.set(cacheKey, result);
+        return result;
     };
 
     // Create arrays for different components
@@ -439,13 +535,12 @@ function loadFlowPandaPower(a, b, c) {
 
 
     //*********FROM FRONTEND TO BACKEND **************/
-    // Cache commonly used functions and values
-    const getModel = b.getModel.bind(b);
-    const model = getModel();
-    const cellsArray = model.getDescendants();   
+    // Use cached model reference
+    const model = modelCache;
+    let cellsArray = model.getDescendants();   
        
     function setCellStyle(cell, styles) {
-        let currentStyle = b.getModel().getStyle(cell);
+        let currentStyle = modelCache.getStyle(cell);
         let newStyle = Object.entries(styles).reduce((style, [key, value]) => {
             return mxUtils.setStyle(style, `mxConstants.STYLE_${key.toUpperCase()}`, value);
         }, currentStyle);
@@ -485,17 +580,19 @@ function loadFlowPandaPower(a, b, c) {
     };
     const replaceUnderscores = name => name.replace('_', '#');
 
-    // Generic cell processor
+    // Highly optimized cell processor with pre-computed styles
+    const PRECOMPUTED_STYLES = {
+        label: Object.entries(STYLES.label).map(([style, value]) => `${style}=${value}`).join(';'),
+        line: Object.entries(STYLES.line).map(([style, value]) => `${style}=${value}`).join(';')
+    };
+    
     function processCellStyles(b, labelka, isEdge = false) {
+        // Use pre-computed style strings for maximum performance
+        const styleString = isEdge ? PRECOMPUTED_STYLES.line : PRECOMPUTED_STYLES.label;
+        b.setCellStyle(styleString, [labelka]);
+        
         if (isEdge) {
-            Object.entries(STYLES.line).forEach(([style, value]) => {
-                b.setCellStyles(style, value, [labelka]);
-            });
             b.orderCells(true, [labelka]);
-        } else {
-            Object.entries(STYLES.label).forEach(([style, value]) => {
-                b.setCellStyles(style, value, [labelka]);
-            });
         }
     }
 
@@ -573,21 +670,29 @@ function loadFlowPandaPower(a, b, c) {
         return false;
     }
 
-    // Network element processors (FROM BACKEND TO FRONTEND)
+    // Highly optimized network element processors with batched operations
     const elementProcessors = {
         busbars: (data, b, grafka) => {
-            data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+            // Pre-build all result strings to minimize string operations
+            const results = data.map(cell => {
+                const resultCell = getCachedCell(cell.id);
                 cell.name = replaceUnderscores(cell.name);
 
-                const resultString = `${resultCell.value.attributes[0].nodeValue}
+                return {
+                    resultCell,
+                    resultString: `${resultCell.value.attributes[0].nodeValue}
             U[pu]: ${formatNumber(cell.vm_pu)}
             U[degree]: ${formatNumber(cell.va_degree)}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}
             PF: ${formatNumber(cell.pf)}
-            Q/P: ${formatNumber(cell.q_p)}`;
+            Q/P: ${formatNumber(cell.q_p)}`,
+                    cell
+                };
+            });
 
+            // Batch insert all result labels
+            results.forEach(({ resultCell, resultString, cell }) => {
                 const labelka = b.insertVertex(resultCell, null, resultString, 0, 2.7, 0, 0, 'shapeELXXX=Result', true);
                 processCellStyles(b, labelka);
                 processVoltageColor(grafka, resultCell, cell.vm_pu);
@@ -595,12 +700,16 @@ function loadFlowPandaPower(a, b, c) {
         },
 
         lines: (data, b, grafka) => {
-            data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+            // Pre-process all line data for batch operations
+            const lineResults = data.map(cell => {
+                const resultCell = getCachedCell(cell.id);
                 const linia = resultCell;
                 cell.name = replaceUnderscores(cell.name);
 
-                const resultString = `${linia.value.attributes[6].nodeValue}
+                return {
+                    resultCell,
+                    linia,
+                    resultString: `${linia.value.attributes[6].nodeValue}
             P_from[MW]: ${formatNumber(cell.p_from_mw)}
             Q_from[MVar]: ${formatNumber(cell.q_from_mvar)}
             i_from[kA]: ${formatNumber(cell.i_from_ka)}
@@ -609,8 +718,13 @@ function loadFlowPandaPower(a, b, c) {
 
             P_to[MW]: ${formatNumber(cell.p_to_mw)}
             Q_to[MVar]: ${formatNumber(cell.q_to_mvar)}
-            i_to[kA]: ${formatNumber(cell.i_to_ka)}`;
+            i_to[kA]: ${formatNumber(cell.i_to_ka)}`,
+                    cell
+                };
+            });
 
+            // Batch insert all line result edges
+            lineResults.forEach(({ resultCell, linia, resultString, cell }) => {
                 const labelka = b.insertEdge(resultCell, null, resultString, linia.source, linia.target, 'shapeELXXX=Result');
                 processCellStyles(b, labelka, true);
                 processLoadingColor(grafka, linia, cell.loading_percent);
@@ -620,7 +734,7 @@ function loadFlowPandaPower(a, b, c) {
 
         externalgrids: (data, b) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id);
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             
             P[MW]: ${formatNumber(cell.p_mw)}
@@ -884,20 +998,27 @@ function loadFlowPandaPower(a, b, c) {
         },
     };
 
-    // Main processing function (FROM BACKEND TO FRONTEND)
+    // Optimized processing function with compression and caching
     async function processNetworkData(url, obj, b, grafka) {
         try {
-            // Initialize styles once
-            b.getStylesheet().putCellStyle('labelstyle', STYLES.label);
-            b.getStylesheet().putCellStyle('lineStyle', STYLES.line);
+            // Initialize styles once and cache
+            const stylesheet = b.getStylesheet();
+            if (!stylesheet.getCellStyle('labelstyle')) {
+                stylesheet.putCellStyle('labelstyle', STYLES.label);
+                stylesheet.putCellStyle('lineStyle', STYLES.line);
+            }
+
+            // Compress payload by removing null/undefined values and minimizing data
+            const compressedObj = compressPayload(obj);
 
             const response = await fetch(url, {
                 mode: "cors",
                 method: "post",
                 headers: {
                     "Content-Type": "application/json",
+                    "Accept-Encoding": "gzip, deflate, br"
                 },
-                body: JSON.stringify(obj)
+                body: JSON.stringify(compressedObj)
             });
 
             if (response.status !== 200) {
@@ -905,21 +1026,52 @@ function loadFlowPandaPower(a, b, c) {
             }
 
             const dataJson = await response.json();
-            console.log('dataJson')
-            console.log(dataJson)
+            console.log('Received data size:', JSON.stringify(dataJson).length, 'bytes');
 
             // Handle errors first
             if (handleNetworkErrors(dataJson)) {
                 return;
             }
 
-            // Process each type of network element
-            Object.entries(elementProcessors).forEach(([type, processor]) => {
-               
-                if (dataJson[type]) {
-                    processor(dataJson[type], b, grafka);
+            // Optimize result processing with enhanced performance monitoring
+            const resultProcessingStart = performance.now();
+            console.log('Starting result visualization...');
+            
+            // Begin model update transaction for better performance
+            b.getModel().beginUpdate();
+            
+            try {
+                const pendingOperations = [];
+                
+                // Collect all operations first with timing
+                Object.entries(elementProcessors).forEach(([type, processor]) => {
+                    if (dataJson[type]) {
+                        pendingOperations.push({
+                            type,
+                            operation: () => processor(dataJson[type], b, grafka),
+                            dataSize: dataJson[type].length
+                        });
+                    }
+                });
+                
+                // Execute operations with individual timing and UI yielding for large datasets
+                for (const {type, operation, dataSize} of pendingOperations) {
+                    const operationStart = performance.now();
+                    operation();
+                    const operationTime = performance.now() - operationStart;
+                    console.log(`${type} processing: ${operationTime.toFixed(2)}ms (${dataSize} items)`);
+                    
+                    // Yield to UI for large datasets to prevent blocking
+                    if (dataSize > 50 && operationTime > 100) {
+                        await new Promise(resolve => setTimeout(resolve, 0));
+                    }
                 }
-            });
+                
+            } finally {
+                b.getModel().endUpdate();
+                const resultProcessingTime = performance.now() - resultProcessingStart;
+                console.log(`Total result visualization: ${resultProcessingTime.toFixed(2)}ms`);
+            }
 
         } catch (err) {
             if (err.message === "server") return;
@@ -1007,54 +1159,217 @@ function loadFlowPandaPower(a, b, c) {
                 user_email: userEmail  // Add user email to simulation data
             });
 
-            // Process cells
+            // Process cells with aggressive performance optimization
+            const cellProcessingStart = performance.now();
+            const validCells = [];
+            const resultCellsToRemove = [];
+            let resultCellsRemoved = 0;
+            
+        console.log(`Processing ${cellsArray.length} cells...`);
+        
+        // Monitor for potential memory issues
+        console.log(`Initial memory check - cellsArray length: ${cellsArray.length}`);
+        
+        // DIRECT RESULT CLEANUP: Remove any existing result labels
+        console.log('=== DIRECT RESULT CLEANUP ===');
+        const directCleanupStart = performance.now();
+        let directlyRemoved = 0;
+        
+        model.beginUpdate();
+        try {
+            for (let i = cellsArray.length - 1; i >= 0; i--) {
+                const cell = cellsArray[i];
+                if (cell && cell.getValue) {
+                    const value = cell.getValue();
+                    const style = cell.getStyle();
+                    
+                    // Check for result cell by style (original approach)
+                    if (style && style.includes("Result")) {
+                        console.log(`Removing result cell by style: ${cell.id} - Style: ${style}`);
+                        model.remove(model.getCell(cell.id));
+                        directlyRemoved++;
+                        continue;
+                    }
+                    
+                    // Check for result cell by content patterns
+                    if (value && typeof value === 'string') {
+                        const lowerValue = value.toLowerCase();
+                        if (// Load flow patterns
+                            (lowerValue.includes('u[pu]') && lowerValue.includes('p[mw]')) ||
+                            (lowerValue.includes('u[degree]') && lowerValue.includes('q[mvar]')) ||
+                            lowerValue.includes('pf:') ||
+                            lowerValue.includes('q/p:') ||
+                            lowerValue.includes('loading[%]') ||
+                            lowerValue.includes('i_hv[ka]') ||
+                            lowerValue.includes('i_mv[ka]') ||
+                            lowerValue.includes('i_lv[ka]') ||
+                            lowerValue.includes('i_from[ka]') ||
+                            lowerValue.includes('i_to[ka]') ||
+                            lowerValue.includes('pl[mw]') ||
+                            lowerValue.includes('vm[pu]') ||
+                            lowerValue.includes('va[degree]') ||
+                            lowerValue.includes('um[pu]') ||
+                            // Short circuit patterns (in case they remain)
+                            lowerValue.includes('ikss[ka]') || 
+                            lowerValue.includes('ip[ka]') || 
+                            lowerValue.includes('ith[ka]') ||
+                            lowerValue.includes('rk[ohm]') ||
+                            lowerValue.includes('xk[ohm]')) {
+                            console.log(`Removing result cell by content: ${cell.id} - Value snippet: ${value.substring(0, 80).replace(/\n/g, ' ')}...`);
+                            model.remove(model.getCell(cell.id));
+                            directlyRemoved++;
+                        }
+                    }
+                }
+            }
+        } finally {
+            model.endUpdate();
+        }
+        
+        const directCleanupTime = performance.now() - directCleanupStart;
+        console.log(`Direct cleanup completed: ${directlyRemoved} cells removed in ${directCleanupTime.toFixed(2)}ms`);
+        console.log('=== END DIRECT CLEANUP ===');
+        
+        // Force a graph refresh/repaint to ensure visual cleanup
+        if (directlyRemoved > 0) {
+            console.log('Forcing graph refresh after result cleanup...');
+            try {
+                b.refresh();
+                if (b.view && b.view.validate) {
+                    b.view.validate();
+                }
+                if (b.repaint) {
+                    b.repaint();
+                }
+            } catch (refreshError) {
+                console.warn('Graph refresh error (non-critical):', refreshError);
+            }
+            
+            // Refresh cellsArray after cleanup
+            cellsArray = model.getDescendants();
+            console.log(`Updated cellsArray length after cleanup and refresh: ${cellsArray.length}`);
+        }
+            
+            // First pass: collect cells to remove and valid cells (no DOM operations yet)
+            const styleCache = new Map();
             cellsArray.forEach(cell => {
-                // Remove previous results
-                if (cell.getStyle()?.includes("Result")) {
-                    model.remove(model.getCell(cell.id));
+                const cellStyle = cell.getStyle();
+                const value = cell.getValue();
+                
+                // Remove previous results - check both style and content
+                // Style-based detection (for properly tagged results)
+                if (cellStyle?.includes("Result")) {
+                    resultCellsToRemove.push(cell);
+                    resultCellsRemoved++;
                     return;
                 }
-
-                const style = parseCellStyle(cell.getStyle());
-                if (!style) return;
-
-                const componentType = style.shapeELXXX;
-                if (!componentType || componentType == 'NotEditableLine') return;
-
-              
-                let baseData;
-                if(componentType === 'Line' || componentType === 'DCLine'){
-                    baseData = {
-                        name: cell.mxObjectId.replace('#', '_'),
-                        id: cell.id,
-                        bus: getConnectedBusId(cell, true)
-                    };
-                }else{
-                    baseData = {
-                        name: cell.mxObjectId.replace('#', '_'),
-                        id: cell.id,
-                        bus: getConnectedBusId(cell)
-                    };
+                
+                // Content-based detection (for result labels that might have lost their style)
+                if (value && typeof value === 'string') {
+                    const lowerValue = value.toLowerCase();
+                    if (// Load flow patterns
+                        (lowerValue.includes('u[pu]') && lowerValue.includes('p[mw]')) ||
+                        (lowerValue.includes('u[degree]') && lowerValue.includes('q[mvar]')) ||
+                        lowerValue.includes('pf:') ||
+                        lowerValue.includes('q/p:') ||
+                        lowerValue.includes('loading[%]') ||
+                        lowerValue.includes('i_hv[ka]') ||
+                        lowerValue.includes('i_mv[ka]') ||
+                        lowerValue.includes('i_lv[ka]') ||
+                        lowerValue.includes('i_from[ka]') ||
+                        lowerValue.includes('i_to[ka]') ||
+                        lowerValue.includes('pl[mw]') ||
+                        lowerValue.includes('vm[pu]') ||
+                        lowerValue.includes('va[degree]') ||
+                        lowerValue.includes('um[pu]') ||
+                        // Short circuit patterns (in case they remain)
+                        lowerValue.includes('ikss[ka]') || 
+                        lowerValue.includes('ip[ka]') || 
+                        lowerValue.includes('ith[ka]') ||
+                        lowerValue.includes('rk[ohm]') ||
+                        lowerValue.includes('xk[ohm]')) {
+                        console.log(`Removing result cell by content: ${cell.id} - Value snippet: ${value.substring(0, 80).replace(/\n/g, ' ')}...`);
+                        resultCellsToRemove.push(cell);
+                        resultCellsRemoved++;
+                        return;
+                    }
                 }
 
+                // Cache style parsing to avoid repeated parsing
+                let style = styleCache.get(cellStyle);
+                if (!style) {
+                    style = parseCellStyle(cellStyle);
+                    styleCache.set(cellStyle, style);
+                }
+                
+                if (style?.shapeELXXX && style.shapeELXXX !== 'NotEditableLine') {
+                    validCells.push({ cell, style, componentType: style.shapeELXXX });
+                }
+            });
+            
+            // Batch remove result cells (much faster than individual removes)
+            const removalStart = performance.now();
+            if (resultCellsToRemove.length > 0) {
+                console.log(`Removing ${resultCellsToRemove.length} result cells from previous simulation...`);
+                // Use batch removal with proper cleanup
+                try {
+                    model.beginUpdate();
+                    resultCellsToRemove.forEach(cell => {
+                        const cellToRemove = model.getCell(cell.id);
+                        if (cellToRemove) {
+                            model.remove(cellToRemove);
+                        }
+                    });
+                } finally {
+                    model.endUpdate();
+                }
+                console.log(`Successfully removed ${resultCellsToRemove.length} result cells`);
+            } else {
+                console.log('No result cells to remove (first run or already clean)');
+            }
+            const removalTime = performance.now() - removalStart;
+            
+            const cellProcessingTime = performance.now() - cellProcessingStart;
+            console.log(`Cell processing: ${cellProcessingTime.toFixed(2)}ms (removed ${resultCellsRemoved} result cells in ${removalTime.toFixed(2)}ms, found ${validCells.length} valid cells)`);
+
+            // Process valid cells with aggressive performance optimization
+            const componentProcessingStart = performance.now();
+            let processedComponents = 0;
+            console.log(`Starting component processing for ${validCells.length} valid cells...`);
+            
+            // Pre-compute common data for all cells to avoid repetitive operations
+            const preComputeStart = performance.now();
+            const preComputedData = new Map();
+            validCells.forEach(({ cell, componentType }) => {
+                const cellId = cell.id;
+                preComputedData.set(cellId, {
+                    name: cell.mxObjectId.replace('#', '_'),
+                    id: cellId,
+                    userFriendlyName: getUserFriendlyName(cell),
+                    bus: (componentType === 'Line' || componentType === 'DCLine') 
+                        ? getConnectedBusId(cell, true) 
+                        : getConnectedBusId(cell)
+                });
+            });
+            const preComputeTime = performance.now() - preComputeStart;
+            console.log(`Pre-compute completed in ${preComputeTime.toFixed(2)}ms, starting component switch processing...`);
+            
+            // Add detailed timing for component processing phases
+            const componentTypeTimings = {};
+            
+            // Process components synchronously (async was causing freeze on second run)
+            validCells.forEach(({ cell, style, componentType }, i) => {
+                const componentStart = performance.now();
+                processedComponents++;
+                
+                const baseData = preComputedData.get(cell.id);
 
                 switch (componentType) {
                     case COMPONENT_TYPES.EXTERNAL_GRID:
                         const externalGrid = {
                             ...baseData,
                             typ: `External Grid${counters.externalGrid++}`,
-                            userFriendlyName: (() => {
-                                // Check if the cell has a name attribute stored
-                                if (cell.value && cell.value.attributes) {
-                                    for (let i = 0; i < cell.value.attributes.length; i++) {
-                                        if (cell.value.attributes[i].nodeName === 'name') {
-                                            return cell.value.attributes[i].nodeValue;
-                                        }
-                                    }
-                                }
-                                return cell.mxObjectId.replace('#', '_');
-                            })(),
-                            ...getAttributesAsObject(cell, {                                
+                            ...getCachedAttributes(cell, {                                
                                 vm_pu: 'vm_pu',
                                 va_degree: 'va_degree',
                                 s_sc_max_mva: 's_sc_max_mva',
@@ -1072,18 +1387,7 @@ function loadFlowPandaPower(a, b, c) {
                         const generator = {
                             ...baseData,
                             typ: "Generator",
-                            userFriendlyName: (() => {
-                                // Check if the cell has a name attribute stored
-                                if (cell.value && cell.value.attributes) {
-                                    for (let i = 0; i < cell.value.attributes.length; i++) {
-                                        if (cell.value.attributes[i].nodeName === 'name') {
-                                            return cell.value.attributes[i].nodeValue;
-                                        }
-                                    }
-                                }
-                                return cell.mxObjectId.replace('#', '_');
-                            })(),
-                            ...getAttributesAsObject(cell, {
+                            ...getCachedAttributes(cell, {
                                 p_mw: 'p_mw',
                                 vm_pu: 'vm_pu',
                                 sn_mva: 'sn_mva',
@@ -1170,17 +1474,7 @@ function loadFlowPandaPower(a, b, c) {
                             name: cell.mxObjectId.replace('#', '_'),
                             id: cell.id,
                             vn_kv: cell.value.attributes[2].nodeValue,
-                            userFriendlyName: (() => {
-                                // Check if the cell has a name attribute stored
-                                if (cell.value && cell.value.attributes) {
-                                    for (let i = 0; i < cell.value.attributes.length; i++) {
-                                        if (cell.value.attributes[i].nodeName === 'name') {
-                                            return cell.value.attributes[i].nodeValue;
-                                        }
-                                    }
-                                }
-                                return cell.mxObjectId.replace('#', '_');
-                            })()
+                            userFriendlyName: baseData.userFriendlyName
                         };
                         componentArrays.busbar.push(busbar);
                         break;
@@ -1752,6 +2046,14 @@ function loadFlowPandaPower(a, b, c) {
                         componentArrays.line.push(line);
                         break;
                 }
+                
+                // Track timing for each component type
+                const componentTime = performance.now() - componentStart;
+                if (!componentTypeTimings[componentType]) {
+                    componentTypeTimings[componentType] = { time: 0, count: 0 };
+                }
+                componentTypeTimings[componentType].time += componentTime;
+                componentTypeTimings[componentType].count++;
             });
 
 
@@ -1762,40 +2064,96 @@ function loadFlowPandaPower(a, b, c) {
         if (componentArrays.threeWindingTransformer.length > 0) {
             componentArrays.threeWindingTransformer = updateThreeWindingTransformerConnections(componentArrays.threeWindingTransformer, componentArrays.busbar, b);
         }
-            // Combine all arrays
-        const array = [
-            ...componentArrays.simulationParameters,
-            ...componentArrays.externalGrid,
-            ...componentArrays.generator,
-            ...componentArrays.staticGenerator,
-            ...componentArrays.asymmetricGenerator,
-            ...componentArrays.busbar,
-            ...componentArrays.transformer,
-            ...componentArrays.threeWindingTransformer,
-            ...componentArrays.shuntReactor,
-            ...componentArrays.capacitor,
-            ...componentArrays.load,
-            ...componentArrays.asymmetricLoad,
-            ...componentArrays.impedance,
-            ...componentArrays.ward,
-            ...componentArrays.extendedWard,
-            ...componentArrays.motor,
-            ...componentArrays.storage,
-            ...componentArrays.SSC,
-            ...componentArrays.SVC,
-            ...componentArrays.TCSC,
-            ...componentArrays.dcLine,
-            ...componentArrays.line
-            
-        ];
+            // Create optimized array with minimal memory copying
+        const arrayBuildStart = performance.now();
+        const array = [];
+        let arrayIndex = 0;
+        
+        // Add components in order (avoiding spread operator for better performance)
+        const addComponents = (components) => {
+            for (let i = 0; i < components.length; i++) {
+                array[arrayIndex++] = components[i];
+            }
+        };
+        
+        addComponents(componentArrays.simulationParameters);
+        addComponents(componentArrays.externalGrid);
+        addComponents(componentArrays.generator);
+        addComponents(componentArrays.staticGenerator);
+        addComponents(componentArrays.asymmetricGenerator);
+        addComponents(componentArrays.busbar);
+        addComponents(componentArrays.transformer);
+        addComponents(componentArrays.threeWindingTransformer);
+        addComponents(componentArrays.shuntReactor);
+        addComponents(componentArrays.capacitor);
+        addComponents(componentArrays.load);
+        addComponents(componentArrays.asymmetricLoad);
+        addComponents(componentArrays.impedance);
+        addComponents(componentArrays.ward);
+        addComponents(componentArrays.extendedWard);
+        addComponents(componentArrays.motor);
+        addComponents(componentArrays.storage);
+        addComponents(componentArrays.SSC);
+        addComponents(componentArrays.SVC);
+        addComponents(componentArrays.TCSC);
+        addComponents(componentArrays.dcLine);
+        addComponents(componentArrays.line);
+        
+        const arrayBuildTime = performance.now() - arrayBuildStart;
 
+        const componentProcessingTime = performance.now() - componentProcessingStart;
+        console.log(`Component processing: ${componentProcessingTime.toFixed(2)}ms (pre-compute: ${preComputeTime.toFixed(2)}ms, processed ${processedComponents} components)`);
+        
+        // Log detailed component type timings
+        console.log(`=== COMPONENT TYPE BREAKDOWN ===`);
+        Object.entries(componentTypeTimings)
+            .sort(([,a], [,b]) => b.time - a.time) // Sort by time descending
+            .forEach(([type, {time, count}]) => {
+                console.log(`${type}: ${time.toFixed(2)}ms (${count} items, ${(time/count).toFixed(2)}ms/item)`);
+            });
+        
+        // Create final payload with size analysis
+        const arrayCreationStart = performance.now();
         const obj = Object.assign({}, array);
-        console.log(JSON.stringify(obj));
+        const arrayCreationTime = performance.now() - arrayCreationStart;
+        
+        // Analyze payload composition
+        const payloadAnalysis = {};
+        Object.keys(obj).forEach(key => {
+            if (obj[key] && typeof obj[key] === 'object') {
+                payloadAnalysis[key] = JSON.stringify(obj[key]).length;
+            }
+        });
+        
+        // Performance logging with detailed breakdown
+        const dataProcessingTime = performance.now() - startTime;
+        console.log(`=== PERFORMANCE BREAKDOWN ===`);
+        console.log(`Cell processing: ${cellProcessingTime.toFixed(2)}ms (cell removal: ${removalTime.toFixed(2)}ms)`);
+        console.log(`Component processing: ${componentProcessingTime.toFixed(2)}ms (pre-compute: ${preComputeTime.toFixed(2)}ms)`);
+        console.log(`Array building: ${arrayBuildTime.toFixed(2)}ms`);
+        console.log(`Object creation: ${arrayCreationTime.toFixed(2)}ms`);
+        console.log(`Total data processing: ${dataProcessingTime.toFixed(2)}ms`);
+        console.log(`Payload size: ${JSON.stringify(obj).length} bytes`);
+        console.log(`Components: ${processedComponents}, Result cells removed: ${resultCellsRemoved}`);
+        console.log(`Payload composition:`, payloadAnalysis);
 
         processNetworkData("https://03dht3kc-5000.euw.devtunnels.ms/", obj, b, grafka);
+        
+        // Clean up caches and references to prevent memory accumulation
+        console.log(`Simulation completed. Cache sizes - cells: ${cellCache.size}, names: ${nameCache.size}, attributes: ${attributeCache.size}`);
+        cellCache.clear();
+        nameCache.clear();
+        attributeCache.clear();
+        console.log('Caches cleared for next simulation');
+        
         } 
         });
     }
+}
+
+// Global simulation counter for performance tracking
+if (!globalThis.simulationRunCount) {
+    globalThis.simulationRunCount = 0;
 }
 
 // Make loadFlowPandaPower available globally
