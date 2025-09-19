@@ -1,11 +1,17 @@
 // Load Flow OpenDSS and Pandapower Dispatcher
 // This file acts as a dispatcher for both OpenDSS and Pandapower load flow calculations
 
-console.log('🚀 loadflowOpenDss.js file loaded successfully');
+
 
 // Import helper functions from loadFlow.js
 import { DIALOG_STYLES } from './utils/dialogStyles.js';
 import { LoadFlowDialog } from './dialogs/LoadFlowDialog.js';
+
+// Helper function to format bus IDs consistently (replace # with _)
+const formatBusId = (busId) => {
+    if (!busId) return null;
+    return busId.replace('#', '_');
+};
 
 // Helper functions for bus connections and cell processing
 const getConnectedBusId = (cell, isLine = false) => {
@@ -13,8 +19,8 @@ const getConnectedBusId = (cell, isLine = false) => {
         // For lines, use the same approach as loadFlow.js
         // Access source and target directly from the cell (not through edges)
         return {            
-            busFrom: cell.source?.mxObjectId,
-            busTo: cell.target?.mxObjectId
+            busFrom: formatBusId(cell.source?.mxObjectId),
+            busTo: formatBusId(cell.target?.mxObjectId)
         };            
     }
     
@@ -29,7 +35,7 @@ const getConnectedBusId = (cell, isLine = false) => {
     const bus = edge.target && edge.target.mxObjectId !== cell.mxObjectId ?
         edge.target.mxObjectId : 
         edge.source.mxObjectId;
-    return bus ? bus : null;
+    return formatBusId(bus);
 };
 
 // Add helper function for transformer bus connections (same as loadFlow.js)
@@ -39,10 +45,10 @@ const getTransformerConnections = (cell) => {
         const lvEdge = cell.edges[1];
 
         return {
-            busFrom: (hvEdge.target && hvEdge.target.mxObjectId !== cell.mxObjectId ?
+            busFrom: formatBusId(hvEdge.target && hvEdge.target.mxObjectId !== cell.mxObjectId ?
                 hvEdge.target.mxObjectId : 
                 hvEdge.source.mxObjectId),
-            busTo: (lvEdge.target && lvEdge.target.mxObjectId !== cell.mxObjectId ?
+            busTo: formatBusId(lvEdge.target && lvEdge.target.mxObjectId !== cell.mxObjectId ?
                 lvEdge.target.mxObjectId : 
                 lvEdge.source.mxObjectId)
         };
@@ -56,8 +62,8 @@ const getTransformerConnections = (cell) => {
             const targetId = edge.target.mxObjectId;
             
             return {            
-                busFrom: sourceId ? sourceId : null,
-                busTo: targetId ? targetId : null
+                busFrom: formatBusId(sourceId),
+                busTo: formatBusId(targetId)
             };
         }
     }
@@ -102,8 +108,8 @@ const getAttributesAsObject = (cell, attributeMap) => {
 
 const getConnectedBuses = (cell) => {
     return {
-                    busFrom: cell.source?.mxObjectId,
-            busTo: cell.target?.mxObjectId
+        busFrom: formatBusId(cell.source?.mxObjectId),
+        busTo: formatBusId(cell.target?.mxObjectId)
     };
 };
 
@@ -149,15 +155,7 @@ function loadFlowOpenDss(a, b, c) {
     let apka = a
     let grafka = b
 
-    // Check if the new tabbed dialog is available, otherwise fall back to the old method
-    console.log('Checking for LoadFlowDialog availability...');
-    console.log('window.LoadFlowDialog:', window.LoadFlowDialog);
-    console.log('window.LoadFlowDialog.prototype:', window.LoadFlowDialog ? window.LoadFlowDialog.prototype : 'undefined');
-    console.log('createTabHeader method:', window.LoadFlowDialog && window.LoadFlowDialog.prototype ? window.LoadFlowDialog.prototype.createTabHeader : 'undefined');
-    console.log('a.showLoadFlowDialog:', typeof a.showLoadFlowDialog);
-    console.log('a.showLoadFlowDialogOpenDSS:', typeof a.showLoadFlowDialogOpenDSS);
-    console.log('EditorUi.prototype.showLoadFlowDialog:', typeof EditorUi?.prototype?.showLoadFlowDialog);
-    
+
     if (window.LoadFlowDialog && window.LoadFlowDialog.prototype && window.LoadFlowDialog.prototype.createTabHeader && typeof a.showLoadFlowDialog === 'function') {
         console.log('✓ Using new tabbed dialog');
         // Use the new tabbed dialog
@@ -850,11 +848,7 @@ function handleNetworkErrors(dataJson) {
 
 // Function to execute OpenDSS load flow calculation
 function executeOpenDSSLoadFlow(parameters, app, graph) {
-    console.log('Executing OpenDSS load flow with parameters:', parameters);
-    console.log('App object:', app);
-    console.log('Graph object:', graph);
-    console.log('Graph type:', typeof graph);
-    console.log('Graph constructor:', graph ? graph.constructor.name : 'undefined');
+
 
     // Show spinner
     app.spinner.spin(document.body, "Waiting for OpenDSS results...");
@@ -935,11 +929,8 @@ function executeOpenDSSLoadFlow(parameters, app, graph) {
 // Function to collect network data from the graph using the new structured approach
 function collectNetworkDataStructured(graph) {
     const networkData = [];
-    let index = 1; // Start from 1 since 0 is parameters
-    
-    console.log('Graph object:', graph);
-    console.log('Graph type:', typeof graph);
-    console.log('Graph constructor:', graph.constructor.name);
+    let index = 1; // Start from 1 since 0 is parameters    
+
     
     // Try different ways to access graph data
     let cells = null;
