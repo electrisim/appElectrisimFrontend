@@ -53,20 +53,21 @@ const getAttributesAsObject = (cell, attributeMap) => {
 
     // Get all available attributes
     const attributes = cell.value.attributes;
-
+ 
     // Process each requested attribute by name instead of index
     for (const [key, config] of Object.entries(attributeMap)) {
         const isOptional = typeof config === 'object' && config.optional;
         const attributeName = typeof config === 'object' ? config.name : config;
 
+      
         // Debug logging for parallel and df parameters
         if (key === 'parallel' || key === 'df') {
-            console.log(`\n=== DEBUG: Extracting ${key} ===`);
-            console.log(`Looking for attribute name: ${attributeName}`);
-            console.log(`Cell has ${attributes.length} attributes:`);
-            for (let i = 0; i < attributes.length; i++) {
-                console.log(`  [${i}] ${attributes[i].nodeName} = ${attributes[i].nodeValue}`);
-            }
+          //  console.log(`\n=== DEBUG: Extracting ${key} ===`);
+         //   console.log(`Looking for attribute name: ${attributeName}`);
+          //  console.log(`Cell has ${attributes.length} attributes:`);
+          //  for (let i = 0; i < attributes.length; i++) {
+          //      console.log(`  [${i}] ${attributes[i].nodeName} = ${attributes[i].nodeValue}`);
+          //  }
         }
 
         // Find the attribute by name in the attributes collection
@@ -76,7 +77,7 @@ const getAttributesAsObject = (cell, attributeMap) => {
                 result[key] = attributes[i].nodeValue;
                 found = true;
                 if (key === 'parallel' || key === 'df') {
-                    console.log(`✓ Found ${key}: ${attributes[i].nodeValue}`);
+                //     console.log(`✓ Found ${key}: ${attributes[i].nodeValue}`);
                 }
                 break;
             }
@@ -112,6 +113,7 @@ const getAttributesAsObject = (cell, attributeMap) => {
             // Note: Other optional parameters can be left undefined as they truly are optional
         }
     }
+        
 
     return result;
 };
