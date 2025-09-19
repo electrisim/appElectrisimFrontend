@@ -928,6 +928,22 @@ function executeOpenDSSLoadFlow(parameters, app, graph) {
 
 // Function to collect network data from the graph using the new structured approach
 function collectNetworkDataStructured(graph) {
+    // Global simulation counter for performance tracking
+    if (!globalThis.openDssRunCount) {
+        globalThis.openDssRunCount = 0;
+    }
+    globalThis.openDssRunCount++;
+    const runNumber = globalThis.openDssRunCount;
+    const startTime = performance.now();
+    console.log(`=== OPENDSS DATA COLLECTION #${runNumber} STARTED ===`);
+    
+    // Initialize performance optimization caches
+    const modelCache = new Map();
+    const cellCache = new Map();
+    const nameCache = new Map();
+    const attributeCache = new Map();
+    console.log('Starting fresh data collection with clean caches');
+    
     const networkData = [];
     let index = 1; // Start from 1 since 0 is parameters    
 
@@ -977,17 +993,35 @@ function collectNetworkDataStructured(graph) {
     }
     
     // Process the cells using the proper structured approach similar to loadFlow.js
+    const cellProcessingStart = performance.now();
+    console.log(`Processing ${Object.keys(cells).length} cells for OpenDSS...`);
+    
+    let processedComponents = 0;
+    const validCells = [];
+    
+    // First pass: collect valid cells
     for (const cellId in cells) {
         const cell = cells[cellId];
         if (cell && cell.value) {
-            const cellValue = cell.value;
-            let cellData = null;
-            
-            // Check if this is a bus element by looking at the cell style
-            const style = cell.getStyle();
-            if (style) {
-                const styleObj = parseCellStyle(style);
-                if (styleObj && styleObj.shapeELXXX === 'Bus') {
+            validCells.push({ cellId, cell });
+        }
+    }
+    
+    console.log(`Found ${validCells.length} valid cells to process`);
+    
+    // Process valid cells with optimized approach
+    const componentProcessingStart = performance.now();
+    
+    for (const { cellId, cell } of validCells) {
+        const cellValue = cell.value;
+        let cellData = null;
+        processedComponents++;
+        
+        // Check if this is a bus element by looking at the cell style
+        const style = cell.getStyle();
+        if (style) {
+            const styleObj = parseCellStyle(style);
+            if (styleObj && styleObj.shapeELXXX === 'Bus') {
                     // This is a bus element - collect it properly
                     cellData = {
                         typ: `Bus${index - 1}`, // Start from Bus0
@@ -1783,12 +1817,29 @@ function collectNetworkDataStructured(graph) {
                 }
             }
             
-            // Add to network data if we successfully parsed it
-            if (cellData && cellData.typ) {
-                networkData.push(cellData);
-            }
+        // Add to network data if we successfully parsed it
+        if (cellData && cellData.typ) {
+            networkData.push(cellData);
         }
     }
+    
+    const componentProcessingTime = performance.now() - componentProcessingStart;
+    const cellProcessingTime = performance.now() - cellProcessingStart;
+    const totalProcessingTime = performance.now() - startTime;
+    
+    console.log(`=== OPENDSS DATA COLLECTION PERFORMANCE SUMMARY ===`);
+    console.log(`Run #${runNumber} - Cell processing: ${cellProcessingTime.toFixed(2)}ms`);
+    console.log(`Component processing: ${componentProcessingTime.toFixed(2)}ms`);
+    console.log(`Total processing: ${totalProcessingTime.toFixed(2)}ms`);
+    console.log(`Components processed: ${processedComponents}`);
+    console.log(`Network elements collected: ${networkData.length}`);
+    
+    // Clean up caches to prevent memory accumulation
+    console.log(`Data collection completed. Cache sizes - cells: ${cellCache.size}, names: ${nameCache.size}, attributes: ${attributeCache.size}`);
+    cellCache.clear();
+    nameCache.clear();
+    attributeCache.clear();
+    console.log('Caches cleared for next data collection');
     
     console.log(`Collected ${networkData.length} network elements:`, networkData);
     return networkData;
