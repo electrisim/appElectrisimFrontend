@@ -4,6 +4,50 @@ import config from '../config/environment.js';
 
 const API_BASE_URL = config.apiBaseUrl;
 
+// Smartlook error tracking helper
+function trackAuthError(errorType, errorDetails, userContext = {}) {
+    try {
+        if (typeof smartlook !== 'undefined') {
+            smartlook('track', 'auth_error', {
+                error_type: errorType,
+                error_message: errorDetails.message || errorDetails,
+                error_code: errorDetails.code || 'unknown',
+                timestamp: new Date().toISOString(),
+                user_agent: navigator.userAgent,
+                url: window.location.href,
+                user_context: {
+                    has_token: !!localStorage.getItem('token'),
+                    has_user: !!localStorage.getItem('user'),
+                    ...userContext
+                }
+            });
+        }
+    } catch (e) {
+        console.warn('Failed to track auth error with Smartlook:', e);
+    }
+}
+
+// Track successful authentication events
+function trackAuthSuccess(authType, userData = {}) {
+    try {
+        if (typeof smartlook !== 'undefined') {
+            smartlook('track', 'auth_success', {
+                auth_type: authType,
+                timestamp: new Date().toISOString(),
+                user_agent: navigator.userAgent,
+                url: window.location.href,
+                user_context: {
+                    user_id: userData.id || 'unknown',
+                    user_email: userData.email || 'unknown',
+                    has_stripe_customer: !!userData.stripeCustomerId
+                }
+            });
+        }
+    } catch (e) {
+        console.warn('Failed to track auth success with Smartlook:', e);
+    }
+}
+
 // Helper function for API calls
 async function apiCall(endpoint, options = {}) {
     try {
@@ -53,6 +97,15 @@ async function apiCall(endpoint, options = {}) {
         return await response.json();
     } catch (error) {
         console.error(`API call failed: ${endpoint}`, error);
+        
+        // Track API errors with Smartlook
+        trackAuthError('api_error', {
+            message: error.message,
+            code: error.status || 'network_error',
+            endpoint: endpoint,
+            method: options.method || 'GET'
+        });
+        
         throw error;
     }
 }
@@ -74,12 +127,25 @@ async function login(email, password) {
             if (response.user) {
                 localStorage.setItem('user', JSON.stringify(response.user));
             }
+            
+            // Track successful login
+            trackAuthSuccess('email_password', response.user);
+            
             return response;
         } else {
-            throw new Error('Invalid response from server');
+            const error = new Error('Invalid response from server');
+            trackAuthError('invalid_response', error, { email: email });
+            throw error;
         }
     } catch (error) {
         console.error('Login error:', error);
+        
+        // Track login errors
+        trackAuthError('login_failed', error, { 
+            email: email,
+            error_type: error.message.includes('Invalid credentials') ? 'invalid_credentials' : 'server_error'
+        });
+        
         throw error;
     }
 }
@@ -96,15 +162,36 @@ async function register(email, password, name) {
             localStorage.setItem('token', data.token);
             localStorage.setItem('user', JSON.stringify(data.user));
             
+            // Track successful registration
+            trackAuthSuccess('email_password', data.user);
+            
             document.dispatchEvent(new CustomEvent('userLoggedIn', { 
                 detail: { user: data.user } 
             }));
             
             return data;
         } else {
-            throw new Error('Invalid response from server');
+            const error = new Error('Invalid response from server');
+            trackAuthError('invalid_response', error, { email: email, name: name });
+            throw error;
         }
     } catch (error) {
+        // Track registration errors
+        let errorType = 'server_error';
+        if (error.message.includes('email address is already registered')) {
+            errorType = 'email_already_exists';
+        } else if (error.message.includes('Invalid request')) {
+            errorType = 'invalid_request';
+        } else if (error.message.includes('Server error')) {
+            errorType = 'server_error';
+        }
+        
+        trackAuthError('registration_failed', error, { 
+            email: email,
+            name: name,
+            error_type: errorType
+        });
+        
         // If the error message is already user-friendly, don't add prefix
         if (error.message.includes('email address is already registered') || 
             error.message.includes('Invalid request') ||
@@ -186,6 +273,10 @@ function createLoginForm(container) {
         try {
             const email = form.querySelector('#email').value;
             const password = form.querySelector('#password').value;
+            
+            // Track login attempt
+            trackAuthError('login_attempt', { message: 'User attempting login' }, { email: email });
+            
             const response = await login(email, password);
             
             // Dispatch auth state change event
@@ -293,6 +384,9 @@ function createRegisterForm(container) {
         const password = form.querySelector('#password').value;
         
         try {
+            // Track registration attempt
+            trackAuthError('registration_attempt', { message: 'User attempting registration' }, { email: email, name: name });
+            
             const response = await register(email, password, name);
             
             // Dispatch auth state change event
@@ -360,6 +454,9 @@ function handleSuccessfulAuth(userData) {
     if (userData.user) {
         localStorage.setItem('user', JSON.stringify(userData.user));
     }
+    
+    // Track successful OAuth authentication
+    trackAuthSuccess('oauth', userData.user);
     
     // Get base URL from config
     const baseUrl = config.isDevelopment 

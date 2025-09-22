@@ -58,6 +58,50 @@
     </div>
 
     <script>
+        // Smartlook error tracking helper
+        function trackAuthError(errorType, errorDetails, userContext = {}) {
+            try {
+                if (typeof smartlook !== 'undefined') {
+                    smartlook('track', 'auth_error', {
+                        error_type: errorType,
+                        error_message: errorDetails.message || errorDetails,
+                        error_code: errorDetails.code || 'unknown',
+                        timestamp: new Date().toISOString(),
+                        user_agent: navigator.userAgent,
+                        url: window.location.href,
+                        user_context: {
+                            has_token: !!localStorage.getItem('token'),
+                            has_user: !!localStorage.getItem('user'),
+                            ...userContext
+                        }
+                    });
+                }
+            } catch (e) {
+                console.warn('Failed to track auth error with Smartlook:', e);
+            }
+        }
+
+        // Track successful OAuth authentication
+        function trackAuthSuccess(authType, userData = {}) {
+            try {
+                if (typeof smartlook !== 'undefined') {
+                    smartlook('track', 'auth_success', {
+                        auth_type: authType,
+                        timestamp: new Date().toISOString(),
+                        user_agent: navigator.userAgent,
+                        url: window.location.href,
+                        user_context: {
+                            user_id: userData.id || 'unknown',
+                            user_email: userData.email || 'unknown',
+                            has_stripe_customer: !!userData.stripeCustomerId
+                        }
+                    });
+                }
+            } catch (e) {
+                console.warn('Failed to track auth success with Smartlook:', e);
+            }
+        }
+
         // Handle authentication callback
         (function() {
             console.log('🔍 AUTH CALLBACK PAGE LOADED');
@@ -75,6 +119,12 @@
             console.log('🔍 - All params:', Object.fromEntries(urlParams.entries()));
 
             if (error) {
+                // Track OAuth error
+                trackAuthError('oauth_callback_error', {
+                    message: error,
+                    code: 'oauth_failed'
+                });
+                
                 statusElement.textContent = 'Authentication failed';
                 messageElement.innerHTML = '<div class="error">Authentication failed. Please try again.</div>';
                 setTimeout(() => {
@@ -121,6 +171,9 @@
                         localStorage.setItem('user', JSON.stringify(userData));
                         console.log('✅ User data stored successfully');
                         
+                        // Track successful OAuth authentication
+                        trackAuthSuccess('oauth', userData);
+                        
                         // Double-check storage worked
                         const storedToken = localStorage.getItem('token');
                         const storedUser = localStorage.getItem('user');
@@ -134,9 +187,11 @@
                             console.log('✅ Retrieved user data:', retrievedUser);
                         } catch (parseError) {
                             console.error('❌ Error parsing stored user data:', parseError);
+                            trackAuthError('token_parse_error', parseError, { user_id: userData.id });
                         }
                     } else {
                         console.warn('⚠️ No email found in token payload');
+                        trackAuthError('token_missing_email', { message: 'No email found in token payload' });
                     }
 
                     statusElement.textContent = 'Authentication successful!';
@@ -196,6 +251,13 @@
 
                 } catch (error) {
                     console.error('Error processing token:', error);
+                    
+                    // Track token processing error
+                    trackAuthError('token_processing_error', {
+                        message: error.message,
+                        code: 'token_invalid'
+                    });
+                    
                     statusElement.textContent = 'Authentication failed';
                     messageElement.innerHTML = '<div class="error">Invalid authentication token. Please try again.</div>';
                     setTimeout(() => {
@@ -209,6 +271,12 @@
             } else {
                 console.log('❌ NO TOKEN FOUND');
                 console.log('🔍 Checking for alternative token sources...');
+                
+                // Track missing token error
+                trackAuthError('missing_token', {
+                    message: 'No authentication token found in callback URL',
+                    code: 'no_token'
+                });
                 
                 // Check for token in hash (some OAuth implementations use this)
                 const hashParams = new URLSearchParams(window.location.hash.slice(1));
