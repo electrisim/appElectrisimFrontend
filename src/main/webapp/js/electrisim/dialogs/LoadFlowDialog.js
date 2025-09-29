@@ -203,11 +203,14 @@ export class LoadFlowDialog extends Dialog {
     }
 
     recreateForm() {
-        // Find the existing form and replace it
-        const existingForm = this.container.querySelector('form');
-        if (existingForm) {
-            const newForm = this.createForm();
-            existingForm.parentNode.replaceChild(newForm, existingForm);
+        // Find the scrollable content container and replace the form inside it
+        const scrollableContent = this.container.querySelector('div[style*="overflowY"]');
+        if (scrollableContent) {
+            const existingForm = scrollableContent.querySelector('form');
+            if (existingForm) {
+                const newForm = this.createForm();
+                scrollableContent.replaceChild(newForm, existingForm);
+            }
         }
     }
 
@@ -216,7 +219,7 @@ export class LoadFlowDialog extends Dialog {
         Object.assign(form.style, {
             display: 'flex',
             flexDirection: 'column',
-            gap: '12px',
+            gap: '8px',
             width: '100%',
             boxSizing: 'border-box'
         });
@@ -225,7 +228,7 @@ export class LoadFlowDialog extends Dialog {
         this.parameters.forEach(param => {
             const formGroup = document.createElement('div');
             Object.assign(formGroup.style, {
-                marginBottom: '6px'
+                marginBottom: '4px'
             });
 
             const label = document.createElement('label');
@@ -404,10 +407,11 @@ export class LoadFlowDialog extends Dialog {
             padding: '0',
             margin: '0',
             width: '100%',
-            height: '100%',
             boxSizing: 'border-box',
             display: 'flex',
-            flexDirection: 'column'
+            flexDirection: 'column',
+            minHeight: '0', // Allow flex shrinking
+            maxHeight: '100%' // Prevent overflow of parent
         });
 
         // Add description
@@ -430,19 +434,31 @@ export class LoadFlowDialog extends Dialog {
         const tabInterface = this.createTabInterface();
         container.appendChild(tabInterface);
 
-        // Add form
-        const form = this.createForm();
-        container.appendChild(form);
+        // Create scrollable content area for the form
+        const scrollableContent = document.createElement('div');
+        Object.assign(scrollableContent.style, {
+            flex: '1',
+            overflowY: 'auto',
+            paddingRight: '5px', // Space for scrollbar
+            marginBottom: '16px',
+            minHeight: '300px', // Minimum height to ensure form is visible
+            maxHeight: '450px' // Maximum height before scrolling
+        });
 
-        // Add button container
+        // Add form to scrollable area
+        const form = this.createForm();
+        scrollableContent.appendChild(form);
+        container.appendChild(scrollableContent);
+
+        // Add button container (fixed at bottom)
         const buttonContainer = document.createElement('div');
         Object.assign(buttonContainer.style, {
             display: 'flex',
             gap: '8px',
             justifyContent: 'flex-end',
-            marginTop: '16px',
             paddingTop: '16px',
-            borderTop: '1px solid #e9ecef'
+            borderTop: '1px solid #e9ecef',
+            flexShrink: '0' // Prevent buttons from shrinking
         });
 
         const cancelButton = this.createButton('Cancel', '#6c757d', '#5a6268');
@@ -538,7 +554,8 @@ export class LoadFlowDialog extends Dialog {
             boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
             width: '600px',
             maxWidth: '90vw',
-            maxHeight: '80vh',
+            maxHeight: '85vh',
+            minHeight: '600px',
             overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column'
@@ -562,7 +579,9 @@ export class LoadFlowDialog extends Dialog {
         Object.assign(contentWrapper.style, {
             padding: '20px',
             flex: '1',
-            overflowY: 'auto'
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: '0' // Important for proper flex shrinking
         });
         contentWrapper.appendChild(this.container);
         dialogBox.appendChild(contentWrapper);

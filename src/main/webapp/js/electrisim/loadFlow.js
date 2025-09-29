@@ -1209,6 +1209,39 @@ function loadFlowPandaPower(a, b, c) {
                             lowerValue.includes('vm[pu]') ||
                             lowerValue.includes('va[degree]') ||
                             lowerValue.includes('um[pu]') ||
+                            // Static Generator and other component standalone patterns
+                            lowerValue.includes('p[mw]:') ||
+                            lowerValue.includes('q[mvar]:') ||
+                            // SSC specific patterns
+                            lowerValue.includes('q_mvar:') ||
+                            lowerValue.includes('vm_internal_pu:') ||
+                            lowerValue.includes('va_internal_degree:') ||
+                            lowerValue.includes('vm_pu:') ||
+                            lowerValue.includes('va_degree:') ||
+                            // TCSC and SVC patterns
+                            lowerValue.includes('firing angle[degree]:') ||
+                            lowerValue.includes('x[ohm]:') ||
+                            lowerValue.includes('q[mvar]:') ||
+                            lowerValue.includes('p_from[mw]:') ||
+                            lowerValue.includes('q_from[mvar]:') ||
+                            lowerValue.includes('p_to[mw]:') ||
+                            lowerValue.includes('q_to[mvar]:') ||
+                            lowerValue.includes('p_l[mw]:') ||
+                            lowerValue.includes('q_l[mvar]:') ||
+                            lowerValue.includes('vm_from[pu]:') ||
+                            lowerValue.includes('va_from[degree]:') ||
+                            lowerValue.includes('vm_to[pu]:') ||
+                            lowerValue.includes('va_to[degree]:') ||
+                            // Asymmetric patterns
+                            lowerValue.includes('p_a[mw]:') ||
+                            lowerValue.includes('q_a[mvar]:') ||
+                            lowerValue.includes('p_b[mw]:') ||
+                            lowerValue.includes('q_b[mvar]:') ||
+                            lowerValue.includes('p_c[mw]:') ||
+                            lowerValue.includes('q_c[mvar]:') ||
+                            // Impedance patterns
+                            lowerValue.includes('pl[mw]:') ||
+                            lowerValue.includes('ql[mvar]:') ||
                             // Short circuit patterns (in case they remain)
                             lowerValue.includes('ikss[ka]') || 
                             lowerValue.includes('ip[ka]') || 
@@ -1282,6 +1315,39 @@ function loadFlowPandaPower(a, b, c) {
                         lowerValue.includes('vm[pu]') ||
                         lowerValue.includes('va[degree]') ||
                         lowerValue.includes('um[pu]') ||
+                        // Static Generator and other component standalone patterns
+                        lowerValue.includes('p[mw]:') ||
+                        lowerValue.includes('q[mvar]:') ||
+                        // SSC specific patterns
+                        lowerValue.includes('q_mvar:') ||
+                        lowerValue.includes('vm_internal_pu:') ||
+                        lowerValue.includes('va_internal_degree:') ||
+                        lowerValue.includes('vm_pu:') ||
+                        lowerValue.includes('va_degree:') ||
+                        // TCSC and SVC patterns
+                        lowerValue.includes('firing angle[degree]:') ||
+                        lowerValue.includes('x[ohm]:') ||
+                        lowerValue.includes('q[mvar]:') ||
+                        lowerValue.includes('p_from[mw]:') ||
+                        lowerValue.includes('q_from[mvar]:') ||
+                        lowerValue.includes('p_to[mw]:') ||
+                        lowerValue.includes('q_to[mvar]:') ||
+                        lowerValue.includes('p_l[mw]:') ||
+                        lowerValue.includes('q_l[mvar]:') ||
+                        lowerValue.includes('vm_from[pu]:') ||
+                        lowerValue.includes('va_from[degree]:') ||
+                        lowerValue.includes('vm_to[pu]:') ||
+                        lowerValue.includes('va_to[degree]:') ||
+                        // Asymmetric patterns
+                        lowerValue.includes('p_a[mw]:') ||
+                        lowerValue.includes('q_a[mvar]:') ||
+                        lowerValue.includes('p_b[mw]:') ||
+                        lowerValue.includes('q_b[mvar]:') ||
+                        lowerValue.includes('p_c[mw]:') ||
+                        lowerValue.includes('q_c[mvar]:') ||
+                        // Impedance patterns
+                        lowerValue.includes('pl[mw]:') ||
+                        lowerValue.includes('ql[mvar]:') ||
                         // Short circuit patterns (in case they remain)
                         lowerValue.includes('ikss[ka]') || 
                         lowerValue.includes('ip[ka]') || 
