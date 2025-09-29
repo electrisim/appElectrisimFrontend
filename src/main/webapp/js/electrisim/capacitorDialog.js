@@ -17,7 +17,7 @@ export class CapacitorDialog extends Dialog {
         
         this.ui = editorUi || window.App?.main?.editor?.editorUi;
         this.graph = this.ui?.editor?.graph;
-        this.currentTab = 'loadflow';
+        this.currentTab = 'power';
         this.data = { ...defaultCapacitorData };
         this.inputs = new Map(); // Initialize inputs map for form elements
         
@@ -170,9 +170,9 @@ export class CapacitorDialog extends Dialog {
         });
 
         // Create tab content containers
-        const powerContent = this.createTabContent('power', this.powerParameters);
-        const electricalContent = this.createTabContent('electrical', this.electricalParameters);
-        const controlContent = this.createTabContent('control', this.controlParameters);
+        const powerContent = this.createTabContent('power', this.loadFlowParameters);
+        const electricalContent = this.createTabContent('electrical', this.shortCircuitParameters);
+        const controlContent = this.createTabContent('control', this.opfParameters);
         
         contentArea.appendChild(powerContent);
         contentArea.appendChild(electricalContent);
@@ -479,7 +479,7 @@ export class CapacitorDialog extends Dialog {
         const values = {};
         
         // Collect all parameter values from all tabs
-        [...this.powerParameters, ...this.electricalParameters, ...this.controlParameters].forEach(param => {
+        [...this.loadFlowParameters, ...this.shortCircuitParameters, ...this.opfParameters].forEach(param => {
             const input = this.inputs.get(param.id);
             if (input) {
                 if (param.type === 'number') {
@@ -523,40 +523,20 @@ export class CapacitorDialog extends Dialog {
                 console.log(`Processing attribute: ${attributeName} = ${attributeValue}`);
                 
                 // Update the dialog's parameter values (not DOM inputs)
-                const powerParam = this.powerParameters.find(p => p.id === attributeName);
-                if (powerParam) {
-                    const oldValue = powerParam.value;
-                    if (powerParam.type === 'checkbox') {
-                        powerParam.value = attributeValue === 'true' || attributeValue === true;
+                // Check all parameter arrays to find the matching parameter
+                const allParameters = [...this.loadFlowParameters, ...this.shortCircuitParameters, ...this.opfParameters];
+                const param = allParameters.find(p => p.id === attributeName);
+                if (param) {
+                    const oldValue = param.value;
+                    if (param.type === 'checkbox') {
+                        param.value = attributeValue === 'true' || attributeValue === true;
                     } else {
-                        powerParam.value = attributeValue;
+                        param.value = attributeValue;
                     }
-                    console.log(`  Updated power ${attributeName}: ${oldValue} → ${powerParam.value}`);
+                    console.log(`  Updated ${attributeName}: ${oldValue} → ${param.value}`);
                 }
                 
-                const electricalParam = this.electricalParameters.find(p => p.id === attributeName);
-                if (electricalParam) {
-                    const oldValue = electricalParam.value;
-                    if (electricalParam.type === 'checkbox') {
-                        electricalParam.value = attributeValue === 'true' || attributeValue === true;
-                    } else {
-                        electricalParam.value = attributeValue;
-                    }
-                    console.log(`  Updated electrical ${attributeName}: ${oldValue} → ${electricalParam.value}`);
-                }
-                
-                const controlParam = this.controlParameters.find(p => p.id === attributeName);
-                if (controlParam) {
-                    const oldValue = controlParam.value;
-                    if (controlParam.type === 'checkbox') {
-                        controlParam.value = attributeValue === 'true' || attributeValue === true;
-                    } else {
-                        controlParam.value = attributeValue;
-                    }
-                    console.log(`  Updated control ${attributeName}: ${oldValue} → ${controlParam.value}`);
-                }
-                
-                if (!powerParam && !electricalParam && !controlParam) {
+                if (!param) {
                     console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
             }
