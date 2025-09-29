@@ -996,6 +996,120 @@ function collectNetworkDataStructured(graph) {
     const cellProcessingStart = performance.now();
     console.log(`Processing ${Object.keys(cells).length} cells for OpenDSS...`);
     
+    // RESULT CLEANUP: Remove any existing result labels before starting
+    console.log('=== CLEANING UP PREVIOUS RESULTS ===');
+    const cleanupStart = performance.now();
+    const resultCellsToRemove = [];
+    let directlyRemoved = 0;
+    
+    // First, collect all cells that need to be removed
+    for (const cellId in cells) {
+        const cell = cells[cellId];
+        if (!cell) continue;
+        
+        const cellStyle = cell.getStyle ? cell.getStyle() : '';
+        const value = cell.getValue ? cell.getValue() : '';
+        
+        // Style-based detection (for properly tagged results)
+        if (cellStyle && cellStyle.includes("Result")) {
+            resultCellsToRemove.push(cell);
+            continue;
+        }
+        
+        // Content-based detection (for result labels that might have lost their style)
+        if (value && typeof value === 'string') {
+            const lowerValue = value.toLowerCase();
+            if (// Load flow patterns
+                (lowerValue.includes('u[pu]') && lowerValue.includes('p[mw]')) ||
+                (lowerValue.includes('u[degree]') && lowerValue.includes('q[mvar]')) ||
+                lowerValue.includes('pf:') ||
+                lowerValue.includes('q/p:') ||
+                lowerValue.includes('loading[%]') ||
+                lowerValue.includes('i_hv[ka]') ||
+                lowerValue.includes('i_mv[ka]') ||
+                lowerValue.includes('i_lv[ka]') ||
+                lowerValue.includes('i_from[ka]') ||
+                lowerValue.includes('i_to[ka]') ||
+                lowerValue.includes('pl[mw]') ||
+                lowerValue.includes('vm[pu]') ||
+                lowerValue.includes('va[degree]') ||
+                lowerValue.includes('um[pu]') ||
+                // Static Generator and other component standalone patterns
+                lowerValue.includes('p[mw]:') ||
+                lowerValue.includes('q[mvar]:') ||
+                // SSC specific patterns
+                lowerValue.includes('q_mvar:') ||
+                lowerValue.includes('vm_internal_pu:') ||
+                lowerValue.includes('va_internal_degree:') ||
+                lowerValue.includes('vm_pu:') ||
+                lowerValue.includes('va_degree:') ||
+                // TCSC and SVC patterns
+                lowerValue.includes('firing angle[degree]:') ||
+                lowerValue.includes('x[ohm]:') ||
+                lowerValue.includes('q[mvar]:') ||
+                lowerValue.includes('p_from[mw]:') ||
+                lowerValue.includes('q_from[mvar]:') ||
+                lowerValue.includes('p_to[mw]:') ||
+                lowerValue.includes('q_to[mvar]:') ||
+                lowerValue.includes('p_l[mw]:') ||
+                lowerValue.includes('q_l[mvar]:') ||
+                lowerValue.includes('vm_from[pu]:') ||
+                lowerValue.includes('va_from[degree]:') ||
+                lowerValue.includes('vm_to[pu]:') ||
+                lowerValue.includes('va_to[degree]:') ||
+                // Asymmetric patterns
+                lowerValue.includes('p_a[mw]:') ||
+                lowerValue.includes('q_a[mvar]:') ||
+                lowerValue.includes('p_b[mw]:') ||
+                lowerValue.includes('q_b[mvar]:') ||
+                lowerValue.includes('p_c[mw]:') ||
+                lowerValue.includes('q_c[mvar]:') ||
+                // Impedance patterns
+                lowerValue.includes('pl[mw]:') ||
+                lowerValue.includes('ql[mvar]:') ||
+                // Short circuit patterns (in case they remain)
+                lowerValue.includes('ikss[ka]') || 
+                lowerValue.includes('ip[ka]') || 
+                lowerValue.includes('ith[ka]') ||
+                lowerValue.includes('rk[ohm]') ||
+                lowerValue.includes('xk[ohm]')) {
+                console.log(`Removing result cell by content: ${cell.id} - Value snippet: ${value.substring(0, 80).replace(/\n/g, ' ')}...`);
+                resultCellsToRemove.push(cell);
+            }
+        }
+    }
+    
+    // Batch remove result cells
+    if (resultCellsToRemove.length > 0) {
+        console.log(`Removing ${resultCellsToRemove.length} result cells from previous analysis...`);
+        try {
+            if (graph && graph.getModel) {
+                const model = graph.getModel();
+                model.beginUpdate();
+                try {
+                    resultCellsToRemove.forEach(cell => {
+                        const cellToRemove = model.getCell(cell.id);
+                        if (cellToRemove) {
+                            model.remove(cellToRemove);
+                            directlyRemoved++;
+                        }
+                    });
+                } finally {
+                    model.endUpdate();
+                }
+                console.log(`Successfully removed ${directlyRemoved} result cells`);
+            }
+        } catch (error) {
+            console.error('Error during result cleanup:', error);
+        }
+    } else {
+        console.log('No result cells to remove (first run or already clean)');
+    }
+    
+    const cleanupTime = performance.now() - cleanupStart;
+    console.log(`Result cleanup completed: ${directlyRemoved} cells removed in ${cleanupTime.toFixed(2)}ms`);
+    console.log('=== END RESULT CLEANUP ===');
+    
     let processedComponents = 0;
     const validCells = [];
     

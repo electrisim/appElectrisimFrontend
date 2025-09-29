@@ -666,7 +666,8 @@ window.shortCircuitPandaPower = function(a, b, c) {
                 // Content-based detection (for result labels like your example)
                 if (value && typeof value === 'string') {
                     const lowerValue = value.toLowerCase();
-                    if (lowerValue.includes('ikss[ka]') || 
+                    if (// Short circuit patterns
+                        lowerValue.includes('ikss[ka]') || 
                         lowerValue.includes('ip[ka]') || 
                         lowerValue.includes('ith[ka]') ||
                         lowerValue.includes('rk[ohm]') ||
@@ -675,7 +676,50 @@ window.shortCircuitPandaPower = function(a, b, c) {
                         (lowerValue.includes('u[pu]') && lowerValue.includes('p[mw]')) ||
                         (lowerValue.includes('u[degree]') && lowerValue.includes('q[mvar]')) ||
                         lowerValue.includes('pf:') ||
-                        lowerValue.includes('q/p:')) {
+                        lowerValue.includes('q/p:') ||
+                        lowerValue.includes('loading[%]') ||
+                        lowerValue.includes('i_hv[ka]') ||
+                        lowerValue.includes('i_mv[ka]') ||
+                        lowerValue.includes('i_lv[ka]') ||
+                        lowerValue.includes('i_from[ka]') ||
+                        lowerValue.includes('i_to[ka]') ||
+                        lowerValue.includes('pl[mw]') ||
+                        lowerValue.includes('vm[pu]') ||
+                        lowerValue.includes('va[degree]') ||
+                        lowerValue.includes('um[pu]') ||
+                        // Static Generator and other component standalone patterns
+                        lowerValue.includes('p[mw]:') ||
+                        lowerValue.includes('q[mvar]:') ||
+                        // SSC specific patterns
+                        lowerValue.includes('q_mvar:') ||
+                        lowerValue.includes('vm_internal_pu:') ||
+                        lowerValue.includes('va_internal_degree:') ||
+                        lowerValue.includes('vm_pu:') ||
+                        lowerValue.includes('va_degree:') ||
+                        // TCSC and SVC patterns
+                        lowerValue.includes('firing angle[degree]:') ||
+                        lowerValue.includes('x[ohm]:') ||
+                        lowerValue.includes('q[mvar]:') ||
+                        lowerValue.includes('p_from[mw]:') ||
+                        lowerValue.includes('q_from[mvar]:') ||
+                        lowerValue.includes('p_to[mw]:') ||
+                        lowerValue.includes('q_to[mvar]:') ||
+                        lowerValue.includes('p_l[mw]:') ||
+                        lowerValue.includes('q_l[mvar]:') ||
+                        lowerValue.includes('vm_from[pu]:') ||
+                        lowerValue.includes('va_from[degree]:') ||
+                        lowerValue.includes('vm_to[pu]:') ||
+                        lowerValue.includes('va_to[degree]:') ||
+                        // Asymmetric patterns
+                        lowerValue.includes('p_a[mw]:') ||
+                        lowerValue.includes('q_a[mvar]:') ||
+                        lowerValue.includes('p_b[mw]:') ||
+                        lowerValue.includes('q_b[mvar]:') ||
+                        lowerValue.includes('p_c[mw]:') ||
+                        lowerValue.includes('q_c[mvar]:') ||
+                        // Impedance patterns
+                        lowerValue.includes('pl[mw]:') ||
+                        lowerValue.includes('ql[mvar]:')) {
                         resultCellsToRemove.push(cell);
                         return;
                     }
