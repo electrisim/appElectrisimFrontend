@@ -5,13 +5,12 @@
     "bus": {
       "_module": "pandas.core.frame",
       "_class": "DataFrame",
-      "_object": "{\"columns\":[\"name\",\"vn_kv\",\"type\",\"zone\",\"in_service\",\"geo\"],\"index\":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33],\"data\":[[\"External_Grid_110kV\",110.0,\"b\",null,true,null],[\"Cable_End_110kV\",110.0,\"b\",null,true,null],[\"Main_Substation_110kV\",110.0,\"b\",null,true,null],[\"Main_Substation_30kV\",30.0,\"b\",null,true,null],[\"TS_1_30kV\",30.0,\"b\",null,true,null],[\"TS_1_800V\",0.8,\"b\",null,true,null],[\"TS_2_30kV\",30.0,\"b\",null,true,null],[\"TS_2_800V\",0.8,\"b\",null,true,null],[\"TS_3_30kV\",30.0,\"b\",null,true,null],[\"TS_3_800V\",0.8,\"b\",null,true,null],[\"TS_4_30kV\",30.0,\"b\",null,true,null],[\"TS_4_800V\",0.8,\"b\",null,true,null],[\"TS_5_30kV\",30.0,\"b\",null,true,null],[\"TS_5_800V\",0.8,\"b\",null,true,null],[\"TS_6_30kV\",30.0,\"b\",null,true,null],[\"TS_6_800V\",0.8,\"b\",null,true,null],[\"TS_7_30kV\",30.0,\"b\",null,true,null],[\"TS_7_800V\",0.8,\"b\",null,true,null],[\"TS_8_30kV\",30.0,\"b\",null,true,null],[\"TS_8_800V\",0.8,\"b\",null,true,null],[\"TS_9_30kV\",30.0,\"b\",null,true,null],[\"TS_9_800V\",0.8,\"b\",null,true,null],[\"TS_10_30kV\",30.0,\"b\",null,true,null],[\"TS_10_800V\",0.8,\"b\",null,true,null],[\"TS_11_30kV\",30.0,\"b\",null,true,null],[\"TS_11_800V\",0.8,\"b\",null,true,null],[\"TS_12_30kV\",30.0,\"b\",null,true,null],[\"TS_12_800V\",0.8,\"b\",null,true,null],[\"TS_13_30kV\",30.0,\"b\",null,true,null],[\"TS_13_800V\",0.8,\"b\",null,true,null],[\"TS_14_30kV\",30.0,\"b\",null,true,null],[\"TS_14_800V\",0.8,\"b\",null,true,null],[\"TS_15_30kV\",30.0,\"b\",null,true,null],[\"TS_15_800V\",0.8,\"b\",null,true,null]]}",
+      "_object": "{\"columns\":[\"name\",\"vn_kv\",\"type\",\"in_service\",\"geo\"],\"index\":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33],\"data\":[[\"External_Grid_110kV\",110.0,\"b\",true,null],[\"Cable_End_110kV\",110.0,\"b\",true,null],[\"Main_Substation_110kV\",110.0,\"b\",true,null],[\"Main_Substation_30kV\",30.0,\"b\",true,null],[\"TS_1_30kV\",30.0,\"b\",true,null],[\"TS_1_800V\",0.8,\"b\",true,null],[\"TS_2_30kV\",30.0,\"b\",true,null],[\"TS_2_800V\",0.8,\"b\",true,null],[\"TS_3_30kV\",30.0,\"b\",true,null],[\"TS_3_800V\",0.8,\"b\",true,null],[\"TS_4_30kV\",30.0,\"b\",true,null],[\"TS_4_800V\",0.8,\"b\",true,null],[\"TS_5_30kV\",30.0,\"b\",true,null],[\"TS_5_800V\",0.8,\"b\",true,null],[\"TS_6_30kV\",30.0,\"b\",true,null],[\"TS_6_800V\",0.8,\"b\",true,null],[\"TS_7_30kV\",30.0,\"b\",true,null],[\"TS_7_800V\",0.8,\"b\",true,null],[\"TS_8_30kV\",30.0,\"b\",true,null],[\"TS_8_800V\",0.8,\"b\",true,null],[\"TS_9_30kV\",30.0,\"b\",true,null],[\"TS_9_800V\",0.8,\"b\",true,null],[\"TS_10_30kV\",30.0,\"b\",true,null],[\"TS_10_800V\",0.8,\"b\",true,null],[\"TS_11_30kV\",30.0,\"b\",true,null],[\"TS_11_800V\",0.8,\"b\",true,null],[\"TS_12_30kV\",30.0,\"b\",true,null],[\"TS_12_800V\",0.8,\"b\",true,null],[\"TS_13_30kV\",30.0,\"b\",true,null],[\"TS_13_800V\",0.8,\"b\",true,null],[\"TS_14_30kV\",30.0,\"b\",true,null],[\"TS_14_800V\",0.8,\"b\",true,null],[\"TS_15_30kV\",30.0,\"b\",true,null],[\"TS_15_800V\",0.8,\"b\",true,null]]}",
       "orient": "split",
       "dtype": {
         "name": "object",
         "vn_kv": "float64",
         "type": "object",
-        "zone": "object",
         "in_service": "bool",
         "geo": "object"
       },
@@ -21,13 +20,12 @@
     "bus_dc": {
       "_module": "pandas.core.frame",
       "_class": "DataFrame",
-      "_object": "{\"columns\":[\"name\",\"vn_kv\",\"type\",\"zone\",\"in_service\",\"geo\"],\"index\":[],\"data\":[]}",
+      "_object": "{\"columns\":[\"name\",\"vn_kv\",\"type\",\"in_service\",\"geo\"],\"index\":[],\"data\":[]}",
       "orient": "split",
       "dtype": {
         "name": "object",
         "vn_kv": "float64",
         "type": "object",
-        "zone": "object",
         "in_service": "bool",
         "geo": "object"
       },

@@ -10,11 +10,12 @@ export class OpenDSSLoadFlowDialog extends Dialog {
         this.ui = editorUi || window.App?.main?.editor?.editorUi;
         this.graph = this.ui?.editor?.graph;
         
-        // OpenDSS specific parameters based on the backend implementation
+        // OpenDSS specific parameters based on OpenDSS documentation
+        // Reference: https://opendss.epri.com/PowerFlow.html
         this.parameters = [
             {
                 id: 'frequency',
-                label: 'Frequency',
+                label: 'Base Frequency',
                 type: 'radio',
                 options: [
                     { value: '50', label: '50 Hz', default: true },
@@ -22,12 +23,32 @@ export class OpenDSSLoadFlowDialog extends Dialog {
                 ]
             },
             {
-                id: 'algorithm',
-                label: 'Algorithm',
+                id: 'mode',
+                label: 'Solution Mode',
                 type: 'radio',
                 options: [
-                    { value: 'Admittance', label: 'Admittance (Iterative Load Flow)', default: true },
-                    { value: 'PowerFlow', label: 'PowerFlow (Direct Solution)' }
+                    { value: 'Snapshot', label: 'Snapshot (Single Solution)', default: true },
+                    { value: 'Daily', label: 'Daily (24-hour simulation)' },
+                    { value: 'Dutycycle', label: 'Dutycycle (Time-varying)' },
+                    { value: 'Yearly', label: 'Yearly' }
+                ]
+            },
+            {
+                id: 'algorithm',
+                label: 'Solution Algorithm',
+                type: 'radio',
+                options: [
+                    { value: 'Normal', label: 'Normal (Fast current injection)', default: true },
+                    { value: 'Newton', label: 'Newton (Robust for difficult circuits)' }
+                ]
+            },
+            {
+                id: 'loadmodel',
+                label: 'Load Model',
+                type: 'radio',
+                options: [
+                    { value: 'Powerflow', label: 'Powerflow (Iterative with power injections)', default: true },
+                    { value: 'Admittance', label: 'Admittance (Direct solution)' }
                 ]
             },
             {
@@ -38,30 +59,25 @@ export class OpenDSSLoadFlowDialog extends Dialog {
             },
             {
                 id: 'tolerance',
-                label: 'Tolerance',
+                label: 'Convergence Tolerance',
                 type: 'number',
-                value: '1e-6'
+                value: '0.0001'
             },
             {
-                id: 'convergence',
-                label: 'Convergence Method',
+                id: 'controlmode',
+                label: 'Control Mode',
                 type: 'radio',
                 options: [
-                    { value: 'normal', label: 'Normal', default: true },
-                    { value: 'accelerated', label: 'Accelerated' }
+                    { value: 'Static', label: 'Static (No control actions)', default: true },
+                    { value: 'Event', label: 'Event (Time-based controls)' },
+                    { value: 'Time', label: 'Time (Continuous controls)' }
                 ]
             },
             {
-                id: 'voltageControl',
-                label: 'Voltage Control',
+                id: 'exportCommands',
+                label: 'Export OpenDSS Commands (download .txt file)',
                 type: 'checkbox',
-                value: true
-            },
-            {
-                id: 'tapControl',
-                label: 'Tap Control',
-                type: 'checkbox',
-                value: true
+                value: false
             }
         ];
     }
@@ -102,15 +118,16 @@ export class OpenDSSLoadFlowDialog extends Dialog {
                 console.log('OpenDSSLoadFlowDialog: Subscription check passed, proceeding with calculation...');
                 
                 // Convert object to array format expected by loadflowOpenDss.js
-                // The callback expects: [frequency, algorithm, maxIterations, tolerance, convergence, voltageControl, tapControl]
+                // The callback expects: [frequency, mode, algorithm, loadmodel, maxIterations, tolerance, controlmode, exportCommands]
                 const valuesArray = [
                     values.frequency || '50',
-                    values.algorithm || 'Admittance',
+                    values.mode || 'Snapshot',
+                    values.algorithm || 'Normal',
+                    values.loadmodel || 'Powerflow',
                     values.maxIterations || '100',
-                    values.tolerance || '1e-6',
-                    values.convergence || 'normal',
-                    values.voltageControl || true,
-                    values.tapControl || true
+                    values.tolerance || '0.0001',
+                    values.controlmode || 'Static',
+                    values.exportCommands || false
                 ];
                 
                 console.log('OpenDSSLoadFlowDialog: Calling callback with values array:', valuesArray);

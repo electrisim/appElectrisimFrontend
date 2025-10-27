@@ -229,7 +229,7 @@ function useDataToInsertOnGraph(grafka, a, target, point) {
             // Group buses by voltage level
             const voltageGroups = {};
             busData.data.forEach((bus, index) => {
-                const [name, vn_kv, type, zone, inService] = bus;
+                const [name, vn_kv, type, inService] = bus;
                 const voltage = parseFloat(vn_kv);
                 
                 if (!voltageGroups[voltage]) {
@@ -287,7 +287,7 @@ function useDataToInsertOnGraph(grafka, a, target, point) {
 
             // Create vertices using the calculated positions
             busData.data.forEach((bus, index) => {
-                const [name, vn_kv, type, zone, inService] = bus;
+                const [name, vn_kv, type, inService] = bus;
 
                 // Get the optimized position for this bus
                 const vertexX = busPositions[index].x;

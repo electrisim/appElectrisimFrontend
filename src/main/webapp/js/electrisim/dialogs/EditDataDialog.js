@@ -21,6 +21,7 @@ import { BusDialog } from '../busDialog.js';
 import { TransformerDialog } from '../transformerBaseDialog.js';
 import { ThreeWindingTransformerDialog } from '../threeWindingTransformerBaseDialog.js';
 import { LineDialog } from '../lineBaseDialog.js';
+import { PVSystemDialog } from '../PVSystemDialog.js';
 
 export class EditDataDialog {
     constructor(ui, cell) {
@@ -29,25 +30,71 @@ export class EditDataDialog {
                 throw new Error('EditDataDialog requires both UI and cell parameters');
             }
 
-            // Check if there's already a dialog for this cell to prevent duplicates
-            // Use a global WeakMap to avoid storing references on cells that get encoded
+            // Initialize dialog tracking if not exists
             if (!window._editDataDialogInstances) {
                 window._editDataDialogInstances = new WeakMap();
             }
+
+            // CRITICAL: Aggressively clean up any stuck state from previous sessions or errors
+            // This must happen BEFORE any dialog attempts to open
+            
+            // Use static cleanup method with the target cell
+            EditDataDialog.forceCleanupAll(cell);
+            
+            // Also call instance cleanup
+            this.performGlobalCleanup();
             
             if (window._editDataDialogInstances.has(cell)) {
-                console.log('EditDataDialog already exists for this cell, returning existing instance');
-                return window._editDataDialogInstances.get(cell);
+                const existingInstance = window._editDataDialogInstances.get(cell);
+                console.log('Found existing EditDataDialog instance for cell:', {
+                    cell: cell,
+                    existingInstance: existingInstance,
+                    shouldShowDialog: existingInstance?.shouldShowDialog,
+                    cellDialogShowing: cell._dialogShowing,
+                    globalDialogShowing: window._globalDialogShowing
+                });
+
+                // Check if the existing instance is still valid and not in an error state
+                if (existingInstance && existingInstance.shouldShowDialog !== false && !cell._dialogShowing && !window._globalDialogShowing) {
+                    console.log('EditDataDialog already exists for this cell, returning existing instance');
+                    return existingInstance;
+                } else {
+                    // Clean up stale instance
+                    console.log('Cleaning up stale EditDataDialog instance for this cell');
+                    window._editDataDialogInstances.delete(cell);
+
+                    // Also clean up any global flags that might be stuck
+                    if (window._globalDialogShowing) {
+                        console.log('Clearing stuck global dialog flag');
+                        delete window._globalDialogShowing;
+                    }
+                    if (cell._dialogShowing) {
+                        console.log('Clearing stuck cell dialog flag');
+                        delete cell._dialogShowing;
+                    }
+                }
             }
             
             // Check if there's already a dialog showing globally
             if (window._globalDialogShowing) {
-                console.log('Global dialog already showing, ignoring this instance');
-                // Create a minimal container to prevent crashes
-                this.container = document.createElement('div');
-                this.container.style.display = 'none';
-                this.shouldShowDialog = false;
-                return;
+                console.log('Global dialog already showing, ignoring this instance. Current state:', {
+                    globalDialogShowing: window._globalDialogShowing,
+                    cellDialogShowing: cell._dialogShowing,
+                    cell: cell
+                });
+
+                // Force cleanup of stuck global state
+                console.log('Force cleaning up stuck global dialog state');
+                delete window._globalDialogShowing;
+                if (cell._dialogShowing) {
+                    delete cell._dialogShowing;
+                }
+
+                // Also clean up any existing instances that might be stuck
+                if (window._editDataDialogInstances && window._editDataDialogInstances.has(cell)) {
+                    console.log('Removing stuck instance from WeakMap');
+                    window._editDataDialogInstances.delete(cell);
+                }
             }
 
             this.ui = ui;
@@ -65,7 +112,7 @@ export class EditDataDialog {
             const styleProps = this.parseStyle(style);
             this.elementType = styleProps.shapeELXXX;
             
-            console.log('EditDataDialog - Element type:', this.elementType);
+            // console.log('EditDataDialog - Element type:', this.elementType);
             
             // Create a minimal container first (this ensures container is always set)
             this.container = document.createElement('div');
@@ -204,6 +251,12 @@ export class EditDataDialog {
             // Handle Line with new tabbed dialog
             if (this.elementType === "Line") {
                 this.handleLine();
+                return;
+            }
+
+            // Handle PVSystem with new tabbed dialog
+            if (this.elementType === "PVSystem") {
+                this.handlePVSystem();
                 return;
             }
             
@@ -1550,26 +1603,56 @@ export class EditDataDialog {
     
     // Handle Transformer
     handleTransformer() {
+        // console.log('>>> handleTransformer called');
+        // console.log('Cell state at start:', { cell: this.cell, cellDialogShowing: this.cell?._dialogShowing, globalDialogShowing: window._globalDialogShowing });
+        
         this.shouldShowDialog = false; // Prevent main dialog from being shown
         
         // Set container to a minimal hidden div to prevent appendChild errors
         this.container.style.display = 'none';
         this.container.innerHTML = '';
         
+        // CRITICAL: Check if cell flag is already set - if so, clear it and warn
+        if (this.cell && this.cell._dialogShowing) {
+            console.warn('WARNING: cell._dialogShowing was already set! Clearing stale flag...');
+            delete this.cell._dialogShowing;
+        }
+        
         // Check if there's already a dialog showing to prevent duplicates
         if (window._globalDialogShowing || document.querySelector('.modal-overlay')) {
             console.log('Transformer dialog: Another dialog is already showing, ignoring request');
+            // Clean up any stuck flags
+            if (this.cell && this.cell._dialogShowing) {
+                delete this.cell._dialogShowing;
+            }
             return;
         }
         
         // Set global guards to prevent duplicate dialogs
         window._globalDialogShowing = true;
-        
+
         // Set cell dialog flag
         if (this.cell) {
             this.cell._dialogShowing = true;
+            // console.log('Set cell._dialogShowing flag for Transformer dialog');
         }
-        
+
+        // Set up a cleanup timeout as a fallback (in case dialog is not properly closed)
+        this.cleanupTimeout = setTimeout(() => {
+            console.warn('Cleanup timeout reached for Transformer EditDataDialog - dialog may have been abandoned, forcing cleanup');
+            console.log('Cell state before timeout cleanup:', {
+                cell: this.cell,
+                cellDialogShowing: this.cell?._dialogShowing,
+                globalDialogShowing: window._globalDialogShowing
+            });
+            this.cleanup();
+            // Also force clear the cell flag
+            if (this.cell && this.cell._dialogShowing) {
+                delete this.cell._dialogShowing;
+                console.log('Timeout: Cleared stuck cell dialog flag');
+            }
+        }, 10000); // 10 second timeout (reduced from 30 for faster recovery)
+
         try {
             // Create the new Transformer Dialog
             const transformerDialog = new TransformerDialog(this.ui);
@@ -1580,28 +1663,38 @@ export class EditDataDialog {
             
             // Show the dialog
             transformerDialog.show((values) => {
-                console.log('Transformer dialog values received:', values);
+                console.log('>>> Transformer dialog callback invoked with values:', values);
+                
+                // IMMEDIATELY clear the cell flag before any other operations
+                if (this.cell && this.cell._dialogShowing) {
+                    delete this.cell._dialogShowing;
+                    console.log('✓ Cleared cell._dialogShowing in callback (immediate)');
+                }
                 
                 // Apply the values back to the cell
                 this.applyTransformerValues(values);
-                
+
                 // Clean up
                 this.cleanup();
                 
                 // Clear global dialog flag (this is also done in dialog.destroy() but adding here for safety)
                 if (window._globalDialogShowing) {
                     delete window._globalDialogShowing;
+                    console.log('✓ Cleared global flag in callback');
                 }
                 
-                // Clear cell dialog flag
+                // Double-check cell flag is cleared
                 if (this.cell && this.cell._dialogShowing) {
+                    console.error('WARNING: cell._dialogShowing still set after cleanup!');
                     delete this.cell._dialogShowing;
+                } else {
+                    console.log('✓ Verified cell flag is cleared in callback');
                 }
             });
             
         } catch (error) {
             console.error('Error showing Transformer dialog:', error);
-            
+
             // Clean up on error
             this.cleanup();
             if (window._globalDialogShowing) {
@@ -1610,7 +1703,10 @@ export class EditDataDialog {
             if (this.cell && this.cell._dialogShowing) {
                 delete this.cell._dialogShowing;
             }
-            
+
+            // Also perform global cleanup in case of errors
+            this.performGlobalCleanup();
+
             // Show error message
             alert('Error opening Transformer dialog: ' + error.message);
         }
@@ -1632,12 +1728,29 @@ export class EditDataDialog {
         
         // Set global guards to prevent duplicate dialogs
         window._globalDialogShowing = true;
-        
+
         // Set cell dialog flag
         if (this.cell) {
             this.cell._dialogShowing = true;
+            console.log('Set cell._dialogShowing flag for Three Winding Transformer dialog');
         }
-        
+
+        // Set up a cleanup timeout as a fallback (in case dialog is not properly closed)
+        this.cleanupTimeout = setTimeout(() => {
+            console.warn('Cleanup timeout reached for Three Winding Transformer EditDataDialog - dialog may have been abandoned, forcing cleanup');
+            console.log('Cell state before timeout cleanup:', {
+                cell: this.cell,
+                cellDialogShowing: this.cell?._dialogShowing,
+                globalDialogShowing: window._globalDialogShowing
+            });
+            this.cleanup();
+            // Also force clear the cell flag
+            if (this.cell && this.cell._dialogShowing) {
+                delete this.cell._dialogShowing;
+                console.log('Timeout: Cleared stuck cell dialog flag');
+            }
+        }, 10000); // 10 second timeout (reduced from 30 for faster recovery)
+
         try {
             // Create the new Three Winding Transformer Dialog
             const threeWindingTransformerDialog = new ThreeWindingTransformerDialog(this.ui);
@@ -1652,7 +1765,7 @@ export class EditDataDialog {
                 
                 // Apply the values back to the cell
                 this.applyThreeWindingTransformerValues(values);
-                
+
                 // Clean up
                 this.cleanup();
                 
@@ -1669,7 +1782,7 @@ export class EditDataDialog {
             
         } catch (error) {
             console.error('Error showing Three Winding Transformer dialog:', error);
-            
+
             // Clean up on error
             this.cleanup();
             if (window._globalDialogShowing) {
@@ -1678,7 +1791,10 @@ export class EditDataDialog {
             if (this.cell && this.cell._dialogShowing) {
                 delete this.cell._dialogShowing;
             }
-            
+
+            // Also perform global cleanup in case of errors
+            this.performGlobalCleanup();
+
             // Show error message
             alert('Error opening Three Winding Transformer dialog: ' + error.message);
         }
@@ -1751,7 +1867,75 @@ export class EditDataDialog {
             alert('Error opening Line dialog: ' + error.message);
         }
     }
-    
+
+    // Handle PVSystem
+    handlePVSystem() {
+        this.shouldShowDialog = false; // Prevent main dialog from being shown
+
+        // Set container to a minimal hidden div to prevent appendChild errors
+        this.container.style.display = 'none';
+        this.container.innerHTML = '';
+
+        // Check if there's already a dialog showing to prevent duplicates
+        if (window._globalDialogShowing || document.querySelector('.modal-overlay')) {
+            console.log('PVSystem dialog: Another dialog is already showing, ignoring request');
+            return;
+        }
+
+        // Set global guards to prevent duplicate dialogs
+        window._globalDialogShowing = true;
+
+        // Set cell dialog flag
+        if (this.cell) {
+            this.cell._dialogShowing = true;
+        }
+
+        try {
+            // Create the new PVSystem Dialog
+            const pvSystemDialog = new PVSystemDialog(this.ui);
+            this.setDialogCleanup(pvSystemDialog);
+
+            // Populate the dialog with current cell data BEFORE showing it
+            pvSystemDialog.populateDialog(this.cell.value);
+
+            // Show the dialog
+            pvSystemDialog.show((values) => {
+                // console.log('PVSystem dialog values received:', values);
+
+                // Apply the values back to the cell
+                this.applyPVSystemValues(values);
+
+                // Clean up
+                this.cleanup();
+
+                // Clear global dialog flag (this is also done in dialog.destroy() but adding here for safety)
+                if (window._globalDialogShowing) {
+                    delete window._globalDialogShowing;
+                }
+
+                // Clear cell dialog flag
+                if (this.cell && this.cell._dialogShowing) {
+                    delete this.cell._dialogShowing;
+                }
+            });
+
+        } catch (error) {
+            console.error('Error showing PVSystem dialog:', error);
+
+            // Clean up on error
+            this.cleanup();
+            if (window._globalDialogShowing) {
+                delete window._globalDialogShowing;
+            }
+            if (this.cell && this.cell._dialogShowing) {
+                delete this.cell._dialogShowing;
+            }
+
+            // Show error message
+            alert('Error opening PVSystem dialog: ' + error.message);
+        }
+    }
+
     populateAsymmetricLoadDialog(dialog) {
         // Get current values from the cell and populate the dialog
         if (this.cell.value && this.cell.value.attributes) {
@@ -1789,12 +1973,23 @@ export class EditDataDialog {
         }
     }
     
+    ensureCellValueIsXmlElement() {
+        // Ensure cell.value is a proper XML element, preserving label if it was a string
+        if (!this.cell.value) {
+            this.cell.value = mxUtils.createXmlDocument().createElement('object');
+        } else if (typeof this.cell.value.setAttribute !== 'function') {
+            const oldValue = this.cell.value;
+            this.cell.value = mxUtils.createXmlDocument().createElement('object');
+            // Preserve the original value as a label attribute
+            if (oldValue != null) {
+                this.cell.value.setAttribute('label', oldValue.toString());
+            }
+        }
+    }
+    
     applyAsymmetricLoadValues(values) {
         // Apply the values from the dialog back to the cell
-        if (!this.cell.value) {
-            // Create the value object if it doesn't exist
-            this.cell.value = mxUtils.createXmlDocument().createElement('object');
-        }
+        this.ensureCellValueIsXmlElement();
         
         // Update cell attributes with the new values
         for (const [attributeName, attributeValue] of Object.entries(values)) {
@@ -1837,10 +2032,7 @@ export class EditDataDialog {
     
     applyExternalGridValues(values) {
         // Apply the values from the dialog back to the cell
-        if (!this.cell.value) {
-            // Create the value object if it doesn't exist
-            this.cell.value = mxUtils.createXmlDocument().createElement('object');
-        }
+        this.ensureCellValueIsXmlElement();
         
         // Update cell attributes with the new values
         for (const [attributeName, attributeValue] of Object.entries(values)) {
@@ -2230,10 +2422,7 @@ export class EditDataDialog {
     // Apply methods for modern dialogs
     applyAsymmetricStaticGeneratorValues(values) {
         // Apply the values from the dialog back to the cell
-        if (!this.cell.value) {
-            // Create the value object if it doesn't exist
-            this.cell.value = mxUtils.createXmlDocument().createElement('object');
-        }
+        this.ensureCellValueIsXmlElement();
         
         // Update cell attributes with the new values
         for (const [attributeName, attributeValue] of Object.entries(values)) {
@@ -2245,10 +2434,7 @@ export class EditDataDialog {
     
     applyCapacitorValues(values) {
         // Apply the values from the dialog back to the cell
-        if (!this.cell.value) {
-            // Create the value object if it doesn't exist
-            this.cell.value = mxUtils.createXmlDocument().createElement('object');
-        }
+        this.ensureCellValueIsXmlElement();
         
         // Update cell attributes with the new values
         for (const [attributeName, attributeValue] of Object.entries(values)) {
@@ -2260,10 +2446,7 @@ export class EditDataDialog {
     
     applyDCLineValues(values) {
         // Apply the values from the dialog back to the cell
-        if (!this.cell.value) {
-            // Create the value object if it doesn't exist
-            this.cell.value = mxUtils.createXmlDocument().createElement('object');
-        }
+        this.ensureCellValueIsXmlElement();
         
         // Update cell attributes with the new values
         for (const [attributeName, attributeValue] of Object.entries(values)) {
@@ -2275,10 +2458,7 @@ export class EditDataDialog {
     
     applyExtendedWardValues(values) {
         // Apply the values from the dialog back to the cell
-        if (!this.cell.value) {
-            // Create the value object if it doesn't exist
-            this.cell.value = mxUtils.createXmlDocument().createElement('object');
-        }
+        this.ensureCellValueIsXmlElement();
         
         // Update cell attributes with the new values
         for (const [attributeName, attributeValue] of Object.entries(values)) {
@@ -2290,10 +2470,7 @@ export class EditDataDialog {
     
     applyGeneratorValues(values) {
         // Apply the values from the dialog back to the cell
-        if (!this.cell.value) {
-            // Create the value object if it doesn't exist
-            this.cell.value = mxUtils.createXmlDocument().createElement('object');
-        }
+        this.ensureCellValueIsXmlElement();
         
         // Update cell attributes with the new values
         for (const [attributeName, attributeValue] of Object.entries(values)) {
@@ -2305,10 +2482,7 @@ export class EditDataDialog {
     
     applyImpedanceValues(values) {
         // Apply the values from the dialog back to the cell
-        if (!this.cell.value) {
-            // Create the value object if it doesn't exist
-            this.cell.value = mxUtils.createXmlDocument().createElement('object');
-        }
+        this.ensureCellValueIsXmlElement();
         
         // Update cell attributes with the new values
         for (const [attributeName, attributeValue] of Object.entries(values)) {
@@ -2320,10 +2494,7 @@ export class EditDataDialog {
     
     applyLoadValues(values) {
         // Apply the values from the dialog back to the cell
-        if (!this.cell.value) {
-            // Create the value object if it doesn't exist
-            this.cell.value = mxUtils.createXmlDocument().createElement('object');
-        }
+        this.ensureCellValueIsXmlElement();
         
         // Update cell attributes with the new values
         for (const [attributeName, attributeValue] of Object.entries(values)) {
@@ -2335,10 +2506,7 @@ export class EditDataDialog {
     
     applyMotorValues(values) {
         // Apply the values from the dialog back to the cell
-        if (!this.cell.value) {
-            // Create the value object if it doesn't exist
-            this.cell.value = mxUtils.createXmlDocument().createElement('object');
-        }
+        this.ensureCellValueIsXmlElement();
         
         // Update cell attributes with the new values
         for (const [attributeName, attributeValue] of Object.entries(values)) {
@@ -2350,10 +2518,7 @@ export class EditDataDialog {
     
     applyShuntReactorValues(values) {
         // Apply the values from the dialog back to the cell
-        if (!this.cell.value) {
-            // Create the value object if it doesn't exist
-            this.cell.value = mxUtils.createXmlDocument().createElement('object');
-        }
+        this.ensureCellValueIsXmlElement();
         
         // Update cell attributes with the new values
         for (const [attributeName, attributeValue] of Object.entries(values)) {
@@ -2365,10 +2530,7 @@ export class EditDataDialog {
     
     applySSCValues(values) {
         // Apply the values from the dialog back to the cell
-        if (!this.cell.value) {
-            // Create the value object if it doesn't exist
-            this.cell.value = mxUtils.createXmlDocument().createElement('object');
-        }
+        this.ensureCellValueIsXmlElement();
         
         // Update cell attributes with the new values
         for (const [attributeName, attributeValue] of Object.entries(values)) {
@@ -2380,10 +2542,7 @@ export class EditDataDialog {
     
     applyStaticGeneratorValues(values) {
         // Apply the values from the dialog back to the cell
-        if (!this.cell.value) {
-            // Create the value object if it doesn't exist
-            this.cell.value = mxUtils.createXmlDocument().createElement('object');
-        }
+        this.ensureCellValueIsXmlElement();
         
         // Update cell attributes with the new values
         for (const [attributeName, attributeValue] of Object.entries(values)) {
@@ -2395,10 +2554,7 @@ export class EditDataDialog {
     
     applyStorageValues(values) {
         // Apply the values from the cell back to the cell
-        if (!this.cell.value) {
-            // Create the value object if it doesn't exist
-            this.cell.value = mxUtils.createXmlDocument().createElement('object');
-        }
+        this.ensureCellValueIsXmlElement();
         
         // Update cell attributes with the new values
         for (const [attributeName, attributeValue] of Object.entries(values)) {
@@ -2410,10 +2566,7 @@ export class EditDataDialog {
     
     applySVCValues(values) {
         // Apply the values from the dialog back to the cell
-        if (!this.cell.value) {
-            // Create the value object if it doesn't exist
-            this.cell.value = mxUtils.createXmlDocument().createElement('object');
-        }
+        this.ensureCellValueIsXmlElement();
         
         // Update cell attributes with the new values
         for (const [attributeName, attributeValue] of Object.entries(values)) {
@@ -2425,10 +2578,7 @@ export class EditDataDialog {
     
     applyTCSCValues(values) {
         // Apply the values from the dialog back to the cell
-        if (!this.cell.value) {
-            // Create the value object if it doesn't exist
-            this.cell.value = mxUtils.createXmlDocument().createElement('object');
-        }
+        this.ensureCellValueIsXmlElement();
         
         // Update cell attributes with the new values
         for (const [attributeName, attributeValue] of Object.entries(values)) {
@@ -2440,10 +2590,7 @@ export class EditDataDialog {
     
     applyWardValues(values) {
         // Apply the values from the dialog back to the cell
-        if (!this.cell.value) {
-            // Create the value object if it doesn't exist
-            this.cell.value = mxUtils.createXmlDocument().createElement('object');
-        }
+        this.ensureCellValueIsXmlElement();
         
         // Update cell attributes with the new values
         for (const [attributeName, attributeValue] of Object.entries(values)) {
@@ -2455,9 +2602,7 @@ export class EditDataDialog {
     
     applyBusValues(values) {
         // Apply the values from the dialog back to the cell
-        if (!this.cell.value) {
-            this.cell.value = mxUtils.createXmlDocument().createElement('object');
-        }
+        this.ensureCellValueIsXmlElement();
         
         for (const [attributeName, attributeValue] of Object.entries(values)) {
             this.cell.value.setAttribute(attributeName, attributeValue);
@@ -2468,9 +2613,7 @@ export class EditDataDialog {
     
     applyTransformerValues(values) {
         // Apply the values from the dialog back to the cell
-        if (!this.cell.value) {
-            this.cell.value = mxUtils.createXmlDocument().createElement('object');
-        }
+        this.ensureCellValueIsXmlElement();
         
         for (const [attributeName, attributeValue] of Object.entries(values)) {
             this.cell.value.setAttribute(attributeName, attributeValue);
@@ -2481,9 +2624,7 @@ export class EditDataDialog {
     
     applyThreeWindingTransformerValues(values) {
         // Apply the values from the dialog back to the cell
-        if (!this.cell.value) {
-            this.cell.value = mxUtils.createXmlDocument().createElement('object');
-        }
+        this.ensureCellValueIsXmlElement();
         
         for (const [attributeName, attributeValue] of Object.entries(values)) {
             this.cell.value.setAttribute(attributeName, attributeValue);
@@ -2980,6 +3121,9 @@ export class EditDataDialog {
                 return;
             }
             
+            // Ensure cell.value is a proper XML element, preserving label
+            this.ensureCellValueIsXmlElement();
+            
             // Iterate over the attributes of rownode and copy to cell
             for (const attributeName in rowNode.data) {
                 if (rowNode.data.hasOwnProperty(attributeName)) {
@@ -3002,15 +3146,135 @@ export class EditDataDialog {
     
     // Helper method to set cleanup callback on modern dialogs
     setDialogCleanup(dialog) {
-        dialog.cleanupCallback = () => {
-            this.cleanup();
+        // Store reference to this for cleanup
+        const self = this;
+
+        // Create cleanup function that ALWAYS clears cell flag
+        const performCleanup = () => {
+            // console.log('=== Performing dialog cleanup - clearing all flags ===');
+            // console.log('Cell before cleanup:', self.cell);
+            // console.log('Cell._dialogShowing before:', self.cell?._dialogShowing);
+            // console.log('window._globalDialogShowing before:', window._globalDialogShowing);
+            
+            self.cleanup();
+            
+            // Force clear global flag
             if (window._globalDialogShowing) {
                 delete window._globalDialogShowing;
+                console.log('✓ Cleared global dialog flag');
             }
-            if (this.cell && this.cell._dialogShowing) {
-                delete this.cell._dialogShowing;
+            
+            // Force clear cell flag - THIS IS CRITICAL
+            if (self.cell) {
+                if (self.cell._dialogShowing) {
+                    delete self.cell._dialogShowing;
+                    console.log('✓ Cleared cell._dialogShowing flag');
+                }
+                // Double-check it's actually cleared
+                if (self.cell._dialogShowing) {
+                    console.error('ERROR: cell._dialogShowing still exists after deletion!');
+                } else {
+                    // console.log('✓ Verified cell._dialogShowing is cleared');
+                }
+            }
+            
+            // console.log('=== Cleanup completed ===');
+        };
+
+        dialog.cleanupCallback = performCleanup;
+
+        // Override the dialog's destroy method to ensure cleanup ALWAYS happens
+        const originalDestroy = dialog.destroy;
+        dialog.destroy = function() {
+            // console.log('>>> Dialog destroy method called');
+            
+            // ALWAYS call the cleanup callback FIRST
+            try {
+                performCleanup();
+            } catch (error) {
+                console.error('Error during cleanup in destroy:', error);
+            }
+            
+            // Call original destroy
+            if (originalDestroy) {
+                try {
+                    originalDestroy.call(this);
+                } catch (error) {
+                    console.error('Error calling original destroy:', error);
+                }
             }
         };
+
+        // Store a reference to cleanup that can be called externally
+        dialog._editDataDialogCleanup = performCleanup;
+        
+        // Set a flag to track this dialog
+        dialog._hasCleanupHandler = true;
+    }
+
+    performGlobalCleanup() {
+        // Clean up any stuck global state that might be left from previous sessions or errors
+        // console.log('Performing global dialog cleanup check');
+
+        // Clean up stuck global flags
+        if (window._globalDialogShowing) {
+            console.log('Found stuck global dialog flag, cleaning up');
+            delete window._globalDialogShowing;
+        }
+
+        // Clean up any stuck cell flags on the current cell
+        if (this.cell && this.cell._dialogShowing) {
+            console.log('Found stuck cell dialog flag on current cell, cleaning up');
+            delete this.cell._dialogShowing;
+        }
+
+        // Also force cleanup of the WeakMap if it's corrupted
+        if (window._editDataDialogInstances) {
+            try {
+                // The WeakMap should be automatically cleaned up by garbage collection
+                // but we can log its state for debugging
+                // console.log('EditDataDialog instances WeakMap exists');
+            } catch (error) {
+                console.error('Error accessing WeakMap:', error);
+                // Recreate the WeakMap if it's corrupted
+                window._editDataDialogInstances = new WeakMap();
+            }
+        }
+
+        // console.log('Global cleanup completed');
+    }
+
+    // Static method to force cleanup all dialog state (can be called from outside)
+    static forceCleanupAll(targetCell) {
+        // console.log('Force cleaning up all EditDataDialog state');
+
+        // Clear global flags
+        if (window._globalDialogShowing) {
+            delete window._globalDialogShowing;
+            console.log('✓ Cleared global flag');
+        }
+
+        // Clear the WeakMap
+        if (window._editDataDialogInstances) {
+            window._editDataDialogInstances = new WeakMap();
+            // console.log('✓ Reset WeakMap');
+        }
+
+        // Clear cell flag if provided
+        if (targetCell && targetCell._dialogShowing) {
+            delete targetCell._dialogShowing;
+            console.log('✓ Cleared cell flag');
+        }
+
+        // console.log('Force cleanup completed');
+    }
+
+    // Make forceCleanupAll available globally for debugging
+    static {
+        // Expose the cleanup method globally for debugging purposes
+        if (typeof window !== 'undefined') {
+            window.EditDataDialogForceCleanup = EditDataDialog.forceCleanupAll;
+        }
     }
 
     cleanup() {
@@ -3020,6 +3284,15 @@ export class EditDataDialog {
         }
         if (window._globalDialogShowing) {
             delete window._globalDialogShowing;
+        }
+        if (this.cell && this.cell._dialogShowing) {
+            delete this.cell._dialogShowing;
+        }
+
+        // Clear any timeout that might be set for this dialog
+        if (this.cleanupTimeout) {
+            clearTimeout(this.cleanupTimeout);
+            this.cleanupTimeout = null;
         }
     }
 
@@ -3227,6 +3500,17 @@ export class EditDataDialog {
         
         // Apply the values back to the cell
         if (this.cell.value) {
+            // Ensure cell.value is a proper XML element, preserving label
+            if (typeof this.cell.value.setAttribute !== 'function') {
+                console.log('Cell value is not an XML element, recreating it and preserving label');
+                const oldValue = this.cell.value;
+                this.cell.value = mxUtils.createXmlDocument().createElement('object');
+                // Preserve the original value as a label attribute
+                if (oldValue != null) {
+                    this.cell.value.setAttribute('label', oldValue.toString());
+                }
+            }
+            
             console.log('Cell value exists, proceeding with attribute update');
             
             // Store the original cell value for comparison
@@ -3377,6 +3661,16 @@ export class EditDataDialog {
     applyTransformerValues(values) {
         // Apply the values back to the cell
         if (this.cell.value) {
+            // Ensure cell.value is a proper XML element, preserving label
+            if (typeof this.cell.value.setAttribute !== 'function') {
+                const oldValue = this.cell.value;
+                this.cell.value = mxUtils.createXmlDocument().createElement('object');
+                // Preserve the original value as a label attribute
+                if (oldValue != null) {
+                    this.cell.value.setAttribute('label', oldValue.toString());
+                }
+            }
+            
             // Clear existing attributes by removing them individually
             if (this.cell.value.attributes) {
                 // Get a copy of attribute names to avoid modifying while iterating
@@ -3455,6 +3749,16 @@ export class EditDataDialog {
     applyThreeWindingTransformerValues(values) {
         // Apply the values back to the cell
         if (this.cell.value) {
+            // Ensure cell.value is a proper XML element, preserving label
+            if (typeof this.cell.value.setAttribute !== 'function') {
+                const oldValue = this.cell.value;
+                this.cell.value = mxUtils.createXmlDocument().createElement('object');
+                // Preserve the original value as a label attribute
+                if (oldValue != null) {
+                    this.cell.value.setAttribute('label', oldValue.toString());
+                }
+            }
+            
             // Clear existing attributes by removing them individually
             if (this.cell.value.attributes) {
                 // Get a copy of attribute names to avoid modifying while iterating
@@ -3481,6 +3785,32 @@ export class EditDataDialog {
             }
             
             console.log('Applied Three Winding Transformer values to cell:', values);
+        }
+    }
+
+    applyPVSystemValues(values) {
+        // Apply the values from the dialog back to the cell
+        try {
+            // Ensure cell.value is a proper XML element, preserving label
+            this.ensureCellValueIsXmlElement();
+
+            // Set attributes on the cell value
+            for (const [attributeName, attributeValue] of Object.entries(values)) {
+                this.cell.value.setAttribute(attributeName, attributeValue);
+            }
+
+            // console.log('PVSystem values applied to cell');
+        } catch (error) {
+            console.error('Error applying PVSystem values:', error);
+            // Fallback: try to set attributes directly on the cell
+            try {
+                for (const [attributeName, attributeValue] of Object.entries(values)) {
+                    this.cell.setAttribute(attributeName, attributeValue);
+                }
+                console.log('PVSystem values applied to cell using fallback method');
+            } catch (fallbackError) {
+                console.error('Fallback method also failed:', fallbackError);
+            }
         }
     }
 }
