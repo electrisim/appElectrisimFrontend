@@ -338,7 +338,8 @@ export class LineDialog extends Dialog {
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
-            this.ui.showDialog(container, 750, 600, true, false);
+            const screenHeight = window.innerHeight - 80;
+            this.ui.showDialog(container, 1000, screenHeight, true, false);
         } else {
             this.showModalFallback(container);
         }
@@ -681,7 +682,8 @@ export class LineDialog extends Dialog {
 
         // Show library dialog
         if (this.ui && typeof this.ui.showDialog === 'function') {
-            this.ui.showDialog(libraryContainer, 1400, 700, true, false);
+            const screenHeight = window.innerHeight - 80;
+            this.ui.showDialog(libraryContainer, 1800, screenHeight, true, false);
         }
     }
 

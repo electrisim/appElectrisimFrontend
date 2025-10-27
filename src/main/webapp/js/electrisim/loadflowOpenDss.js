@@ -13,6 +13,36 @@ const formatBusId = (busId) => {
     return busId.replace('#', '_');
 };
 
+// Helper function to download OpenDSS commands as a text file
+const downloadOpenDSSCommands = (commands) => {
+    try {
+        // Create a blob with the commands
+        const blob = new Blob([commands], { type: 'text/plain' });
+        
+        // Create a download link
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        
+        // Generate filename with timestamp
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+        link.download = `OpenDSS_Model_${timestamp}.txt`;
+        
+        // Trigger download
+        document.body.appendChild(link);
+        link.click();
+        
+        // Cleanup
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        console.log('OpenDSS commands file downloaded successfully');
+    } catch (error) {
+        console.error('Error downloading OpenDSS commands:', error);
+        alert('Failed to download OpenDSS commands file. Please check the console for details.');
+    }
+};
+
 // Helper functions for bus connections and cell processing
 const getConnectedBusId = (cell, isLine = false) => {
     if (isLine) {                 
@@ -140,6 +170,7 @@ const COMPONENT_TYPES = {
     EXTENDED_WARD: 'Extended Ward',
     MOTOR: 'Motor',
     STORAGE: 'Storage',
+    PV_SYSTEM: 'PVSystem',
     SVC: 'SVC',
     TCSC: 'TCSC',
     SSC: 'SSC',
@@ -169,19 +200,14 @@ function loadFlowOpenDss(a, b, c) {
             } else {
                 // Pandapower calculation - execute directly with collected parameters
                 console.log('Processing Pandapower calculation with values:', values);
+                console.log('exportPython value received:', values.exportPython);
                 
-                // Convert the values object to the array format expected by pandapower
-                const pandapowerParams = [
-                    values.frequency || '50',
-                    values.algorithm || 'nr',
-                    values.calculate_voltage_angles || 'auto',
-                    values.initialization || 'auto'
-                ];
+                // Pass the values object directly to preserve all parameters including exportPython
+                // DO NOT convert to array as that loses the exportPython flag!
+                console.log('Passing values object directly to executePandapowerLoadFlow');
                 
-                console.log('Converted to pandapower params array:', pandapowerParams);
-                
-                // Execute pandapower load flow directly
-                executePandapowerLoadFlow(pandapowerParams, apka, grafka);
+                // Execute pandapower load flow directly with the full values object
+                executePandapowerLoadFlow(values, apka, grafka);
             }
         });
     } else {
@@ -202,19 +228,14 @@ function loadFlowOpenDss(a, b, c) {
                     } else {
                         // Pandapower calculation - execute directly with collected parameters
                         console.log('Processing Pandapower calculation with values:', values);
+                        console.log('exportPython value received:', values.exportPython);
                         
-                        // Convert the values object to the array format expected by pandapower
-                        const pandapowerParams = [
-                            values.frequency || '50',
-                            values.algorithm || 'nr',
-                            values.calculate_voltage_angles || 'auto',
-                            values.initialization || 'auto'
-                        ];
+                        // Pass the values object directly to preserve all parameters including exportPython
+                        // DO NOT convert to array as that loses the exportPython flag!
+                        console.log('Passing values object directly to executePandapowerLoadFlow');
                         
-                        console.log('Converted to pandapower params array:', pandapowerParams);
-                        
-                        // Execute pandapower load flow directly
-                        executePandapowerLoadFlow(pandapowerParams, apka, grafka);
+                        // Execute pandapower load flow directly with the full values object
+                        executePandapowerLoadFlow(values, apka, grafka);
                     }
                 });
             } catch (error) {
@@ -543,9 +564,9 @@ const elementProcessors = {
                 const cellName = cell.name ? cell.name.replace('_', '#') : 'Unknown';
                 
                 const resultString = `${cellName}
-        P[MW]: ${cell.p_mw ? cell.p_mw.toFixed(3) : 'N/A'}
-        Q[MVar]: ${cell.q_mvar ? cell.q_mvar.toFixed(3) : 'N/A'}
-        Um[pu]: ${cell.vm_pu ? cell.vm_pu.toFixed(3) : 'N/A'}`;
+        P[MW]: ${(cell.p_mw !== undefined && cell.p_mw !== null) ? cell.p_mw.toFixed(3) : 'N/A'}
+        Q[MVar]: ${(cell.q_mvar !== undefined && cell.q_mvar !== null) ? cell.q_mvar.toFixed(3) : 'N/A'}
+        Um[pu]: ${(cell.vm_pu !== undefined && cell.vm_pu !== null) ? cell.vm_pu.toFixed(3) : 'N/A'}`;
 
                 const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.1, 0, 0, 'shapeELXXX=Result', true);
                 processCellStyles(b, labelka);
@@ -636,6 +657,52 @@ const elementProcessors = {
                 console.error(`Error processing storage ${cell.id}:`, error);
             }
         });
+    },
+
+    pvsystems: (data, b) => {
+        if (!Array.isArray(data)) {
+            console.warn('pvsystems data is not an array:', data);
+            return;
+        }
+
+        data.forEach(cell => {
+            try {
+                // Find cell by mxObjectId instead of internal ID
+                let resultCell = null;
+                const cells = b.getModel().cells;
+
+                // Search through all cells to find the one with matching mxObjectId
+                for (const cellId in cells) {
+                    const graphCell = cells[cellId];
+                    if (graphCell && graphCell.mxObjectId === cell.id) {
+                        resultCell = graphCell;
+                        break;
+                    }
+                }
+
+                if (!resultCell) {
+                    console.warn(`Could not find cell with mxObjectId: ${cell.id}`);
+                    console.log('Available cells:', Object.keys(cells).map(id => ({ id, mxObjectId: cells[id]?.mxObjectId })));
+                    return;
+                }
+
+                const cellName = cell.name ? cell.name.replace('_', '#') : 'Unknown';
+
+                const resultString = `${cellName}
+        P[MW]: ${cell.p_mw ? cell.p_mw.toFixed(3) : 'N/A'}
+        Q[MVar]: ${cell.q_mvar ? cell.q_mvar.toFixed(3) : 'N/A'}
+        Um[pu]: ${cell.vm_pu ? cell.vm_pu.toFixed(3) : 'N/A'}
+        U[degree]: ${cell.va_degree ? cell.va_degree.toFixed(3) : 'N/A'}
+        Irradiance: ${cell.irradiance ? cell.irradiance.toFixed(3) : 'N/A'}
+        Temperature: ${cell.temperature ? cell.temperature.toFixed(3) : 'N/A'}`;
+
+                // Position PVSystem results below the element for better readability (PVSystems are typically larger)
+                const labelka = b.insertVertex(resultCell, null, resultString, 0, 3.0, 0, 0, 'shapeELXXX=Result', true);
+                processCellStyles(b, labelka);
+            } catch (error) {
+                console.error(`Error processing PVSystem ${cell.id}:`, error);
+            }
+        });
     }
 };
 
@@ -705,7 +772,7 @@ function updateCellColor(grafka, cell, color) {
 
 // Main processing function for OpenDSS (FROM BACKEND TO FRONTEND)
 // Updated to handle simplified backend response without output classes
-async function processNetworkData(url, obj, b, grafka) {
+async function processNetworkData(url, obj, b, grafka, app, exportCommands = false) {
     try {
         // Initialize styles once
         b.getStylesheet().putCellStyle('labelstyle', STYLES.label);
@@ -813,26 +880,60 @@ async function processNetworkData(url, obj, b, grafka) {
             elementProcessors.storages(dataJson.storages, b);
             processedCount += dataJson.storages.length;
         }
+
+        // Process pvsystems if present
+        if (dataJson.pvsystems && Array.isArray(dataJson.pvsystems)) {
+            console.log(`Processing ${dataJson.pvsystems.length} PVSystems`);
+            elementProcessors.pvsystems(dataJson.pvsystems, b);
+            processedCount += dataJson.pvsystems.length;
+        }
         
         // Check if we processed any results
         if (processedCount === 0) {
             console.warn('No results were processed from the OpenDSS backend response');
             console.log('Available keys in response:', Object.keys(dataJson));
-            
-            // Try to show a success message even if no results
-            alert('OpenDSS calculation completed successfully, but no results were returned to display.');
+
+            // No results processed - log but don't show alert
+            console.log('OpenDSS calculation completed but no results were processed');
         } else {
             console.log(`Successfully processed ${processedCount} OpenDSS results`);
-            alert(`OpenDSS calculation completed successfully! Processed ${processedCount} results.`);
+            // Results processed successfully - log but don't show alert
+            console.log(`OpenDSS calculation completed successfully! Processed ${processedCount} results.`);
+        }
+
+        // Handle OpenDSS commands export if requested
+        if (exportCommands && dataJson.opendss_commands) {
+            console.log('Exporting OpenDSS commands to file...');
+            downloadOpenDSSCommands(dataJson.opendss_commands);
         }
 
     } catch (err) {
-        if (err.message === "server") return;
+        if (err.message === "server") {
+            // Still stop spinner on server error
+            try {
+                if (app && app.spinner) {
+                    app.spinner.stop();
+                }
+            } catch (spinnerErr) {
+                console.error('Error stopping spinner:', spinnerErr);
+            }
+            return;
+        }
         console.error('Error processing OpenDSS network data:', err);
         alert('Error processing OpenDSS network data: ' + err + '\n\nCheck input data or contact electrisim@electrisim.com');
     } finally {
-        if (typeof window.App !== 'undefined' && window.App.spinner) {
-            window.App.spinner.stop();
+        // Always try to stop the spinner
+        console.log('Stopping spinner in finally block...');
+        try {
+            if (app && app.spinner) {
+                console.log('Spinner found, stopping...');
+                app.spinner.stop();
+                console.log('Spinner stopped successfully');
+            } else {
+                console.warn('Spinner not found on app parameter');
+            }
+        } catch (spinnerErr) {
+            console.error('Error stopping spinner:', spinnerErr);
         }
     }
 }
@@ -856,18 +957,19 @@ function executeOpenDSSLoadFlow(parameters, app, graph) {
     // Handle both old array format and new object format
     let opendssParams;
     if (Array.isArray(parameters)) {
-        // Old format: array of parameters
+        // Array format: [frequency, mode, algorithm, loadmodel, maxIterations, tolerance, controlmode, exportCommands]
         opendssParams = parameters;
     } else {
         // New format: object with named properties
         opendssParams = [
             parameters.frequency || '50',
-            parameters.algorithm || 'nr',
+            parameters.mode || 'Snapshot',
+            parameters.algorithm || 'Normal',
+            parameters.loadmodel || 'Powerflow',
             parameters.maxIterations || '100',
             parameters.tolerance || '0.0001',
-            parameters.convergence || 'normal',
-            parameters.voltageControl || 'off',
-            parameters.tapControl || 'off'
+            parameters.controlmode || 'Static',
+            parameters.exportCommands || false
         ];
     }
     
@@ -893,15 +995,17 @@ function executeOpenDSSLoadFlow(parameters, app, graph) {
     console.log('OpenDSS - User email:', userEmail);
     
     // Create the data structure for OpenDSS
+    // Reference: https://opendss.epri.com/PowerFlow.html
     const opendssData = {
         typ: "PowerFlowOpenDss Parameters",
-        frequency: opendssParams[0],
-        algorithm: opendssParams[1],
-        maxIterations: opendssParams[2],
-        tolerance: opendssParams[3],
-        convergence: opendssParams[4],
-        voltageControl: opendssParams[5],
-        tapControl: opendssParams[6],
+        frequency: opendssParams[0],           // Base frequency (50 or 60 Hz)
+        mode: opendssParams[1],                // Solution mode (Snapshot, Daily, Dutycycle, etc.)
+        algorithm: opendssParams[2],           // Solution algorithm (Normal, Newton)
+        loadmodel: opendssParams[3],           // Load model (Powerflow or Admittance)
+        maxIterations: opendssParams[4],       // Maximum iterations
+        tolerance: opendssParams[5],           // Convergence tolerance
+        controlmode: opendssParams[6],         // Control mode (Static, Event, Time)
+        exportCommands: opendssParams[7] || false,  // Export OpenDSS commands to file
         user_email: userEmail
     };
     
@@ -923,7 +1027,9 @@ function executeOpenDSSLoadFlow(parameters, app, graph) {
     console.log('Complete OpenDSS data:', completeData);
     
     // Call the new processNetworkData function
-    processNetworkData("https://03dht3kc-5000.euw.devtunnels.ms/", completeData, graph, graph);
+    // Pass the exportCommands flag (opendssParams[7])
+    const exportCommands = opendssParams[7] || false;
+    processNetworkData("https://03dht3kc-5000.euw.devtunnels.ms/", completeData, graph, graph, app, exportCommands);
 }
 
 // Function to collect network data from the graph using the new structured approach
@@ -1368,7 +1474,8 @@ function collectNetworkDataStructured(graph) {
                     // This is a shunt reactor element
                     const shuntParams = getAttributesAsObject(cell, {
                         // Basic shunt reactor parameters
-                        q_mvar: 'q_mvar',
+                        p_mw: 'p_mw',           // Active power
+                        q_mvar: 'q_mvar',       // Reactive power
                         sn_mva: 'sn_mva',
                         scaling: 'scaling',
                         type: 'type',
@@ -1387,6 +1494,7 @@ function collectNetworkDataStructured(graph) {
                         id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
                         bus: getConnectedBusId(cell),
                         // Use extracted parameters or defaults for critical values
+                        p_mw: shuntParams.p_mw || 0.0,          // Default active power
                         q_mvar: shuntParams.q_mvar || 1.0,      // Default reactive power
                         // Other parameters
                         sn_mva: shuntParams.sn_mva || 1.0,
@@ -1493,6 +1601,122 @@ function collectNetworkDataStructured(graph) {
                         console.log(`Storage ${cellData.name}: bus=${cellData.bus}, P=${cellData.p_mw}MW, Q=${cellData.q_mvar}MVar`);
                     } else {
                         console.warn(`Storage ${cellData.name} missing bus connection`);
+                    }
+                } else if (styleObj && styleObj.shapeELXXX === 'PVSystem') {
+                    // This is a PVSystem element
+                    const pvParams = getAttributesAsObject(cell, {
+                        // Basic PVSystem parameters
+                        irradiance: 'irradiance',
+                        pmpp: 'pmpp',
+                        temperature: 'temperature',
+                        phases: 'phases',
+                        kv: 'kv',
+                        pf: 'pf',
+                        kvar: 'kvar',
+                        kva: 'kva',
+                        cutin: 'cutin',
+                        cutout: 'cutout',
+                        effcurve: 'effcurve',
+                        ptcurve: 'ptcurve',
+                        r: 'r',
+                        x: 'x',
+                        // Additional parameters from OpenDSS docs
+                        conn: 'conn',
+                        model: 'model',
+                        vmaxpu: 'vmaxpu',
+                        vminpu: 'vminpu',
+                        yearly: 'yearly',
+                        daily: 'daily',
+                        duty: 'duty',
+                        tyearly: 'tyearly',
+                        tdaily: 'tdaily',
+                        tduty: 'tduty',
+                        class_: 'class',
+                        debugtrace: 'debugtrace',
+                        spectrum: 'spectrum',
+                        pminkvarmax: 'pminkvarmax',
+                        pminnovars: 'pminnovars',
+                        pmpp_percent: 'pmpp_percent',
+                        amplimit: 'amplimit',
+                        amplimitgain: 'amplimitgain',
+                        balanced: 'balanced',
+                        basefreq: 'basefreq',
+                        controlmode: 'controlmode',
+                        dutystart: 'dutystart',
+                        dynamiceq: 'dynamiceq',
+                        dynout: 'dynout',
+                        kp: 'kp',
+                        kvarmax: 'kvarmax',
+                        kvarmaxabs: 'kvarmaxabs',
+                        kvdc: 'kvdc',
+                        limitcurrent: 'limitcurrent',
+                        pfpriority: 'pfpriority',
+                        pitol: 'pitol',
+                        safemode: 'safemode',
+                        safevoltage: 'safevoltage',
+                        varfollowinverter: 'varfollowinverter',
+                        wattpriority: 'wattpriority'
+                    });
+
+                    cellData = {
+                        typ: 'PVSystem',
+                        name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
+                        id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
+                        bus: getConnectedBusId(cell),
+                        // Use extracted parameters or defaults for critical values
+                        irradiance: pvParams.irradiance || 1.0,
+                        pmpp: pvParams.pmpp || 100.0,
+                        temperature: pvParams.temperature || 25.0,
+                        phases: pvParams.phases || 3,
+                        kv: pvParams.kv || 20.0,
+                        pf: pvParams.pf || 1.0,
+                        kvar: pvParams.kvar || 0.0,
+                        kva: pvParams.kva || 120.0,  // Default 20% above Pmpp
+                        cutin: pvParams.cutin || 0.1,
+                        cutout: pvParams.cutout || 0.1,
+                        // Other parameters with defaults
+                        conn: pvParams.conn || 'wye',
+                        model: pvParams.model || 1,
+                        vmaxpu: pvParams.vmaxpu || 1.1,
+                        vminpu: pvParams.vminpu || 0.9,
+                        yearly: pvParams.yearly || '',
+                        daily: pvParams.daily || '',
+                        duty: pvParams.duty || '',
+                        tyearly: pvParams.tyearly || '',
+                        tdaily: pvParams.tdaily || '',
+                        tduty: pvParams.tduty || '',
+                        class_: pvParams.class_ || 1,
+                        debugtrace: pvParams.debugtrace || false,
+                        spectrum: pvParams.spectrum || 'default',
+                        pminkvarmax: pvParams.pminkvarmax || 0.0,
+                        pminnovars: pvParams.pminnovars || 0.0,
+                        pmpp_percent: pvParams.pmpp_percent || 100.0,
+                        amplimit: pvParams.amplimit || 1.0,
+                        amplimitgain: pvParams.amplimitgain || 0.8,
+                        balanced: pvParams.balanced || false,
+                        basefreq: pvParams.basefreq || 60.0,
+                        controlmode: pvParams.controlmode || 'GFL',
+                        dutystart: pvParams.dutystart || 0.0,
+                        dynamiceq: pvParams.dynamiceq || '',
+                        dynout: pvParams.dynout || '',
+                        kp: pvParams.kp || 0.1,
+                        kvarmax: pvParams.kvarmax || 120.0,
+                        kvarmaxabs: pvParams.kvarmaxabs || 120.0,
+                        kvdc: pvParams.kvdc || 20.0,
+                        limitcurrent: pvParams.limitcurrent || false,
+                        pfpriority: pvParams.pfpriority || false,
+                        pitol: pvParams.pitol || 0.01,
+                        safemode: pvParams.safemode || false,
+                        safevoltage: pvParams.safevoltage || 0.8,
+                        varfollowinverter: pvParams.varfollowinverter || false,
+                        wattpriority: pvParams.wattpriority || false
+                    };
+
+                    // Validate bus connection
+                    if (cellData.bus) {
+                        console.log(`PVSystem ${cellData.name}: bus=${cellData.bus}, Pmpp=${cellData.pmpp}kW, Irradiance=${cellData.irradiance}kW/m²`);
+                    } else {
+                        console.warn(`PVSystem ${cellData.name} missing bus connection`);
                     }
                 } else if (styleObj && styleObj.shapeELXXX === 'External Grid') {
                     // This is an external grid element
@@ -1986,31 +2210,76 @@ function getBusVoltage(cellValue) {
 
 // Function to execute Pandapower load flow calculation
 function executePandapowerLoadFlow(parameters, app, graph) {
-    console.log('Executing Pandapower load flow with parameters:', parameters);
+    console.log('✅ executePandapowerLoadFlow called with parameters:', parameters);
+    console.log('✅ exportPython value:', parameters.exportPython);
     
     // Start the spinner
     app.spinner.spin(document.body, "Waiting for Pandapower results...");
     
-    // Convert parameters to the format expected by the pandapower processing logic
-    const pandapowerParams = [
-        parameters.frequency || '50',
-        parameters.algorithm || 'nr',
-        parameters.calculate_voltage_angles || 'auto',
-        parameters.initialization || 'auto'
-    ];
-    
-    console.log('Converted pandapower parameters:', pandapowerParams);
-    
-    // Execute pandapower core logic directly
-    executePandapowerCoreLogic(pandapowerParams, app, graph);
+    // If parameters is already an object with all properties, pass it directly
+    // This preserves exportPython and other flags!
+    if (typeof parameters === 'object' && !Array.isArray(parameters) && parameters.frequency) {
+        console.log('✅ Parameters is already an object, passing directly to core logic');
+        console.log('✅ Preserving exportPython:', parameters.exportPython);
+        executePandapowerCoreLogic(parameters, app, graph);
+    } else {
+        // Legacy array format support
+        console.log('⚠️ Converting array format to object (legacy path)');
+        const pandapowerParams = [
+            parameters.frequency || parameters[0] || '50',
+            parameters.algorithm || parameters[1] || 'nr',
+            parameters.calculate_voltage_angles || parameters[2] || 'auto',
+            parameters.initialization || parameters[3] || 'auto'
+        ];
+        
+        console.log('Converted pandapower parameters:', pandapowerParams);
+        executePandapowerCoreLogic(pandapowerParams, app, graph);
+    }
 }
 
 // Function to execute pandapower core logic without showing dialog
 function executePandapowerCoreLogic(parameters, app, graph) {
+    console.log('⚠️ executePandapowerCoreLogic called - THIS SHOULD NOT BE USED FOR NORMAL LOAD FLOW!');
     console.log('Executing pandapower core logic with parameters:', parameters);
+    console.log('exportPython in parameters:', parameters.exportPython);
     
-    // Let's try a different approach - override the show method of all LoadFlowDialog instances
-    // and then call the original function
+    // Convert old array format to new object format
+    let paramObject;
+    if (Array.isArray(parameters)) {
+        console.log('⚠️ Array format detected - converting to object (exportPython will be false)');
+        paramObject = {
+            frequency: parameters[0] || '50',
+            algorithm: parameters[1] || 'nr',
+            calculate_voltage_angles: parameters[2] || 'auto',
+            initialization: parameters[3] || 'auto',
+            exportPython: false,  // Default to false for this legacy path
+            engine: 'pandapower'
+        };
+    } else if (typeof parameters === 'object' && parameters !== null) {
+        console.log('✅ Object format detected - preserving all properties including exportPython');
+        console.log('✅ exportPython value:', parameters.exportPython);
+        // Parameters is already an object, use it directly (preserves exportPython!)
+        paramObject = {
+            frequency: parameters.frequency || '50',
+            algorithm: parameters.algorithm || 'nr',
+            calculate_voltage_angles: parameters.calculate_voltage_angles || 'auto',
+            initialization: parameters.initialization || 'auto',
+            exportPython: parameters.exportPython || false,  // PRESERVE the user's choice!
+            enforceLimits: parameters.enforceLimits || false,  // Also preserve other checkboxes
+            engine: parameters.engine || 'pandapower'
+        };
+        console.log('✅ Final paramObject.exportPython:', paramObject.exportPython);
+    } else {
+        console.warn('⚠️ Unexpected parameters format:', typeof parameters);
+        paramObject = {
+            frequency: '50',
+            algorithm: 'nr',
+            calculate_voltage_angles: 'auto',
+            initialization: 'auto',
+            exportPython: false,
+            engine: 'pandapower'
+        };
+    }
     
     // Store the original show method
     const originalShow = window.LoadFlowDialog.prototype.show;
@@ -2019,9 +2288,10 @@ function executePandapowerCoreLogic(parameters, app, graph) {
     try {
         // Temporarily override the show method on the prototype
         window.LoadFlowDialog.prototype.show = function(callback) {
-            console.log('Overridden LoadFlowDialog.show called, immediately calling callback with parameters:', parameters);
-            // Immediately call the callback with our parameters
-            callback(parameters, null);
+            console.log('Overridden LoadFlowDialog.show called, immediately calling callback with param OBJECT:', paramObject);
+            console.log('✅ exportPython in paramObject being passed to callback:', paramObject.exportPython);
+            // Call the callback with the object format
+            callback(paramObject);
         };
         
         console.log('Replaced LoadFlowDialog.prototype.show with dummy version');

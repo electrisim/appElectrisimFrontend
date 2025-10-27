@@ -1,3 +1,45 @@
+// Helper function to download Pandapower Python code as a file
+const downloadPandapowerPython = (pythonCode) => {
+    console.log('🔽 downloadPandapowerPython() called');
+    console.log('Python code to download:', pythonCode ? pythonCode.substring(0, 100) + '...' : 'NULL/UNDEFINED');
+    
+    try {
+        if (!pythonCode || pythonCode.length === 0) {
+            console.error('❌ Cannot download: Python code is empty or undefined');
+            alert('Cannot download: Python code is empty');
+            return;
+        }
+        
+        // Create a blob with the Python code
+        const blob = new Blob([pythonCode], { type: 'text/plain' });
+        console.log('Blob created, size:', blob.size, 'bytes');
+        
+        // Create a download link
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        
+        // Generate filename with timestamp
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+        link.download = `Pandapower_Model_${timestamp}.py`;
+        console.log('Download filename:', link.download);
+        
+        // Trigger download
+        document.body.appendChild(link);
+        console.log('Link added to DOM, triggering click...');
+        link.click();
+        
+        // Cleanup
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        console.log('✅ Pandapower Python code file downloaded successfully!');
+    } catch (error) {
+        console.error('❌ Error downloading Pandapower Python code:', error);
+        alert('Failed to download Pandapower Python code file. Error: ' + error.message);
+    }
+};
+
 //define buses to which the cell is connected
 const getConnectedBusId = (cell, isLine = false) => {
     //console.log('cell in getConnectedBusId', cell);
@@ -1008,8 +1050,10 @@ function loadFlowPandaPower(a, b, c) {
                 stylesheet.putCellStyle('lineStyle', STYLES.line);
             }
 
-            // Compress payload by removing null/undefined values and minimizing data
-            const compressedObj = compressPayload(obj);
+            // Log payload before sending
+            console.log('🔍 Payload obj[0] (simulationParameters):', obj[0]);
+            console.log('🔍 exportPython value:', obj[0]?.exportPython);
+            console.log('🔍 Full payload keys:', Object.keys(obj));
 
             const response = await fetch(url, {
                 mode: "cors",
@@ -1018,7 +1062,7 @@ function loadFlowPandaPower(a, b, c) {
                     "Content-Type": "application/json",
                     "Accept-Encoding": "gzip, deflate, br"
                 },
-                body: JSON.stringify(compressedObj)
+                body: JSON.stringify(obj)
             });
 
             if (response.status !== 200) {
@@ -1027,10 +1071,21 @@ function loadFlowPandaPower(a, b, c) {
 
             const dataJson = await response.json();
             console.log('Received data size:', JSON.stringify(dataJson).length, 'bytes');
+            console.log('Response keys:', Object.keys(dataJson));
+            console.log('Has pandapower_python?', 'pandapower_python' in dataJson);
 
             // Handle errors first
             if (handleNetworkErrors(dataJson)) {
                 return;
+            }
+
+            // Handle Python code export if requested
+            if (dataJson.pandapower_python) {
+                console.log('✅ Exporting Pandapower Python code to file...');
+                console.log('Python code length:', dataJson.pandapower_python.length, 'characters');
+                downloadPandapowerPython(dataJson.pandapower_python);
+            } else {
+                console.log('ℹ️ No Python code export requested or available in response');
             }
 
             // Optimize result processing with enhanced performance monitoring
@@ -1094,8 +1149,14 @@ function loadFlowPandaPower(a, b, c) {
 
         apka.spinner.spin(document.body, "Waiting for results...")
 
+        console.log('🔍 loadFlowPandaPower callback received parameter "a":', a);
+        console.log('🔍 Type of "a":', typeof a, ', Is array?', Array.isArray(a));
+
         // Initialize load flow parameters
-        if (a.length > 0) {
+        // Handle both old array format and new object format
+        const hasParameters = (Array.isArray(a) && a.length > 0) || (typeof a === 'object' && a !== null && !Array.isArray(a));
+        
+        if (hasParameters) {
             // Get current user email with robust fallback
             function getUserEmail() {
                 try {
@@ -1150,12 +1211,30 @@ function loadFlowPandaPower(a, b, c) {
             console.log('Final userEmail:', userEmail);
             console.log('======================');
             
+            // Support both new object format and old array format
+            const isObjectFormat = typeof a === 'object' && !Array.isArray(a) && a !== null;
+            
+            console.log('=== Load Flow Parameters Debug ===');
+            console.log('Parameters format:', isObjectFormat ? 'OBJECT' : 'ARRAY');
+            console.log('Parameters value:', a);
+            console.log('exportPython value:', isObjectFormat ? a.exportPython : 'N/A (array format)');
+            console.log('exportPython type:', typeof a.exportPython);
+            console.log('exportPython === true:', a.exportPython === true);
+            console.log('exportPython === false:', a.exportPython === false);
+            console.log('All keys in a:', Object.keys(a));
+            console.log('===================================');
+            
+            // Ensure exportPython is properly captured as a boolean
+            const exportPythonValue = isObjectFormat ? (a.exportPython === true) : false;
+            console.log('🔍 Final exportPython value being sent:', exportPythonValue);
+            
             componentArrays.simulationParameters.push({
                 typ: "PowerFlowPandaPower Parameters",
-                frequency: a[0],
-                algorithm: a[1],
-                calculate_voltage_angles: a[2],
-                initialization: a[3],
+                frequency: isObjectFormat ? a.frequency : a[0],
+                algorithm: isObjectFormat ? a.algorithm : a[1],
+                calculate_voltage_angles: isObjectFormat ? a.calculate_voltage_angles : a[2],
+                initialization: isObjectFormat ? a.initialization : a[3],
+                exportPython: exportPythonValue,  // Use explicitly converted boolean
                 user_email: userEmail  // Add user email to simulation data
             });
 
@@ -2203,6 +2282,10 @@ function loadFlowPandaPower(a, b, c) {
         console.log(`Components: ${processedComponents}, Result cells removed: ${resultCellsRemoved}`);
         console.log(`Payload composition:`, payloadAnalysis);
 
+        // Debug: Log the first element which should be simulationParameters
+        console.log('🔍 About to send to backend - First element (simulationParameters):', obj[0]);
+        console.log('🔍 exportPython value in payload:', obj[0]?.exportPython);
+        
         processNetworkData("https://03dht3kc-5000.euw.devtunnels.ms/", obj, b, grafka);
         
         // Clean up caches and references to prevent memory accumulation

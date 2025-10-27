@@ -170,6 +170,22 @@ Draw.loadPlugin(function(ui)
 	{
 		var changed = false;
 		
+		// Ensure cell.value is a proper XML element, preserving label
+		if (!cell.value)
+		{
+			cell.value = mxUtils.createXmlDocument().createElement('object');
+		}
+		else if (typeof cell.value.setAttribute !== 'function')
+		{
+			var oldValue = cell.value;
+			cell.value = mxUtils.createXmlDocument().createElement('object');
+			// Preserve the original value as a label attribute
+			if (oldValue != null)
+			{
+				cell.value.setAttribute('label', oldValue.toString());
+			}
+		}
+		
 		function setAttr(key, value)
 		{
 			var prev = cell.value.getAttribute(key);
@@ -340,14 +356,31 @@ Draw.loadPlugin(function(ui)
 				    			'(<a href="' + deskDomain + '/contacts/%requester_id%">From</a>)',
 								graph.snap(dx), graph.snap(dy), 200, 50,
 								'html=1;whiteSpace=wrap;overflow=hidden;shape=mxgraph.atlassian.issue;' +
-								'fontSize=12;verticalAlign=top;align=left;spacingTop=25;' +
-								'strokeColor=#A8ADB0;fillColor=#EEEEEE;backgroundOutline=1;');
-				    		
-				    		graph.setLinkForCell(cell, text);
-				    		cell.value.setAttribute('title', shortString(ticket.subject, 40));
-				    		cell.value.setAttribute('subject', ticket.subject);
-							cell.value.setAttribute('placeholders', '1');
-							cell.value.setAttribute('ticket_id', id);
+			    		'fontSize=12;verticalAlign=top;align=left;spacingTop=25;' +
+			    		'strokeColor=#A8ADB0;fillColor=#EEEEEE;backgroundOutline=1;');
+			    		
+		    		graph.setLinkForCell(cell, text);
+		    		
+		    		// Ensure cell.value is a proper XML element, preserving label
+		    		if (!cell.value)
+		    		{
+		    			cell.value = mxUtils.createXmlDocument().createElement('object');
+		    		}
+		    		else if (typeof cell.value.setAttribute !== 'function')
+		    		{
+		    			var oldValue = cell.value;
+		    			cell.value = mxUtils.createXmlDocument().createElement('object');
+		    			// Preserve the original value as a label attribute
+		    			if (oldValue != null)
+		    			{
+		    				cell.value.setAttribute('label', oldValue.toString());
+		    			}
+		    		}
+		    		
+		    		cell.value.setAttribute('title', shortString(ticket.subject, 40));
+			    		cell.value.setAttribute('subject', ticket.subject);
+						cell.value.setAttribute('placeholders', '1');
+						cell.value.setAttribute('ticket_id', id);
 				    		updateData(cell, ticket);
 							updateStyle(cell, ticket);
 
@@ -398,3 +431,4 @@ Draw.loadPlugin(function(ui)
 		}
 	};
 });
+

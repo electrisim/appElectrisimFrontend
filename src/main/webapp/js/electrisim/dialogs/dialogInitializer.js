@@ -81,9 +81,10 @@ function initializeDialogs() {
                     return;
                 }
                 
-                // Mark that a dialog is being shown for this cell and globally
-                cell._dialogShowing = true;
-                window._globalDialogShowing = true;
+                // NOTE: Do NOT set cell._dialogShowing or window._globalDialogShowing here!
+                // These flags are managed by EditDataDialog and ComponentsDataDialog internally.
+                // Setting them here causes issues because if the dialog creation fails or
+                // the user clicks quickly, the flags can get stuck.
                 
                 // Check if this is the root cell or a request for all components overview
                 const model = this.editor.graph.getModel();
@@ -111,8 +112,7 @@ function initializeDialogs() {
                 // Check if the dialog should be shown (for special cases like Result elements)
                 if (dialog.shouldShowDialog === false) {
                     console.log('Dialog should not be shown for this cell type');
-                    cell._dialogShowing = false;
-                    window._globalDialogShowing = false;
+                    // Flags are managed internally by the dialog classes
                     return;
                 }
                 

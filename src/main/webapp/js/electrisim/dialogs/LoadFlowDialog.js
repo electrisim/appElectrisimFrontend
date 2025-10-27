@@ -1,10 +1,17 @@
 // LoadFlowDialog.js - Dialog for Load Flow parameters with tabs for Pandapower and OpenDSS
+// VERSION: 2024-10-18 - Updated with correct OpenDSS parameters
 import { Dialog } from '../Dialog.js';
 import { ensureSubscriptionFunctions } from '../ensureSubscriptionFunctions.js';
+
+console.log('🔥 LoadFlowDialog.js LOADED - Version 2024-10-18 14:30 - WITH NEW OPENDSS PARAMETERS');
 
 export class LoadFlowDialog extends Dialog {
     constructor(editorUi) {
         super('Load Flow Parameters', 'Calculate');
+        console.log('🔥 LoadFlowDialog constructor called - OpenDSS params include: mode, loadmodel, controlmode');
+        console.log('   - this.inputs from parent:', this.inputs);
+        console.log('   - this.inputs is Map:', this.inputs instanceof Map);
+        console.log('   - this.inputs size:', this.inputs.size);
         
         // Use global App if editorUi is not valid
         this.ui = editorUi || window.App?.main?.editor?.editorUi;
@@ -56,13 +63,21 @@ export class LoadFlowDialog extends Dialog {
             },
             { id: 'maxIterations', label: 'Max Iterations', type: 'number', value: '100' },
             { id: 'tolerance', label: 'Tolerance', type: 'number', value: '1e-6' },
-            { id: 'enforceLimits', label: 'Enforce Q Limits', type: 'checkbox', value: false }
+            { id: 'enforceLimits', label: 'Enforce Q Limits', type: 'checkbox', value: false },
+            {
+                id: 'exportPython',
+                label: 'Export Pandapower Python Code (download .py file)',
+                type: 'checkbox',
+                value: false
+            }
         ];
 
+        // OpenDSS specific parameters based on OpenDSS documentation
+        // Reference: https://opendss.epri.com/PowerFlow.html
         this.opendssParameters = [
             {
                 id: 'frequency',
-                label: 'Frequency',
+                label: 'Base Frequency',
                 type: 'radio',
                 options: [
                     { value: '50', label: '50 Hz', default: true },
@@ -70,12 +85,32 @@ export class LoadFlowDialog extends Dialog {
                 ]
             },
             {
-                id: 'algorithm',
-                label: 'Algorithm',
+                id: 'mode',
+                label: 'Solution Mode',
                 type: 'radio',
                 options: [
-                    { value: 'Admittance', label: 'Admittance (Iterative Load Flow)', default: true },
-                    { value: 'PowerFlow', label: 'PowerFlow (Direct Solution)' }
+                    { value: 'Snapshot', label: 'Snapshot (Single Solution)', default: true },
+                    { value: 'Daily', label: 'Daily (24-hour simulation)' },
+                    { value: 'Dutycycle', label: 'Dutycycle (Time-varying)' },
+                    { value: 'Yearly', label: 'Yearly' }
+                ]
+            },
+            {
+                id: 'algorithm',
+                label: 'Solution Algorithm',
+                type: 'radio',
+                options: [
+                    { value: 'Normal', label: 'Normal (Fast current injection)', default: true },
+                    { value: 'Newton', label: 'Newton (Robust for difficult circuits)' }
+                ]
+            },
+            {
+                id: 'loadmodel',
+                label: 'Load Model',
+                type: 'radio',
+                options: [
+                    { value: 'Powerflow', label: 'Powerflow (Iterative with power injections)', default: true },
+                    { value: 'Admittance', label: 'Admittance (Direct solution)' }
                 ]
             },
             {
@@ -86,18 +121,25 @@ export class LoadFlowDialog extends Dialog {
             },
             {
                 id: 'tolerance',
-                label: 'Tolerance',
+                label: 'Convergence Tolerance',
                 type: 'number',
-                value: '1e-6'
+                value: '0.0001'
             },
             {
-                id: 'convergence',
-                label: 'Convergence Method',
+                id: 'controlmode',
+                label: 'Control Mode',
                 type: 'radio',
                 options: [
-                    { value: 'normal', label: 'Normal', default: true },
-                    { value: 'accelerated', label: 'Accelerated' }
+                    { value: 'Static', label: 'Static (No control actions)', default: true },
+                    { value: 'Event', label: 'Event (Time-based controls)' },
+                    { value: 'Time', label: 'Time (Continuous controls)' }
                 ]
+            },
+            {
+                id: 'exportCommands',
+                label: 'Export OpenDSS Commands (download .txt file)',
+                type: 'checkbox',
+                value: false
             }
         ];
 
@@ -172,14 +214,24 @@ export class LoadFlowDialog extends Dialog {
     }
 
     switchTab(tabId) {
-        console.log('Switching to tab:', tabId);
+        console.log('🔥🔥🔥 SWITCHING TAB 🔥🔥🔥');
+        console.log('   FROM:', this.currentTab, 'TO:', tabId);
+        console.log('   Stack trace:', new Error().stack);
         this.currentTab = tabId;
+        
+        // Clear the inputs map to avoid stale references
+        console.log('⚠️ ABOUT TO CLEAR INPUTS MAP - THIS WILL LOSE CHECKBOX STATE!');
+        console.log('   Inputs before clear:', Array.from(this.inputs.keys()));
+        this.inputs.clear();
+        console.log('🔥 Cleared inputs map');
         
         // Update the parameters array based on the selected tab
         if (tabId === 'pandapower') {
             this.parameters = this.pandapowerParameters;
+            console.log('🔥 Loaded Pandapower parameters');
         } else {
             this.parameters = this.opendssParameters;
+            console.log('🔥 Loaded OpenDSS parameters:', this.opendssParameters.map(p => p.id));
         }
         
         // Update tab headers - find all tabs with data-tab-id attribute
@@ -203,18 +255,30 @@ export class LoadFlowDialog extends Dialog {
     }
 
     recreateForm() {
-        // Find the scrollable content container and replace the form inside it
-        const scrollableContent = this.container.querySelector('div[style*="overflowY"]');
+        console.log('🔥 recreateForm() called');
+        // Find the scrollable content container using data attribute
+        const scrollableContent = this.container.querySelector('[data-form-container="true"]');
+        console.log('🔥 scrollableContent found:', !!scrollableContent);
         if (scrollableContent) {
             const existingForm = scrollableContent.querySelector('form');
+            console.log('🔥 existingForm found:', !!existingForm);
             if (existingForm) {
+                console.log('🔥 Replacing form with new parameters');
                 const newForm = this.createForm();
                 scrollableContent.replaceChild(newForm, existingForm);
+                console.log('🔥 Form replaced successfully');
+            } else {
+                console.error('🔥 ERROR: No form found inside scrollableContent!');
             }
+        } else {
+            console.error('🔥 ERROR: scrollableContent not found! Container:', this.container);
         }
     }
 
     createForm() {
+        console.log('🔥 createForm() called with', this.parameters.length, 'parameters');
+        console.log('🔥 Parameter IDs:', this.parameters.map(p => p.id));
+        
         const form = document.createElement('form');
         Object.assign(form.style, {
             display: 'flex',
@@ -225,7 +289,8 @@ export class LoadFlowDialog extends Dialog {
         });
 
         // Create form fields from current parameters
-        this.parameters.forEach(param => {
+        this.parameters.forEach((param, index) => {
+            console.log(`🔥 Creating form field ${index}:`, param.id, param.label);
             const formGroup = document.createElement('div');
             Object.assign(formGroup.style, {
                 marginBottom: '4px'
@@ -320,12 +385,46 @@ export class LoadFlowDialog extends Dialog {
         checkbox.type = 'checkbox';
         checkbox.id = param.id;
         checkbox.checked = param.value;
+        checkbox.setAttribute('data-param-id', param.id); // Add data attribute for easier debugging
         Object.assign(checkbox.style, {
             width: '16px',
             height: '16px',
             accentColor: '#007bff'
         });
+        
+        // Add change listener for debugging
+        checkbox.addEventListener('change', (e) => {
+            console.log(`✅✅✅ CHECKBOX CHANGE EVENT FIRED ✅✅✅`);
+            console.log(`   - Checkbox ID: ${param.id}`);
+            console.log(`   - New value: ${e.target.checked}`);
+            console.log(`   - Element ID: ${e.target.id}`);
+            console.log(`   - Instance ID: ${e.target.getAttribute('data-instance-id')}`);
+            console.log(`   - Timestamp: ${new Date().toISOString()}`);
+            console.log(`   - Element in inputs map:`, this.inputs.get(param.id) === e.target);
+            console.log(`   - Inputs map has key:`, this.inputs.has(param.id));
+            if (this.inputs.has(param.id)) {
+                const mapCheckbox = this.inputs.get(param.id);
+                console.log(`   - Map checkbox instance ID:`, mapCheckbox.getAttribute('data-instance-id'));
+                console.log(`   - Same element:`, mapCheckbox === e.target);
+            }
+            
+            // Verify the checkbox state is persisted
+            setTimeout(() => {
+                console.log(`   - [Verification 100ms later] Checkbox ${param.id} is still ${e.target.checked}`);
+                console.log(`   - [Verification] Instance ID: ${e.target.getAttribute('data-instance-id')}`);
+            }, 100);
+        });
+        
+        // Store the checkbox element directly in the inputs map
         this.inputs.set(param.id, checkbox);
+        
+        // Add a unique identifier to track this specific checkbox instance
+        checkbox.setAttribute('data-instance-id', `checkbox_${Date.now()}_${Math.random()}`);
+        
+        console.log(`📝 Created checkbox ${param.id}, stored in inputs map, initial checked=${checkbox.checked}`);
+        console.log(`   - Stored element:`, this.inputs.get(param.id));
+        console.log(`   - Checkbox ID:`, checkbox.id);
+        console.log(`   - Instance ID:`, checkbox.getAttribute('data-instance-id'));
 
         const checkboxLabel = document.createElement('label');
         checkboxLabel.htmlFor = param.id;
@@ -371,6 +470,12 @@ export class LoadFlowDialog extends Dialog {
     getFormValues() {
         const values = {};
         
+        console.log('📋 getFormValues() called');
+        console.log('Current tab:', this.currentTab);
+        console.log('Parameters count:', this.parameters.length);
+        console.log('Inputs map size:', this.inputs.size);
+        console.log('Inputs map keys:', Array.from(this.inputs.keys()));
+        
         // Get values from current parameters
         this.parameters.forEach(param => {
             if (param.type === 'radio') {
@@ -380,8 +485,40 @@ export class LoadFlowDialog extends Dialog {
                     values[param.id] = checkedRadio ? checkedRadio.value : param.options[0].value;
                 }
             } else if (param.type === 'checkbox') {
-                const checkbox = this.inputs.get(param.id);
-                values[param.id] = checkbox ? checkbox.checked : param.value;
+                // Try to get checkbox from inputs map
+                let checkbox = this.inputs.get(param.id);
+                console.log(`Checkbox ${param.id} from inputs map:`, checkbox ? `exists, checked=${checkbox.checked}` : 'NOT FOUND');
+                if (checkbox) {
+                    console.log(`  - Instance ID from map:`, checkbox.getAttribute('data-instance-id'));
+                }
+                
+                // Fallback: try to find it directly in the DOM
+                if (!checkbox) {
+                    checkbox = document.getElementById(param.id);
+                    console.log(`  Fallback DOM lookup for ${param.id}:`, checkbox ? `found, checked=${checkbox.checked}` : 'NOT FOUND');
+                    if (checkbox) {
+                        console.log(`  - Instance ID from DOM:`, checkbox.getAttribute('data-instance-id'));
+                    }
+                }
+                
+                // Also try finding it within the container
+                if (!checkbox && this.container) {
+                    checkbox = this.container.querySelector(`input[type="checkbox"]#${param.id}`);
+                    console.log(`  Container lookup for ${param.id}:`, checkbox ? `found, checked=${checkbox.checked}` : 'NOT FOUND');
+                    if (checkbox) {
+                        console.log(`  - Instance ID from container:`, checkbox.getAttribute('data-instance-id'));
+                    }
+                }
+                
+                // Set the value
+                if (checkbox) {
+                    values[param.id] = checkbox.checked;
+                    console.log(`  ✅ Final value for ${param.id}:`, checkbox.checked);
+                    console.log(`  ✅ Instance ID:`, checkbox.getAttribute('data-instance-id'));
+                } else {
+                    values[param.id] = param.value || false;
+                    console.log(`  ⚠️ Using default value for ${param.id}:`, param.value || false);
+                }
             } else {
                 const input = this.inputs.get(param.id);
                 values[param.id] = input ? input.value : param.value;
@@ -391,11 +528,20 @@ export class LoadFlowDialog extends Dialog {
         // Add engine type
         values.engine = this.currentTab;
         
+        console.log('📋 Collected values:', values);
         return values;
     }
 
     show(callback) {
-        console.log('LoadFlowDialog.show() called');
+        console.log('🚀 LoadFlowDialog.show() called');
+        console.log('   - this.inputs before clear:', this.inputs);
+        console.log('   - this.inputs size before clear:', this.inputs.size);
+        
+        // Clear inputs map to ensure clean state
+        this.inputs.clear();
+        console.log('🔄 Inputs map cleared at dialog show');
+        console.log('   - this.inputs after clear:', this.inputs);
+        console.log('   - this.inputs is Map:', this.inputs instanceof Map);
         
         // Create the dialog content with tabs
         const container = document.createElement('div');
@@ -436,6 +582,7 @@ export class LoadFlowDialog extends Dialog {
 
         // Create scrollable content area for the form
         const scrollableContent = document.createElement('div');
+        scrollableContent.setAttribute('data-form-container', 'true'); // Add identifier for easy lookup
         Object.assign(scrollableContent.style, {
             flex: '1',
             overflowY: 'auto',
@@ -449,6 +596,18 @@ export class LoadFlowDialog extends Dialog {
         const form = this.createForm();
         scrollableContent.appendChild(form);
         container.appendChild(scrollableContent);
+        
+        // Debug: Log inputs map state after form creation
+        console.log('📋 After createForm() - inputs map state:');
+        console.log('   - Size:', this.inputs.size);
+        console.log('   - Keys:', Array.from(this.inputs.keys()));
+        console.log('   - Has exportPython:', this.inputs.has('exportPython'));
+        if (this.inputs.has('exportPython')) {
+            const checkbox = this.inputs.get('exportPython');
+            console.log('   - exportPython checkbox:', checkbox);
+            console.log('   - exportPython checkbox.checked:', checkbox.checked);
+            console.log('   - exportPython checkbox.id:', checkbox.id);
+        }
 
         // Add button container (fixed at bottom)
         const buttonContainer = document.createElement('div');
@@ -500,11 +659,59 @@ export class LoadFlowDialog extends Dialog {
                 }
                 
                 console.log('LoadFlowDialog: Subscription check passed, proceeding with calculation...');
+                console.log('=== PRE-CALLBACK DEBUG ===');
+                console.log('Current tab:', this.currentTab);
+                console.log('Inputs map size before getFormValues:', this.inputs.size);
+                console.log('Inputs map keys:', Array.from(this.inputs.keys()));
+                
+                // Debug: Check ALL checkboxes in the DOM
+                const allCheckboxes = this.container ? this.container.querySelectorAll('input[type="checkbox"]') : [];
+                console.log('All checkboxes in container:', allCheckboxes.length);
+                allCheckboxes.forEach((cb, idx) => {
+                    console.log(`  Checkbox ${idx}: id="${cb.id}", checked=${cb.checked}, instance="${cb.getAttribute('data-instance-id')}"`);
+                });
+                
+                // Debug: Check if exportPython checkbox is in the inputs map
+                if (this.inputs.has('exportPython')) {
+                    const checkbox = this.inputs.get('exportPython');
+                    console.log('exportPython checkbox found in inputs map:');
+                    console.log('  - checked:', checkbox.checked);
+                    console.log('  - id:', checkbox.id);
+                    console.log('  - type:', checkbox.type);
+                    console.log('  - instance ID:', checkbox.getAttribute('data-instance-id'));
+                    console.log('  - Element still in DOM:', document.body.contains(checkbox));
+                    
+                    // Also check if there's a different checkbox in the DOM with same ID
+                    const domCheckbox = document.getElementById('exportPython');
+                    if (domCheckbox && domCheckbox !== checkbox) {
+                        console.warn('⚠️ FOUND DIFFERENT CHECKBOX IN DOM WITH SAME ID!');
+                        console.log('  - DOM checkbox checked:', domCheckbox.checked);
+                        console.log('  - DOM checkbox instance ID:', domCheckbox.getAttribute('data-instance-id'));
+                        console.log('  - Map checkbox instance ID:', checkbox.getAttribute('data-instance-id'));
+                    }
+                } else {
+                    console.warn('❌ exportPython checkbox NOT FOUND in inputs map!');
+                    console.log('Attempting direct DOM lookup...');
+                    const domCheckbox = document.getElementById('exportPython');
+                    if (domCheckbox) {
+                        console.log('✅ Found via DOM lookup:');
+                        console.log('  - checked:', domCheckbox.checked);
+                        console.log('  - id:', domCheckbox.id);
+                        console.log('  - instance ID:', domCheckbox.getAttribute('data-instance-id'));
+                    } else {
+                        console.error('❌ NOT FOUND via DOM lookup either!');
+                    }
+                }
                 
                 const values = this.getFormValues();
-                console.log(`${this.title} values:`, values);
+                console.log(`${this.title} collected values:`, values);
+                console.log('exportPython in values:', 'exportPython' in values);
+                console.log('exportPython value:', values.exportPython);
+                console.log('exportPython type:', typeof values.exportPython);
+                console.log('=== END PRE-CALLBACK DEBUG ===');
                 
                 if (callback) {
+                    console.log('Calling callback with values:', values);
                     callback(values);
                 }
                 

@@ -6,7 +6,6 @@ export const defaultBusData = {
     vn_kv: 0.0,
     in_service: true,
     type: "b",
-    zone: null,
     max_vm_pu: 1.1,
     min_vm_pu: 0.9
 };
@@ -58,14 +57,6 @@ export class BusDialog extends Dialog {
                 type: 'select',
                 options: ['b', 'n'],
                 value: this.data.type
-            },
-            {
-                id: 'zone',
-                label: 'Zone',
-                symbol: 'zone',
-                description: 'Grid region/zone identifier for the bus',
-                type: 'text',
-                value: this.data.zone || ''
             }
         ];
         
@@ -238,7 +229,8 @@ export class BusDialog extends Dialog {
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
-            this.ui.showDialog(container, 750, 600, true, false);
+            const screenHeight = window.innerHeight - 80;
+            this.ui.showDialog(container, 1000, screenHeight, true, false);
         } else {
             this.showModalFallback(container);
         }
@@ -546,23 +538,23 @@ export class BusDialog extends Dialog {
             delete window._globalDialogShowing;
         }
         
-        console.log('Bus dialog destroyed and flags cleared');
+        // console.log('Bus dialog destroyed and flags cleared');
     }
     
     populateDialog(cellData) {
-        console.log('=== BusDialog.populateDialog called ===');
-        console.log('Cell data:', cellData);
+        // console.log('=== BusDialog.populateDialog called ===');
+        // console.log('Cell data:', cellData);
         
         // Update parameter values based on cell data
         if (cellData && cellData.attributes) {
-            console.log(`Found ${cellData.attributes.length} attributes to process`);
+            // console.log(`Found ${cellData.attributes.length} attributes to process`);
             
             for (let i = 0; i < cellData.attributes.length; i++) {
                 const attribute = cellData.attributes[i];
                 const attributeName = attribute.name;
                 const attributeValue = attribute.value;
                 
-                console.log(`Processing attribute: ${attributeName} = ${attributeValue}`);
+                // console.log(`Processing attribute: ${attributeName} = ${attributeValue}`);
                 
                 // Update the dialog's parameter values (not DOM inputs)
                 const loadFlowParam = this.loadFlowParameters.find(p => p.id === attributeName);
@@ -573,7 +565,7 @@ export class BusDialog extends Dialog {
                     } else {
                         loadFlowParam.value = attributeValue;
                     }
-                    console.log(`  Updated loadFlow ${attributeName}: ${oldValue} → ${loadFlowParam.value}`);
+                    // console.log(`  Updated loadFlow ${attributeName}: ${oldValue} → ${loadFlowParam.value}`);
                 }
                 
                 const shortCircuitParam = this.shortCircuitParameters.find(p => p.id === attributeName);
@@ -584,7 +576,7 @@ export class BusDialog extends Dialog {
                     } else {
                         shortCircuitParam.value = attributeValue;
                     }
-                    console.log(`  Updated shortCircuit ${attributeName}: ${oldValue} → ${shortCircuitParam.value}`);
+                    // console.log(`  Updated shortCircuit ${attributeName}: ${oldValue} → ${shortCircuitParam.value}`);
                 }
                 
                 const opfParam = this.opfParameters.find(p => p.id === attributeName);
@@ -595,18 +587,16 @@ export class BusDialog extends Dialog {
                     } else {
                         opfParam.value = attributeValue;
                     }
-                    console.log(`  Updated opf ${attributeName}: ${oldValue} → ${opfParam.value}`);
+                    // console.log(`  Updated opf ${attributeName}: ${oldValue} → ${opfParam.value}`);
                 }
                 
                 if (!loadFlowParam && !shortCircuitParam && !opfParam) {
-                    console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
+                    // console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
             }
-        } else {
-            console.log('No cell data or attributes found');
         }
         
-        console.log('=== BusDialog.populateDialog completed ===');
+        // console.log('=== BusDialog.populateDialog completed ===');
     }
 }
 
