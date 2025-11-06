@@ -81,8 +81,8 @@
             // Calculate Voltage Angles
             const calcVoltageAngles = this.createSelect('calculate_voltage_angles', 'Calculate Voltage Angles', [
                 {value: 'auto', label: 'Auto'},
-                {value: 'True', label: 'Yes'},
-                {value: 'False', label: 'No'}
+                {value: true, label: 'Yes'},
+                {value: false, label: 'No'}
             ]);
             pfSection.appendChild(calcVoltageAngles);
             

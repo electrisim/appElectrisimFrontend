@@ -449,11 +449,20 @@
                         // Load auth-globals.js BEFORE app.min.js
                     mxscript('js/electrisim/auth-globals.js', function()
                     {
-						mxscript('js/app.min.js', function()
-						{
+						// Use async loading for app.min.js to prevent blocking
+						var appScript = document.createElement('script');
+						appScript.src = 'js/app.min.js';
+						appScript.async = false; // Maintain execution order but don't block parsing
+						appScript.defer = true;
+						appScript.onload = function() {
 							// Load Electrisim custom scripts after app.min.js
+							// PERFORMANCE: Load performance utils first, then other modules
 							var electrisimScripts = [
-								                                                                'js/electrisim/dialogs/EditDataDialog.js',
+								// Load performance utilities FIRST
+								'js/electrisim/utils/performanceUtils.js',
+								'js/electrisim/utils/performanceMonitor.js',
+								// Then load other utilities and dialogs
+								'js/electrisim/dialogs/EditDataDialog.js',
                                 'js/electrisim/dialogs/ComponentsDataDialog.js',
                                 'js/electrisim/utils/cellUtils.js',
                                 'js/electrisim/ensureSubscriptionFunctions.js',
@@ -531,23 +540,45 @@
 								}
 							}
 							
-							// Improved Electrisim script loading with better error handling
+							// Improved Electrisim script loading with better error handling and batching
+							// Load scripts in parallel batches to prevent UI blocking
 							function loadElectrisimScripts(index) {
 								if (index < electrisimScripts.length) {
-									var script = document.createElement('script');
-									script.type = 'module';
-									script.src = electrisimScripts[index];
-									script.onload = function() {
-										loadElectrisimScripts(index + 1);
-									};
-									script.onerror = function() {
-										// Continue loading even if one fails
-										loadElectrisimScripts(index + 1);
-									};
-									document.head.appendChild(script);
+									// Load critical scripts first (performance utils, then others)
+									const batchSize = index === 0 ? 1 : 5; // Load performance utils alone first
+									const batch = electrisimScripts.slice(index, index + batchSize);
+									let loaded = 0;
+									
+									batch.forEach(function(scriptSrc) {
+										var script = document.createElement('script');
+										script.type = 'module';
+										script.src = scriptSrc;
+										script.async = true; // Allow parallel loading
+										
+										script.onload = function() {
+											loaded++;
+											if (loaded === batch.length) {
+												// Use setTimeout to yield to UI thread between batches
+												setTimeout(function() {
+													loadElectrisimScripts(index + batch.length);
+												}, 0);
+											}
+										};
+										
+										script.onerror = function(e) {
+											console.warn('Failed to load script:', scriptSrc, e);
+											loaded++;
+											if (loaded === batch.length) {
+												setTimeout(function() {
+													loadElectrisimScripts(index + batch.length);
+												}, 0);
+											}
+										};
+										
+										document.head.appendChild(script);
+									});
 								} else {
 									// Don't remove loading screen here - let the core app handle it
-									// The core draw.io app will remove the loading screen when ready
 									mxScriptsLoaded = true;
 									checkAllLoaded();
 								}
@@ -583,7 +614,8 @@
 									});
 								});
 							}
-						});
+						};
+						document.head.appendChild(appScript);
 					});
                 });
 				};

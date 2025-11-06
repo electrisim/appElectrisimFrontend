@@ -80,11 +80,24 @@ function usePandaPowerData() {
 }
 
 // If you need to ensure data is loaded before using
-function waitForData() {
+// FIXED: Added timeout to prevent infinite polling loop that causes freezing
+function waitForData(timeoutMs = 10000) {
     return new Promise((resolve, reject) => {
+        const startTime = Date.now();
+        const maxAttempts = Math.ceil(timeoutMs / 100);
+        let attempts = 0;
+        
         function checkData() {
+            attempts++;
+            const elapsed = Date.now() - startTime;
+            
             if (globalPandaPowerData) {
+                console.log(`✅ Data loaded after ${attempts} attempts (${elapsed}ms)`);
                 resolve(globalPandaPowerData);
+            } else if (elapsed >= timeoutMs || attempts >= maxAttempts) {
+                const error = new Error(`Timeout waiting for data after ${elapsed}ms (${attempts} attempts)`);
+                console.error('❌ waitForData timeout:', error);
+                reject(error);
             } else {
                 // Check again after a short delay
                 setTimeout(checkData, 100);
