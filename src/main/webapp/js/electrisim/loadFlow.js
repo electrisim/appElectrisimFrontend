@@ -40,6 +40,232 @@ const downloadPandapowerPython = (pythonCode) => {
     }
 };
 
+// Helper function to create table formatting
+const createTableRow = (columns, widths) => {
+    return columns.map((col, i) => {
+        const str = String(col);
+        return str.padEnd(widths[i], ' ');
+    }).join(' | ');
+};
+
+const createTableSeparator = (widths) => {
+    return widths.map(w => '-'.repeat(w)).join('-+-');
+};
+
+// Helper function to download Pandapower results as a text file
+const downloadPandapowerResults = (dataJson) => {
+    console.log('🔽 downloadPandapowerResults() called');
+    
+    try {
+        let resultsText = '========================================\n';
+        resultsText += '   Pandapower Load Flow Results\n';
+        resultsText += '========================================\n\n';
+        resultsText += `Generated: ${new Date().toISOString()}\n\n`;
+        
+        // External Grids
+        if (dataJson.externalgrids && dataJson.externalgrids.length > 0) {
+            resultsText += '--- EXTERNAL GRIDS ---\n';
+            const widths = [20, 12, 12, 12, 10];
+            const headers = ['Name', 'P [MW]', 'Q [MVAr]', 'PF', 'Q/P'];
+            resultsText += createTableRow(headers, widths) + '\n';
+            resultsText += createTableSeparator(widths) + '\n';
+            dataJson.externalgrids.forEach(grid => {
+                const row = [
+                    grid.name || 'N/A',
+                    grid.p_mw ? grid.p_mw.toFixed(3) : 'N/A',
+                    grid.q_mvar ? grid.q_mvar.toFixed(3) : 'N/A',
+                    grid.pf ? grid.pf.toFixed(3) : 'N/A',
+                    grid.q_p ? grid.q_p.toFixed(3) : 'N/A'
+                ];
+                resultsText += createTableRow(row, widths) + '\n';
+            });
+            resultsText += '\n';
+        }
+        
+        // Buses
+        if (dataJson.busbars && dataJson.busbars.length > 0) {
+            resultsText += '--- BUSES ---\n';
+            const widths = [20, 12, 14];
+            const headers = ['Name', 'U [pu]', 'U [degree]'];
+            resultsText += createTableRow(headers, widths) + '\n';
+            resultsText += createTableSeparator(widths) + '\n';
+            dataJson.busbars.forEach(bus => {
+                const row = [
+                    bus.name || 'N/A',
+                    bus.vm_pu ? bus.vm_pu.toFixed(3) : 'N/A',
+                    bus.va_degree ? bus.va_degree.toFixed(3) : 'N/A'
+                ];
+                resultsText += createTableRow(row, widths) + '\n';
+            });
+            resultsText += '\n';
+        }
+        
+        // Lines
+        if (dataJson.lines && dataJson.lines.length > 0) {
+            resultsText += '--- LINES ---\n';
+            const widths = [20, 13, 14, 13, 12, 13, 12, 13];
+            const headers = ['Name', 'P_from [MW]', 'Q_from [MVAr]', 'I_from [kA]', 'P_to [MW]', 'Q_to [MVAr]', 'I_to [kA]', 'Loading [%]'];
+            resultsText += createTableRow(headers, widths) + '\n';
+            resultsText += createTableSeparator(widths) + '\n';
+            dataJson.lines.forEach(line => {
+                const row = [
+                    line.name || 'N/A',
+                    line.p_from_mw ? line.p_from_mw.toFixed(3) : 'N/A',
+                    line.q_from_mvar ? line.q_from_mvar.toFixed(3) : 'N/A',
+                    line.i_from_ka ? line.i_from_ka.toFixed(3) : 'N/A',
+                    line.p_to_mw ? line.p_to_mw.toFixed(3) : 'N/A',
+                    line.q_to_mvar ? line.q_to_mvar.toFixed(3) : 'N/A',
+                    line.i_to_ka ? line.i_to_ka.toFixed(3) : 'N/A',
+                    line.loading_percent ? line.loading_percent.toFixed(1) : 'N/A'
+                ];
+                resultsText += createTableRow(row, widths) + '\n';
+            });
+            resultsText += '\n';
+        }
+        
+        // Transformers
+        if (dataJson.transformers && dataJson.transformers.length > 0) {
+            resultsText += '--- TRANSFORMERS ---\n';
+            const widths = [20, 13, 13, 12, 13, 12, 12, 13, 12];
+            const headers = ['Name', 'P_HV [MW]', 'Q_HV [MVAr]', 'P_LV [MW]', 'Q_LV [MVAr]', 'I_HV [kA]', 'I_LV [kA]', 'Loading [%]', 'Loss [MW]'];
+            resultsText += createTableRow(headers, widths) + '\n';
+            resultsText += createTableSeparator(widths) + '\n';
+            dataJson.transformers.forEach(trafo => {
+                const row = [
+                    trafo.name || 'N/A',
+                    trafo.p_hv_mw ? trafo.p_hv_mw.toFixed(3) : 'N/A',
+                    trafo.q_hv_mvar ? trafo.q_hv_mvar.toFixed(3) : 'N/A',
+                    trafo.p_lv_mw ? trafo.p_lv_mw.toFixed(3) : 'N/A',
+                    trafo.q_lv_mvar ? trafo.q_lv_mvar.toFixed(3) : 'N/A',
+                    trafo.i_hv_ka ? trafo.i_hv_ka.toFixed(3) : 'N/A',
+                    trafo.i_lv_ka ? trafo.i_lv_ka.toFixed(3) : 'N/A',
+                    trafo.loading_percent ? trafo.loading_percent.toFixed(1) : 'N/A',
+                    trafo.pl_mw ? trafo.pl_mw.toFixed(3) : 'N/A'
+                ];
+                resultsText += createTableRow(row, widths) + '\n';
+            });
+            resultsText += '\n';
+        }
+        
+        // Generators
+        if (dataJson.generators && dataJson.generators.length > 0) {
+            resultsText += '--- GENERATORS ---\n';
+            const widths = [20, 12, 12, 10, 14];
+            const headers = ['Name', 'P [MW]', 'Q [MVAr]', 'U [pu]', 'U [degree]'];
+            resultsText += createTableRow(headers, widths) + '\n';
+            resultsText += createTableSeparator(widths) + '\n';
+            dataJson.generators.forEach(gen => {
+                const row = [
+                    gen.name || 'N/A',
+                    gen.p_mw ? gen.p_mw.toFixed(3) : 'N/A',
+                    gen.q_mvar ? gen.q_mvar.toFixed(3) : 'N/A',
+                    gen.vm_pu ? gen.vm_pu.toFixed(3) : 'N/A',
+                    gen.va_degree ? gen.va_degree.toFixed(3) : 'N/A'
+                ];
+                resultsText += createTableRow(row, widths) + '\n';
+            });
+            resultsText += '\n';
+        }
+        
+        // Static Generators
+        if (dataJson.staticgenerators && dataJson.staticgenerators.length > 0) {
+            resultsText += '--- STATIC GENERATORS ---\n';
+            const widths = [20, 12, 12];
+            const headers = ['Name', 'P [MW]', 'Q [MVAr]'];
+            resultsText += createTableRow(headers, widths) + '\n';
+            resultsText += createTableSeparator(widths) + '\n';
+            dataJson.staticgenerators.forEach(sgen => {
+                const row = [
+                    sgen.name || 'N/A',
+                    sgen.p_mw ? sgen.p_mw.toFixed(3) : 'N/A',
+                    sgen.q_mvar ? sgen.q_mvar.toFixed(3) : 'N/A'
+                ];
+                resultsText += createTableRow(row, widths) + '\n';
+            });
+            resultsText += '\n';
+        }
+        
+        // Loads
+        if (dataJson.loads && dataJson.loads.length > 0) {
+            resultsText += '--- LOADS ---\n';
+            const widths = [20, 12, 12];
+            const headers = ['Name', 'P [MW]', 'Q [MVAr]'];
+            resultsText += createTableRow(headers, widths) + '\n';
+            resultsText += createTableSeparator(widths) + '\n';
+            dataJson.loads.forEach(load => {
+                const row = [
+                    load.name || 'N/A',
+                    load.p_mw ? load.p_mw.toFixed(3) : 'N/A',
+                    load.q_mvar ? load.q_mvar.toFixed(3) : 'N/A'
+                ];
+                resultsText += createTableRow(row, widths) + '\n';
+            });
+            resultsText += '\n';
+        }
+        
+        // Shunts
+        if (dataJson.shunts && dataJson.shunts.length > 0) {
+            resultsText += '--- SHUNT REACTORS ---\n';
+            const widths = [20, 12, 12, 10];
+            const headers = ['Name', 'P [MW]', 'Q [MVAr]', 'U [pu]'];
+            resultsText += createTableRow(headers, widths) + '\n';
+            resultsText += createTableSeparator(widths) + '\n';
+            dataJson.shunts.forEach(shunt => {
+                const row = [
+                    shunt.name || 'N/A',
+                    shunt.p_mw ? shunt.p_mw.toFixed(3) : 'N/A',
+                    shunt.q_mvar ? shunt.q_mvar.toFixed(3) : 'N/A',
+                    shunt.vm_pu ? shunt.vm_pu.toFixed(3) : 'N/A'
+                ];
+                resultsText += createTableRow(row, widths) + '\n';
+            });
+            resultsText += '\n';
+        }
+        
+        // Capacitors
+        if (dataJson.capacitors && dataJson.capacitors.length > 0) {
+            resultsText += '--- CAPACITORS ---\n';
+            const widths = [20, 12, 12, 10];
+            const headers = ['Name', 'P [MW]', 'Q [MVAr]', 'U [pu]'];
+            resultsText += createTableRow(headers, widths) + '\n';
+            resultsText += createTableSeparator(widths) + '\n';
+            dataJson.capacitors.forEach(cap => {
+                const row = [
+                    cap.name || 'N/A',
+                    cap.p_mw ? cap.p_mw.toFixed(3) : 'N/A',
+                    cap.q_mvar ? cap.q_mvar.toFixed(3) : 'N/A',
+                    cap.vm_pu ? cap.vm_pu.toFixed(3) : 'N/A'
+                ];
+                resultsText += createTableRow(row, widths) + '\n';
+            });
+            resultsText += '\n';
+        }
+        
+        resultsText += '========================================\n';
+        resultsText += '          End of Results\n';
+        resultsText += '========================================\n';
+        
+        // Create and download
+        const blob = new Blob([resultsText], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+        link.download = `Pandapower_Results_${timestamp}.txt`;
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        console.log('✅ Pandapower results file downloaded successfully!');
+    } catch (error) {
+        console.error('❌ Error downloading Pandapower results:', error);
+        alert('Failed to download Pandapower results file. Error: ' + error.message);
+    }
+};
+
 //define buses to which the cell is connected
 const getConnectedBusId = (cell, isLine = false) => {
     //console.log('cell in getConnectedBusId', cell);
@@ -1087,6 +1313,24 @@ function loadFlowPandaPower(a, b, c) {
             } else {
                 console.log('ℹ️ No Python code export requested or available in response');
             }
+            
+            // Handle Pandapower results export if requested
+            console.log('🔍 Checking for Pandapower results export...');
+            console.log('  - obj exists:', !!obj);
+            console.log('  - obj[0] exists:', !!(obj && obj[0]));
+            console.log('  - obj[0]:', obj ? obj[0] : 'obj is null');
+            console.log('  - exportPandapowerResults value:', obj && obj[0] ? obj[0].exportPandapowerResults : 'N/A');
+            
+            if (obj && obj[0] && obj[0].exportPandapowerResults) {
+                console.log('✅ Exporting Pandapower results to file...');
+                downloadPandapowerResults(dataJson);
+            } else {
+                console.log('ℹ️ Pandapower results export not requested or flag not set');
+                console.log('  Condition breakdown:');
+                console.log('    - obj:', !!obj);
+                console.log('    - obj[0]:', !!(obj && obj[0]));
+                console.log('    - obj[0].exportPandapowerResults:', !!(obj && obj[0] && obj[0].exportPandapowerResults));
+            }
 
             // Optimize result processing with enhanced performance monitoring
             const resultProcessingStart = performance.now();
@@ -1151,6 +1395,8 @@ function loadFlowPandaPower(a, b, c) {
 
         console.log('🔍 loadFlowPandaPower callback received parameter "a":', a);
         console.log('🔍 Type of "a":', typeof a, ', Is array?', Array.isArray(a));
+        console.log('🔍 a.exportPython:', a?.exportPython);
+        console.log('🔍 a.exportPandapowerResults:', a?.exportPandapowerResults);
 
         // Initialize load flow parameters
         // Handle both old array format and new object format
@@ -1226,7 +1472,9 @@ function loadFlowPandaPower(a, b, c) {
             
             // Ensure exportPython is properly captured as a boolean
             const exportPythonValue = isObjectFormat ? (a.exportPython === true) : false;
+            const exportPandapowerResultsValue = isObjectFormat ? (a.exportPandapowerResults === true) : false;
             console.log('🔍 Final exportPython value being sent:', exportPythonValue);
+            console.log('🔍 Final exportPandapowerResults value being sent:', exportPandapowerResultsValue);
             
             componentArrays.simulationParameters.push({
                 typ: "PowerFlowPandaPower Parameters",
@@ -1235,6 +1483,7 @@ function loadFlowPandaPower(a, b, c) {
                 calculate_voltage_angles: isObjectFormat ? a.calculate_voltage_angles : a[2],
                 initialization: isObjectFormat ? a.initialization : a[3],
                 exportPython: exportPythonValue,  // Use explicitly converted boolean
+                exportPandapowerResults: exportPandapowerResultsValue,  // Results export flag
                 user_email: userEmail  // Add user email to simulation data
             });
 
@@ -2285,6 +2534,7 @@ function loadFlowPandaPower(a, b, c) {
         // Debug: Log the first element which should be simulationParameters
         console.log('🔍 About to send to backend - First element (simulationParameters):', obj[0]);
         console.log('🔍 exportPython value in payload:', obj[0]?.exportPython);
+        console.log('🔍 exportPandapowerResults value in payload:', obj[0]?.exportPandapowerResults);
         
         processNetworkData("https://03dht3kc-5000.euw.devtunnels.ms/", obj, b, grafka);
         

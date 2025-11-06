@@ -47,8 +47,8 @@ export class LoadFlowDialog extends Dialog {
                 type: 'radio',
                 options: [
                     { value: 'auto', label: 'Auto', default: true },
-                    { value: 'True', label: 'True' },
-                    { value: 'False', label: 'False' }
+                    { value: true, label: 'True' },
+                    { value: false, label: 'False' }
                 ]
             },
             {
@@ -67,6 +67,12 @@ export class LoadFlowDialog extends Dialog {
             {
                 id: 'exportPython',
                 label: 'Export Pandapower Python Code (download .py file)',
+                type: 'checkbox',
+                value: false
+            },
+            {
+                id: 'exportPandapowerResults',
+                label: 'Export Pandapower Results (download .txt file)',
                 type: 'checkbox',
                 value: false
             }
@@ -140,6 +146,12 @@ export class LoadFlowDialog extends Dialog {
                 label: 'Export OpenDSS Commands (download .txt file)',
                 type: 'checkbox',
                 value: false
+            },
+            {
+                id: 'exportOpenDSSResults',
+                label: 'Export OpenDSS Results (download .txt file)',
+                type: 'checkbox',
+                value: false
             }
         ];
 
@@ -150,7 +162,7 @@ export class LoadFlowDialog extends Dialog {
     }
 
     getDescription() {
-        return '<strong>Configure load flow calculation parameters</strong><br>Choose between Pandapower (recommended for most cases) and OpenDSS engines.';
+        return '<strong>Configure load flow calculation parameters</strong><br>Choose between Pandapower and OpenDSS engines.';
     }
 
     createTabInterface() {

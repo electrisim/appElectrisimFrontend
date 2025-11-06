@@ -1,6 +1,15 @@
 // Dialog.js - Base class for all dialogs
 import { DIALOG_STYLES } from './utils/dialogStyles.js';
 
+// Try to import performance utils, but don't fail if not available
+let EventListenerRegistry;
+try {
+    const perfUtils = await import('./utils/performanceUtils.js');
+    EventListenerRegistry = perfUtils.globalEventRegistry;
+} catch (e) {
+    console.warn('Performance utils not available, using basic event handling');
+}
+
 export class Dialog {
     constructor(title, submitButtonText = 'OK') {
         this.title = title;
@@ -10,6 +19,25 @@ export class Dialog {
         this.ui = null;
         this.inputs = new Map();
         this.cleanupCallback = null; // Callback to call when dialog is destroyed
+        this.eventListenerIds = []; // Track event listener IDs for cleanup
+    }
+    
+    /**
+     * Add event listener with automatic cleanup tracking
+     * @param {EventTarget} element - DOM element
+     * @param {string} event - Event name
+     * @param {Function} handler - Event handler
+     * @param {Object} options - Event options
+     */
+    addEventListener(element, event, handler, options = {}) {
+        if (EventListenerRegistry) {
+            const id = EventListenerRegistry.add(element, event, handler, options);
+            this.eventListenerIds.push(id);
+        } else {
+            // Fallback: add normally but track for manual cleanup
+            element.addEventListener(event, handler, options);
+            this.eventListenerIds.push({ element, event, handler, options });
+        }
     }
 
     show(callback, parameters = []) {
@@ -140,12 +168,13 @@ export class Dialog {
                         fontFamily: 'inherit',
                         backgroundColor: '#ffffff'
                     });
-                    input.addEventListener('focus', () => {
+                    // Use tracked event listeners for automatic cleanup
+                    this.addEventListener(input, 'focus', () => {
                         input.style.borderColor = '#0066cc';
                         input.style.outline = 'none';
                         input.style.boxShadow = '0 0 0 2px rgba(0, 102, 204, 0.2)';
                     });
-                    input.addEventListener('blur', () => {
+                    this.addEventListener(input, 'blur', () => {
                         input.style.borderColor = '#ced4da';
                         input.style.boxShadow = 'none';
                     });
@@ -445,6 +474,21 @@ export class Dialog {
     }
 
     destroy() {
+        // Clean up all tracked event listeners
+        if (EventListenerRegistry) {
+            for (const id of this.eventListenerIds) {
+                EventListenerRegistry.remove(id);
+            }
+        } else {
+            // Fallback: manually remove event listeners
+            for (const listener of this.eventListenerIds) {
+                if (listener.element && listener.event && listener.handler) {
+                    listener.element.removeEventListener(listener.event, listener.handler, listener.options);
+                }
+            }
+        }
+        this.eventListenerIds = [];
+        
         // Call cleanup callback if provided (for EditDataDialog cleanup)
         if (this.cleanupCallback) {
             try {
@@ -495,7 +539,7 @@ export class Dialog {
             gap: '15px'
         });
 
-        form.addEventListener('submit', (e) => e.preventDefault());
+        this.addEventListener(form, 'submit', (e) => e.preventDefault());
 
         return form;
     }
@@ -568,13 +612,14 @@ export class Dialog {
             transition: 'background-color 0.2s'
         });
         
-        button.addEventListener('mouseenter', () => {
+        // Use tracked event listeners for automatic cleanup
+        this.addEventListener(button, 'mouseenter', () => {
             if (!button.disabled) {
                 button.style.backgroundColor = hoverColor;
             }
         });
         
-        button.addEventListener('mouseleave', () => {
+        this.addEventListener(button, 'mouseleave', () => {
             if (!button.disabled) {
                 button.style.backgroundColor = bgColor;
             }
@@ -601,7 +646,7 @@ export class Dialog {
             backgroundColor: '#fafbfc',
             cursor: 'pointer'
         });
-        cancelButton.addEventListener('click', () => {
+        this.addEventListener(cancelButton, 'click', () => {
             if (onCancel) onCancel();
             this.close();
         });
@@ -616,7 +661,7 @@ export class Dialog {
             color: 'white',
             cursor: 'pointer'
         });
-        submitButton.addEventListener('click', () => {
+        this.addEventListener(submitButton, 'click', () => {
             if (onSubmit) onSubmit();
             this.close();
         });

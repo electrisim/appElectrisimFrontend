@@ -12,8 +12,8 @@ export const defaultLineData = {
     g_us_per_km: 0.0,
     max_i_ka: 0.0,
     type: "cs",
-    r0_ohm_per_km: 0.0,
-    x0_ohm_per_km: 0.0,
+    r0_ohm_per_km: 0.1, // default value in order for OpenDSS load flow calculation to converge
+    x0_ohm_per_km: 0.1, // default value in order for OpenDSS load flow calculation to converge
     c0_nf_per_km: 0.0,
     endtemp_degree: 250.0,
     in_service: true,

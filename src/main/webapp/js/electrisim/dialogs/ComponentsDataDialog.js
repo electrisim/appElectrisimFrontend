@@ -35,6 +35,8 @@ export class ComponentsDataDialog {
         this.components = {};
         this.currentTab = null;
         this.gridInstances = {}; // Store grid instances for cleanup
+        this.originalData = {}; // Store original data for cancel functionality
+        this.hasChanges = false; // Track if any changes were made
         
         // Initialize component arrays
         Object.values(COMPONENT_TYPES).forEach(type => {
@@ -129,12 +131,96 @@ export class ComponentsDataDialog {
             };
 
             // Add bus connections for non-line components
-            if (componentType !== 'Line' && componentType !== 'DCLine') {
+            if (componentType !== 'Line' && componentType !== 'DC Line' && componentType !== 'DCLine') {
                 baseData.bus = this.getConnectedBusId(cell);
             }
 
             // Process each component type
+            // Map shapeELXXX values to COMPONENT_TYPES values
+            // Handle both with and without spaces as components may use either format
+            let mappedType = null;
             switch (componentType) {
+                case 'External Grid':
+                case 'ExternalGrid':
+                    mappedType = COMPONENT_TYPES.EXTERNAL_GRID;
+                    break;
+                case 'Generator':
+                    mappedType = COMPONENT_TYPES.GENERATOR;
+                    break;
+                case 'Static Generator':
+                case 'StaticGenerator':
+                case 'Sgen':
+                case 'sgen':
+                case 'PVSystem':
+                    mappedType = COMPONENT_TYPES.STATIC_GENERATOR;
+                    break;
+                case 'Asymmetric Static Generator':
+                case 'AsymmetricStaticGenerator':
+                    mappedType = COMPONENT_TYPES.ASYMMETRIC_STATIC_GENERATOR;
+                    break;
+                case 'Bus':
+                    mappedType = COMPONENT_TYPES.BUS;
+                    break;
+                case 'Load':
+                    mappedType = COMPONENT_TYPES.LOAD;
+                    break;
+                case 'Line':
+                    mappedType = COMPONENT_TYPES.LINE;
+                    break;
+                case 'Transformer':
+                    mappedType = COMPONENT_TYPES.TRANSFORMER;
+                    break;
+                case 'Three Winding Transformer':
+                case 'ThreeWindingTransformer':
+                    mappedType = COMPONENT_TYPES.THREE_WINDING_TRANSFORMER;
+                    break;
+                case 'Shunt Reactor':
+                case 'ShuntReactor':
+                    mappedType = COMPONENT_TYPES.SHUNT_REACTOR;
+                    break;
+                case 'Capacitor':
+                    mappedType = COMPONENT_TYPES.CAPACITOR;
+                    break;
+                case 'Asymmetric Load':
+                case 'AsymmetricLoad':
+                    mappedType = COMPONENT_TYPES.ASYMMETRIC_LOAD;
+                    break;
+                case 'Impedance':
+                    mappedType = COMPONENT_TYPES.IMPEDANCE;
+                    break;
+                case 'Ward':
+                    mappedType = COMPONENT_TYPES.WARD;
+                    break;
+                case 'Extended Ward':
+                case 'ExtendedWard':
+                    mappedType = COMPONENT_TYPES.EXTENDED_WARD;
+                    break;
+                case 'Motor':
+                    mappedType = COMPONENT_TYPES.MOTOR;
+                    break;
+                case 'Storage':
+                    mappedType = COMPONENT_TYPES.STORAGE;
+                    break;
+                case 'SVC':
+                    mappedType = COMPONENT_TYPES.SVC;
+                    break;
+                case 'TCSC':
+                    mappedType = COMPONENT_TYPES.TCSC;
+                    break;
+                case 'SSC':
+                    mappedType = COMPONENT_TYPES.SSC;
+                    break;
+                case 'DC Line':
+                case 'DCLine':
+                    mappedType = COMPONENT_TYPES.DC_LINE;
+                    break;
+            }
+            
+            if (!mappedType) {
+                return; // Skip if component type is not recognized
+            }
+            
+            switch (mappedType) {
                 case COMPONENT_TYPES.EXTERNAL_GRID:
                     this.components[COMPONENT_TYPES.EXTERNAL_GRID].push({
                         ...baseData,
@@ -142,12 +228,19 @@ export class ComponentsDataDialog {
                         ...this.getAttributesAsObject(cell, {
                             vm_pu: 'vm_pu',
                             va_degree: 'va_degree',
+                            in_service: 'in_service',
                             s_sc_max_mva: 's_sc_max_mva',
                             s_sc_min_mva: 's_sc_min_mva',
                             rx_max: 'rx_max',
                             rx_min: 'rx_min',
                             r0x0_max: 'r0x0_max',
-                            x0x_max: 'x0x_max'
+                            x0x_max: 'x0x_max',
+                            max_p_mw: 'max_p_mw',
+                            min_p_mw: 'min_p_mw',
+                            max_q_mvar: 'max_q_mvar',
+                            min_q_mvar: 'min_q_mvar',
+                            controllable: 'controllable',
+                            slack_weight: 'slack_weight'
                         })
                     });
                     break;
@@ -161,12 +254,19 @@ export class ComponentsDataDialog {
                             vm_pu: 'vm_pu',
                             sn_mva: 'sn_mva',
                             scaling: 'scaling',
+                            slack: 'slack',
+                            controllable: 'controllable',
+                            in_service: 'in_service',
                             vn_kv: 'vn_kv',
                             xdss_pu: 'xdss_pu',
                             rdss_ohm: 'rdss_ohm',
                             cos_phi: 'cos_phi',
                             pg_percent: 'pg_percent',
-                            power_station_trafo: 'power_station_trafo'
+                            power_station_trafo: 'power_station_trafo',
+                            max_p_mw: 'max_p_mw',
+                            min_p_mw: 'min_p_mw',
+                            max_q_mvar: 'max_q_mvar',
+                            min_q_mvar: 'min_q_mvar'
                         })
                     });
                     break;
@@ -187,7 +287,8 @@ export class ComponentsDataDialog {
                             lrc_pu: 'lrc_pu',
                             max_ik_ka: 'max_ik_ka',
                             kappa: 'kappa',
-                            current_source: 'current_source'
+                            current_source: 'current_source',
+                            in_service: 'in_service'
                         })
                     });
                     break;
@@ -205,7 +306,8 @@ export class ComponentsDataDialog {
                             q_c_mvar: 'q_c_mvar',
                             sn_mva: 'sn_mva',
                             scaling: 'scaling',
-                            type: 'type'
+                            type: 'type',
+                            in_service: 'in_service'
                         })
                     });
                     break;
@@ -214,7 +316,13 @@ export class ComponentsDataDialog {
                     this.components[COMPONENT_TYPES.BUS].push({
                         ...baseData,
                         type: `Bus ${counters.busbar++}`,
-                        vn_kv: cell.value.attributes[2]?.nodeValue || 'N/A'
+                        ...this.getAttributesAsObject(cell, {
+                            vn_kv: 'vn_kv',
+                            in_service: 'in_service',
+                            type: 'type',
+                            max_vm_pu: 'max_vm_pu',
+                            min_vm_pu: 'min_vm_pu'
+                        })
                     });
                     break;
 
@@ -229,7 +337,13 @@ export class ComponentsDataDialog {
                             const_i_percent: 'const_i_percent',
                             sn_mva: 'sn_mva',
                             scaling: 'scaling',
-                            type: 'type'
+                            type: 'type',
+                            in_service: 'in_service',
+                            controllable: 'controllable',
+                            max_p_mw: 'max_p_mw',
+                            min_p_mw: 'min_p_mw',
+                            max_q_mvar: 'max_q_mvar',
+                            min_q_mvar: 'min_q_mvar'
                         })
                     });
                     break;
@@ -250,7 +364,12 @@ export class ComponentsDataDialog {
                             c_nf_per_km: 'c_nf_per_km',
                             g_us_per_km: 'g_us_per_km',
                             max_i_ka: 'max_i_ka',
-                            type: 'type'
+                            type: 'type',
+                            r0_ohm_per_km: 'r0_ohm_per_km',
+                            x0_ohm_per_km: 'x0_ohm_per_km',
+                            c0_nf_per_km: 'c0_nf_per_km',
+                            endtemp_degree: 'endtemp_degree',
+                            in_service: 'in_service'
                         })
                     });
                     break;
@@ -267,7 +386,23 @@ export class ComponentsDataDialog {
                             vk_percent: 'vk_percent',
                             pfe_kw: 'pfe_kw',
                             i0_percent: 'i0_percent',
-                            vector_group: 'vector_group'
+                            vector_group: 'vector_group',
+                            in_service: 'in_service',
+                            shift_degree: 'shift_degree',
+                            parallel: 'parallel',
+                            tap_side: 'tap_side',
+                            tap_neutral: 'tap_neutral',
+                            tap_min: 'tap_min',
+                            tap_max: 'tap_max',
+                            tap_step_percent: 'tap_step_percent',
+                            tap_step_degree: 'tap_step_degree',
+                            tap_pos: 'tap_pos',
+                            tap_phase_shifter: 'tap_phase_shifter',
+                            vk0_percent: 'vk0_percent',
+                            vkr0_percent: 'vkr0_percent',
+                            mag0_percent: 'mag0_percent',
+                            mag0_rx: 'mag0_rx',
+                            si0_hv_partial: 'si0_hv_partial'
                         })
                     });
                     break;
@@ -285,7 +420,29 @@ export class ComponentsDataDialog {
                             vn_lv_kv: 'vn_lv_kv',
                             vk_hv_percent: 'vk_hv_percent',
                             vk_mv_percent: 'vk_mv_percent',
-                            vk_lv_percent: 'vk_lv_percent'
+                            vk_lv_percent: 'vk_lv_percent',
+                            vkr_hv_percent: 'vkr_hv_percent',
+                            vkr_mv_percent: 'vkr_mv_percent',
+                            vkr_lv_percent: 'vkr_lv_percent',
+                            pfe_kw: 'pfe_kw',
+                            i0_percent: 'i0_percent',
+                            shift_mv_degree: 'shift_mv_degree',
+                            shift_lv_degree: 'shift_lv_degree',
+                            tap_side: 'tap_side',
+                            tap_neutral: 'tap_neutral',
+                            tap_min: 'tap_min',
+                            tap_max: 'tap_max',
+                            tap_step_percent: 'tap_step_percent',
+                            tap_pos: 'tap_pos',
+                            tap_phase_shifter: 'tap_phase_shifter',
+                            in_service: 'in_service',
+                            vk0_hv_percent: 'vk0_hv_percent',
+                            vk0_mv_percent: 'vk0_mv_percent',
+                            vk0_lv_percent: 'vk0_lv_percent',
+                            vkr0_hv_percent: 'vkr0_hv_percent',
+                            vkr0_mv_percent: 'vkr0_mv_percent',
+                            vkr0_lv_percent: 'vkr0_lv_percent',
+                            vector_group: 'vector_group'
                         })
                     });
                     break;
@@ -299,7 +456,8 @@ export class ComponentsDataDialog {
                             q_mvar: 'q_mvar',
                             vn_kv: 'vn_kv',
                             step: { name: 'step', optional: true },
-                            max_step: { name: 'max_step', optional: true }
+                            max_step: { name: 'max_step', optional: true },
+                            in_service: 'in_service'
                         })
                     });
                     break;
@@ -313,7 +471,8 @@ export class ComponentsDataDialog {
                             loss_factor: 'loss_factor',
                             vn_kv: 'vn_kv',
                             step: { name: 'step', optional: true },
-                            max_step: { name: 'max_step', optional: true }
+                            max_step: { name: 'max_step', optional: true },
+                            in_service: 'in_service'
                         })
                     });
                     break;
@@ -331,7 +490,8 @@ export class ComponentsDataDialog {
                             q_c_mvar: 'q_c_mvar',
                             sn_mva: 'sn_mva',
                             scaling: 'scaling',
-                            type: 'type'
+                            type: 'type',
+                            in_service: 'in_service'
                         })
                     });
                     break;
@@ -343,7 +503,8 @@ export class ComponentsDataDialog {
                         ...this.getAttributesAsObject(cell, {
                             rft_pu: 'rft_pu',
                             xft_pu: 'xft_pu',
-                            sn_mva: 'sn_mva'
+                            sn_mva: 'sn_mva',
+                            in_service: 'in_service'
                         })
                     });
                     break;
@@ -356,7 +517,8 @@ export class ComponentsDataDialog {
                             ps_mw: 'ps_mw',
                             qs_mvar: 'qs_mvar',
                             pz_mw: 'pz_mw',
-                            qz_mvar: 'qz_mvar'
+                            qz_mvar: 'qz_mvar',
+                            in_service: 'in_service'
                         })
                     });
                     break;
@@ -372,7 +534,8 @@ export class ComponentsDataDialog {
                             qz_mvar: 'qz_mvar',
                             r_ohm: 'r_ohm',
                             x_ohm: 'x_ohm',
-                            vm_pu: 'vm_pu'
+                            vm_pu: 'vm_pu',
+                            in_service: 'in_service'
                         })
                     });
                     break;
@@ -384,10 +547,15 @@ export class ComponentsDataDialog {
                         ...this.getAttributesAsObject(cell, {
                             pn_mech_mw: 'pn_mech_mw',
                             cos_phi: 'cos_phi',
+                            cos_phi_n: 'cos_phi_n',
                             efficiency_percent: 'efficiency_percent',
+                            efficiency_n_percent: 'efficiency_n_percent',
                             loading_percent: 'loading_percent',
                             scaling: 'scaling',
-                            vn_kv: 'vn_kv'
+                            vn_kv: 'vn_kv',
+                            lrc_pu: 'lrc_pu',
+                            rx: 'rx',
+                            in_service: 'in_service'
                         })
                     });
                     break;
@@ -404,7 +572,8 @@ export class ComponentsDataDialog {
                             soc_percent: 'soc_percent',
                             min_e_mwh: 'min_e_mwh',
                             scaling: 'scaling',
-                            type: 'type'
+                            type: 'type',
+                            in_service: 'in_service'
                         })
                     });
                     break;
@@ -420,7 +589,8 @@ export class ComponentsDataDialog {
                             thyristor_firing_angle_degree: 'thyristor_firing_angle_degree',
                             controllable: 'controllable',
                             min_angle_degree: 'min_angle_degree',
-                            max_angle_degree: 'max_angle_degree'
+                            max_angle_degree: 'max_angle_degree',
+                            in_service: 'in_service'
                         })
                     });
                     break;
@@ -436,7 +606,8 @@ export class ComponentsDataDialog {
                             thyristor_firing_angle_degree: 'thyristor_firing_angle_degree',
                             controllable: 'controllable',
                             min_angle_degree: 'min_angle_degree',
-                            max_angle_degree: 'max_angle_degree'
+                            max_angle_degree: 'max_angle_degree',
+                            in_service: 'in_service'
                         })
                     });
                     break;
@@ -451,7 +622,8 @@ export class ComponentsDataDialog {
                             set_vm_pu: 'set_vm_pu',
                             vm_internal_pu: 'vm_internal_pu',
                             va_internal_degree: 'va_internal_degree',
-                            controllable: 'controllable'
+                            controllable: 'controllable',
+                            in_service: 'in_service'
                         })
                     });
                     break;
@@ -465,7 +637,8 @@ export class ComponentsDataDialog {
                             loss_percent: 'loss_percent',
                             loss_mw: 'loss_mw',
                             vm_from_pu: 'vm_from_pu',
-                            vm_to_pu: 'vm_to_pu'
+                            vm_to_pu: 'vm_to_pu',
+                            in_service: 'in_service'
                         })
                     });
                     break;
@@ -554,7 +727,7 @@ export class ComponentsDataDialog {
         }
 
         const gridDiv = document.createElement('div');
-        gridDiv.style.cssText = 'width: 100%; height: 400px; margin-top: 8px;';
+        gridDiv.style.cssText = 'width: 100%; height: 100%; margin-top: 8px;';
         gridDiv.className = 'ag-theme-alpine'; // Use Alpine theme
 
         const columnDefs = this.createColumnDefs(components);
@@ -578,7 +751,28 @@ export class ComponentsDataDialog {
             suppressRowVirtualisation: false,
             // Handle cell value changes
             onCellValueChanged: (event) => {
-                this.handleCellValueChanged(event);
+                this.hasChanges = true; // Mark that changes were made
+                // Don't apply changes immediately - only track them
+            },
+            // Custom keyboard navigation: Enter moves to cell below
+            navigateToNextCell: (params) => {
+                const suggestedNextCell = params.nextCellPosition;
+                const KEY_ENTER = 'Enter';
+                
+                if (params.key === KEY_ENTER && !params.event.shiftKey) {
+                    // Move down to the next row in the same column
+                    return {
+                        rowIndex: params.previousCellPosition.rowIndex + 1,
+                        column: params.previousCellPosition.column
+                    };
+                }
+                
+                return suggestedNextCell;
+            },
+            // Tab navigation for completeness
+            tabToNextCell: (params) => {
+                const suggestedNextCell = params.nextCellPosition;
+                return suggestedNextCell;
             },
             // Add edit styling
             onCellEditingStarted: (event) => {
@@ -638,55 +832,44 @@ export class ComponentsDataDialog {
         return gridDiv;
     }
 
-    // Handle cell value changes and update mxCell attributes
-    handleCellValueChanged(event) {
-        const { data, colDef, newValue, oldValue, node } = event;
+    // Apply all changes to the graph model
+    applyChanges() {
+        let changeCount = 0;
+        const model = this.graph.getModel();
         
-        if (newValue === oldValue) {
-            return; // No change
-        }
-
-        console.log(`Updating ${colDef.field} from "${oldValue}" to "${newValue}" for component ${data.name}`);
-
+        model.beginUpdate();
         try {
-            // Find the corresponding mxCell
-            const cell = this.findCellById(data.id);
-            if (!cell) {
-                console.error('Could not find mxCell with ID:', data.id);
-                this.showNotification('Error: Could not find component in model', 'error');
-                return;
-            }
-
-            // Update the cell attribute
-            const attributeName = colDef.field;
-            const success = this.updateCellAttribute(cell, attributeName, newValue);
-
-            if (success) {
-                // Update the local data as well
-                data[attributeName] = newValue;
-                this.showNotification(`Updated ${attributeName} to "${newValue}"`, 'success');
+            // Iterate through all tabs/component types
+            Object.entries(this.gridInstances).forEach(([componentType, gridApi]) => {
+                const rowData = [];
+                gridApi.forEachNode(node => rowData.push(node.data));
                 
-                // Notify the model of changes using proper mxGraph API
-                const model = this.graph.getModel();
-                model.beginUpdate();
-                try {
+                // Update each component's attributes
+                rowData.forEach(data => {
+                    const cell = this.findCellById(data.id);
+                    if (!cell) return;
+                    
+                    // Get all editable attributes (non-readonly columns)
+                    const readOnlyColumns = ['id', 'name', 'bus', 'from_bus', 'to_bus', 'type'];
+                    Object.keys(data).forEach(key => {
+                        if (!readOnlyColumns.includes(key.toLowerCase())) {
+                            const success = this.updateCellAttribute(cell, key, data[key]);
+                            if (success) {
+                                changeCount++;
+                            }
+                        }
+                    });
+                    
                     // Trigger value change event to mark model as modified
                     model.valueForCellChanged(cell, cell.value);
-                } finally {
-                    model.endUpdate();
-                }
-            } else {
-                // Revert the change in the grid
-                node.setDataValue(colDef.field, oldValue);
-                this.showNotification('Failed to update component attribute', 'error');
-            }
-
-        } catch (error) {
-            console.error('Error updating cell value:', error);
-            // Revert the change in the grid
-            node.setDataValue(colDef.field, oldValue);
-            this.showNotification('Error updating component: ' + error.message, 'error');
+                });
+            });
+        } finally {
+            model.endUpdate();
         }
+        
+        console.log(`Applied ${changeCount} changes to the model`);
+        return changeCount;
     }
 
     // Find mxCell by ID
@@ -748,61 +931,7 @@ export class ComponentsDataDialog {
         }
     }
 
-    // Show notification to user
-    showNotification(message, type = 'info') {
-        // Create notification element
-        const notification = document.createElement('div');
-        notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 12px 16px;
-            border-radius: 4px;
-            color: white;
-            font-size: 14px;
-            font-weight: 500;
-            z-index: 10000;
-            max-width: 300px;
-            word-wrap: break-word;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            transform: translateX(100%);
-            transition: transform 0.3s ease;
-        `;
-
-        // Set color based on type
-        switch (type) {
-            case 'success':
-                notification.style.backgroundColor = '#28a745';
-                break;
-            case 'error':
-                notification.style.backgroundColor = '#dc3545';
-                break;
-            case 'warning':
-                notification.style.backgroundColor = '#ffc107';
-                notification.style.color = '#212529';
-                break;
-            default:
-                notification.style.backgroundColor = '#17a2b8';
-        }
-
-        notification.textContent = message;
-        document.body.appendChild(notification);
-
-        // Animate in
-        setTimeout(() => {
-            notification.style.transform = 'translateX(0)';
-        }, 100);
-
-        // Auto remove after 3 seconds
-        setTimeout(() => {
-            notification.style.transform = 'translateX(100%)';
-            setTimeout(() => {
-                if (notification.parentNode) {
-                    notification.parentNode.removeChild(notification);
-                }
-            }, 300);
-        }, 3000);
-    }
+    // Removed showNotification - changes are applied only when Apply button is clicked
 
     // Fallback: Create basic HTML table if agGrid fails
     createBasicTable(componentType, components) {
@@ -927,23 +1056,6 @@ export class ComponentsDataDialog {
             display: flex;
             align-items: center;
             gap: 4px;
-            margin-right: 8px;
-        `;
-
-        // Close button
-        const closeBtn = document.createElement('button');
-        closeBtn.innerHTML = '✕ Close';
-        closeBtn.style.cssText = `
-            padding: 4px 12px;
-            background: #dc3545;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 13px;
-            display: flex;
-            align-items: center;
-            gap: 4px;
         `;
 
         // Event handlers
@@ -967,10 +1079,6 @@ export class ComponentsDataDialog {
             }
         });
 
-        closeBtn.addEventListener('click', () => {
-            this.close();
-        });
-
         // Hover effects
         exportBtn.addEventListener('mouseenter', () => {
             exportBtn.style.background = '#218838';
@@ -980,19 +1088,10 @@ export class ComponentsDataDialog {
             exportBtn.style.background = '#28a745';
         });
 
-        closeBtn.addEventListener('mouseenter', () => {
-            closeBtn.style.background = '#c82333';
-        });
-
-        closeBtn.addEventListener('mouseleave', () => {
-            closeBtn.style.background = '#dc3545';
-        });
-
         info.appendChild(count);
         info.appendChild(editHint);
         actions.appendChild(searchInput);
         actions.appendChild(exportBtn);
-        actions.appendChild(closeBtn);
 
         toolbar.appendChild(info);
         toolbar.appendChild(actions);
@@ -1074,6 +1173,72 @@ export class ComponentsDataDialog {
             flexDirection: 'column'
         });
 
+        // Create footer with Apply and Cancel buttons
+        const footer = document.createElement('div');
+        Object.assign(footer.style, {
+            padding: '12px 16px',
+            backgroundColor: '#f8f9fa',
+            borderTop: '2px solid #dee2e6',
+            display: 'flex',
+            justifyContent: 'flex-end',
+            gap: '8px',
+            flexShrink: 0
+        });
+
+        // Cancel button
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        Object.assign(cancelBtn.style, {
+            padding: '8px 24px',
+            backgroundColor: '#6c757d',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: '500',
+            transition: 'background-color 0.2s'
+        });
+        cancelBtn.addEventListener('mouseenter', () => {
+            cancelBtn.style.backgroundColor = '#5a6268';
+        });
+        cancelBtn.addEventListener('mouseleave', () => {
+            cancelBtn.style.backgroundColor = '#6c757d';
+        });
+        cancelBtn.addEventListener('click', () => {
+            this.close(false); // Close without applying changes
+        });
+
+        // Apply button
+        const applyBtn = document.createElement('button');
+        applyBtn.textContent = 'Apply';
+        Object.assign(applyBtn.style, {
+            padding: '8px 24px',
+            backgroundColor: '#007bff',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: '500',
+            transition: 'background-color 0.2s'
+        });
+        applyBtn.addEventListener('mouseenter', () => {
+            applyBtn.style.backgroundColor = '#0056b3';
+        });
+        applyBtn.addEventListener('mouseleave', () => {
+            applyBtn.style.backgroundColor = '#007bff';
+        });
+        applyBtn.addEventListener('click', () => {
+            if (this.hasChanges) {
+                this.applyChanges();
+            }
+            this.close(true); // Close after applying changes
+        });
+
+        footer.appendChild(cancelBtn);
+        footer.appendChild(applyBtn);
+
         // Create tabs for each component type that has data
         Object.entries(this.components).forEach(([componentType, components]) => {
             if (components.length > 0) {
@@ -1085,6 +1250,7 @@ export class ComponentsDataDialog {
         container.appendChild(header);
         container.appendChild(tabContainer);
         container.appendChild(contentContainer);
+        container.appendChild(footer);
 
         this.container = container;
         this.contentContainer = contentContainer;
@@ -1185,13 +1351,13 @@ export class ComponentsDataDialog {
     show() {
         const content = this.create();
         
-        // Get screen dimensions for full-screen dialog
-        const screenWidth = window.innerWidth - 40;
-        const screenHeight = window.innerHeight - 80;
+        // Make dialog full-screen with minimal margins
+        const screenWidth = window.innerWidth - 20;
+        const screenHeight = window.innerHeight - 20;
         
         // Show using EditorUi's dialog system
         this.dialogWindow = this.ui.showDialog(content, screenWidth, screenHeight, true, false, () => {
-            this.close();
+            this.close(false); // Close without applying changes on X button
         });
         
         const componentCount = Object.values(this.components).reduce((sum, arr) => sum + arr.length, 0);
@@ -1201,7 +1367,7 @@ export class ComponentsDataDialog {
     }
 
     // Close the dialog and cleanup
-    close() {
+    close(applyChanges = false) {
         // Clean up grid instances
         Object.values(this.gridInstances).forEach(api => {
             if (api && typeof api.destroy === 'function') {
@@ -1217,6 +1383,8 @@ export class ComponentsDataDialog {
         if (this.ui && typeof this.ui.hideDialog === 'function') {
             this.ui.hideDialog();
         }
+        
+        console.log(`ComponentsDataDialog closed. Changes ${applyChanges ? 'applied' : 'discarded'}.`);
     }
 }
 

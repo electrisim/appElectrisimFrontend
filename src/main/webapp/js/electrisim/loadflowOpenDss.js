@@ -43,6 +43,234 @@ const downloadOpenDSSCommands = (commands) => {
     }
 };
 
+// Helper function to create table formatting for OpenDSS results
+const createOpenDSSTableRow = (columns, widths) => {
+    return columns.map((col, i) => {
+        const str = String(col);
+        return str.padEnd(widths[i], ' ');
+    }).join(' | ');
+};
+
+const createOpenDSSTableSeparator = (widths) => {
+    return widths.map(w => '-'.repeat(w)).join('-+-');
+};
+
+// Helper function to download OpenDSS results as a text file
+const downloadOpenDSSResults = (dataJson) => {
+    try {
+        let resultsText = '========================================\n';
+        resultsText += '     OpenDSS Load Flow Results\n';
+        resultsText += '========================================\n\n';
+        resultsText += `Generated: ${new Date().toISOString()}\n\n`;
+        
+        // External Grids
+        if (dataJson.externalgrids && dataJson.externalgrids.length > 0) {
+            resultsText += '--- EXTERNAL GRIDS ---\n';
+            const widths = [20, 12, 12, 12, 10];
+            const headers = ['Name', 'P [MW]', 'Q [MVAr]', 'PF', 'Q/P'];
+            resultsText += createOpenDSSTableRow(headers, widths) + '\n';
+            resultsText += createOpenDSSTableSeparator(widths) + '\n';
+            dataJson.externalgrids.forEach(grid => {
+                const row = [
+                    grid.name || 'N/A',
+                    grid.p_mw ? grid.p_mw.toFixed(3) : 'N/A',
+                    grid.q_mvar ? grid.q_mvar.toFixed(3) : 'N/A',
+                    grid.pf ? grid.pf.toFixed(3) : 'N/A',
+                    grid.q_p ? grid.q_p.toFixed(3) : 'N/A'
+                ];
+                resultsText += createOpenDSSTableRow(row, widths) + '\n';
+            });
+            resultsText += '\n';
+        }
+        
+        // Buses
+        if (dataJson.busbars && dataJson.busbars.length > 0) {
+            resultsText += '--- BUSES ---\n';
+            const widths = [20, 12, 14];
+            const headers = ['Name', 'U [pu]', 'U [degree]'];
+            resultsText += createOpenDSSTableRow(headers, widths) + '\n';
+            resultsText += createOpenDSSTableSeparator(widths) + '\n';
+            dataJson.busbars.forEach(bus => {
+                const row = [
+                    bus.name || 'N/A',
+                    bus.vm_pu ? bus.vm_pu.toFixed(3) : 'N/A',
+                    bus.va_degree ? bus.va_degree.toFixed(3) : 'N/A'
+                ];
+                resultsText += createOpenDSSTableRow(row, widths) + '\n';
+            });
+            resultsText += '\n';
+        }
+        
+        // Lines
+        if (dataJson.lines && dataJson.lines.length > 0) {
+            resultsText += '--- LINES ---\n';
+            const widths = [20, 13, 14, 13, 12, 13, 12, 13];
+            const headers = ['Name', 'P_from [MW]', 'Q_from [MVAr]', 'I_from [kA]', 'P_to [MW]', 'Q_to [MVAr]', 'I_to [kA]', 'Loading [%]'];
+            resultsText += createOpenDSSTableRow(headers, widths) + '\n';
+            resultsText += createOpenDSSTableSeparator(widths) + '\n';
+            dataJson.lines.forEach(line => {
+                const row = [
+                    line.name || 'N/A',
+                    line.p_from_mw ? line.p_from_mw.toFixed(3) : 'N/A',
+                    line.q_from_mvar ? line.q_from_mvar.toFixed(3) : 'N/A',
+                    line.i_from_ka ? line.i_from_ka.toFixed(3) : 'N/A',
+                    line.p_to_mw ? line.p_to_mw.toFixed(3) : 'N/A',
+                    line.q_to_mvar ? line.q_to_mvar.toFixed(3) : 'N/A',
+                    line.i_to_ka ? line.i_to_ka.toFixed(3) : 'N/A',
+                    line.loading_percent ? line.loading_percent.toFixed(1) : 'N/A'
+                ];
+                resultsText += createOpenDSSTableRow(row, widths) + '\n';
+            });
+            resultsText += '\n';
+        }
+        
+        // Transformers
+        if (dataJson.transformers && dataJson.transformers.length > 0) {
+            resultsText += '--- TRANSFORMERS ---\n';
+            const widths = [20, 13, 13, 12, 13, 12, 12, 13, 12];
+            const headers = ['Name', 'P_HV [MW]', 'Q_HV [MVAr]', 'P_LV [MW]', 'Q_LV [MVAr]', 'I_HV [kA]', 'I_LV [kA]', 'Loading [%]', 'Loss [MW]'];
+            resultsText += createOpenDSSTableRow(headers, widths) + '\n';
+            resultsText += createOpenDSSTableSeparator(widths) + '\n';
+            dataJson.transformers.forEach(trafo => {
+                const row = [
+                    trafo.name || 'N/A',
+                    trafo.p_hv_mw !== undefined ? trafo.p_hv_mw.toFixed(3) : 'N/A',
+                    trafo.q_hv_mvar !== undefined ? trafo.q_hv_mvar.toFixed(3) : 'N/A',
+                    trafo.p_lv_mw !== undefined ? trafo.p_lv_mw.toFixed(3) : 'N/A',
+                    trafo.q_lv_mvar !== undefined ? trafo.q_lv_mvar.toFixed(3) : 'N/A',
+                    trafo.i_hv_ka ? trafo.i_hv_ka.toFixed(3) : 'N/A',
+                    trafo.i_lv_ka ? trafo.i_lv_ka.toFixed(3) : 'N/A',
+                    trafo.loading_percent ? trafo.loading_percent.toFixed(1) : 'N/A',
+                    trafo.pl_mw !== undefined ? trafo.pl_mw.toFixed(3) : 'N/A'
+                ];
+                resultsText += createOpenDSSTableRow(row, widths) + '\n';
+            });
+            resultsText += '\n';
+        }
+        
+        // Generators
+        if (dataJson.generators && dataJson.generators.length > 0) {
+            resultsText += '--- GENERATORS ---\n';
+            const widths = [20, 12, 12, 10, 14];
+            const headers = ['Name', 'P [MW]', 'Q [MVAr]', 'U [pu]', 'U [degree]'];
+            resultsText += createOpenDSSTableRow(headers, widths) + '\n';
+            resultsText += createOpenDSSTableSeparator(widths) + '\n';
+            dataJson.generators.forEach(gen => {
+                const row = [
+                    gen.name || 'N/A',
+                    gen.p_mw ? gen.p_mw.toFixed(3) : 'N/A',
+                    gen.q_mvar ? gen.q_mvar.toFixed(3) : 'N/A',
+                    gen.vm_pu ? gen.vm_pu.toFixed(3) : 'N/A',
+                    gen.va_degree ? gen.va_degree.toFixed(3) : 'N/A'
+                ];
+                resultsText += createOpenDSSTableRow(row, widths) + '\n';
+            });
+            resultsText += '\n';
+        }
+        
+        // Loads
+        if (dataJson.loads && dataJson.loads.length > 0) {
+            resultsText += '--- LOADS ---\n';
+            const widths = [20, 12, 12];
+            const headers = ['Name', 'P [MW]', 'Q [MVAr]'];
+            resultsText += createOpenDSSTableRow(headers, widths) + '\n';
+            resultsText += createOpenDSSTableSeparator(widths) + '\n';
+            dataJson.loads.forEach(load => {
+                const row = [
+                    load.name || 'N/A',
+                    load.p_mw ? load.p_mw.toFixed(3) : 'N/A',
+                    load.q_mvar ? load.q_mvar.toFixed(3) : 'N/A'
+                ];
+                resultsText += createOpenDSSTableRow(row, widths) + '\n';
+            });
+            resultsText += '\n';
+        }
+        
+        // Shunts
+        if (dataJson.shunts && dataJson.shunts.length > 0) {
+            resultsText += '--- SHUNT REACTORS ---\n';
+            const widths = [20, 12, 12, 10];
+            const headers = ['Name', 'P [MW]', 'Q [MVAr]', 'U [pu]'];
+            resultsText += createOpenDSSTableRow(headers, widths) + '\n';
+            resultsText += createOpenDSSTableSeparator(widths) + '\n';
+            dataJson.shunts.forEach(shunt => {
+                const row = [
+                    shunt.name || 'N/A',
+                    shunt.p_mw ? shunt.p_mw.toFixed(3) : 'N/A',
+                    shunt.q_mvar ? shunt.q_mvar.toFixed(3) : 'N/A',
+                    shunt.vm_pu ? shunt.vm_pu.toFixed(3) : 'N/A'
+                ];
+                resultsText += createOpenDSSTableRow(row, widths) + '\n';
+            });
+            resultsText += '\n';
+        }
+        
+        // Capacitors
+        if (dataJson.capacitors && dataJson.capacitors.length > 0) {
+            resultsText += '--- CAPACITORS ---\n';
+            const widths = [20, 12, 12, 10];
+            const headers = ['Name', 'P [MW]', 'Q [MVAr]', 'U [pu]'];
+            resultsText += createOpenDSSTableRow(headers, widths) + '\n';
+            resultsText += createOpenDSSTableSeparator(widths) + '\n';
+            dataJson.capacitors.forEach(cap => {
+                const row = [
+                    cap.name || 'N/A',
+                    cap.p_mw ? cap.p_mw.toFixed(3) : 'N/A',
+                    cap.q_mvar ? cap.q_mvar.toFixed(3) : 'N/A',
+                    cap.vm_pu ? cap.vm_pu.toFixed(3) : 'N/A'
+                ];
+                resultsText += createOpenDSSTableRow(row, widths) + '\n';
+            });
+            resultsText += '\n';
+        }
+        
+        // PVSystems
+        if (dataJson.pvsystems && dataJson.pvsystems.length > 0) {
+            resultsText += '--- PV SYSTEMS ---\n';
+            const widths = [20, 12, 12, 10, 14, 12, 14];
+            const headers = ['Name', 'P [MW]', 'Q [MVAr]', 'U [pu]', 'U [degree]', 'Irradiance', 'Temp [°C]'];
+            resultsText += createOpenDSSTableRow(headers, widths) + '\n';
+            resultsText += createOpenDSSTableSeparator(widths) + '\n';
+            dataJson.pvsystems.forEach(pv => {
+                const row = [
+                    pv.name || 'N/A',
+                    pv.p_mw ? pv.p_mw.toFixed(3) : 'N/A',
+                    pv.q_mvar ? pv.q_mvar.toFixed(3) : 'N/A',
+                    pv.vm_pu ? pv.vm_pu.toFixed(3) : 'N/A',
+                    pv.va_degree ? pv.va_degree.toFixed(3) : 'N/A',
+                    pv.irradiance !== undefined ? pv.irradiance.toFixed(3) : 'N/A',
+                    pv.temperature !== undefined ? pv.temperature.toFixed(1) : 'N/A'
+                ];
+                resultsText += createOpenDSSTableRow(row, widths) + '\n';
+            });
+            resultsText += '\n';
+        }
+        
+        resultsText += '========================================\n';
+        resultsText += '          End of Results\n';
+        resultsText += '========================================\n';
+        
+        // Create and download
+        const blob = new Blob([resultsText], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+        link.download = `OpenDSS_Results_${timestamp}.txt`;
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        console.log('OpenDSS results file downloaded successfully');
+    } catch (error) {
+        console.error('Error downloading OpenDSS results:', error);
+        alert('Failed to download OpenDSS results file. Please check the console for details.');
+    }
+};
+
 // Helper functions for bus connections and cell processing
 const getConnectedBusId = (cell, isLine = false) => {
     if (isLine) {                 
@@ -69,32 +297,85 @@ const getConnectedBusId = (cell, isLine = false) => {
 };
 
 // Add helper function for transformer bus connections (same as loadFlow.js)
-const getTransformerConnections = (cell) => {
+// Fixed to ensure HV bus is always busFrom and LV bus is always busTo
+const getTransformerConnections = (cell, graph) => {
+    // Helper function to get bus voltage from a bus cell
+    const getBusVoltageLevel = (busId, graph) => {
+        if (!busId || !graph) return 0;
+        
+        const cells = graph.getModel().cells;
+        for (const cellId in cells) {
+            const busCell = cells[cellId];
+            if (busCell && busCell.mxObjectId === busId.replace('_', '#')) {
+                const style = busCell.getStyle ? busCell.getStyle() : '';
+                if (style && style.includes('shapeELXXX=Bus')) {
+                    // Get voltage from attributes
+                    if (busCell.value && busCell.value.attributes) {
+                        for (let i = 0; i < busCell.value.attributes.length; i++) {
+                            const attr = busCell.value.attributes[i];
+                            if (attr.nodeName === 'vn_kv') {
+                                return parseFloat(attr.nodeValue) || 0;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return 0;
+    };
+    
     if (cell.edges && cell.edges.length >= 2) {
-        const hvEdge = cell.edges[0];
-        const lvEdge = cell.edges[1];
+        const edge1 = cell.edges[0];
+        const edge2 = cell.edges[1];
 
-        return {
-            busFrom: formatBusId(hvEdge.target && hvEdge.target.mxObjectId !== cell.mxObjectId ?
-                hvEdge.target.mxObjectId : 
-                hvEdge.source.mxObjectId),
-            busTo: formatBusId(lvEdge.target && lvEdge.target.mxObjectId !== cell.mxObjectId ?
-                lvEdge.target.mxObjectId : 
-                lvEdge.source.mxObjectId)
-        };
+        const bus1Id = formatBusId(edge1.target && edge1.target.mxObjectId !== cell.mxObjectId ?
+            edge1.target.mxObjectId : 
+            edge1.source.mxObjectId);
+        const bus2Id = formatBusId(edge2.target && edge2.target.mxObjectId !== cell.mxObjectId ?
+            edge2.target.mxObjectId : 
+            edge2.source.mxObjectId);
+        
+        // Get voltage levels for both buses
+        const voltage1 = getBusVoltageLevel(bus1Id, graph);
+        const voltage2 = getBusVoltageLevel(bus2Id, graph);
+        
+        // Ensure HV bus is busFrom and LV bus is busTo
+        if (voltage1 >= voltage2) {
+            return {
+                busFrom: bus1Id,  // HV side
+                busTo: bus2Id     // LV side
+            };
+        } else {
+            return {
+                busFrom: bus2Id,  // HV side
+                busTo: bus1Id     // LV side
+            };
+        }
     }
     
     // Fallback for single edge transformers
     if (cell.edges && cell.edges.length === 1) {
         const edge = cell.edges[0];
         if (edge.source && edge.target) {
-            const sourceId = edge.source.mxObjectId;
-            const targetId = edge.target.mxObjectId;
+            const sourceId = formatBusId(edge.source.mxObjectId);
+            const targetId = formatBusId(edge.target.mxObjectId);
             
-            return {            
-                busFrom: formatBusId(sourceId),
-                busTo: formatBusId(targetId)
-            };
+            // Get voltage levels
+            const voltageSource = getBusVoltageLevel(sourceId, graph);
+            const voltageTarget = getBusVoltageLevel(targetId, graph);
+            
+            // Ensure HV bus is busFrom and LV bus is busTo
+            if (voltageSource >= voltageTarget) {
+                return {            
+                    busFrom: sourceId,  // HV side
+                    busTo: targetId     // LV side
+                };
+            } else {
+                return {            
+                    busFrom: targetId,  // HV side
+                    busTo: sourceId     // LV side
+                };
+            }
         }
     }
     
@@ -520,9 +801,16 @@ const elementProcessors = {
                 const cellName = cell.name ? cell.name.replace('_', '#') : 'Unknown';
                 
                 const resultString = `${cellName}
+        P_HV[MW]: ${cell.p_hv_mw !== undefined ? cell.p_hv_mw.toFixed(3) : 'N/A'}
+        Q_HV[MVAr]: ${cell.q_hv_mvar !== undefined ? cell.q_hv_mvar.toFixed(3) : 'N/A'}
         i_HV[kA]: ${cell.i_hv_ka ? cell.i_hv_ka.toFixed(3) : 'N/A'}
+        
+        P_LV[MW]: ${cell.p_lv_mw !== undefined ? cell.p_lv_mw.toFixed(3) : 'N/A'}
+        Q_LV[MVAr]: ${cell.q_lv_mvar !== undefined ? cell.q_lv_mvar.toFixed(3) : 'N/A'}
         i_LV[kA]: ${cell.i_lv_ka ? cell.i_lv_ka.toFixed(3) : 'N/A'}
-        loading[%]: ${cell.loading_percent ? cell.loading_percent.toFixed(3) : 'N/A'}`;
+        
+        Losses[MW]: ${cell.pl_mw !== undefined ? cell.pl_mw.toFixed(3) : 'N/A'}
+        loading[%]: ${cell.loading_percent ? cell.loading_percent.toFixed(1) : 'N/A'}`;
 
                 const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.1, 0, 0, 'shapeELXXX=Result', true);
                 processCellStyles(b, labelka);
@@ -906,6 +1194,25 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
             console.log('Exporting OpenDSS commands to file...');
             downloadOpenDSSCommands(dataJson.opendss_commands);
         }
+        
+        // Handle OpenDSS results export if requested
+        // Note: exportOpenDSSResults flag should be passed through from parameters
+        console.log('🔍 Checking for OpenDSS results export...');
+        console.log('  - obj exists:', !!obj);
+        console.log('  - obj[0] exists:', !!(obj && obj[0]));
+        console.log('  - obj[0]:', obj ? obj[0] : 'obj is null');
+        console.log('  - exportOpenDSSResults value:', obj && obj[0] ? obj[0].exportOpenDSSResults : 'N/A');
+        
+        if (obj && obj[0] && obj[0].exportOpenDSSResults) {
+            console.log('✅ Exporting OpenDSS results to file...');
+            downloadOpenDSSResults(dataJson);
+        } else {
+            console.log('ℹ️ OpenDSS results export not requested or flag not set');
+            console.log('  Condition breakdown:');
+            console.log('    - obj:', !!obj);
+            console.log('    - obj[0]:', !!(obj && obj[0]));
+            console.log('    - obj[0].exportOpenDSSResults:', !!(obj && obj[0] && obj[0].exportOpenDSSResults));
+        }
 
     } catch (err) {
         if (err.message === "server") {
@@ -1006,6 +1313,7 @@ function executeOpenDSSLoadFlow(parameters, app, graph) {
         tolerance: opendssParams[5],           // Convergence tolerance
         controlmode: opendssParams[6],         // Control mode (Static, Event, Time)
         exportCommands: opendssParams[7] || false,  // Export OpenDSS commands to file
+        exportOpenDSSResults: parameters.exportOpenDSSResults || false,  // Export OpenDSS results to file
         user_email: userEmail
     };
     
@@ -1310,7 +1618,7 @@ function collectNetworkDataStructured(graph) {
                     }
                 } else if (styleObj && styleObj.shapeELXXX === 'Transformer') {
                     // This is a transformer element
-                    const connections = getTransformerConnections(cell);
+                    const connections = getTransformerConnections(cell, graph);
                     
                     const transParams = getAttributesAsObject(cell, {
                         // Basic transformer parameters
@@ -1349,12 +1657,12 @@ function collectNetworkDataStructured(graph) {
                         i0_percent: transParams.i0_percent || 0.0,
                         shift_degree: transParams.shift_degree || 0.0,
                         tap_side: transParams.tap_side || 'hv',
-                        tap_neutral: transParams.tap_neutral || 1.0,
-                        tap_min: transParams.tap_min || 0.9,
-                        tap_max: transParams.tap_max || 1.1,
-                        tap_step_percent: transParams.tap_step_percent || 1.25,
+                        tap_neutral: transParams.tap_neutral || 0,
+                        tap_min: transParams.tap_min || -10,
+                        tap_max: transParams.tap_max || 10,
+                        tap_step_percent: transParams.tap_step_percent || 1.5,
                         tap_step_degree: transParams.tap_step_degree || 0.0,
-                        tap_pos: transParams.tap_pos || 1.0,
+                        tap_pos: transParams.tap_pos || 0,  // Default to 0 (neutral position)
                         tap_phase_shifter: transParams.tap_phase_shifter || false
                     };
                     
@@ -1757,7 +2065,7 @@ function collectNetworkDataStructured(graph) {
                     }
                 } else if (styleObj && styleObj.shapeELXXX === 'Three Winding Transformer') {
                     // This is a three winding transformer element
-                    const connections = getTransformerConnections(cell);
+                    const connections = getTransformerConnections(cell, graph);
                     
                     cellData = {
                         typ: 'Three Winding Transformer',
@@ -2212,6 +2520,7 @@ function getBusVoltage(cellValue) {
 function executePandapowerLoadFlow(parameters, app, graph) {
     console.log('✅ executePandapowerLoadFlow called with parameters:', parameters);
     console.log('✅ exportPython value:', parameters.exportPython);
+    console.log('✅ exportPandapowerResults value:', parameters.exportPandapowerResults);
     
     // Start the spinner
     app.spinner.spin(document.body, "Waiting for Pandapower results...");
@@ -2258,6 +2567,7 @@ function executePandapowerCoreLogic(parameters, app, graph) {
     } else if (typeof parameters === 'object' && parameters !== null) {
         console.log('✅ Object format detected - preserving all properties including exportPython');
         console.log('✅ exportPython value:', parameters.exportPython);
+        console.log('✅ exportPandapowerResults value:', parameters.exportPandapowerResults);
         // Parameters is already an object, use it directly (preserves exportPython!)
         paramObject = {
             frequency: parameters.frequency || '50',
@@ -2265,10 +2575,12 @@ function executePandapowerCoreLogic(parameters, app, graph) {
             calculate_voltage_angles: parameters.calculate_voltage_angles || 'auto',
             initialization: parameters.initialization || 'auto',
             exportPython: parameters.exportPython || false,  // PRESERVE the user's choice!
+            exportPandapowerResults: parameters.exportPandapowerResults || false,  // PRESERVE results export choice!
             enforceLimits: parameters.enforceLimits || false,  // Also preserve other checkboxes
             engine: parameters.engine || 'pandapower'
         };
         console.log('✅ Final paramObject.exportPython:', paramObject.exportPython);
+        console.log('✅ Final paramObject.exportPandapowerResults:', paramObject.exportPandapowerResults);
     } else {
         console.warn('⚠️ Unexpected parameters format:', typeof parameters);
         paramObject = {
@@ -2290,6 +2602,7 @@ function executePandapowerCoreLogic(parameters, app, graph) {
         window.LoadFlowDialog.prototype.show = function(callback) {
             console.log('Overridden LoadFlowDialog.show called, immediately calling callback with param OBJECT:', paramObject);
             console.log('✅ exportPython in paramObject being passed to callback:', paramObject.exportPython);
+            console.log('✅ exportPandapowerResults in paramObject being passed to callback:', paramObject.exportPandapowerResults);
             // Call the callback with the object format
             callback(paramObject);
         };

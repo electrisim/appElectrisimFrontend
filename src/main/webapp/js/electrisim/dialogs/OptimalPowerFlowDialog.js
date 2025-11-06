@@ -67,8 +67,8 @@
                         type: 'radio',
                         options: [
                             { value: 'auto', label: 'Auto', default: true },
-                            { value: 'True', label: 'True' },
-                            { value: 'False', label: 'False' }
+                            { value: true, label: 'True' },
+                            { value: false, label: 'False' }
                         ]
                     },
                     {
