@@ -1,8 +1,9 @@
 // DiagnosticReportDialog.js - Dialog for displaying diagnostic reports
 (function() {
     class DiagnosticReportDialog {
-        constructor(diagnosticData) {
+        constructor(diagnosticData, errorInfo = null) {
             this.diagnosticData = diagnosticData;
+            this.errorInfo = errorInfo; // { message, exception }
             // Set a more general title
             this.title = this.detectShortCircuitDiagnostic(diagnosticData)
                 ? 'Short Circuit Diagnostic Report'
@@ -46,10 +47,36 @@
                 background: #ffebee; border: 1px solid #ffcdd2; border-radius: 4px;
                 padding: 16px; margin-bottom: 20px;
             `;
-            errorSummary.innerHTML = `
+            
+            let errorHtml = `
                 <h3 style="margin: 0 0 8px 0; color: #d32f2f;">⚠️ ${this.title.replace(' Report','')} Failed</h3>
-                <p style="margin: 0; color: #c62828;">The calculation could not complete. Please review the diagnostic information below and fix the issues in your network.</p>
             `;
+            
+            // Add the specific error message if available
+            if (this.errorInfo && this.errorInfo.message) {
+                errorHtml += `
+                    <p style="margin: 8px 0; padding: 12px; background: #fff; border-left: 4px solid #d32f2f; color: #000; font-weight: bold;">
+                        ${this.errorInfo.message}
+                    </p>
+                `;
+            }
+            
+            // Add the exception details if available and different from message
+            if (this.errorInfo && this.errorInfo.exception && this.errorInfo.exception !== this.errorInfo.message) {
+                errorHtml += `
+                    <p style="margin: 8px 0 0 0; padding: 8px; background: #fff; border-left: 4px solid #ff9800; color: #333; font-size: 13px;">
+                        <strong>Details:</strong> ${this.errorInfo.exception}
+                    </p>
+                `;
+            }
+            
+            if (!this.errorInfo || !this.errorInfo.message) {
+                errorHtml += `
+                    <p style="margin: 0; color: #c62828;">The calculation could not complete. Please review the diagnostic information below and fix the issues in your network.</p>
+                `;
+            }
+            
+            errorSummary.innerHTML = errorHtml;
             dialog.appendChild(errorSummary);
 
             // Content container

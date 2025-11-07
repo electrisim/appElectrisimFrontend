@@ -267,10 +267,28 @@ const downloadPandapowerResults = (dataJson) => {
 };
 
 //define buses to which the cell is connected
-const getConnectedBusId = (cell, isLine = false) => {
+const getConnectedBusId = (cell, isLine = false, strictValidation = false) => {
     //console.log('cell in getConnectedBusId', cell);
 
-    if (isLine) {                 
+    // Helper function to check if a cell is a bus
+    const isBus = (connectedCell) => {
+        if (!connectedCell || !connectedCell.style) return false;
+        // Check if the style contains 'Bus' or if it's a busbar shape
+        return connectedCell.style.includes('shape=mxgraph.electrical.transmission.busbar') ||
+               connectedCell.style.includes('Bus') ||
+               (connectedCell.value && connectedCell.value.nodeName && connectedCell.value.nodeName.includes('Bus'));
+    };
+
+    if (isLine) {
+        // For lines, only validate if strict validation is enabled
+        if (strictValidation) {
+            if (cell.source && !isBus(cell.source)) {
+                console.warn(`Line "${cell.id}" source is connected to "${cell.source.id}" which may not be a Bus`);
+            }
+            if (cell.target && !isBus(cell.target)) {
+                console.warn(`Line "${cell.id}" target is connected to "${cell.target.id}" which may not be a Bus`);
+            }
+        }
         return {            
             busFrom: cell.source?.mxObjectId?.replace('#', '_'),
             busTo: cell.target?.mxObjectId?.replace('#', '_')
@@ -287,13 +305,17 @@ const getConnectedBusId = (cell, isLine = false) => {
         return null; // or some default value
     }
 
-    // Make sure we're not accessing mxObjectId from a null object
-    const bus = edge.target && edge.target.mxObjectId !== cell.mxObjectId ?
-        (edge.target ? edge.target.mxObjectId : null) : 
-        (edge.source ? edge.source.mxObjectId : null);
+    // Get the connected cell
+    const connectedCell = edge.target && edge.target.mxObjectId !== cell.mxObjectId ?
+        edge.target : edge.source;
 
-    // Only try to replace if bus is not null
-    return bus ? bus.replace('#', '_') : null;
+    // Only validate if strict validation is enabled
+    if (strictValidation && connectedCell && !isBus(connectedCell)) {
+        console.warn(`Component "${cell.id}" is connected to "${connectedCell.id}" which may not be a Bus. PandaPower requires explicit Bus connections.`);
+    }
+
+    // Only try to replace if connectedCell is not null
+    return connectedCell ? connectedCell.mxObjectId.replace('#', '_') : null;
     /*        
     const edge = cell.edges[0];
         const bus = edge.target.mxObjectId !== cell.mxObjectId ?
@@ -360,15 +382,37 @@ const getAttributesAsObject = (cell, attributeMap) => {
 };
 
 // Add helper function for transformer bus connections
-const getTransformerConnections = (cell) => {
+const getTransformerConnections = (cell, strictValidation = false) => {
     const hvEdge = cell.edges[0];
     const lvEdge = cell.edges[1];
 
+    // Get connected cells
+    const hvConnectedCell = hvEdge.target.mxObjectId !== cell.mxObjectId ? hvEdge.target : hvEdge.source;
+    const lvConnectedCell = lvEdge.target.mxObjectId !== cell.mxObjectId ? lvEdge.target : lvEdge.source;
+    
+    // Validate that connected cells are buses
+    const isBus = (connectedCell) => {
+        if (!connectedCell || !connectedCell.style) return false;
+        // Check if the style contains 'Bus' or if it's a busbar shape
+        return connectedCell.style.includes('shape=mxgraph.electrical.transmission.busbar') ||
+               connectedCell.style.includes('Bus') ||
+               (connectedCell.value && connectedCell.value.nodeName && connectedCell.value.nodeName.includes('Bus'));
+    };
+    
+    // Only validate if strict validation is enabled
+    if (strictValidation) {
+        if (!isBus(hvConnectedCell)) {
+            console.warn(`Transformer "${cell.id}" HV side is connected to "${hvConnectedCell.id}" which may not be a Bus. PandaPower requires explicit Bus connections.`);
+        }
+        
+        if (!isBus(lvConnectedCell)) {
+            console.warn(`Transformer "${cell.id}" LV side is connected to "${lvConnectedCell.id}" which may not be a Bus. PandaPower requires explicit Bus connections.`);
+        }
+    }
+
     return {
-        hv_bus: (hvEdge.target.mxObjectId !== cell.mxObjectId ?
-            hvEdge.target.mxObjectId : hvEdge.source.mxObjectId).replace('#', '_'),
-        lv_bus: (lvEdge.target.mxObjectId !== cell.mxObjectId ?
-            lvEdge.target.mxObjectId : lvEdge.source.mxObjectId).replace('#', '_')
+        hv_bus: hvConnectedCell.mxObjectId.replace('#', '_'),
+        lv_bus: lvConnectedCell.mxObjectId.replace('#', '_')
     };
 };
 
@@ -901,7 +945,11 @@ function loadFlowPandaPower(a, b, c) {
             
             // Show diagnostic dialog if available
             if (window.DiagnosticReportDialog) {
-                const diagnosticDialog = new window.DiagnosticReportDialog(dataJson.diagnostic);
+                // Pass the entire response including message and exception
+                const diagnosticDialog = new window.DiagnosticReportDialog(dataJson.diagnostic, {
+                    message: dataJson.message,
+                    exception: dataJson.exception
+                });
                 diagnosticDialog.show();
             } else {
                 // Fallback to alert if dialog is not available
