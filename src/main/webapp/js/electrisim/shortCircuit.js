@@ -90,7 +90,11 @@ window.shortCircuitPandaPower = function(a, b, c) {
         if (dataJson.error && dataJson.diagnostic) {
             console.log('Short Circuit failed with diagnostic information:', dataJson);
             if (window.DiagnosticReportDialog) {
-                const diagnosticDialog = new window.DiagnosticReportDialog(dataJson.diagnostic);
+                // Pass the entire response including message and exception
+                const diagnosticDialog = new window.DiagnosticReportDialog(dataJson.diagnostic, {
+                    message: dataJson.message,
+                    exception: dataJson.exception
+                });
                 diagnosticDialog.show();
             } else {
                 alert(`Short Circuit calculation failed: ${dataJson.message}\n\nException: ${dataJson.exception}`);
