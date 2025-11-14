@@ -634,7 +634,8 @@ const elementProcessors = {
         Q_to[MVar]: ${cell.q_to_mvar ? cell.q_to_mvar.toFixed(3) : 'N/A'}
         i_to[kA]: ${cell.i_to_ka ? cell.i_to_ka.toFixed(3) : 'N/A'}`;
 
-                const labelka = b.insertEdge(resultCell, null, resultString, resultCell.source, resultCell.target, 'shapeELXXX=Result');
+                // Use insertVertex with relative positioning - x=0.5 centers label on the edge
+                const labelka = b.insertVertex(resultCell, null, resultString, 0, 0, 0, 0, 'shapeELXXX=Result', true);
                 processCellStyles(b, labelka, true);
                 processLoadingColor(grafka, resultCell, cell.loading_percent);
             } catch (error) {
@@ -2498,7 +2499,11 @@ function getBusVoltage(cellValue) {
         for (let i = 0; i < cellValue.attributes.length; i++) {
             const attr = cellValue.attributes[i];
             if (attr.nodeName === 'vn_kv') {
-                return attr.nodeValue;
+                const voltage = attr.nodeValue;
+                // Return only if it's a valid non-empty value
+                if (voltage && voltage !== '' && voltage !== 'null' && voltage !== 'undefined') {
+                    return voltage;
+                }
             }
         }
         
@@ -2508,12 +2513,17 @@ function getBusVoltage(cellValue) {
                 return '110';
             } else if (cellValue.includes('20kV')) {
                 return '20';
+            } else if (cellValue.includes('30kV')) {
+                return '30';
+            } else if (cellValue.includes('10kV')) {
+                return '10';
             }
         }
     }
     
-    // Default voltage
-    return '110';
+    // No default voltage - return null to indicate missing voltage
+    // This will cause backend validation to catch the error
+    return null;
 }
 
 // Function to execute Pandapower load flow calculation

@@ -460,6 +460,7 @@
 							var electrisimScripts = [
 								// Load performance utilities FIRST
 								'js/electrisim/utils/performanceUtils.js',
+								'js/electrisim/utils/pageVisibilityManager.js',
 								'js/electrisim/utils/performanceMonitor.js',
 								// Then load other utilities and dialogs
 								'js/electrisim/dialogs/EditDataDialog.js',
@@ -545,7 +546,7 @@
 							function loadElectrisimScripts(index) {
 								if (index < electrisimScripts.length) {
 									// Load critical scripts first (performance utils, then others)
-									const batchSize = index === 0 ? 1 : 5; // Load performance utils alone first
+									const batchSize = index === 0 ? 1 : (index === 1 ? 2 : 5); // Load performanceUtils first, then visibility manager and monitor together
 									const batch = electrisimScripts.slice(index, index + batchSize);
 									let loaded = 0;
 									
