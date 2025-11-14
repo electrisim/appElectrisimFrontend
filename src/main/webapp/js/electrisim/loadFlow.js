@@ -1073,7 +1073,7 @@ function loadFlowPandaPower(a, b, c) {
 
         generators: (data, b) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}
@@ -1086,7 +1086,7 @@ function loadFlowPandaPower(a, b, c) {
         },
         staticgenerators: (data, b) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}`;
@@ -1097,7 +1097,7 @@ function loadFlowPandaPower(a, b, c) {
         },
         asymmetricstaticgenerators: (data, b) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             P_A[MW]: ${formatNumber(cell.p_a_mw)}
             Q_A[MVar]: ${formatNumber(cell.q_a_mvar)}
@@ -1112,7 +1112,7 @@ function loadFlowPandaPower(a, b, c) {
         },
         transformers: (data, b) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
 
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             i_HV[kA]: ${formatNumber(cell.i_hv_ka)}
@@ -1127,7 +1127,7 @@ function loadFlowPandaPower(a, b, c) {
         },
         transformers3W: (data, b) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             i_HV[kA]: ${formatNumber(cell.i_hv_ka)}
             i_MV[kA]: ${formatNumber(cell.i_mv_ka)}
@@ -1141,7 +1141,7 @@ function loadFlowPandaPower(a, b, c) {
         },
         shunts: (data, b) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}
@@ -1154,7 +1154,7 @@ function loadFlowPandaPower(a, b, c) {
         },
         capacitors: (data, b) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}
@@ -1166,7 +1166,7 @@ function loadFlowPandaPower(a, b, c) {
         },
         loads: (data, b) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}`;
@@ -1177,7 +1177,7 @@ function loadFlowPandaPower(a, b, c) {
         },
         asymmetricloads: (data, b) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             P_A[MW]: ${formatNumber(cell.p_a_mw)}
             Q_A[MVar]: ${formatNumber(cell.q_a_mvar)}
@@ -1192,7 +1192,7 @@ function loadFlowPandaPower(a, b, c) {
         },
         impedances: (data, b) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             P_from[MW]: ${formatNumber(cell.p_from_mw)}
             Q_from[MVar]: ${formatNumber(cell.q_from_mvar)}
@@ -1209,7 +1209,7 @@ function loadFlowPandaPower(a, b, c) {
         },
         wards: (data, b) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}
@@ -1222,7 +1222,7 @@ function loadFlowPandaPower(a, b, c) {
         },
         extendedwards: (data, b) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}
@@ -1234,7 +1234,7 @@ function loadFlowPandaPower(a, b, c) {
         },
         motors: (data, b) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}`;
@@ -1245,7 +1245,7 @@ function loadFlowPandaPower(a, b, c) {
         },
         storages: (data, b) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}`;
@@ -1256,7 +1256,7 @@ function loadFlowPandaPower(a, b, c) {
         },
         svc: (data, b) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             Firing angle[degree]: ${formatNumber(cell.thyristor_firing_angle_degree)}
             x[Ohm]: ${formatNumber(cell.x_ohm)}
@@ -1270,7 +1270,7 @@ function loadFlowPandaPower(a, b, c) {
         },
         tcsc: (data, b) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             Firing angle[degree]: ${formatNumber(cell.thyristor_firing_angle_degree)}
             x[Ohm]: ${formatNumber(cell.x_ohm)}
@@ -1292,7 +1292,7 @@ function loadFlowPandaPower(a, b, c) {
         sscs: (data, b) => {
             
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             q_mvar: ${formatNumber(cell.q_mvar)}
             vm_internal_pu: ${formatNumber(cell.vm_internal_pu)}
@@ -1307,7 +1307,7 @@ function loadFlowPandaPower(a, b, c) {
         },
         dclines: (data, b) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             P_from[MW]: ${formatNumber(cell.p_from_mw)}
             Q_from[MVar]: ${formatNumber(cell.q_mvar)}

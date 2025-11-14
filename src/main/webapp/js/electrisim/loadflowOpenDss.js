@@ -551,8 +551,9 @@ function loadFlowOpenDss(a, b, c) {
 
 // Element processors for OpenDSS (FROM BACKEND TO FRONTEND)
 // Updated to handle simplified backend response without output classes
+// OPTIMIZED: Uses cellIdMap for O(1) lookups instead of O(n) searches
 const elementProcessors = {
-    busbars: (data, b, grafka) => {
+    busbars: (data, b, grafka, cellIdMap) => {
         if (!Array.isArray(data)) {
             console.warn('busbars data is not an array:', data);
             return;
@@ -560,22 +561,11 @@ const elementProcessors = {
         
         data.forEach(cell => {
             try {
-                // Find cell by mxObjectId instead of internal ID
-                let resultCell = null;
-                const cells = b.getModel().cells;
-                
-                // Search through all cells to find the one with matching mxObjectId
-                for (const cellId in cells) {
-                    const graphCell = cells[cellId];
-                    if (graphCell && graphCell.mxObjectId === cell.id) {
-                        resultCell = graphCell;
-                        break;
-                    }
-                }
+                // OPTIMIZED: O(1) lookup using cellIdMap instead of O(n) search
+                const resultCell = cellIdMap ? cellIdMap.get(cell.id) : null;
                 
                 if (!resultCell) {
                     console.warn(`Could not find cell with mxObjectId: ${cell.id}`);
-                    console.log('Available cells:', Object.keys(cells).map(id => ({ id, mxObjectId: cells[id]?.mxObjectId })));
                     return;
                 }
                 
@@ -594,7 +584,7 @@ const elementProcessors = {
         });
     },
 
-    lines: (data, b, grafka) => {
+    lines: (data, b, grafka, cellIdMap) => {
         if (!Array.isArray(data)) {
             console.warn('lines data is not an array:', data);
             return;
@@ -602,22 +592,11 @@ const elementProcessors = {
         
         data.forEach(cell => {
             try {
-                // Find cell by mxObjectId instead of internal ID
-                let resultCell = null;
-                const cells = b.getModel().cells;
-                
-                // Search through all cells to find the one with matching mxObjectId
-                for (const cellId in cells) {
-                    const graphCell = cells[cellId];
-                    if (graphCell && graphCell.mxObjectId === cell.id) {
-                        resultCell = graphCell;
-                        break;
-                    }
-                }
+                // OPTIMIZED: O(1) lookup using cellIdMap
+                const resultCell = cellIdMap ? cellIdMap.get(cell.id) : null;
                 
                 if (!resultCell) {
                     console.warn(`Could not find cell with mxObjectId: ${cell.id}`);
-                    console.log('Available cells:', Object.keys(cells).map(id => ({ id, mxObjectId: cells[id]?.mxObjectId })));
                     return;
                 }
                 
@@ -644,7 +623,7 @@ const elementProcessors = {
         });
     },
 
-    externalgrids: (data, b) => {
+    externalgrids: (data, b, cellIdMap) => {
         if (!Array.isArray(data)) {
             console.warn('externalgrids data is not an array:', data);
             return;
@@ -652,22 +631,11 @@ const elementProcessors = {
         
         data.forEach(cell => {
             try {
-                // Find cell by mxObjectId instead of internal ID
-                let resultCell = null;
-                const cells = b.getModel().cells;
-                
-                // Search through all cells to find the one with matching mxObjectId
-                for (const cellId in cells) {
-                    const graphCell = cells[cellId];
-                    if (graphCell && graphCell.mxObjectId === cell.id) {
-                        resultCell = graphCell;
-                        break;
-                    }
-                }
+                // OPTIMIZED: O(1) lookup using cellIdMap
+                const resultCell = cellIdMap ? cellIdMap.get(cell.id) : null;
                 
                 if (!resultCell) {
                     console.warn(`Could not find cell with mxObjectId: ${cell.id}`);
-                    console.log('Available cells:', Object.keys(cells).map(id => ({ id, mxObjectId: cells[id]?.mxObjectId })));
                     return;
                 }
                 
@@ -688,7 +656,7 @@ const elementProcessors = {
         });
     },
 
-    generators: (data, b) => {
+    generators: (data, b, cellIdMap) => {
         if (!Array.isArray(data)) {
             console.warn('generators data is not an array:', data);
             return;
@@ -696,22 +664,11 @@ const elementProcessors = {
         
         data.forEach(cell => {
             try {
-                // Find cell by mxObjectId instead of internal ID
-                let resultCell = null;
-                const cells = b.getModel().cells;
-                
-                // Search through all cells to find the one with matching mxObjectId
-                for (const cellId in cells) {
-                    const graphCell = cells[cellId];
-                    if (graphCell && graphCell.mxObjectId === cell.id) {
-                        resultCell = graphCell;
-                        break;
-                    }
-                }
+                // OPTIMIZED: O(1) lookup using cellIdMap
+                const resultCell = cellIdMap ? cellIdMap.get(cell.id) : null;
                 
                 if (!resultCell) {
                     console.warn(`Could not find cell with mxObjectId: ${cell.id}`);
-                    console.log('Available cells:', Object.keys(cells).map(id => ({ id, mxObjectId: cells[id]?.mxObjectId })));
                     return;
                 }
                 
@@ -731,7 +688,7 @@ const elementProcessors = {
         });
     },
 
-    loads: (data, b) => {
+    loads: (data, b, cellIdMap) => {
         if (!Array.isArray(data)) {
             console.warn('loads data is not an array:', data);
             return;
@@ -739,22 +696,11 @@ const elementProcessors = {
         
         data.forEach(cell => {
             try {
-                // Find cell by mxObjectId instead of internal ID
-                let resultCell = null;
-                const cells = b.getModel().cells;
-                
-                // Search through all cells to find the one with matching mxObjectId
-                for (const cellId in cells) {
-                    const graphCell = cells[cellId];
-                    if (graphCell && graphCell.mxObjectId === cell.id) {
-                        resultCell = graphCell;
-                        break;
-                    }
-                }
+                // OPTIMIZED: O(1) lookup using cellIdMap
+                const resultCell = cellIdMap ? cellIdMap.get(cell.id) : null;
                 
                 if (!resultCell) {
                     console.warn(`Could not find cell with mxObjectId: ${cell.id}`);
-                    console.log('Available cells:', Object.keys(cells).map(id => ({ id, mxObjectId: cells[id]?.mxObjectId })));
                     return;
                 }
                 
@@ -772,7 +718,7 @@ const elementProcessors = {
         });
     },
 
-    transformers: (data, b, grafka) => {
+    transformers: (data, b, grafka, cellIdMap) => {
         if (!Array.isArray(data)) {
             console.warn('transformers data is not an array:', data);
             return;
@@ -780,22 +726,11 @@ const elementProcessors = {
         
         data.forEach(cell => {
             try {
-                // Find cell by mxObjectId instead of internal ID
-                let resultCell = null;
-                const cells = b.getModel().cells;
-                
-                // Search through all cells to find the one with matching mxObjectId
-                for (const cellId in cells) {
-                    const graphCell = cells[cellId];
-                    if (graphCell && graphCell.mxObjectId === cell.id) {
-                        resultCell = graphCell;
-                        break;
-                    }
-                }
+                // OPTIMIZED: O(1) lookup using cellIdMap
+                const resultCell = cellIdMap ? cellIdMap.get(cell.id) : null;
                 
                 if (!resultCell) {
                     console.warn(`Could not find cell with mxObjectId: ${cell.id}`);
-                    console.log('Available cells:', Object.keys(cells).map(id => ({ id, mxObjectId: cells[id]?.mxObjectId })));
                     return;
                 }
                 
@@ -823,7 +758,7 @@ const elementProcessors = {
     },
 
     // Add support for additional element types that might be returned by the simplified backend
-    shunts: (data, b) => {
+    shunts: (data, b, cellIdMap) => {
         if (!Array.isArray(data)) {
             console.warn('shunts data is not an array:', data);
             return;
@@ -831,22 +766,11 @@ const elementProcessors = {
         
         data.forEach(cell => {
             try {
-                // Find cell by mxObjectId instead of internal ID
-                let resultCell = null;
-                const cells = b.getModel().cells;
-                
-                // Search through all cells to find the one with matching mxObjectId
-                for (const cellId in cells) {
-                    const graphCell = cells[cellId];
-                    if (graphCell && graphCell.mxObjectId === cell.id) {
-                        resultCell = graphCell;
-                        break;
-                    }
-                }
+                // OPTIMIZED: O(1) lookup using cellIdMap
+                const resultCell = cellIdMap ? cellIdMap.get(cell.id) : null;
                 
                 if (!resultCell) {
                     console.warn(`Could not find cell with mxObjectId: ${cell.id}`);
-                    console.log('Available cells:', Object.keys(cells).map(id => ({ id, mxObjectId: cells[id]?.mxObjectId })));
                     return;
                 }
                 
@@ -865,7 +789,7 @@ const elementProcessors = {
         });
     },
 
-    capacitors: (data, b) => {
+    capacitors: (data, b, cellIdMap) => {
         if (!Array.isArray(data)) {
             console.warn('capacitors data is not an array:', data);
             return;
@@ -873,22 +797,11 @@ const elementProcessors = {
         
         data.forEach(cell => {
             try {
-                // Find cell by mxObjectId instead of internal ID
-                let resultCell = null;
-                const cells = b.getModel().cells;
-                
-                // Search through all cells to find the one with matching mxObjectId
-                for (const cellId in cells) {
-                    const graphCell = cells[cellId];
-                    if (graphCell && graphCell.mxObjectId === cell.id) {
-                        resultCell = graphCell;
-                        break;
-                    }
-                }
+                // OPTIMIZED: O(1) lookup using cellIdMap
+                const resultCell = cellIdMap ? cellIdMap.get(cell.id) : null;
                 
                 if (!resultCell) {
                     console.warn(`Could not find cell with mxObjectId: ${cell.id}`);
-                    console.log('Available cells:', Object.keys(cells).map(id => ({ id, mxObjectId: cells[id]?.mxObjectId })));
                     return;
                 }
                 
@@ -907,7 +820,7 @@ const elementProcessors = {
         });
     },
 
-    storages: (data, b) => {
+    storages: (data, b, cellIdMap) => {
         if (!Array.isArray(data)) {
             console.warn('storages data is not an array:', data);
             return;
@@ -915,22 +828,11 @@ const elementProcessors = {
         
         data.forEach(cell => {
             try {
-                // Find cell by mxObjectId instead of internal ID
-                let resultCell = null;
-                const cells = b.getModel().cells;
-                
-                // Search through all cells to find the one with matching mxObjectId
-                for (const cellId in cells) {
-                    const graphCell = cells[cellId];
-                    if (graphCell && graphCell.mxObjectId === cell.id) {
-                        resultCell = graphCell;
-                        break;
-                    }
-                }
+                // OPTIMIZED: O(1) lookup using cellIdMap
+                const resultCell = cellIdMap ? cellIdMap.get(cell.id) : null;
                 
                 if (!resultCell) {
                     console.warn(`Could not find cell with mxObjectId: ${cell.id}`);
-                    console.log('Available cells:', Object.keys(cells).map(id => ({ id, mxObjectId: cells[id]?.mxObjectId })));
                     return;
                 }
                 
@@ -948,7 +850,7 @@ const elementProcessors = {
         });
     },
 
-    pvsystems: (data, b) => {
+    pvsystems: (data, b, cellIdMap) => {
         if (!Array.isArray(data)) {
             console.warn('pvsystems data is not an array:', data);
             return;
@@ -956,22 +858,11 @@ const elementProcessors = {
 
         data.forEach(cell => {
             try {
-                // Find cell by mxObjectId instead of internal ID
-                let resultCell = null;
-                const cells = b.getModel().cells;
-
-                // Search through all cells to find the one with matching mxObjectId
-                for (const cellId in cells) {
-                    const graphCell = cells[cellId];
-                    if (graphCell && graphCell.mxObjectId === cell.id) {
-                        resultCell = graphCell;
-                        break;
-                    }
-                }
+                // OPTIMIZED: O(1) lookup using cellIdMap
+                const resultCell = cellIdMap ? cellIdMap.get(cell.id) : null;
 
                 if (!resultCell) {
                     console.warn(`Could not find cell with mxObjectId: ${cell.id}`);
-                    console.log('Available cells:', Object.keys(cells).map(id => ({ id, mxObjectId: cells[id]?.mxObjectId })));
                     return;
                 }
 
@@ -1079,11 +970,14 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
         
         console.log('Sending to OpenDSS backend:', dataDict);
 
+        // Performance optimization: Request gzip compression
+        const requestStart = performance.now();
         const response = await fetch(url, {
             mode: "cors",
             method: "post",
             headers: {
                 "Content-Type": "application/json",
+                "Accept-Encoding": "gzip",  // Request compressed response
             },
             body: JSON.stringify(dataDict) // Backend expects dict with string keys like {"0": {...}}
         });
@@ -1093,6 +987,8 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
         }
 
         const dataJson = await response.json();
+        const requestTime = performance.now() - requestStart;
+        console.log(`OpenDSS backend response received in ${requestTime.toFixed(0)}ms`);
         console.log('OpenDSS backend response:', dataJson);
 
         // Handle errors first
@@ -1103,79 +999,106 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
         // The simplified backend now returns data directly without output classes
         // Process each type of network element that might be present in the response
         console.log('Processing OpenDSS results...');
+        const processingStart = performance.now();
+        
+        // PERFORMANCE OPTIMIZATION: Create cell ID lookup map once
+        // This avoids O(n) cell searches for each of the 207 elements
+        const cellIdMap = new Map();
+        const cells = b.getModel().cells;
+        const mapBuildStart = performance.now();
+        for (const cellId in cells) {
+            const cell = cells[cellId];
+            if (cell && cell.mxObjectId) {
+                cellIdMap.set(cell.mxObjectId, cell);
+            }
+        }
+        const mapBuildTime = performance.now() - mapBuildStart;
+        console.log(`Built cell ID map with ${cellIdMap.size} entries in ${mapBuildTime.toFixed(1)}ms`);
         
         // Check for different possible response formats
         let processedCount = 0;
         
-        // Process busbars if present
-        if (dataJson.busbars && Array.isArray(dataJson.busbars)) {
-            console.log(`Processing ${dataJson.busbars.length} busbars`);
-            elementProcessors.busbars(dataJson.busbars, b, grafka);
-            processedCount += dataJson.busbars.length;
-        }
-        
-        // Process lines if present
-        if (dataJson.lines && Array.isArray(dataJson.lines)) {
-            console.log(`Processing ${dataJson.lines.length} lines`);
-            elementProcessors.lines(dataJson.lines, b, grafka);
-            processedCount += dataJson.lines.length;
-        }
-        
-        // Process loads if present
-        if (dataJson.loads && Array.isArray(dataJson.loads)) {
-            console.log(`Processing ${dataJson.loads.length} loads`);
-            elementProcessors.loads(dataJson.loads, b);
-            processedCount += dataJson.loads.length;
-        }
-        
-        // Process generators if present
-        if (dataJson.generators && Array.isArray(dataJson.generators)) {
-            console.log(`Processing ${dataJson.generators.length} generators`);
-            elementProcessors.generators(dataJson.generators, b);
-            processedCount += dataJson.generators.length;
-        }
-        
-        // Process transformers if present
-        if (dataJson.transformers && Array.isArray(dataJson.transformers)) {
-            console.log(`Processing ${dataJson.transformers.length} transformers`);
-            elementProcessors.transformers(dataJson.transformers, b, grafka);
-            processedCount += dataJson.transformers.length;
-        }
-        
-        // Process external grids if present
-        if (dataJson.externalgrids && Array.isArray(dataJson.externalgrids)) {
-            console.log(`Processing ${dataJson.externalgrids.length} external grids`);
-            elementProcessors.externalgrids(dataJson.externalgrids, b);
-            processedCount += dataJson.externalgrids.length;
-        }
-        
-        // Process shunts if present
-        if (dataJson.shunts && Array.isArray(dataJson.shunts)) {
-            console.log(`Processing ${dataJson.shunts.length} shunts`);
-            elementProcessors.shunts(dataJson.shunts, b);
-            processedCount += dataJson.shunts.length;
-        }
-        
-        // Process capacitors if present
-        if (dataJson.capacitors && Array.isArray(dataJson.capacitors)) {
-            console.log(`Processing ${dataJson.capacitors.length} capacitors`);
-            elementProcessors.capacitors(dataJson.capacitors, b);
-            processedCount += dataJson.capacitors.length;
-        }
-        
-        // Process storages if present
-        if (dataJson.storages && Array.isArray(dataJson.storages)) {
-            console.log(`Processing ${dataJson.storages.length} storages`);
-            elementProcessors.storages(dataJson.storages, b);
-            processedCount += dataJson.storages.length;
-        }
+        // PERFORMANCE OPTIMIZATION: Batch all DOM updates
+        // This prevents layout thrashing and improves rendering speed
+        const model = b.getModel();
+        model.beginUpdate();
+        try {
+            // Process busbars if present
+            if (dataJson.busbars && Array.isArray(dataJson.busbars)) {
+                console.log(`Processing ${dataJson.busbars.length} busbars`);
+                elementProcessors.busbars(dataJson.busbars, b, grafka, cellIdMap);
+                processedCount += dataJson.busbars.length;
+            }
+            
+            // Process lines if present
+            if (dataJson.lines && Array.isArray(dataJson.lines)) {
+                console.log(`Processing ${dataJson.lines.length} lines`);
+                elementProcessors.lines(dataJson.lines, b, grafka, cellIdMap);
+                processedCount += dataJson.lines.length;
+            }
+            
+            // Process loads if present
+            if (dataJson.loads && Array.isArray(dataJson.loads)) {
+                console.log(`Processing ${dataJson.loads.length} loads`);
+                elementProcessors.loads(dataJson.loads, b, cellIdMap);
+                processedCount += dataJson.loads.length;
+            }
+            
+            // Process generators if present
+            if (dataJson.generators && Array.isArray(dataJson.generators)) {
+                console.log(`Processing ${dataJson.generators.length} generators`);
+                elementProcessors.generators(dataJson.generators, b, cellIdMap);
+                processedCount += dataJson.generators.length;
+            }
+            
+            // Process transformers if present
+            if (dataJson.transformers && Array.isArray(dataJson.transformers)) {
+                console.log(`Processing ${dataJson.transformers.length} transformers`);
+                elementProcessors.transformers(dataJson.transformers, b, grafka, cellIdMap);
+                processedCount += dataJson.transformers.length;
+            }
+            
+            // Process external grids if present
+            if (dataJson.externalgrids && Array.isArray(dataJson.externalgrids)) {
+                console.log(`Processing ${dataJson.externalgrids.length} external grids`);
+                elementProcessors.externalgrids(dataJson.externalgrids, b, cellIdMap);
+                processedCount += dataJson.externalgrids.length;
+            }
+            
+            // Process shunts if present
+            if (dataJson.shunts && Array.isArray(dataJson.shunts)) {
+                console.log(`Processing ${dataJson.shunts.length} shunts`);
+                elementProcessors.shunts(dataJson.shunts, b, cellIdMap);
+                processedCount += dataJson.shunts.length;
+            }
+            
+            // Process capacitors if present
+            if (dataJson.capacitors && Array.isArray(dataJson.capacitors)) {
+                console.log(`Processing ${dataJson.capacitors.length} capacitors`);
+                elementProcessors.capacitors(dataJson.capacitors, b, cellIdMap);
+                processedCount += dataJson.capacitors.length;
+            }
+            
+            // Process storages if present
+            if (dataJson.storages && Array.isArray(dataJson.storages)) {
+                console.log(`Processing ${dataJson.storages.length} storages`);
+                elementProcessors.storages(dataJson.storages, b, cellIdMap);
+                processedCount += dataJson.storages.length;
+            }
 
-        // Process pvsystems if present
-        if (dataJson.pvsystems && Array.isArray(dataJson.pvsystems)) {
-            console.log(`Processing ${dataJson.pvsystems.length} PVSystems`);
-            elementProcessors.pvsystems(dataJson.pvsystems, b);
-            processedCount += dataJson.pvsystems.length;
+            // Process pvsystems if present
+            if (dataJson.pvsystems && Array.isArray(dataJson.pvsystems)) {
+                console.log(`Processing ${dataJson.pvsystems.length} PVSystems`);
+                elementProcessors.pvsystems(dataJson.pvsystems, b, cellIdMap);
+                processedCount += dataJson.pvsystems.length;
+            }
+        } finally {
+            model.endUpdate();
         }
+        
+        const processingTime = performance.now() - processingStart;
+        console.log(`Processed ${processedCount} elements in ${processingTime.toFixed(0)}ms (${(processingTime/processedCount).toFixed(1)}ms per element)`);
+        console.log(`Total round-trip time: ${(requestTime + processingTime).toFixed(0)}ms`);
         
         // Check if we processed any results
         if (processedCount === 0) {
