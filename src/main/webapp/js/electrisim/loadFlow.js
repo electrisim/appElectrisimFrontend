@@ -958,6 +958,13 @@ function loadFlowPandaPower(a, b, c) {
             return true;
         }
 
+        // Handle simple error response (validation errors, etc.)
+        if (dataJson.error && !dataJson.diagnostic) {
+            console.error('Power flow calculation failed:', dataJson.error);
+            alert(`Power flow calculation failed:\n\n${dataJson.error}`);
+            return true;
+        }
+
         // Handle legacy error format
         const errorTypes = {
             'line': 'Line',
@@ -1039,9 +1046,10 @@ function loadFlowPandaPower(a, b, c) {
                 };
             });
 
-            // Batch insert all line result edges
+            // Batch insert all line result labels
             lineResults.forEach(({ resultCell, linia, resultString, cell }) => {
-                const labelka = b.insertEdge(resultCell, null, resultString, linia.source, linia.target, 'shapeELXXX=Result');
+                // Use insertVertex with relative positioning - x=0.5 centers label on the edge
+                const labelka = b.insertVertex(resultCell, null, resultString, 0, 0, 0, 0, 'shapeELXXX=Result', true);
                 processCellStyles(b, labelka, true);
                 processLoadingColor(grafka, linia, cell.loading_percent);
             });

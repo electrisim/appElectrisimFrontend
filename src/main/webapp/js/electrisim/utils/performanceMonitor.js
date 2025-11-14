@@ -4,15 +4,18 @@
  */
 
 import { memoryMonitor, profiler, globalEventRegistry, globalTimeoutRegistry } from './performanceUtils.js';
+import { pageVisibilityManager } from './pageVisibilityManager.js';
 
 class PerformanceDashboard {
     constructor() {
         this.isVisible = false;
         this.container = null;
         this.updateInterval = null;
+        this.animationLoop = null;
         this.fpsHistory = [];
         this.lastFrameTime = performance.now();
         this.frameCount = 0;
+        this.isPaused = false;
     }
     
     /**
@@ -186,11 +189,18 @@ class PerformanceDashboard {
      * Start monitoring
      */
     startMonitoring() {
-        // Update every second
-        this.updateInterval = setInterval(() => this.update(), 1000);
+        // Use visibility-aware interval for updates
+        this.updateInterval = pageVisibilityManager.createManagedInterval(
+            () => this.update(), 
+            1000
+        );
         
-        // Track FPS
-        this.trackFPS();
+        // Use visibility-aware animation loop for FPS tracking
+        this.animationLoop = pageVisibilityManager.createManagedAnimationLoop(
+            () => this.trackFPS()
+        );
+        
+        console.log('✅ Performance monitoring started (visibility-aware)');
     }
     
     /**
@@ -198,13 +208,21 @@ class PerformanceDashboard {
      */
     stopMonitoring() {
         if (this.updateInterval) {
-            clearInterval(this.updateInterval);
+            this.updateInterval.stop();
             this.updateInterval = null;
         }
+        
+        if (this.animationLoop) {
+            this.animationLoop.stop();
+            this.animationLoop = null;
+        }
+        
+        console.log('⏹️  Performance monitoring stopped');
     }
     
     /**
      * Track FPS
+     * Note: This is now called by the managed animation loop
      */
     trackFPS() {
         const now = performance.now();
@@ -217,10 +235,6 @@ class PerformanceDashboard {
             if (this.fpsHistory.length > 60) {
                 this.fpsHistory.shift();
             }
-        }
-        
-        if (this.isVisible) {
-            requestAnimationFrame(() => this.trackFPS());
         }
     }
     
@@ -371,4 +385,5 @@ if (typeof window !== 'undefined') {
 }
 
 export default performanceDashboard;
+
 
