@@ -161,7 +161,7 @@ export class StaticGeneratorDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure Static Generator Parameters</strong><br>Set parameters for static generator with power flow and short-circuit capabilities. Based on <a href="https://pandapower.readthedocs.io/en/latest/elements/sgen.html" target="_blank">pandapower documentation</a>.';
+        return '<strong>Configure Static Generator Parameters</strong><br>Set parameters for static generator with power flow and short-circuit capabilities. See the <a href="https://electrisim.com/documentation#static-generator" target="_blank">Electrisim documentation</a>.';
     }
     
     show(callback) {

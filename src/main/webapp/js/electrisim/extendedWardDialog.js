@@ -108,7 +108,7 @@ export class ExtendedWardDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure Extended Ward Parameters</strong><br>Set parameters for extended ward equivalent with PQ load, impedance load, and voltage source. Based on <a href="https://pandapower.readthedocs.io/en/latest/elements/xward.html" target="_blank">pandapower documentation</a>.';
+        return '<strong>Configure Extended Ward Parameters</strong><br>Set parameters for extended ward equivalent with PQ load, impedance load, and voltage source. See the <a href="https://electrisim.com/documentation#extended-ward" target="_blank">Electrisim documentation</a>.';
     }
     
     show(callback) {

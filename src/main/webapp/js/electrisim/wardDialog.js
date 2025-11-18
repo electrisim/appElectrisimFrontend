@@ -76,7 +76,7 @@ export class WardDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure Ward Parameters</strong><br>Set parameters for ward equivalent with PQ load and impedance load components. Based on <a href="https://pandapower.readthedocs.io/en/latest/elements/ward.html" target="_blank">pandapower documentation</a>.';
+        return '<strong>Configure Ward Parameters</strong><br>Set parameters for ward equivalent with PQ load and impedance load components. See the <a href="https://electrisim.com/documentation#ward" target="_blank">Electrisim documentation</a>.';
     }
     
     show(callback) {

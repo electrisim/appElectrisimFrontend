@@ -152,7 +152,7 @@ export class MotorDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure Motor Parameters</strong><br>Set parameters for asynchronous motor with mechanical, electrical, and short-circuit characteristics. Based on <a href="https://pandapower.readthedocs.io/en/latest/elements/motor.html" target="_blank">pandapower documentation</a>.';
+        return '<strong>Configure Motor Parameters</strong><br>Set parameters for asynchronous motor with mechanical, electrical, and short-circuit characteristics. See the <a href="https://electrisim.com/documentation#motor" target="_blank">Electrisim documentation</a>.';
     }
     
     show(callback) {

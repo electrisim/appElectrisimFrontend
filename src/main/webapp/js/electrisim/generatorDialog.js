@@ -224,7 +224,7 @@ export class GeneratorDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure Generator Parameters</strong><br>Set parameters for synchronous generator with power flow and short-circuit capabilities. Based on <a href="https://pandapower.readthedocs.io/en/latest/elements/gen.html" target="_blank">pandapower documentation</a>.';
+        return '<strong>Configure Generator Parameters</strong><br>Set parameters for synchronous generator with power flow and short-circuit capabilities. See the <a href="https://electrisim.com/documentation#generator" target="_blank">Electrisim documentation</a>.';
     }
     
     show(callback) {

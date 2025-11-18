@@ -1501,6 +1501,7 @@ function collectNetworkDataStructured(graph) {
                         g_us_per_km: 'g_us_per_km',
                         max_i_ka: 'max_i_ka',
                         type: 'type',
+                        in_service: { name: 'in_service', optional: true },
 
                         // Short circuit parameters
                         r0_ohm_per_km: { name: 'r0_ohm_per_km', optional: true },
@@ -1510,6 +1511,16 @@ function collectNetworkDataStructured(graph) {
                     });
                     
                     // Provide default values for critical Line parameters if they're missing
+                    // Convert in_service from string to boolean (it's stored as string in XML attributes)
+                    let inServiceValue = true;  // Default to true
+                    if (lineParams.in_service !== undefined) {
+                        if (typeof lineParams.in_service === 'boolean') {
+                            inServiceValue = lineParams.in_service;
+                        } else if (typeof lineParams.in_service === 'string') {
+                            inServiceValue = lineParams.in_service.toLowerCase() === 'true';
+                        }
+                    }
+                    
                     cellData = {
                         typ: 'Line',
                         name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
@@ -1527,6 +1538,7 @@ function collectNetworkDataStructured(graph) {
                         g_us_per_km: lineParams.g_us_per_km || 0,
                         max_i_ka: lineParams.max_i_ka || 1.0,
                         type: lineParams.type || 'OH',
+                        in_service: inServiceValue,  // Now included!
                         r0_ohm_per_km: lineParams.r0_ohm_per_km || 0,
                         x0_ohm_per_km: lineParams.x0_ohm_per_km || 0,
                         c0_nf_per_km: lineParams.c0_nf_per_km || 0,
@@ -1561,8 +1573,14 @@ function collectNetworkDataStructured(graph) {
                         tap_step_percent: 'tap_step_percent',
                         tap_step_degree: 'tap_step_degree',
                         tap_pos: 'tap_pos',
-                        tap_phase_shifter: 'tap_phase_shifter'
+                        tap_phase_shifter: 'tap_phase_shifter',
+                        in_service: { name: 'in_service', optional: true }
                     });
+                    
+                    // Convert in_service from string to boolean
+                    const transInService = transParams.in_service !== undefined 
+                        ? (typeof transParams.in_service === 'string' ? transParams.in_service.toLowerCase() === 'true' : Boolean(transParams.in_service))
+                        : true;
                     
                     cellData = {
                         typ: 'Transformer',
@@ -1587,7 +1605,8 @@ function collectNetworkDataStructured(graph) {
                         tap_step_percent: transParams.tap_step_percent || 1.5,
                         tap_step_degree: transParams.tap_step_degree || 0.0,
                         tap_pos: transParams.tap_pos || 0,  // Default to 0 (neutral position)
-                        tap_phase_shifter: transParams.tap_phase_shifter || false
+                        tap_phase_shifter: transParams.tap_phase_shifter || false,
+                        in_service: transInService
                     };
                     
                     // Validate bus connections
@@ -1616,8 +1635,13 @@ function collectNetworkDataStructured(graph) {
                         max_p_mw: 'max_p_mw',
                         min_p_mw: 'min_p_mw',
                         max_q_mvar: 'max_q_mvar',
-                        min_q_mvar: 'min_q_mvar'
+                        min_q_mvar: 'min_q_mvar',
+                        in_service: { name: 'in_service', optional: true }
                     });
+                    
+                    const genInService = genParams.in_service !== undefined 
+                        ? (typeof genParams.in_service === 'string' ? genParams.in_service.toLowerCase() === 'true' : Boolean(genParams.in_service))
+                        : true;
                     
                     cellData = {
                         typ: 'Generator',
@@ -1641,7 +1665,8 @@ function collectNetworkDataStructured(graph) {
                         max_p_mw: genParams.max_p_mw || 10.0,
                         min_p_mw: genParams.min_p_mw || 0.0,
                         max_q_mvar: genParams.max_q_mvar || 5.0,
-                        min_q_mvar: genParams.min_q_mvar || -5.0
+                        min_q_mvar: genParams.min_q_mvar || -5.0,
+                        in_service: genInService
                     };
                     
                     // Validate bus connection
@@ -1669,8 +1694,13 @@ function collectNetworkDataStructured(graph) {
                         const_s_percent_abs: 'const_s_percent_abs',
                         const_s_percent_abs_degree: 'const_s_percent_abs_degree',
                         const_s_percent_abs_degree_abs: 'const_s_percent_abs_degree_abs',
-                        const_s_percent_abs_degree_abs_degree: 'const_s_percent_abs_degree_abs_degree'
+                        const_s_percent_abs_degree_abs_degree: 'const_s_percent_abs_degree_abs_degree',
+                        in_service: { name: 'in_service', optional: true }
                     });
+                    
+                    const loadInService = loadParams.in_service !== undefined 
+                        ? (typeof loadParams.in_service === 'string' ? loadParams.in_service.toLowerCase() === 'true' : Boolean(loadParams.in_service))
+                        : true;
                     
                     cellData = {
                         typ: 'Load',
@@ -1689,6 +1719,7 @@ function collectNetworkDataStructured(graph) {
                         const_i_percent: loadParams.const_i_percent || 100.0,
                         const_z_percent: loadParams.const_z_percent || 100.0,
                         const_y_percent: loadParams.const_y_percent || 100.0,
+                        in_service: loadInService,
                         const_s_percent: loadParams.const_s_percent || 100.0,
                         const_s_percent_abs: loadParams.const_s_percent_abs || 100.0,
                         const_s_percent_abs_degree: loadParams.const_s_percent_abs_degree || 0.0,
@@ -1717,8 +1748,15 @@ function collectNetworkDataStructured(graph) {
                         step_min: 'step_min',
                         step_max: 'step_max',
                         step_pos: 'step_pos',
-                        step_phase_shifter: 'step_phase_shifter'
+                        step_phase_shifter: 'step_phase_shifter',
+                        in_service: { name: 'in_service', optional: true }
                     });
+
+                    const shuntInService = shuntParams.in_service !== undefined
+                        ? (typeof shuntParams.in_service === 'string'
+                            ? !['false', 'no', '0'].includes(shuntParams.in_service.toLowerCase())
+                            : Boolean(shuntParams.in_service))
+                        : true;
                     
                     cellData = {
                         typ: 'Shunt Reactor',
@@ -1737,7 +1775,8 @@ function collectNetworkDataStructured(graph) {
                         step_min: shuntParams.step_min || 0.0,
                         step_max: shuntParams.step_max || 1.0,
                         step_pos: shuntParams.step_pos || 1.0,
-                        step_phase_shifter: shuntParams.step_phase_shifter || false
+                        step_phase_shifter: shuntParams.step_phase_shifter || false,
+                        in_service: shuntInService
                     };
                     
                     // Validate bus connection
@@ -1760,8 +1799,15 @@ function collectNetworkDataStructured(graph) {
                         step_min: 'step_min',
                         step_max: 'step_max',
                         step_pos: 'step_pos',
-                        step_phase_shifter: 'step_phase_shifter'
+                        step_phase_shifter: 'step_phase_shifter',
+                        in_service: { name: 'in_service', optional: true }
                     });
+
+                    const capInService = capParams.in_service !== undefined
+                        ? (typeof capParams.in_service === 'string'
+                            ? !['false', 'no', '0'].includes(capParams.in_service.toLowerCase())
+                            : Boolean(capParams.in_service))
+                        : true;
                     
                     cellData = {
                         typ: 'Capacitor',
@@ -1779,7 +1825,8 @@ function collectNetworkDataStructured(graph) {
                         step_min: capParams.step_min || 0.0,
                         step_max: capParams.step_max || 1.0,
                         step_pos: capParams.step_pos || 1.0,
-                        step_phase_shifter: capParams.step_phase_shifter || false
+                        step_phase_shifter: capParams.step_phase_shifter || false,
+                        in_service: capInService
                     };
                     
                     // Validate bus connection
@@ -1804,8 +1851,15 @@ function collectNetworkDataStructured(graph) {
                         max_q_mvar: 'max_q_mvar',
                         min_q_mvar: 'min_q_mvar',
                         soc_percent: 'soc_percent',
-                        min_e_mwh: 'min_e_mwh'
+                        min_e_mwh: 'min_e_mwh',
+                        in_service: { name: 'in_service', optional: true }
                     });
+
+                    const storageInService = storageParams.in_service !== undefined
+                        ? (typeof storageParams.in_service === 'string'
+                            ? !['false', 'no', '0'].includes(storageParams.in_service.toLowerCase())
+                            : Boolean(storageParams.in_service))
+                        : true;
                     
                     cellData = {
                         typ: 'Storage',
@@ -1825,7 +1879,8 @@ function collectNetworkDataStructured(graph) {
                         max_q_mvar: storageParams.max_q_mvar || 1.0,
                         min_q_mvar: storageParams.min_q_mvar || -1.0,
                         soc_percent: storageParams.soc_percent || 50.0,
-                        min_e_mwh: storageParams.min_e_mwh || 0.0
+                        min_e_mwh: storageParams.min_e_mwh || 0.0,
+                        in_service: storageInService
                     };
                     
                     // Validate bus connection
@@ -1887,8 +1942,15 @@ function collectNetworkDataStructured(graph) {
                         safemode: 'safemode',
                         safevoltage: 'safevoltage',
                         varfollowinverter: 'varfollowinverter',
-                        wattpriority: 'wattpriority'
+                        wattpriority: 'wattpriority',
+                        in_service: { name: 'in_service', optional: true }
                     });
+
+                    const pvInService = pvParams.in_service !== undefined
+                        ? (typeof pvParams.in_service === 'string'
+                            ? !['false', 'no', '0'].includes(pvParams.in_service.toLowerCase())
+                            : Boolean(pvParams.in_service))
+                        : true;
 
                     cellData = {
                         typ: 'PVSystem',
@@ -1941,7 +2003,8 @@ function collectNetworkDataStructured(graph) {
                         safemode: pvParams.safemode || false,
                         safevoltage: pvParams.safevoltage || 0.8,
                         varfollowinverter: pvParams.varfollowinverter || false,
-                        wattpriority: pvParams.wattpriority || false
+                        wattpriority: pvParams.wattpriority || false,
+                        in_service: pvInService
                     };
 
                     // Validate bus connection
@@ -1961,8 +2024,15 @@ function collectNetworkDataStructured(graph) {
                         rx_max: 'rx_max',
                         rx_min: 'rx_min',
                         r0x0_max: 'r0x0_max',
-                        x0x_max: 'x0x_max'
+                        x0x_max: 'x0x_max',
+                        in_service: { name: 'in_service', optional: true }
                     });
+
+                    const extGridInService = extGridParams.in_service !== undefined
+                        ? (typeof extGridParams.in_service === 'string'
+                            ? !['false', 'no', '0'].includes(extGridParams.in_service.toLowerCase())
+                            : Boolean(extGridParams.in_service))
+                        : true;
                     
                     cellData = {
                         typ: 'External Grid',
@@ -1978,7 +2048,8 @@ function collectNetworkDataStructured(graph) {
                         rx_max: extGridParams.rx_max || 0.1,
                         rx_min: extGridParams.rx_min || 0.1,
                         r0x0_max: extGridParams.r0x0_max || 0.1,
-                        x0x_max: extGridParams.x0x_max || 1.0
+                        x0x_max: extGridParams.x0x_max || 1.0,
+                        in_service: extGridInService
                     };
                     
                     // Validate bus connection
@@ -2015,7 +2086,8 @@ function collectNetworkDataStructured(graph) {
                             i0_percent: 'i0_percent',
                             shift_hv_degree: 'shift_hv_degree',
                             shift_mv_degree: 'shift_mv_degree',
-                            shift_lv_degree: 'shift_lv_degree'
+                            shift_lv_degree: 'shift_lv_degree',
+                            in_service: { name: 'in_service', optional: true }
                         })
                     };
                     
@@ -2027,19 +2099,32 @@ function collectNetworkDataStructured(graph) {
                     }
                 } else if (styleObj && styleObj.shapeELXXX === 'Impedance') {
                     // This is an impedance element
+                    const impedanceParams = getAttributesAsObject(cell, {
+                        r_ohm: 'r_ohm',
+                        x_ohm: 'x_ohm',
+                        sn_mva: 'sn_mva',
+                        scaling: 'scaling',
+                        type: 'type',
+                        in_service: { name: 'in_service', optional: true }
+                    });
+
+                    const impedanceInService = impedanceParams.in_service !== undefined
+                        ? (typeof impedanceParams.in_service === 'string'
+                            ? !['false', 'no', '0'].includes(impedanceParams.in_service.toLowerCase())
+                            : Boolean(impedanceParams.in_service))
+                        : true;
+
                     cellData = {
                         typ: 'Impedance',
                         name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
                         id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
                         bus: getConnectedBusId(cell),
-                        // Add impedance parameters
-                        ...getAttributesAsObject(cell, {
-                            r_ohm: 'r_ohm',
-                            x_ohm: 'x_ohm',
-                            sn_mva: 'sn_mva',
-                            scaling: 'scaling',
-                            type: 'type'
-                        })
+                        r_ohm: impedanceParams.r_ohm || 0.0,
+                        x_ohm: impedanceParams.x_ohm || 0.0,
+                        sn_mva: impedanceParams.sn_mva || 1.0,
+                        scaling: impedanceParams.scaling || 1.0,
+                        type: impedanceParams.type || 'impedance',
+                        in_service: impedanceInService
                     };
                     
                     // Validate bus connection
@@ -2050,21 +2135,36 @@ function collectNetworkDataStructured(graph) {
                     }
                 } else if (styleObj && styleObj.shapeELXXX === 'Ward') {
                     // This is a ward element
+                    const wardParams = getAttributesAsObject(cell, {
+                        pz_mw: 'pz_mw',
+                        qz_mvar: 'qz_mvar',
+                        ps_mw: 'ps_mw',
+                        qs_mvar: 'qs_mvar',
+                        sn_mva: 'sn_mva',
+                        scaling: 'scaling',
+                        type: 'type',
+                        in_service: { name: 'in_service', optional: true }
+                    });
+
+                    const wardInService = wardParams.in_service !== undefined
+                        ? (typeof wardParams.in_service === 'string'
+                            ? !['false', 'no', '0'].includes(wardParams.in_service.toLowerCase())
+                            : Boolean(wardParams.in_service))
+                        : true;
+
                     cellData = {
                         typ: 'Ward',
                         name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
                         id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
                         bus: getConnectedBusId(cell),
-                        // Add ward parameters
-                        ...getAttributesAsObject(cell, {
-                            pz_mw: 'pz_mw',
-                            qz_mvar: 'qz_mvar',
-                            ps_mw: 'ps_mw',
-                            qs_mvar: 'qs_mvar',
-                            sn_mva: 'sn_mva',
-                            scaling: 'scaling',
-                            type: 'type'
-                        })
+                        pz_mw: wardParams.pz_mw || 0.0,
+                        qz_mvar: wardParams.qz_mvar || 0.0,
+                        ps_mw: wardParams.ps_mw || 0.0,
+                        qs_mvar: wardParams.qs_mvar || 0.0,
+                        sn_mva: wardParams.sn_mva || 1.0,
+                        scaling: wardParams.scaling || 1.0,
+                        type: wardParams.type || 'ward',
+                        in_service: wardInService
                     };
                     
                     // Validate bus connection
@@ -2075,23 +2175,40 @@ function collectNetworkDataStructured(graph) {
                     }
                 } else if (styleObj && styleObj.shapeELXXX === 'Extended Ward') {
                     // This is an extended ward element
+                    const extWardParams = getAttributesAsObject(cell, {
+                        pz_mw: 'pz_mw',
+                        qz_mvar: 'qz_mvar',
+                        ps_mw: 'ps_mw',
+                        qs_mvar: 'qs_mvar',
+                        sn_mva: 'sn_mva',
+                        scaling: 'scaling',
+                        type: 'type',
+                        r_ohm: 'r_ohm',
+                        x_ohm: 'x_ohm',
+                        in_service: { name: 'in_service', optional: true }
+                    });
+
+                    const extWardInService = extWardParams.in_service !== undefined
+                        ? (typeof extWardParams.in_service === 'string'
+                            ? !['false', 'no', '0'].includes(extWardParams.in_service.toLowerCase())
+                            : Boolean(extWardParams.in_service))
+                        : true;
+
                     cellData = {
                         typ: 'Extended Ward',
                         name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
                         id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
                         bus: getConnectedBusId(cell),
-                        // Add extended ward parameters
-                        ...getAttributesAsObject(cell, {
-                            pz_mw: 'pz_mw',
-                            qz_mvar: 'qz_mvar',
-                            ps_mw: 'ps_mw',
-                            qs_mvar: 'qs_mvar',
-                            sn_mva: 'sn_mva',
-                            scaling: 'scaling',
-                            type: 'type',
-                            r_ohm: 'r_ohm',
-                            x_ohm: 'x_ohm'
-                        })
+                        pz_mw: extWardParams.pz_mw || 0.0,
+                        qz_mvar: extWardParams.qz_mvar || 0.0,
+                        ps_mw: extWardParams.ps_mw || 0.0,
+                        qs_mvar: extWardParams.qs_mvar || 0.0,
+                        sn_mva: extWardParams.sn_mva || 1.0,
+                        scaling: extWardParams.scaling || 1.0,
+                        type: extWardParams.type || 'extended_ward',
+                        r_ohm: extWardParams.r_ohm || 0.0,
+                        x_ohm: extWardParams.x_ohm || 0.0,
+                        in_service: extWardInService
                     };
                     
                     // Validate bus connection
@@ -2111,8 +2228,15 @@ function collectNetworkDataStructured(graph) {
                         lrc_pu: 'lrc_pu',
                         max_ik_ka: 'max_ik_ka',
                         kappa: 'kappa',
-                        current_source: 'current_source'
+                        current_source: 'current_source',
+                        in_service: { name: 'in_service', optional: true }
                     });
+
+                    const motorInService = motorParams.in_service !== undefined
+                        ? (typeof motorParams.in_service === 'string'
+                            ? !['false', 'no', '0'].includes(motorParams.in_service.toLowerCase())
+                            : Boolean(motorParams.in_service))
+                        : true;
                     
                     cellData = {
                         typ: 'Motor',
@@ -2129,7 +2253,8 @@ function collectNetworkDataStructured(graph) {
                         lrc_pu: motorParams.lrc_pu || 0.0,
                         max_ik_ka: motorParams.max_ik_ka || 1.0,
                         kappa: motorParams.kappa || 1.0,
-                        current_source: motorParams.current_source || false
+                        current_source: motorParams.current_source || false,
+                        in_service: motorInService
                     };
                     
                     // Validate bus connection
@@ -2147,8 +2272,15 @@ function collectNetworkDataStructured(graph) {
                         thyristor_firing_angle_degree: 'thyristor_firing_angle_degree',
                         sn_mva: 'sn_mva',
                         scaling: 'scaling',
-                        type: 'type'
+                        type: 'type',
+                        in_service: { name: 'in_service', optional: true }
                     });
+
+                    const svcInService = svcParams.in_service !== undefined
+                        ? (typeof svcParams.in_service === 'string'
+                            ? !['false', 'no', '0'].includes(svcParams.in_service.toLowerCase())
+                            : Boolean(svcParams.in_service))
+                        : true;
                     
                     cellData = {
                         typ: 'SVC',
@@ -2163,7 +2295,8 @@ function collectNetworkDataStructured(graph) {
                         thyristor_firing_angle_degree: svcParams.thyristor_firing_angle_degree || 90.0,
                         sn_mva: svcParams.sn_mva || 1.0,
                         scaling: svcParams.scaling || 1.0,
-                        type: svcParams.type || 'svc'
+                        type: svcParams.type || 'svc',
+                        in_service: svcInService
                     };
                     
                     // Validate bus connection
@@ -2174,20 +2307,34 @@ function collectNetworkDataStructured(graph) {
                     }
                 } else if (styleObj && styleObj.shapeELXXX === 'TCSC') {
                     // This is a TCSC element
+                    const tcscParams = getAttributesAsObject(cell, {
+                        x_l_ohm: 'x_l_ohm',
+                        x_c_ohm: 'x_c_ohm',
+                        x_par_ohm: 'x_par_ohm',
+                        sn_mva: 'sn_mva',
+                        scaling: 'scaling',
+                        type: 'type',
+                        in_service: { name: 'in_service', optional: true }
+                    });
+
+                    const tcscInService = tcscParams.in_service !== undefined
+                        ? (typeof tcscParams.in_service === 'string'
+                            ? !['false', 'no', '0'].includes(tcscParams.in_service.toLowerCase())
+                            : Boolean(tcscParams.in_service))
+                        : true;
+
                     cellData = {
                         typ: 'TCSC',
                         name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
                         id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
                         bus: getConnectedBusId(cell),
-                        // Add TCSC parameters
-                        ...getAttributesAsObject(cell, {
-                            x_l_ohm: 'x_l_ohm',
-                            x_c_ohm: 'x_c_ohm',
-                            x_par_ohm: 'x_par_ohm',
-                            sn_mva: 'sn_mva',
-                            scaling: 'scaling',
-                            type: 'type'
-                        })
+                        x_l_ohm: tcscParams.x_l_ohm || 0.0,
+                        x_c_ohm: tcscParams.x_c_ohm || 0.0,
+                        x_par_ohm: tcscParams.x_par_ohm || 0.0,
+                        sn_mva: tcscParams.sn_mva || 1.0,
+                        scaling: tcscParams.scaling || 1.0,
+                        type: tcscParams.type || 'tcsc',
+                        in_service: tcscInService
                     };
                     
                     // Validate bus connection
@@ -2198,19 +2345,32 @@ function collectNetworkDataStructured(graph) {
                     }
                 } else if (styleObj && styleObj.shapeELXXX === 'SSC') {
                     // This is an SSC element
+                    const sscParams = getAttributesAsObject(cell, {
+                        p_mw: 'p_mw',
+                        q_mvar: 'q_mvar',
+                        sn_mva: 'sn_mva',
+                        scaling: 'scaling',
+                        type: 'type',
+                        in_service: { name: 'in_service', optional: true }
+                    });
+
+                    const sscInService = sscParams.in_service !== undefined
+                        ? (typeof sscParams.in_service === 'string'
+                            ? !['false', 'no', '0'].includes(sscParams.in_service.toLowerCase())
+                            : Boolean(sscParams.in_service))
+                        : true;
+
                     cellData = {
                         typ: 'SSC',
                         name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
                         id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
                         bus: getConnectedBusId(cell),
-                        // Add SSC parameters
-                        ...getAttributesAsObject(cell, {
-                            p_mw: 'p_mw',
-                            q_mvar: 'q_mvar',
-                            sn_mva: 'sn_mva',
-                            scaling: 'scaling',
-                            type: 'type'
-                        })
+                        p_mw: sscParams.p_mw || 0.0,
+                        q_mvar: sscParams.q_mvar || 0.0,
+                        sn_mva: sscParams.sn_mva || 1.0,
+                        scaling: sscParams.scaling || 1.0,
+                        type: sscParams.type || 'ssc',
+                        in_service: sscInService
                     };
                     
                     // Validate bus connection
@@ -2232,8 +2392,15 @@ function collectNetworkDataStructured(graph) {
                         min_q_mvar: 'min_q_mvar',
                         sn_mva: 'sn_mva',
                         scaling: 'scaling',
-                        type: 'type'
+                        type: 'type',
+                        in_service: { name: 'in_service', optional: true }
                     });
+
+                    const dcLineInService = dcLineParams.in_service !== undefined
+                        ? (typeof dcLineParams.in_service === 'string'
+                            ? !['false', 'no', '0'].includes(dcLineParams.in_service.toLowerCase())
+                            : Boolean(dcLineParams.in_service))
+                        : true;
                     
                     cellData = {
                         typ: 'DC Line',
@@ -2251,7 +2418,8 @@ function collectNetworkDataStructured(graph) {
                         min_q_mvar: dcLineParams.min_q_mvar || -1.0,
                         sn_mva: dcLineParams.sn_mva || 1.0,
                         scaling: dcLineParams.scaling || 1.0,
-                        type: dcLineParams.type || 'dc_line'
+                        type: dcLineParams.type || 'dc_line',
+                        in_service: dcLineInService
                     };
                     
                     // Validate bus connections
@@ -2282,8 +2450,15 @@ function collectNetworkDataStructured(graph) {
                         lrc_pu: 'lrc_pu',
                         max_ik_ka: 'max_ik_ka',
                         kappa: 'kappa',
-                        current_source: 'current_source'
+                        current_source: 'current_source',
+                        in_service: { name: 'in_service', optional: true }
                     });
+
+                    const staticGenInService = staticGenParams.in_service !== undefined
+                        ? (typeof staticGenParams.in_service === 'string'
+                            ? !['false', 'no', '0'].includes(staticGenParams.in_service.toLowerCase())
+                            : Boolean(staticGenParams.in_service))
+                        : true;
                     
                     cellData = {
                         typ: 'Static Generator',
@@ -2309,7 +2484,8 @@ function collectNetworkDataStructured(graph) {
                         lrc_pu: staticGenParams.lrc_pu || 0.0,
                         max_ik_ka: staticGenParams.max_ik_ka || 1.0,
                         kappa: staticGenParams.kappa || 1.0,
-                        current_source: staticGenParams.current_source || false
+                        current_source: staticGenParams.current_source || false,
+                        in_service: staticGenInService
                     };
                     
                     // Validate bus connection
@@ -2344,8 +2520,15 @@ function collectNetworkDataStructured(graph) {
                         lrc_pu: 'lrc_pu',
                         max_ik_ka: 'max_ik_ka',
                         kappa: 'kappa',
-                        current_source: 'current_source'
+                        current_source: 'current_source',
+                        in_service: { name: 'in_service', optional: true }
                     });
+
+                    const asymStaticGenInService = asymStaticGenParams.in_service !== undefined
+                        ? (typeof asymStaticGenParams.in_service === 'string'
+                            ? !['false', 'no', '0'].includes(asymStaticGenParams.in_service.toLowerCase())
+                            : Boolean(asymStaticGenParams.in_service))
+                        : true;
                     
                     cellData = {
                         typ: 'Asymmetric Static Generator',
@@ -2375,7 +2558,8 @@ function collectNetworkDataStructured(graph) {
                         lrc_pu: asymStaticGenParams.lrc_pu || 0.0,
                         max_ik_ka: asymStaticGenParams.max_ik_ka || 1.0,
                         kappa: asymStaticGenParams.kappa || 1.0,
-                        current_source: asymStaticGenParams.current_source || false
+                        current_source: asymStaticGenParams.current_source || false,
+                        in_service: asymStaticGenInService
                     };
                     
                     // Validate bus connection

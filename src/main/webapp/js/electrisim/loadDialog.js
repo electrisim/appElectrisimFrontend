@@ -181,7 +181,7 @@ export class LoadDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure Load Parameters</strong><br>Set parameters for electrical load with power values and load characteristics. Based on <a href="https://pandapower.readthedocs.io/en/latest/elements/load.html" target="_blank">pandapower documentation</a>.';
+        return '<strong>Configure Load Parameters</strong><br>Set parameters for electrical load with power values and load characteristics. See the <a href="https://electrisim.com/documentation#load" target="_blank">Electrisim documentation</a>.';
     }
     
     show(callback) {
