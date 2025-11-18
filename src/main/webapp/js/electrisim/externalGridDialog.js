@@ -180,7 +180,7 @@ export class ExternalGridDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure External Grid Parameters</strong><br>Set parameters for Load Flow, Short Circuit, and Optimal Power Flow calculations. Based on <a href="https://pandapower.readthedocs.io/en/latest/elements/ext_grid.html" target="_blank">pandapower documentation</a>.';
+        return '<strong>Configure External Grid Parameters</strong><br>Set parameters for Load Flow, Short Circuit, and Optimal Power Flow calculations. See the <a href="https://electrisim.com/documentation#external-grid" target="_blank">Electrisim documentation</a>.';
     }
     
     show(callback) {

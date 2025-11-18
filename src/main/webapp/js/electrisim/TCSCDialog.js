@@ -115,7 +115,7 @@ export class TCSCDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure TCSC Parameters</strong><br>Set parameters for Thyristor-Controlled Series Capacitor with thyristor-controlled series compensation. Based on <a href="https://pandapower.readthedocs.io/en/latest/elements/tcsc.html" target="_blank">pandapower documentation</a>.';
+        return '<strong>Configure TCSC Parameters</strong><br>Set parameters for Thyristor-Controlled Series Capacitor with thyristor-controlled series compensation. See the <a href="https://electrisim.com/documentation#thyristor-controlled-series-capacitor-tcsc" target="_blank">Electrisim documentation</a>.';
     }
     
     show(callback) {

@@ -159,11 +159,14 @@ window.shortCircuitPandaPower = function(a, b, c) {
             b.getStylesheet().putCellStyle('labelstyle', STYLES.label);
             b.getStylesheet().putCellStyle('lineStyle', STYLES.line);
 
+            // PERFORMANCE OPTIMIZATION: Request gzip compression
+            const requestStart = performance.now();
             const response = await fetch(url, {
                 mode: "cors",
                 method: "post",
                 headers: {
                     "Content-Type": "application/json",
+                    "Accept-Encoding": "gzip",  // Request compressed response
                 },
                 body: JSON.stringify(obj)
             });
@@ -173,6 +176,8 @@ window.shortCircuitPandaPower = function(a, b, c) {
             }
 
             const dataJson = await response.json();
+            const requestTime = performance.now() - requestStart;
+            console.log(`Short circuit backend response received in ${requestTime.toFixed(0)}ms`);
             console.log('dataJson')
             console.log(dataJson)
 
@@ -181,12 +186,26 @@ window.shortCircuitPandaPower = function(a, b, c) {
                 return;
             }
 
-            // Process each type of network element
-            Object.entries(elementProcessors).forEach(([type, processor]) => {
-                if (dataJson[type]) {
-                    processor(dataJson[type], b, grafka);
-                }
-            });
+            // PERFORMANCE OPTIMIZATION: Batch all DOM updates
+            // This prevents layout thrashing and improves rendering speed
+            console.log('Processing short circuit results...');
+            const processingStart = performance.now();
+            const model = b.getModel();
+            model.beginUpdate();
+            try {
+                // Process each type of network element
+                Object.entries(elementProcessors).forEach(([type, processor]) => {
+                    if (dataJson[type]) {
+                        processor(dataJson[type], b, grafka);
+                    }
+                });
+            } finally {
+                model.endUpdate();
+            }
+            
+            const processingTime = performance.now() - processingStart;
+            console.log(`Processed short circuit results in ${processingTime.toFixed(0)}ms`);
+            console.log(`Total round-trip time: ${(requestTime + processingTime).toFixed(0)}ms`);
 
         } catch (err) {
             if (err.message === "server") return;

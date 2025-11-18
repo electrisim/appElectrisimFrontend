@@ -92,7 +92,7 @@ export class ShuntReactorDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure Shunt Reactor Parameters</strong><br>Set parameters for shunt reactor with power values and step control. Based on <a href="https://pandapower.readthedocs.io/en/latest/elements/shunt.html" target="_blank">pandapower documentation</a>.';
+        return '<strong>Configure Shunt Reactor Parameters</strong><br>Set parameters for shunt reactor with power values and step control. See the <a href="https://electrisim.com/documentation#shunt" target="_blank">Electrisim documentation</a>.';
     }
     
     show(callback) {

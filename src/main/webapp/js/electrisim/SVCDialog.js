@@ -115,7 +115,7 @@ export class SVCDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure SVC Parameters</strong><br>Set parameters for Static Var Compensator with thyristor-controlled reactive power compensation. Based on <a href="https://pandapower.readthedocs.io/en/latest/elements/svc.html" target="_blank">pandapower documentation</a>.';
+        return '<strong>Configure SVC Parameters</strong><br>Set parameters for Static Var Compensator with thyristor-controlled reactive power compensation. See the <a href="https://electrisim.com/documentation#static-var-compensator-svc" target="_blank">Electrisim documentation</a>.';
     }
     
     show(callback) {

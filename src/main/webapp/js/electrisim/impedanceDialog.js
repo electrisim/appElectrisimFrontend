@@ -68,7 +68,7 @@ export class ImpedanceDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure Impedance Parameters</strong><br>Set parameters for impedance element with real and imaginary components. Based on <a href="https://pandapower.readthedocs.io/en/latest/elements/impedance.html" target="_blank">pandapower documentation</a>.';
+        return '<strong>Configure Impedance Parameters</strong><br>Set parameters for impedance element with real and imaginary components. See the <a href="https://electrisim.com/documentation#impedance" target="_blank">Electrisim documentation</a>.';
     }
     
     show(callback) {

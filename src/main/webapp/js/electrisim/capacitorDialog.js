@@ -94,7 +94,7 @@ export class CapacitorDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure Capacitor Parameters</strong><br>Set parameters for shunt capacitor bank. Based on <a href="https://pandapower.readthedocs.io/en/latest/elements/shunt.html" target="_blank">pandapower documentation</a>.';
+        return '<strong>Configure Capacitor Parameters</strong><br>Set parameters for shunt capacitor bank. See the <a href="https://electrisim.com/documentation#shunt" target="_blank">Electrisim documentation</a>.';
     }
     
     show(callback) {

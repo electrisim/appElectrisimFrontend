@@ -335,7 +335,7 @@ export class ThreeWindingTransformerDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure Three Winding Transformer Parameters</strong><br>Set parameters for three-winding transformer with HV, MV, and LV sides. Based on <a href="https://pandapower.readthedocs.io/en/latest/elements/trafo3w.html" target="_blank">pandapower documentation</a>.';
+        return '<strong>Configure Three Winding Transformer Parameters</strong><br>Set parameters for three-winding transformer with HV, MV, and LV sides. See the <a href="https://electrisim.com/documentation#three-winding-transformer" target="_blank">Electrisim documentation</a>.';
     }
     
     show(callback) {

@@ -100,7 +100,7 @@ export class SSCDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure SSC (STATCOM) Parameters</strong><br>Set parameters for Static Synchronous Compensator with voltage control capabilities. Based on <a href="https://pandapower.readthedocs.io/en/latest/elements/ssc.html" target="_blank">pandapower documentation</a>.';
+        return '<strong>Configure SSC (STATCOM) Parameters</strong><br>Set parameters for Static Synchronous Compensator with voltage control capabilities. See the <a href="https://electrisim.com/documentation#static-synchronous-compensator-ssc" target="_blank">Electrisim documentation</a>.';
     }
     
     show(callback) {

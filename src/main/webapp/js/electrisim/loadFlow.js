@@ -1073,7 +1073,7 @@ function loadFlowPandaPower(a, b, c) {
 
         generators: (data, b) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}
@@ -1086,7 +1086,7 @@ function loadFlowPandaPower(a, b, c) {
         },
         staticgenerators: (data, b) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}`;
@@ -1097,7 +1097,7 @@ function loadFlowPandaPower(a, b, c) {
         },
         asymmetricstaticgenerators: (data, b) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             P_A[MW]: ${formatNumber(cell.p_a_mw)}
             Q_A[MVar]: ${formatNumber(cell.q_a_mvar)}
@@ -1112,7 +1112,7 @@ function loadFlowPandaPower(a, b, c) {
         },
         transformers: (data, b) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
 
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             i_HV[kA]: ${formatNumber(cell.i_hv_ka)}
@@ -1127,7 +1127,7 @@ function loadFlowPandaPower(a, b, c) {
         },
         transformers3W: (data, b) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             i_HV[kA]: ${formatNumber(cell.i_hv_ka)}
             i_MV[kA]: ${formatNumber(cell.i_mv_ka)}
@@ -1141,7 +1141,7 @@ function loadFlowPandaPower(a, b, c) {
         },
         shunts: (data, b) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}
@@ -1154,7 +1154,7 @@ function loadFlowPandaPower(a, b, c) {
         },
         capacitors: (data, b) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}
@@ -1166,7 +1166,7 @@ function loadFlowPandaPower(a, b, c) {
         },
         loads: (data, b) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}`;
@@ -1177,7 +1177,7 @@ function loadFlowPandaPower(a, b, c) {
         },
         asymmetricloads: (data, b) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             P_A[MW]: ${formatNumber(cell.p_a_mw)}
             Q_A[MVar]: ${formatNumber(cell.q_a_mvar)}
@@ -1192,7 +1192,7 @@ function loadFlowPandaPower(a, b, c) {
         },
         impedances: (data, b) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             P_from[MW]: ${formatNumber(cell.p_from_mw)}
             Q_from[MVar]: ${formatNumber(cell.q_from_mvar)}
@@ -1209,7 +1209,7 @@ function loadFlowPandaPower(a, b, c) {
         },
         wards: (data, b) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}
@@ -1222,7 +1222,7 @@ function loadFlowPandaPower(a, b, c) {
         },
         extendedwards: (data, b) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}
@@ -1234,7 +1234,7 @@ function loadFlowPandaPower(a, b, c) {
         },
         motors: (data, b) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}`;
@@ -1245,7 +1245,7 @@ function loadFlowPandaPower(a, b, c) {
         },
         storages: (data, b) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}`;
@@ -1256,7 +1256,7 @@ function loadFlowPandaPower(a, b, c) {
         },
         svc: (data, b) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             Firing angle[degree]: ${formatNumber(cell.thyristor_firing_angle_degree)}
             x[Ohm]: ${formatNumber(cell.x_ohm)}
@@ -1270,7 +1270,7 @@ function loadFlowPandaPower(a, b, c) {
         },
         tcsc: (data, b) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             Firing angle[degree]: ${formatNumber(cell.thyristor_firing_angle_degree)}
             x[Ohm]: ${formatNumber(cell.x_ohm)}
@@ -1292,7 +1292,7 @@ function loadFlowPandaPower(a, b, c) {
         sscs: (data, b) => {
             
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             q_mvar: ${formatNumber(cell.q_mvar)}
             vm_internal_pu: ${formatNumber(cell.vm_internal_pu)}
@@ -1307,7 +1307,7 @@ function loadFlowPandaPower(a, b, c) {
         },
         dclines: (data, b) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const resultString = `${resultCell.value.attributes[0].nodeValue}
             P_from[MW]: ${formatNumber(cell.p_from_mw)}
             Q_from[MVar]: ${formatNumber(cell.q_mvar)}
@@ -1827,7 +1827,8 @@ function loadFlowPandaPower(a, b, c) {
                                 rx_max: 'rx_max',
                                 rx_min: 'rx_min',
                                 r0x0_max: 'r0x0_max',
-                                x0x_max: 'x0x_max'
+                                x0x_max: 'x0x_max',
+                                in_service: { name: 'in_service', optional: true }
                             })
                         };
                         componentArrays.externalGrid.push(externalGrid);
@@ -1847,7 +1848,8 @@ function loadFlowPandaPower(a, b, c) {
                                 rdss_ohm: 'rdss_ohm',
                                 cos_phi: 'cos_phi',
                                 pg_percent: 'pg_percent',
-                                power_station_trafo: 'power_station_trafo'
+                                power_station_trafo: 'power_station_trafo',
+                                in_service: { name: 'in_service', optional: true }
                             })
                         };
                         componentArrays.generator.push(generator);
@@ -1881,7 +1883,8 @@ function loadFlowPandaPower(a, b, c) {
                                 lrc_pu: 'lrc_pu',
                                 max_ik_ka: 'max_ik_ka',
                                 kappa: 'kappa',
-                                current_source: 'current_source'
+                                current_source: 'current_source',
+                                in_service: { name: 'in_service', optional: true }
                             })
                         };
                         componentArrays.staticGenerator.push(staticGenerator);
@@ -1912,7 +1915,8 @@ function loadFlowPandaPower(a, b, c) {
                                 q_c_mvar: 'q_c_mvar',
                                 sn_mva: 'sn_mva',
                                 scaling: 'scaling',
-                                type: 'type'
+                                type: 'type',
+                                in_service: { name: 'in_service', optional: true }
                             })
                         };
                         componentArrays.asymmetricGenerator.push(asymmetricGenerator);
@@ -1975,7 +1979,8 @@ function loadFlowPandaPower(a, b, c) {
                                 tap_min: { name: 'tap_min', optional: true },
                                 tap_step_percent: { name: 'tap_step_percent', optional: true },
                                 tap_step_degree: { name: 'tap_step_degree', optional: true },
-                                tap_phase_shifter: { name: 'tap_phase_shifter', optional: true }
+                                tap_phase_shifter: { name: 'tap_phase_shifter', optional: true },
+                                in_service: { name: 'in_service', optional: true }
                             })
                         };
                         componentArrays.transformer.push(transformer);
@@ -2034,7 +2039,8 @@ function loadFlowPandaPower(a, b, c) {
                                 tap_min: { name: 'tap_min', optional: true },
                                 tap_max: { name: 'tap_max', optional: true },
                                 tap_pos: { name: 'tap_pos', optional: true },
-                                tap_at_star_point: { name: 'tap_at_star_point', optional: true }
+                                tap_at_star_point: { name: 'tap_at_star_point', optional: true },
+                                in_service: { name: 'in_service', optional: true }
                             })
                         };
                         componentArrays.threeWindingTransformer.push(threeWindingTransformer);
@@ -2064,7 +2070,8 @@ function loadFlowPandaPower(a, b, c) {
                                 vn_kv: 'vn_kv',
                                 // Optional parameters
                                 step: { name: 'step', optional: true },
-                                max_step: { name: 'max_step', optional: true }
+                                max_step: { name: 'max_step', optional: true },
+                                in_service: { name: 'in_service', optional: true }
                             })
                         };
                         componentArrays.shuntReactor.push(shuntReactor);
@@ -2094,7 +2101,8 @@ function loadFlowPandaPower(a, b, c) {
                                 vn_kv: 'vn_kv',
                                 // Optional parameters
                                 step: { name: 'step', optional: true },
-                                max_step: { name: 'max_step', optional: true }
+                                max_step: { name: 'max_step', optional: true },
+                                in_service: { name: 'in_service', optional: true }
                             })
                         };
                         componentArrays.capacitor.push(capacitor);
@@ -2124,7 +2132,8 @@ function loadFlowPandaPower(a, b, c) {
                                 const_i_percent: 'const_i_percent',
                                 sn_mva: 'sn_mva',
                                 scaling: 'scaling',
-                                type: 'type'
+                                type: 'type',
+                                in_service: { name: 'in_service', optional: true }
                             })
                         };
                         componentArrays.load.push(load);
@@ -2157,7 +2166,8 @@ function loadFlowPandaPower(a, b, c) {
                                 q_c_mvar: 'q_c_mvar',
                                 sn_mva: 'sn_mva',
                                 scaling: 'scaling',
-                                type: 'type'
+                                type: 'type',
+                                in_service: { name: 'in_service', optional: true }
                             })
                         };
                         componentArrays.asymmetricLoad.push(asymmetricLoad);
@@ -2185,7 +2195,8 @@ function loadFlowPandaPower(a, b, c) {
                                     // Load flow parameters
                                     rft_pu: 'rft_pu',
                                     xft_pu: 'xft_pu',
-                                    sn_mva: 'sn_mva'
+                                    sn_mva: 'sn_mva',
+                                    in_service: { name: 'in_service', optional: true }
                                 })
                             };
                             componentArrays.impedance.push(impedance);
@@ -2216,7 +2227,8 @@ function loadFlowPandaPower(a, b, c) {
                                 ps_mw: 'ps_mw',
                                 qs_mvar: 'qs_mvar',
                                 pz_mw: 'pz_mw',
-                                qz_mvar: 'qz_mvar'
+                                qz_mvar: 'qz_mvar',
+                                in_service: { name: 'in_service', optional: true }
                             })
                         };
                         componentArrays.ward.push(ward);
@@ -2247,7 +2259,8 @@ function loadFlowPandaPower(a, b, c) {
                                 qz_mvar: 'qz_mvar',
                                 r_ohm: 'r_ohm',
                                 x_ohm: 'x_ohm',
-                                vm_pu: 'vm_pu'
+                                vm_pu: 'vm_pu',
+                                in_service: { name: 'in_service', optional: true }
                             })
                         };
                         componentArrays.extendedWard.push(extendedWard);
@@ -2284,7 +2297,8 @@ function loadFlowPandaPower(a, b, c) {
                                 vn_kv: 'vn_kv',
                                 efficiency_percent: 'efficiency_percent',
                                 loading_percent: 'loading_percent',
-                                scaling: 'scaling'
+                                scaling: 'scaling',
+                                in_service: { name: 'in_service', optional: true }
                             })
                         };
                         componentArrays.motor.push(motor);
@@ -2316,7 +2330,8 @@ function loadFlowPandaPower(a, b, c) {
                                 soc_percent: 'soc_percent',
                                 min_e_mwh: 'min_e_mwh',
                                 scaling: 'scaling',
-                                type: 'type'
+                                type: 'type',
+                                in_service: { name: 'in_service', optional: true }
                             })
                         };
                         componentArrays.storage.push(storage);
@@ -2347,7 +2362,8 @@ function loadFlowPandaPower(a, b, c) {
                                 thyristor_firing_angle_degree: 'thyristor_firing_angle_degree',
                                 controllable: 'controllable',
                                 min_angle_degree: 'min_angle_degree',
-                                max_angle_degree: 'max_angle_degree'
+                                max_angle_degree: 'max_angle_degree',
+                                in_service: { name: 'in_service', optional: true }
                             })
                         };
                         componentArrays.SVC.push(SVC);
@@ -2378,7 +2394,8 @@ function loadFlowPandaPower(a, b, c) {
                                 thyristor_firing_angle_degree: 'thyristor_firing_angle_degree',
                                 controllable: 'controllable',
                                 min_angle_degree: 'min_angle_degree',
-                                max_angle_degree: 'max_angle_degree'
+                                max_angle_degree: 'max_angle_degree',
+                                in_service: { name: 'in_service', optional: true }
                             })
                         };
                         componentArrays.TCSC.push(TCSC);
@@ -2408,7 +2425,8 @@ function loadFlowPandaPower(a, b, c) {
                                 set_vm_pu: 'set_vm_pu',
                                 vm_internal_pu: 'vm_internal_pu',
                                 va_internal_degree: 'va_internal_degree',
-                                controllable: 'controllable'                 
+                                controllable: 'controllable',
+                                in_service: { name: 'in_service', optional: true }
                             })
                         };
                         componentArrays.SSC.push(SSC);
@@ -2437,7 +2455,8 @@ function loadFlowPandaPower(a, b, c) {
                                 loss_percent: 'loss_percent',
                                 loss_mw: 'loss_mw',
                                 vm_from_pu: 'vm_from_pu',
-                                vm_to_pu: 'vm_to_pu'
+                                vm_to_pu: 'vm_to_pu',
+                                in_service: { name: 'in_service', optional: true }
                             })
                         };
                         componentArrays.dcLine.push(dcLine);
@@ -2465,6 +2484,7 @@ function loadFlowPandaPower(a, b, c) {
                                 length_km: 'length_km',
                                 parallel: { name: 'parallel', optional: true },
                                 df: { name: 'df', optional: true },
+                                in_service: { name: 'in_service', optional: true },
 
                                 // Load flow parameters
                                 r_ohm_per_km: 'r_ohm_per_km',

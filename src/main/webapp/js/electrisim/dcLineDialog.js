@@ -93,7 +93,7 @@ export class DCLineDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure DC Line Parameters</strong><br>Set parameters for DC transmission line. Based on <a href="https://pandapower.readthedocs.io/en/latest/elements/dcline.html" target="_blank">pandapower documentation</a>.';
+        return '<strong>Configure DC Line Parameters</strong><br>Set parameters for DC transmission line. See the <a href="https://electrisim.com/documentation#dc-line" target="_blank">Electrisim documentation</a>.';
     }
     
     show(callback) {

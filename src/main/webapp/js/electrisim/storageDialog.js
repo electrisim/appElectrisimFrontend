@@ -122,7 +122,7 @@ export class StorageDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure Storage Parameters</strong><br>Set parameters for energy storage system with power and energy management capabilities. Based on <a href="https://pandapower.readthedocs.io/en/latest/elements/storage.html" target="_blank">pandapower documentation</a>.';
+        return '<strong>Configure Storage Parameters</strong><br>Set parameters for energy storage system with power and energy management capabilities. See the <a href="https://electrisim.com/documentation#storage" target="_blank">Electrisim documentation</a>.';
     }
     
     show(callback) {

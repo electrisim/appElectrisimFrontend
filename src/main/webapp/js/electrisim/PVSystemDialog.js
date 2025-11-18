@@ -63,7 +63,8 @@ export const defaultPVSystemData = {
     amplimitgain: 0.8,
     pminkvarmax: 0.0,
     pminnovars: 0.0,
-    pmpp_percent: 100.0
+    pmpp_percent: 100.0,
+    in_service: true
 };
 
 export class PVSystemDialog extends Dialog {
@@ -202,6 +203,14 @@ export class PVSystemDialog extends Dialog {
                 value: this.data.vmaxpu.toString(),
                 step: '0.01',
                 min: '0',
+                category: 'Operating Conditions'
+            },
+            {
+                id: 'in_service',
+                label: 'In Service',
+                description: 'Specifies if the PV system is in service (True/False)',
+                type: 'checkbox',
+                value: this.data.in_service,
                 category: 'Operating Conditions'
             }
         ];
@@ -576,7 +585,7 @@ export class PVSystemDialog extends Dialog {
     }
 
     getDescription() {
-        return '<strong>Configure PVSystem Parameters</strong><br>Set comprehensive parameters for photovoltaic system with inverter control and power management capabilities organized into tabs for different analysis types. Based on <a href="https://opendss.epri.com/Properties6.html" target="_blank">OpenDSS documentation</a>.';
+        return '<strong>Configure PVSystem Parameters</strong><br>Set comprehensive parameters for photovoltaic system with inverter control and power management capabilities organized into tabs for different analysis types. See the <a href="https://electrisim.com/documentation#pvsystem" target="_blank">Electrisim documentation</a>.';
     }
 
     show(callback) {

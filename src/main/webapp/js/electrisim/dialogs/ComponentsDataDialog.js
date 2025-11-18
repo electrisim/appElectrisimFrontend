@@ -7,6 +7,7 @@ const COMPONENT_TYPES = {
     GENERATOR: 'Generator', 
     STATIC_GENERATOR: 'Static Generator',
     ASYMMETRIC_STATIC_GENERATOR: 'Asymmetric Static Generator',
+    PV_SYSTEM: 'PV System',
     BUS: 'Bus',
     TRANSFORMER: 'Transformer',
     THREE_WINDING_TRANSFORMER: 'Three Winding Transformer',
@@ -83,20 +84,47 @@ export class ComponentsDataDialog {
             (connectedCells[0].mxObjectId?.replace('#', '_') || connectedCells[0].id) : null;
     }
 
+    // Helper function to normalize boolean values
+    normalizeBoolean(value) {
+        if (value === null || value === undefined || value === '') {
+            return true; // Default to true for in_service
+        }
+        if (typeof value === 'boolean') {
+            return value;
+        }
+        const strValue = String(value).toLowerCase().trim();
+        return strValue === 'true' || strValue === '1' || strValue === 'yes';
+    }
+
     // Helper function to get attributes as object (from loadFlow.js)
     getAttributesAsObject(cell, attributeMap) {
         const result = {};
         if (!cell.value || !cell.value.attributes) return result;
 
+        // List of boolean attributes that should be normalized
+        const booleanAttributes = ['in_service', 'controllable', 'balanced', 'debugtrace', 
+            'limitcurrent', 'pfpriority', 'safemode', 'varfollowinverter', 'wattpriority',
+            'slack', 'current_source', 'tap_phase_shifter'];
+
         Object.entries(attributeMap).forEach(([key, config]) => {
             const attributeName = typeof config === 'string' ? config : config.name;
             const isOptional = typeof config === 'object' && config.optional;
+            const isBoolean = booleanAttributes.includes(key);
             
             const attribute = Array.from(cell.value.attributes).find(attr => attr.name === attributeName);
             if (attribute) {
-                result[key] = attribute.value;
+                if (isBoolean) {
+                    result[key] = this.normalizeBoolean(attribute.value);
+                } else {
+                    result[key] = attribute.value;
+                }
             } else if (!isOptional) {
-                result[key] = 'N/A';
+                // For boolean attributes, default to true instead of 'N/A'
+                if (isBoolean) {
+                    result[key] = true;
+                } else {
+                    result[key] = 'N/A';
+                }
             }
         });
 
@@ -108,7 +136,7 @@ export class ComponentsDataDialog {
         const cellsArray = this.model.getDescendants();
         const counters = {
             externalGrid: 1, generator: 1, staticGenerator: 1, asymmetricGenerator: 1,
-            busbar: 1, transformer: 1, threeWindingTransformer: 1, shuntReactor: 1,
+            pvSystem: 1, busbar: 1, transformer: 1, threeWindingTransformer: 1, shuntReactor: 1,
             capacitor: 1, load: 1, asymmetricLoad: 1, impedance: 1, ward: 1,
             extendedWard: 1, motor: 1, storage: 1, SVC: 1, TCSC: 1, SSC: 1,
             dcLine: 1, line: 1
@@ -151,8 +179,12 @@ export class ComponentsDataDialog {
                 case 'StaticGenerator':
                 case 'Sgen':
                 case 'sgen':
-                case 'PVSystem':
                     mappedType = COMPONENT_TYPES.STATIC_GENERATOR;
+                    break;
+                case 'PV System':
+                case 'PVSystem':
+                case 'pvsystem':
+                    mappedType = COMPONENT_TYPES.PV_SYSTEM;
                     break;
                 case 'Asymmetric Static Generator':
                 case 'AsymmetricStaticGenerator':
@@ -307,6 +339,64 @@ export class ComponentsDataDialog {
                             sn_mva: 'sn_mva',
                             scaling: 'scaling',
                             type: 'type',
+                            in_service: 'in_service'
+                        })
+                    });
+                    break;
+
+                case COMPONENT_TYPES.PV_SYSTEM:
+                    this.components[COMPONENT_TYPES.PV_SYSTEM].push({
+                        ...baseData,
+                        type: `PV System ${counters.pvSystem++}`,
+                        ...this.getAttributesAsObject(cell, {
+                            irradiance: 'irradiance',
+                            pmpp: 'pmpp',
+                            temperature: 'temperature',
+                            phases: 'phases',
+                            kv: 'kv',
+                            pf: 'pf',
+                            kvar: 'kvar',
+                            kva: 'kva',
+                            cutin: { name: 'cutin', optional: true },
+                            cutout: { name: 'cutout', optional: true },
+                            conn: { name: 'conn', optional: true },
+                            effcurve: { name: 'effcurve', optional: true },
+                            r_percent: { name: 'r_percent', optional: true },
+                            x_percent: { name: 'x_percent', optional: true },
+                            model: { name: 'model', optional: true },
+                            vmaxpu: { name: 'vmaxpu', optional: true },
+                            vminpu: { name: 'vminpu', optional: true },
+                            yearly: { name: 'yearly', optional: true },
+                            daily: { name: 'daily', optional: true },
+                            duty: { name: 'duty', optional: true },
+                            tyearly: { name: 'tyearly', optional: true },
+                            tdaily: { name: 'tdaily', optional: true },
+                            tduty: { name: 'tduty', optional: true },
+                            dutystart: { name: 'dutystart', optional: true },
+                            spectrum: { name: 'spectrum', optional: true },
+                            basefreq: { name: 'basefreq', optional: true },
+                            balanced: { name: 'balanced', optional: true },
+                            class_: { name: 'class_', optional: true },
+                            debugtrace: { name: 'debugtrace', optional: true },
+                            controlmode: { name: 'controlmode', optional: true },
+                            dynamiceq: { name: 'dynamiceq', optional: true },
+                            dynout: { name: 'dynout', optional: true },
+                            kp: { name: 'kp', optional: true },
+                            kvarmax: { name: 'kvarmax', optional: true },
+                            kvarmaxabs: { name: 'kvarmaxabs', optional: true },
+                            kvdc: { name: 'kvdc', optional: true },
+                            limitcurrent: { name: 'limitcurrent', optional: true },
+                            pfpriority: { name: 'pfpriority', optional: true },
+                            pitol: { name: 'pitol', optional: true },
+                            safemode: { name: 'safemode', optional: true },
+                            safevoltage: { name: 'safevoltage', optional: true },
+                            varfollowinverter: { name: 'varfollowinverter', optional: true },
+                            wattpriority: { name: 'wattpriority', optional: true },
+                            amplimit: { name: 'amplimit', optional: true },
+                            amplimitgain: { name: 'amplimitgain', optional: true },
+                            pminkvarmax: { name: 'pminkvarmax', optional: true },
+                            pminnovars: { name: 'pminnovars', optional: true },
+                            pmpp_percent: { name: 'pmpp_percent', optional: true },
                             in_service: 'in_service'
                         })
                     });
@@ -662,21 +752,23 @@ export class ComponentsDataDialog {
         // Create column definitions with proper types and formatting
         return Array.from(allProps).map(prop => {
             const sampleValue = components.find(comp => comp[prop] != null)?.[prop];
-            const isNumeric = !isNaN(sampleValue) && sampleValue !== '' && sampleValue !== 'N/A';
+            const isNumeric = !isNaN(sampleValue) && sampleValue !== '' && sampleValue !== 'N/A' && typeof sampleValue !== 'boolean';
+            const isBoolean = typeof sampleValue === 'boolean';
             const isReadOnly = readOnlyColumns.includes(prop.toLowerCase());
             
             const colDef = {
                 headerName: prop.replace(/_/g, ' ').toUpperCase(),
                 field: prop,
-                filter: isNumeric ? 'agNumberColumnFilter' : 'agTextColumnFilter',
+                filter: isBoolean ? 'agBooleanColumnFilter' : (isNumeric ? 'agNumberColumnFilter' : 'agTextColumnFilter'),
                 resizable: true,
                 sortable: true,
                 minWidth: 100,
                 flex: 1,
                 editable: !isReadOnly, // Make editable except for read-only columns
-                cellEditor: isReadOnly ? null : (isNumeric ? 'agNumberCellEditor' : 'agTextCellEditor'),
+                cellEditor: isReadOnly ? null : (isBoolean ? 'agCheckboxCellEditor' : (isNumeric ? 'agNumberCellEditor' : 'agTextCellEditor')),
+                cellRenderer: isBoolean ? 'agCheckboxCellRenderer' : null,
                 cellStyle: (params) => {
-                    const baseStyle = isNumeric ? { textAlign: 'right' } : {};
+                    const baseStyle = isNumeric ? { textAlign: 'right' } : (isBoolean ? { textAlign: 'center' } : {});
                     
                     if (isReadOnly) {
                         // Read-only columns have gray background
@@ -903,6 +995,14 @@ export class ComponentsDataDialog {
                 return false;
             }
 
+            // Convert boolean values to string explicitly
+            let stringValue;
+            if (typeof newValue === 'boolean') {
+                stringValue = newValue ? 'true' : 'false';
+            } else {
+                stringValue = newValue != null ? String(newValue) : '';
+            }
+
             // Find the attribute by name
             let attribute = null;
             for (let i = 0; i < cell.value.attributes.length; i++) {
@@ -914,14 +1014,14 @@ export class ComponentsDataDialog {
 
             if (attribute) {
                 // Update existing attribute
-                attribute.value = newValue.toString();
-                console.log(`Updated attribute ${attributeName} to ${newValue}`);
+                attribute.value = stringValue;
+                console.log(`Updated attribute ${attributeName} to ${stringValue}`);
             } else {
                 // Create new attribute if it doesn't exist
                 const newAttr = cell.value.ownerDocument.createAttribute(attributeName);
-                newAttr.value = newValue.toString();
+                newAttr.value = stringValue;
                 cell.value.attributes.setNamedItem(newAttr);
-                console.log(`Created new attribute ${attributeName} with value ${newValue}`);
+                console.log(`Created new attribute ${attributeName} with value ${stringValue}`);
             }
 
             return true;
@@ -1030,6 +1130,198 @@ export class ComponentsDataDialog {
         const actions = document.createElement('div');
         actions.style.cssText = 'display: flex; align-items: center; gap: 8px;';
 
+        // Bulk edit section
+        const bulkEditSection = document.createElement('div');
+        bulkEditSection.style.cssText = 'display: flex; align-items: center; gap: 4px; padding: 4px 8px; background: #e9ecef; border-radius: 4px; border: 1px solid #ced4da;';
+
+        // Parameter selector dropdown
+        const paramSelect = document.createElement('select');
+        paramSelect.style.cssText = `
+            padding: 4px 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 12px;
+            background: white;
+            cursor: pointer;
+            min-width: 120px;
+        `;
+        
+        // Get all editable columns (non-readonly) and filter for boolean parameters only
+        const components = this.components[componentType];
+        if (components.length > 0) {
+            const readOnlyColumns = ['id', 'name', 'bus', 'from_bus', 'to_bus', 'type'];
+            const allProps = Object.keys(components[0]);
+            const editableProps = allProps.filter(prop => !readOnlyColumns.includes(prop.toLowerCase()));
+            
+            // Filter for boolean parameters only (bulk edit only makes sense for boolean values)
+            const booleanProps = editableProps.filter(prop => {
+                const sampleValue = components.find(c => c[prop] != null)?.[prop];
+                return typeof sampleValue === 'boolean';
+            });
+            
+            // Add default option
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = booleanProps.length > 0 ? 'Select boolean parameter...' : 'No boolean parameters';
+            paramSelect.appendChild(defaultOption);
+            
+            // Only add boolean parameters to the dropdown
+            booleanProps.forEach(prop => {
+                const option = document.createElement('option');
+                option.value = prop;
+                option.textContent = prop.replace(/_/g, ' ').toUpperCase();
+                paramSelect.appendChild(option);
+            });
+            
+            // Disable dropdown if no boolean parameters available
+            if (booleanProps.length === 0) {
+                paramSelect.disabled = true;
+            }
+        }
+
+        // Bulk edit buttons container
+        const bulkButtons = document.createElement('div');
+        bulkButtons.style.cssText = 'display: flex; align-items: center; gap: 4px;';
+        bulkButtons.style.display = 'none'; // Hidden until parameter is selected
+
+        // Set All True button
+        const setAllTrueBtn = document.createElement('button');
+        setAllTrueBtn.innerHTML = '✓ All True';
+        setAllTrueBtn.style.cssText = `
+            padding: 4px 8px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            white-space: nowrap;
+        `;
+
+        // Set All False button
+        const setAllFalseBtn = document.createElement('button');
+        setAllFalseBtn.innerHTML = '✗ All False';
+        setAllFalseBtn.style.cssText = `
+            padding: 4px 8px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            white-space: nowrap;
+        `;
+
+        // Toggle All button
+        const toggleAllBtn = document.createElement('button');
+        toggleAllBtn.innerHTML = '🔄 Toggle';
+        toggleAllBtn.style.cssText = `
+            padding: 4px 8px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            white-space: nowrap;
+        `;
+
+        // Show/hide bulk buttons based on selection
+        paramSelect.addEventListener('change', (e) => {
+            if (e.target.value) {
+                // Since we only show boolean parameters, always show the buttons
+                bulkButtons.style.display = 'flex';
+                setAllTrueBtn.style.display = 'block';
+                setAllFalseBtn.style.display = 'block';
+                toggleAllBtn.style.display = 'block';
+            } else {
+                bulkButtons.style.display = 'none';
+            }
+        });
+
+        // Bulk edit functions
+        const bulkEdit = (paramName, value) => {
+            const gridApi = this.gridInstances[componentType];
+            if (!gridApi) return;
+
+            let updateCount = 0;
+            const updatedNodes = [];
+            
+            gridApi.forEachNode(node => {
+                const currentValue = node.data[paramName];
+                let newValue = value;
+                
+                // If value is null, it means toggle
+                if (value === null) {
+                    if (typeof currentValue === 'boolean') {
+                        newValue = !currentValue;
+                    } else if (currentValue === true || currentValue === 'true' || currentValue === 1) {
+                        newValue = false;
+                    } else {
+                        newValue = true;
+                    }
+                }
+                
+                // Only update if value actually changed
+                if (currentValue !== newValue) {
+                    // Update the node data directly
+                    node.data[paramName] = newValue;
+                    updatedNodes.push(node);
+                    updateCount++;
+                }
+            });
+
+            // Refresh the grid to show changes
+            if (updatedNodes.length > 0) {
+                // Update cells for changed nodes
+                gridApi.refreshCells({ 
+                    rowNodes: updatedNodes,
+                    columns: [paramName],
+                    force: true 
+                });
+                this.hasChanges = true;
+                
+                console.log(`Bulk updated ${updateCount} rows: ${paramName} = ${value === null ? 'toggled' : value}`);
+            } else {
+                console.log(`No changes needed: all values are already ${value}`);
+            }
+        };
+
+        setAllTrueBtn.addEventListener('click', () => {
+            const paramName = paramSelect.value;
+            if (paramName) {
+                bulkEdit(paramName, true);
+            }
+        });
+
+        setAllFalseBtn.addEventListener('click', () => {
+            const paramName = paramSelect.value;
+            if (paramName) {
+                bulkEdit(paramName, false);
+            }
+        });
+
+        toggleAllBtn.addEventListener('click', () => {
+            const paramName = paramSelect.value;
+            if (paramName) {
+                bulkEdit(paramName, null); // null means toggle
+            }
+        });
+
+        // Hover effects
+        setAllTrueBtn.addEventListener('mouseenter', () => setAllTrueBtn.style.background = '#218838');
+        setAllTrueBtn.addEventListener('mouseleave', () => setAllTrueBtn.style.background = '#28a745');
+        setAllFalseBtn.addEventListener('mouseenter', () => setAllFalseBtn.style.background = '#c82333');
+        setAllFalseBtn.addEventListener('mouseleave', () => setAllFalseBtn.style.background = '#dc3545');
+        toggleAllBtn.addEventListener('mouseenter', () => toggleAllBtn.style.background = '#0056b3');
+        toggleAllBtn.addEventListener('mouseleave', () => toggleAllBtn.style.background = '#007bff');
+
+        bulkButtons.appendChild(setAllTrueBtn);
+        bulkButtons.appendChild(setAllFalseBtn);
+        bulkButtons.appendChild(toggleAllBtn);
+        bulkEditSection.appendChild(paramSelect);
+        bulkEditSection.appendChild(bulkButtons);
+
         // Quick filter input
         const searchInput = document.createElement('input');
         searchInput.type = 'text';
@@ -1090,6 +1382,7 @@ export class ComponentsDataDialog {
 
         info.appendChild(count);
         info.appendChild(editHint);
+        actions.appendChild(bulkEditSection);
         actions.appendChild(searchInput);
         actions.appendChild(exportBtn);
 

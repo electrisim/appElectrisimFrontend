@@ -305,7 +305,7 @@ export class TransformerDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure Transformer Parameters</strong><br>Set parameters for two-winding transformer. Based on <a href="https://pandapower.readthedocs.io/en/latest/elements/trafo.html" target="_blank">pandapower documentation</a>.';
+        return '<strong>Configure Transformer Parameters</strong><br>Set parameters for two-winding transformer. See the <a href="https://electrisim.com/documentation#transformer" target="_blank">Electrisim documentation</a>.';
     }
     
     show(callback) {

@@ -179,7 +179,7 @@ export class LineDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure Line Parameters</strong><br>Set parameters for transmission/distribution line. Based on <a href="https://pandapower.readthedocs.io/en/latest/elements/line.html" target="_blank">pandapower documentation</a>.';
+        return '<strong>Configure Line Parameters</strong><br>Set parameters for transmission/distribution line. See the <a href="https://electrisim.com/documentation#line" target="_blank">Electrisim documentation</a>.';
     }
     
     show(callback) {
