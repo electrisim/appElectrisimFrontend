@@ -204,43 +204,86 @@ function showSubscriptionModal() {
     // Modal header
     const header = document.createElement('h2');
     Object.assign(header.style, DIALOG_STYLES.header);
-    header.textContent = 'Subscription Required';
+    header.style.fontSize = '28px';
+    header.style.marginBottom = '10px';
+    header.textContent = 'Unlock Professional Simulations';
+    
+    // Subheader - open source message
+    const subheader = document.createElement('p');
+    Object.assign(subheader.style, {
+        color: '#666',
+        fontSize: '14px',
+        margin: '0 0 20px 0',
+        fontStyle: 'italic',
+        textAlign: 'center'
+    });
+    subheader.innerHTML = '✨ Support open-source development while powering your projects';
     
     // Modal message
     const message = document.createElement('p');
     Object.assign(message.style, DIALOG_STYLES.info);
-    message.textContent = 'To use the Simulation feature, a monthly subscription is required.';
+    message.style.fontSize = '15px';
+    message.style.lineHeight = '1.6';
+    message.textContent = 'Get unlimited access to advanced power system simulations trusted by engineers worldwide.';
     
-    // Price display
+    // Price display with value proposition
     const priceInfo = document.createElement('div');
-    Object.assign(priceInfo.style, DIALOG_STYLES.resultItem);
-    priceInfo.innerHTML = '<strong>Monthly Subscription:</strong> $5.00/month';
+    Object.assign(priceInfo.style, {
+        ...DIALOG_STYLES.resultItem,
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        color: 'white',
+        padding: '20px',
+        borderRadius: '10px',
+        textAlign: 'center',
+        margin: '20px 0',
+        boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)'
+    });
+    priceInfo.innerHTML = `
+        <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">$5.00<span style="font-size: 16px; font-weight: normal;">/month</span></div>
+        <div style="font-size: 13px; opacity: 0.9;">Less than a cup of coffee!</div>
+    `;
     
     // Features list
     const featuresList = document.createElement('ul');
     Object.assign(featuresList.style, {
         listStyle: 'none',
         padding: '0',
-        margin: '20px 0'
+        margin: '20px 0',
+        textAlign: 'left'
     });
     
     const features = [
-        'Unlimited simulations',
-        'Priority support',
-        'Access to all features',
-        'Regular updates'
+        { text: 'Unlimited simulations', icon: '🚀' },
+        { text: 'Advanced electrical system calculations', icon: '⚡' },
+        { text: 'Priority email support', icon: '💬' },
+        { text: 'Export professional reports', icon: '📊' },
+        { text: 'Access to all grid models', icon: '🔌' },
+        { text: 'Regular feature updates', icon: '🔄' }
     ];
     
     features.forEach(feature => {
         const li = document.createElement('li');
         Object.assign(li.style, {
-            marginBottom: '10px',
+            marginBottom: '12px',
             display: 'flex',
-            alignItems: 'center'
+            alignItems: 'center',
+            fontSize: '14px'
         });
         li.innerHTML = `
-            <span style="color: #48d800; margin-right: 10px;">✓</span>
-            ${feature}
+            <span style="
+                background: #48d800;
+                color: white;
+                width: 24px;
+                height: 24px;
+                border-radius: 50%;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                margin-right: 12px;
+                font-size: 12px;
+                flex-shrink: 0;
+            ">✓</span>
+            <span style="color: #333;"><strong>${feature.icon}</strong> ${feature.text}</span>
         `;
         featuresList.appendChild(li);
     });
@@ -302,6 +345,7 @@ function showSubscriptionModal() {
     
     // Assemble modal
     modal.appendChild(header);
+    modal.appendChild(subheader);
     modal.appendChild(message);
     modal.appendChild(priceInfo);
     modal.appendChild(featuresList);
@@ -389,43 +433,86 @@ const SubscriptionManager = {
         // Modal header
         const header = document.createElement('h2');
         Object.assign(header.style, DIALOG_STYLES.header);
-        header.textContent = 'Subscription Required';
+        header.style.fontSize = '28px';
+        header.style.marginBottom = '10px';
+        header.textContent = 'Unlock Professional Simulations';
+        
+        // Subheader - open source message
+        const subheader = document.createElement('p');
+        Object.assign(subheader.style, {
+            color: '#666',
+            fontSize: '14px',
+            margin: '0 0 20px 0',
+            fontStyle: 'italic',
+            textAlign: 'center'
+        });
+        subheader.innerHTML = '✨ Support open-source development while powering your projects';
         
         // Modal message
         const message = document.createElement('p');
         Object.assign(message.style, DIALOG_STYLES.info);
-        message.textContent = 'To use the Simulation feature, a monthly subscription is required.';
+        message.style.fontSize = '15px';
+        message.style.lineHeight = '1.6';
+        message.textContent = 'Get unlimited access to advanced power system simulations trusted by engineers worldwide.';
         
-        // Price display
+        // Price display with value proposition
         const priceInfo = document.createElement('div');
-        Object.assign(priceInfo.style, DIALOG_STYLES.resultItem);
-        priceInfo.innerHTML = '<strong>Monthly Subscription:</strong> $5.00/month';
+        Object.assign(priceInfo.style, {
+            ...DIALOG_STYLES.resultItem,
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            padding: '20px',
+            borderRadius: '10px',
+            textAlign: 'center',
+            margin: '20px 0',
+            boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)'
+        });
+        priceInfo.innerHTML = `
+            <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">$5.00<span style="font-size: 16px; font-weight: normal;">/month</span></div>
+            <div style="font-size: 13px; opacity: 0.9;">Less than a cup of coffee!</div>
+        `;
         
         // Features list
         const featuresList = document.createElement('ul');
         Object.assign(featuresList.style, {
             listStyle: 'none',
             padding: '0',
-            margin: '20px 0'
+            margin: '20px 0',
+            textAlign: 'left'
         });
         
         const features = [
-            'Unlimited simulations',
-            'Priority support',
-            'Access to all features',
-            'Regular updates'
+            { text: 'Unlimited simulations', icon: '🚀' },
+            { text: 'Advanced power flow calculations', icon: '⚡' },
+            { text: 'Priority email support', icon: '💬' },
+            { text: 'Export professional reports', icon: '📊' },
+            { text: 'Access to all grid models', icon: '🔌' },
+            { text: 'Regular feature updates', icon: '🔄' }
         ];
         
         features.forEach(feature => {
             const li = document.createElement('li');
             Object.assign(li.style, {
-                marginBottom: '10px',
+                marginBottom: '12px',
                 display: 'flex',
-                alignItems: 'center'
+                alignItems: 'center',
+                fontSize: '14px'
             });
             li.innerHTML = `
-                <span style="color: #48d800; margin-right: 10px;">✓</span>
-                ${feature}
+                <span style="
+                    background: #48d800;
+                    color: white;
+                    width: 24px;
+                    height: 24px;
+                    border-radius: 50%;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    margin-right: 12px;
+                    font-size: 12px;
+                    flex-shrink: 0;
+                ">✓</span>
+                <span style="color: #333;"><strong>${feature.icon}</strong> ${feature.text}</span>
             `;
             featuresList.appendChild(li);
         });
@@ -487,6 +574,7 @@ const SubscriptionManager = {
         
         // Assemble modal
         modal.appendChild(header);
+        modal.appendChild(subheader);
         modal.appendChild(message);
         modal.appendChild(priceInfo);
         modal.appendChild(featuresList);
