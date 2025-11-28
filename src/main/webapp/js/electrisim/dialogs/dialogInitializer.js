@@ -99,7 +99,6 @@ function initializeDialogs() {
                 
                 // If it's the root cell or has no specific component style, show ComponentsDataDialog
                 if (isRootCell || !cellStyle || !cellStyle.includes('shapeELXXX=')) {
-                    console.log('Showing ComponentsDataDialog for all components overview');
                     const componentsDialog = new ComponentsDataDialog(this, cell);
                     componentsDialog.show();
                     return;

@@ -29,6 +29,7 @@ const COMPONENT_TYPES = {
 
 export class ComponentsDataDialog {
     constructor(ui, rootCell) {
+
         this.ui = ui;
         this.graph = ui.editor.graph;
         this.model = this.graph.getModel();
@@ -38,12 +39,12 @@ export class ComponentsDataDialog {
         this.gridInstances = {}; // Store grid instances for cleanup
         this.originalData = {}; // Store original data for cancel functionality
         this.hasChanges = false; // Track if any changes were made
-        
+
         // Initialize component arrays
         Object.values(COMPONENT_TYPES).forEach(type => {
             this.components[type] = [];
         });
-        
+
         this.processComponents();
     }
 
@@ -134,6 +135,14 @@ export class ComponentsDataDialog {
     // Process all components in the graph
     processComponents() {
         const cellsArray = this.model.getDescendants();
+        // Filter to only component cells
+        const componentCells = cellsArray.filter(cell => {
+            if (cell.getStyle()?.includes("Result")) return false;
+            const style = this.parseCellStyle(cell.getStyle());
+            if (!style) return false;
+            const componentType = style.shapeELXXX;
+            return componentType && componentType !== 'NotEditableLine';
+        });
         const counters = {
             externalGrid: 1, generator: 1, staticGenerator: 1, asymmetricGenerator: 1,
             pvSystem: 1, busbar: 1, transformer: 1, threeWindingTransformer: 1, shuntReactor: 1,
@@ -142,15 +151,10 @@ export class ComponentsDataDialog {
             dcLine: 1, line: 1
         };
 
-        cellsArray.forEach(cell => {
-            // Skip result cells
-            if (cell.getStyle()?.includes("Result")) return;
-            
-            const style = this.parseCellStyle(cell.getStyle());
-            if (!style) return;
+        componentCells.forEach(cell => {
 
+            const style = this.parseCellStyle(cell.getStyle());
             const componentType = style.shapeELXXX;
-            if (!componentType || componentType === 'NotEditableLine') return;
 
             // Create base data
             let baseData = {
@@ -251,7 +255,7 @@ export class ComponentsDataDialog {
             if (!mappedType) {
                 return; // Skip if component type is not recognized
             }
-            
+
             switch (mappedType) {
                 case COMPONENT_TYPES.EXTERNAL_GRID:
                     this.components[COMPONENT_TYPES.EXTERNAL_GRID].push({
@@ -1421,7 +1425,7 @@ export class ComponentsDataDialog {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-    }
+    } 
 
     // Create the dialog container
     create() {
@@ -1643,19 +1647,19 @@ export class ComponentsDataDialog {
     // Show the dialog
     show() {
         const content = this.create();
-        
+
         // Make dialog full-screen with minimal margins
         const screenWidth = window.innerWidth - 20;
         const screenHeight = window.innerHeight - 20;
-        
+
         // Show using EditorUi's dialog system
         this.dialogWindow = this.ui.showDialog(content, screenWidth, screenHeight, true, false, () => {
             this.close(false); // Close without applying changes on X button
         });
-        
+
         const componentCount = Object.values(this.components).reduce((sum, arr) => sum + arr.length, 0);
         const typeCount = Object.values(this.components).filter(arr => arr.length > 0).length;
-        
+
         console.log(`ComponentsDataDialog shown with ${componentCount} components across ${typeCount} types`);
     }
 
@@ -1676,7 +1680,7 @@ export class ComponentsDataDialog {
         if (this.ui && typeof this.ui.hideDialog === 'function') {
             this.ui.hideDialog();
         }
-        
+
         console.log(`ComponentsDataDialog closed. Changes ${applyChanges ? 'applied' : 'discarded'}.`);
     }
 }
