@@ -131,6 +131,11 @@ async function redirectToStripeCheckout(priceId) {
         }
 
         console.log('Redirecting to checkout URL:', data.url);
+        
+        // Disable beforeunload handler to prevent "Leave page?" dialog when subscribing
+        window.onbeforeunload = null;
+        
+        // Redirect to Stripe checkout
         window.location.href = data.url;
         
     } catch (error) {
@@ -224,7 +229,7 @@ function showSubscriptionModal() {
     Object.assign(message.style, DIALOG_STYLES.info);
     message.style.fontSize = '15px';
     message.style.lineHeight = '1.6';
-    message.textContent = 'Get unlimited access to advanced power system simulations trusted by engineers worldwide.';
+    message.textContent = 'Join hundreds of engineers using advanced power system simulations trusted worldwide.';
     
     // Price display with value proposition
     const priceInfo = document.createElement('div');
@@ -453,7 +458,7 @@ const SubscriptionManager = {
         Object.assign(message.style, DIALOG_STYLES.info);
         message.style.fontSize = '15px';
         message.style.lineHeight = '1.6';
-        message.textContent = 'Get unlimited access to advanced power system simulations trusted by engineers worldwide.';
+        message.textContent = 'Join hundreds of engineers using advanced power system simulations trusted worldwide.';
         
         // Price display with value proposition
         const priceInfo = document.createElement('div');
