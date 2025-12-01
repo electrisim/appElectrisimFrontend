@@ -65,53 +65,78 @@ window.debugOAuth = function() {
     console.log('🔍 ==================');
 };
 
-// Enhanced function to update the login button
+// OPTIMIZED: Enhanced function to update the login button with DOM caching
+let cachedShareButton = null; // Cache the button once found
+
 function updateLoginButton() {
-    // Try multiple selectors to find the button
-    const selectors = [
-        'div.geBtn.gePrimaryBtn[title*="share"]',
-        'div.geBtn[title*="share"]',
-        '.shareButton',
-        'div.geBtn.gePrimaryBtn'
-    ];
-    
-    let shareButton = null;
-    
-    for (const selector of selectors) {
-        shareButton = document.querySelector(selector);
-        if (shareButton) {
-            break;
-        }
+    // Try to use cached button first
+    if (cachedShareButton && document.body.contains(cachedShareButton)) {
+        updateButtonText(cachedShareButton);
+        return true;
     }
     
+    // Button not cached or was removed from DOM, find it
+    const shareButton = findShareButton();
+    
     if (shareButton) {
-        const isLoggedIn = window.isAuthenticated();
-        const newText = isLoggedIn ? "Logged In" : "Login";
-        const currentText = shareButton.textContent.trim();
-        
-        // Only update if text is different to avoid unnecessary DOM manipulation
-        if (currentText !== newText) {
-            // Try different methods to update the text
-            const textNode = shareButton.lastChild;
-            if (textNode && textNode.nodeType === 3) { // Text node
-                textNode.textContent = newText;
-            } else {
-                // Remove existing text and add new text
-                const textNodes = Array.from(shareButton.childNodes).filter(node => node.nodeType === 3);
-                textNodes.forEach(node => node.remove());
-                shareButton.appendChild(document.createTextNode(newText));
-            }
-            
-            // Force a style recalculation to ensure the change is visible
-            shareButton.style.display = 'none';
-            shareButton.offsetHeight; // Trigger reflow
-            shareButton.style.display = 'inline-block';
-        }
-        
+        cachedShareButton = shareButton; // Cache it for next time
+        updateButtonText(shareButton);
         return true;
     }
     
     return false;
+}
+
+// Helper: Find share button using cached queries
+function findShareButton() {
+    // Use domCache if available, fallback to document.querySelector
+    const useCache = window.domCache && typeof window.domCache.querySelector === 'function';
+    
+    // Try selectors in order of specificity (most specific first for better performance)
+    const selectors = [
+        'div.geBtn.gePrimaryBtn[title*="share"]', // Most specific
+        'div.geBtn[title*="share"]',              // Less specific
+        '.shareButton',                           // Class-based
+        'div.geBtn.gePrimaryBtn'                  // Fallback
+    ];
+    
+    for (const selector of selectors) {
+        const button = useCache 
+            ? window.domCache.querySelector(selector)
+            : document.querySelector(selector);
+            
+        if (button) {
+            return button;
+        }
+    }
+    
+    return null;
+}
+
+// Helper: Update button text without unnecessary DOM manipulation
+function updateButtonText(shareButton) {
+    const isLoggedIn = window.isAuthenticated();
+    const newText = isLoggedIn ? "Logged In" : "Login";
+    const currentText = shareButton.textContent.trim();
+    
+    // Only update if text is different to avoid unnecessary DOM manipulation
+    if (currentText !== newText) {
+        // Try different methods to update the text
+        const textNode = shareButton.lastChild;
+        if (textNode && textNode.nodeType === 3) { // Text node
+            textNode.textContent = newText;
+        } else {
+            // Remove existing text and add new text
+            const textNodes = Array.from(shareButton.childNodes).filter(node => node.nodeType === 3);
+            textNodes.forEach(node => node.remove());
+            shareButton.appendChild(document.createTextNode(newText));
+        }
+        
+        // Force a style recalculation to ensure the change is visible
+        shareButton.style.display = 'none';
+        shareButton.offsetHeight; // Trigger reflow
+        shareButton.style.display = 'inline-block';
+    }
 }
 
 // Export the function
@@ -164,24 +189,33 @@ function waitAndUpdate() {
     }, 2000);
 }
 
-// Function to continuously monitor and update button
+// OPTIMIZED: Function to monitor and update button (less aggressive polling)
+let buttonMonitoringActive = false;
+
 function startButtonMonitoring() {
+    // Prevent multiple monitoring instances
+    if (buttonMonitoringActive) {
+        return;
+    }
+    buttonMonitoringActive = true;
+    
     // Initial update
     setTimeout(waitAndUpdate, 1000);
     
-    // Also try after longer delays to catch dynamically created buttons
+    // Try a few times to catch dynamically created buttons
     setTimeout(waitAndUpdate, 3000);
     setTimeout(waitAndUpdate, 5000);
-    setTimeout(waitAndUpdate, 8000);
     
-    // Set up periodic checking for OAuth returns
+    // OPTIMIZED: Reduced polling frequency from 2s to 5s
+    // Once button is cached, updates are instant anyway
     const checkInterval = setInterval(function() {
         updateLoginButton();
-    }, 2000);
+    }, 5000); // Changed from 2000ms to 5000ms
     
-    // Stop periodic checking after 30 seconds
+    // Stop periodic checking after 30 seconds (button should be found by then)
     setTimeout(function() {
         clearInterval(checkInterval);
+        buttonMonitoringActive = false;
     }, 30000);
 }
 
@@ -217,28 +251,45 @@ document.addEventListener('userLoggedIn', function(event) {
     setTimeout(startButtonMonitoring, 500);
 });
 
-// Add a mutation observer to detect when buttons are dynamically added
+// OPTIMIZED: Mutation observer with better performance
 function setupMutationObserver() {
     const observer = new MutationObserver(function(mutations) {
-        mutations.forEach(function(mutation) {
-            if (mutation.type === 'childList') {
-                // Check if any added nodes contain the share button
-                mutation.addedNodes.forEach(function(node) {
+        let shouldUpdate = false;
+        
+        // Batch check all mutations first
+        for (const mutation of mutations) {
+            if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                for (const node of mutation.addedNodes) {
                     if (node.nodeType === 1) { // Element node
-                        const shareButton = node.querySelector && node.querySelector('div.geBtn.gePrimaryBtn[title*="share"]');
-                        if (shareButton || (node.matches && node.matches('div.geBtn.gePrimaryBtn[title*="share"]'))) {
-                            setTimeout(updateLoginButton, 100);
+                        // Check if this node or its children contain a share button
+                        if (node.matches && node.matches('div.geBtn[title*="share"]')) {
+                            shouldUpdate = true;
+                            cachedShareButton = null; // Clear cache to force re-find
+                            break;
+                        } else if (node.querySelector) {
+                            const shareButton = node.querySelector('div.geBtn[title*="share"]');
+                            if (shareButton) {
+                                shouldUpdate = true;
+                                cachedShareButton = null; // Clear cache
+                                break;
+                            }
                         }
                     }
-                });
+                }
+                if (shouldUpdate) break;
             }
-        });
+        }
+        
+        // Update only once after checking all mutations
+        if (shouldUpdate) {
+            setTimeout(updateLoginButton, 100);
+        }
     });
 
-    // Start observing
+    // Start observing (less aggressive - only direct children of body)
     observer.observe(document.body, {
         childList: true,
-        subtree: true
+        subtree: false // Changed from true to false for better performance
     });
 }
 
@@ -295,4 +346,5 @@ window.verifyOAuthButtonIntegration = function() {
     };
 };
 
+// OAuth button fix loaded successfully
 // OAuth button fix loaded successfully
