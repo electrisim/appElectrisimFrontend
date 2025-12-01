@@ -11,6 +11,11 @@
     
 
     <script type="module" src="js/electrisim/config/environment.js"></script>
+    <!-- Load performance utilities first for early optimization -->
+    <script type="module" src="js/electrisim/utils/domCache.js"></script>
+    <script type="module" src="js/electrisim/utils/batchDOM.js"></script>
+    <script type="module" src="js/electrisim/utils/performanceTracker.js"></script>
+    <script type="module" src="js/electrisim/performance-optimizer.js"></script>
 
     <!-- Smartlook -->
     <script type='text/javascript'>
@@ -449,19 +454,35 @@
                         // Load auth-globals.js BEFORE app.min.js
                     mxscript('js/electrisim/auth-globals.js', function()
                     {
-						// Use async loading for app.min.js to prevent blocking
-						var appScript = document.createElement('script');
-						appScript.src = 'js/app.min.js';
-						appScript.async = false; // Maintain execution order but don't block parsing
-						appScript.defer = true;
-						appScript.onload = function() {
+						// PERFORMANCE: Patches temporarily disabled due to rendering issues
+						// TODO: Need safer, more conservative performance optimizations
+						// mxscript('js/electrisim/core-performance-patch.js', function() {
+						(function() {
+							console.log('⚠️ Core performance patches disabled - using original rendering');
+							
+							// Use async loading for app.min.js to prevent blocking
+							var appScript = document.createElement('script');
+							appScript.src = 'js/app.min.js';
+							appScript.async = false; // Maintain execution order but don't block parsing
+							appScript.defer = true;
+							appScript.onload = function() {
+							console.log('✅ app.min.js loaded, starting to load Electrisim scripts');
+							
 							// Load Electrisim custom scripts after app.min.js
 							// PERFORMANCE: Load performance utils first, then other modules
 							var electrisimScripts = [
-								// Load performance utilities FIRST
+								// Load SAFE performance optimizer FIRST
+								'js/electrisim/safe-performance-optimizer.js',
+								// Then load performance utilities
+								'js/electrisim/utils/domCache.js',
+								'js/electrisim/utils/batchDOM.js',
+								'js/electrisim/utils/performanceTracker.js',
+								'js/electrisim/utils/zoomOptimizer.js',
+								'js/electrisim/utils/canvasOptimizer.js',
 								'js/electrisim/utils/performanceUtils.js',
 								'js/electrisim/utils/pageVisibilityManager.js',
 								'js/electrisim/utils/performanceMonitor.js',
+								'js/electrisim/utils/autoInitOptimizers.js',
 								// Then load other utilities and dialogs
 								'js/electrisim/dialogs/EditDataDialog.js',
                                 'js/electrisim/dialogs/ComponentsDataDialog.js',
@@ -585,40 +606,43 @@
 								}
 							}
 							
-							// Start loading auth scripts with a small delay to ensure app.min.js is fully initialized
-							setTimeout(function() {
-								loadAuthScripts(0);
-							}, 10); // Minimal delay for initialization
+							// Start loading auth scripts immediately after app.min.js loads
+							loadAuthScripts(0);
 							
-							if (!supportedDomain)
-							{
-								mxscript('js/PostConfig.js');
-							}
+							}; // Close app.min.js onload function
 							
-							// Electron
-							if (mxIsElectron)
+							document.head.appendChild(appScript);
+							console.log('🚀 app.min.js loading started');
+							
+						})(); // Close immediate function
+					}); // Close auth-globals.js callback
+					}); // Close ag-grid callback
+							
+					if (!supportedDomain)
+					{
+						mxscript('js/PostConfig.js');
+					}
+					
+					// Electron
+					if (mxIsElectron)
+					{
+						mxscript('js/diagramly/DesktopLibrary.js', function()
+						{
+							mxscript('js/diagramly/ElectronApp.js', function()
 							{
-								mxscript('js/diagramly/DesktopLibrary.js', function()
+								mxscript('js/extensions.min.js', function()
 								{
-									mxscript('js/diagramly/ElectronApp.js', function()
+									mxscript('js/stencils.min.js', function()
 									{
-										mxscript('js/extensions.min.js', function()
+										mxscript('js/shapes.min.js', function()
 										{
-											mxscript('js/stencils.min.js', function()
-											{
-												mxscript('js/shapes.min.js', function()
-												{
-													mxscript('js/PostConfig.js');
-												});
-											});
+											mxscript('js/PostConfig.js');
 										});
 									});
 								});
-							}
-						};
-						document.head.appendChild(appScript);
-					});
-                });
+							});
+						});
+					}
 				};
 				
 				if (!supportedDomain || mxIsElectron)

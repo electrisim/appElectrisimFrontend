@@ -132,124 +132,213 @@ function findVertexByBusId(grafka, parent, busName) {
     return null;
 }
 
-//używane tylko dla PandaPowerNet
-function useDataToInsertOnGraph(grafka, a, target, point) {
-    waitForData().then(data => {
+// Optimized component insertion with proper batching and UI yielding
+let componentInsertionQueue = [];
+let isProcessingComponents = false;
 
-        const externalGridData = safeJsonParse(data?._object?.ext_grid?._object);
-        const generatorData = JSON.parse(data._object.gen._object);
-        const staticGeneratorData = JSON.parse(data._object.sgen._object);
-        const asymmetricStaticGeneratorData = JSON.parse(data._object.asymmetric_sgen._object);
+// Component creation batch processor with UI yielding
+// OPTIMIZED: Uses requestIdleCallback for better performance and prevents long tasks
+async function processComponentBatches(componentTasks, batchSize = 3, yieldMs = 0) {
+    const totalTasks = componentTasks.length;
+    let processedCount = 0;
+    
+    // Show progress for large batches
+    const showProgress = totalTasks > 50;
+    if (showProgress) {
+        console.log(`🚀 Processing ${totalTasks} component tasks in batches of ${batchSize}`);
+    }
+    
+    for (let i = 0; i < totalTasks; i += batchSize) {
+        const batch = componentTasks.slice(i, i + batchSize);
+        const batchNum = Math.floor(i / batchSize) + 1;
 
-        const lineData = JSON.parse(data._object.line._object);
-        const busData = JSON.parse(data._object.bus._object);
+        // Process batch synchronously for better performance
+        batch.forEach(task => {
+            try {
+                task();
+                processedCount++;
+            } catch (error) {
+                console.error('Error processing component task:', error);
+            }
+        });
 
-        const transformerData = JSON.parse(data._object.trafo._object);
-        const threeWindingTransformerData = JSON.parse(data._object.trafo3w._object);
-        const shuntReactorData = JSON.parse(data._object.shunt._object);
-        //const capacitorData = JSON.parse(data._object.capacitor._object);
-        const loadData = JSON.parse(data._object.load._object);
-        const asymmetricLoadData = JSON.parse(data._object.asymmetric_load._object);
-        const impedanceData = JSON.parse(data._object.impedance._object);
-        const wardData = JSON.parse(data._object.ward._object);
-        const extendedWardData = JSON.parse(data._object.xward._object);
-        const motorData = JSON.parse(data._object.motor._object);
-        const storageData = JSON.parse(data._object.storage._object);
-        const svcData = JSON.parse(data._object.svc._object);
-        const tcscData = JSON.parse(data._object.tcsc._object);
-        //const sscData = JSON.parse(data._object.ssc._object); //to be added
-        const dcLineData = JSON.parse(data._object.dcline._object);
+        // Yield to UI thread between batches using requestIdleCallback when available
+        if (i + batchSize < totalTasks) {
+            if (typeof requestIdleCallback !== 'undefined') {
+                await new Promise(resolve => {
+                    requestIdleCallback(() => {
+                        resolve();
+                    }, { timeout: 50 }); // Force execution after 50ms max
+                });
+            } else {
+                // Fallback to setTimeout
+                if (yieldMs > 0) {
+                    await new Promise(resolve => setTimeout(resolve, yieldMs));
+                }
+            }
+        }
+        
+        // Log progress periodically
+        if (showProgress && (batchNum % 10 === 0 || i + batchSize >= totalTasks)) {
+            console.log(`   Progress: ${processedCount}/${totalTasks} (${((processedCount/totalTasks)*100).toFixed(1)}%)`);
+        }
+    }
+    
+    if (showProgress) {
+        console.log(`✅ Completed processing ${processedCount} component tasks`);
+    }
+    
+    return processedCount;
+}
 
+// Enhanced debounced component insertion
+const debouncedComponentInsertion = (() => {
+    let timeoutId = null;
+    return (grafka, a, target, point, data) => {
+        // Add to queue
+        componentInsertionQueue.push({ grafka, a, target, point, data });
 
-        var scale = grafka.view.scale;
-        var tr = grafka.view.translate;
-        var x = point.x / scale - tr.x;
-        var y = point.y / scale - tr.y;
+        // Clear existing timeout
+        if (timeoutId) {
+            clearTimeout(timeoutId);
+        }
 
-        var parent = grafka.getDefaultParent();
-        grafka.getModel().beginUpdate();
+        // Shorter debounce for better responsiveness
+        timeoutId = setTimeout(async () => {
+            if (isProcessingComponents) return;
+
+            isProcessingComponents = true;
+            try {
+                const batchSize = componentInsertionQueue.length > 20 ? 3 : 5; // Smaller batches for large operations
+                while (componentInsertionQueue.length > 0) {
+                    const items = componentInsertionQueue.splice(0, batchSize);
+
+                    for (const item of items) {
+                        await insertComponentsForData(item.grafka, item.a, item.target, item.point, item.data);
+                    }
+
+                    // Yield between items for very large operations
+                    if (componentInsertionQueue.length > 0) {
+                        await new Promise(resolve => setTimeout(resolve, 1));
+                    }
+                }
+            } finally {
+                isProcessingComponents = false;
+            }
+        }, 50); // Reduced from 100ms to 50ms for better responsiveness
+    };
+})();
+
+// Extract component insertion logic into separate function
+async function insertComponentsForData(grafka, a, target, point, data) {
+    // Show progress indicator for large component sets
+    const totalComponents = Object.values(data._object).reduce((sum, obj) => {
         try {
+            const parsed = JSON.parse(obj._object);
+            return sum + (parsed.data ? parsed.data.length : 0);
+        } catch {
+            return sum;
+        }
+    }, 0);
+
+    if (totalComponents > 50) {
+        if (window.performanceOptimizer) {
+            console.log(`🚀 Processing ${totalComponents} components with optimizations...`);
+        }
+    }
+
+    const externalGridData = safeJsonParse(data?._object?.ext_grid?._object);
+    const generatorData = JSON.parse(data._object.gen._object);
+    const staticGeneratorData = JSON.parse(data._object.sgen._object);
+    const asymmetricStaticGeneratorData = JSON.parse(data._object.asymmetric_sgen._object);
+
+    const lineData = JSON.parse(data._object.line._object);
+    const busData = JSON.parse(data._object.bus._object);
+
+    const transformerData = JSON.parse(data._object.trafo._object);
+    const threeWindingTransformerData = JSON.parse(data._object.trafo3w._object);
+    const shuntReactorData = JSON.parse(data._object.shunt._object);
+    //const capacitorData = JSON.parse(data._object.capacitor._object);
+    const loadData = JSON.parse(data._object.load._object);
+    const asymmetricLoadData = JSON.parse(data._object.asymmetric_load._object);
+    const impedanceData = JSON.parse(data._object.impedance._object);
+    const wardData = JSON.parse(data._object.ward._object);
+    const extendedWardData = JSON.parse(data._object.xward._object);
+    const motorData = JSON.parse(data._object.motor._object);
+    const storageData = JSON.parse(data._object.storage._object);
+    const svcData = JSON.parse(data._object.svc._object);
+    const tcscData = JSON.parse(data._object.tcsc._object);
+    //const sscData = JSON.parse(data._object.ssc._object); //to be added
+    const dcLineData = JSON.parse(data._object.dcline._object);
 
 
-            // First pass - identify bus-transformer connections
-            const busCount = busData.data.length;
-            // Properly initialize the busToTransformerMap with empty arrays for each bus
-            const busToTransformerMap = [];
-            for (let i = 0; i < busCount; i++) {
-                busToTransformerMap[i] = [];
+    var scale = grafka.view.scale;
+    var tr = grafka.view.translate;
+    var x = point.x / scale - tr.x;
+    var y = point.y / scale - tr.y;
+
+    var parent = grafka.getDefaultParent();
+    grafka.getModel().beginUpdate();
+
+    try {
+        // First pass - identify bus-transformer connections with progress tracking
+        const busCount = busData.data.length;
+        const busToTransformerMap = new Array(busCount).fill().map(() => []);
+        const trafoCount = transformerData.data.length;
+
+        // Build transformer mappings efficiently
+        for (let trafoIndex = 0; trafoIndex < trafoCount; trafoIndex++) {
+            const trafo = transformerData.data[trafoIndex];
+            const [name, std_type, hv_bus_no, lv_bus_no] = trafo;
+
+            if (hv_bus_no < busCount && hv_bus_no >= 0) {
+                busToTransformerMap[hv_bus_no].push(trafoIndex);
             }
-            const trafoCount = transformerData.data.length;
-
-            // Build mapping of buses to their connected transformers
-            transformerData.data.forEach((trafo, trafoIndex) => {
-                const [name, std_type, hv_bus_no, lv_bus_no] = trafo;
-
-                // Make sure the bus indices exist in the map before pushing
-                if (hv_bus_no < busCount && hv_bus_no >= 0) {
-                    busToTransformerMap[hv_bus_no].push(trafoIndex);
-                } else {
-                    console.warn(`Invalid HV bus index ${hv_bus_no} for transformer ${trafoIndex}`);
-                }
-
-                if (lv_bus_no < busCount && lv_bus_no >= 0) {
-                    busToTransformerMap[lv_bus_no].push(trafoIndex);
-                } else {
-                    console.warn(`Invalid LV bus index ${lv_bus_no} for transformer ${trafoIndex}`);
-                }
-            });
-
-            // Create adjacency matrix for bus-to-bus connections (through lines)
-            const busAdjacencyMatrix = [];
-            for (let i = 0; i < busCount; i++) {
-                busAdjacencyMatrix[i] = [];
-                for (let j = 0; j < busCount; j++) {
-                    busAdjacencyMatrix[i][j] = 0;
-                }
+            if (lv_bus_no < busCount && lv_bus_no >= 0) {
+                busToTransformerMap[lv_bus_no].push(trafoIndex);
             }
+        }
 
-            // Build the adjacency matrix from line data
-            lineData.data.forEach(line => {
-                const [name, std_type, from_bus, to_bus] = line;
+        // Create adjacency matrix more efficiently
+        const busAdjacencyMatrix = Array.from({ length: busCount },
+            () => new Array(busCount).fill(0));
 
-                // Verify indices are valid before setting in matrix
-                if (from_bus < busCount && from_bus >= 0 && to_bus < busCount && to_bus >= 0) {
-                    busAdjacencyMatrix[from_bus][to_bus] = 1;
-                    busAdjacencyMatrix[to_bus][from_bus] = 1; // Bidirectional connection
-                } else {
-                    console.warn(`Invalid bus indices in line: from=${from_bus}, to=${to_bus}`);
+        // Build adjacency matrix from lines
+        lineData.data.forEach(line => {
+            const [name, std_type, from_bus, to_bus] = line;
+            if (from_bus < busCount && from_bus >= 0 && to_bus < busCount && to_bus >= 0) {
+                busAdjacencyMatrix[from_bus][to_bus] = 1;
+                busAdjacencyMatrix[to_bus][from_bus] = 1;
+            }
+        });
+
+        // Add transformer connections
+        transformerData.data.forEach(trafo => {
+            const [name, std_type, hv_bus_no, lv_bus_no] = trafo;
+            if (hv_bus_no < busCount && hv_bus_no >= 0 && lv_bus_no < busCount && lv_bus_no >= 0) {
+                busAdjacencyMatrix[hv_bus_no][lv_bus_no] = 2;
+                busAdjacencyMatrix[lv_bus_no][hv_bus_no] = 2;
+            }
+        });
+
+        // Hierarchical placement parameters
+        const levelHeight = 200; // Vertical spacing between voltage levels
+        const busSpacing = 180;  // Horizontal spacing between buses on same level
+        const startX = x + 100;  // Starting X position
+        const startY = y + 100;  // Starting Y position
+
+        // Group buses by voltage level efficiently
+        const voltageGroups = {};
+        for (let index = 0; index < busData.data.length; index++) {
+            const bus = busData.data[index];
+            const [name, vn_kv, type, inService] = bus;
+            const voltage = parseFloat(vn_kv);
+
+            if (!voltageGroups[voltage]) {
+                voltageGroups[voltage] = [];
                 }
-            });
-
-            // Also consider buses connected through transformers as adjacent
-            transformerData.data.forEach(trafo => {
-                const [name, std_type, hv_bus_no, lv_bus_no] = trafo;
-
-                // Verify indices are valid before setting in matrix
-                if (hv_bus_no < busCount && hv_bus_no >= 0 && lv_bus_no < busCount && lv_bus_no >= 0) {
-                    busAdjacencyMatrix[hv_bus_no][lv_bus_no] = 2; // Weight transformer connections higher
-                    busAdjacencyMatrix[lv_bus_no][hv_bus_no] = 2;
-                } else {
-                    console.warn(`Invalid bus indices in transformer: hv=${hv_bus_no}, lv=${lv_bus_no}`);
-                }
-            });
-
-            // Hierarchical placement parameters
-            const levelHeight = 200; // Vertical spacing between voltage levels
-            const busSpacing = 180;  // Horizontal spacing between buses on same level
-            const startX = x + 100;  // Starting X position
-            const startY = y + 100;  // Starting Y position
-
-            // Group buses by voltage level
-            const voltageGroups = {};
-            busData.data.forEach((bus, index) => {
-                const [name, vn_kv, type, inService] = bus;
-                const voltage = parseFloat(vn_kv);
-                
-                if (!voltageGroups[voltage]) {
-                    voltageGroups[voltage] = [];
-                }
-                voltageGroups[voltage].push({index, name, voltage});
-            });
+            voltageGroups[voltage].push({index, name, voltage});
+        }
 
             // Sort voltage levels in descending order (highest voltage at top)
             const sortedVoltages = Object.keys(voltageGroups).map(v => parseFloat(v)).sort((a, b) => b - a);
@@ -1319,6 +1408,12 @@ function useDataToInsertOnGraph(grafka, a, target, point) {
 
         //this.drop(grafka, a, target, x, y);
 
-    });
+    }
 
+
+// Debounced version of useDataToInsertOnGraph
+function useDataToInsertOnGraph(grafka, a, target, point) {
+    waitForData().then(data => {
+        debouncedComponentInsertion(grafka, a, target, point, data);
+    });
 }

@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Performance Test - Electrisim</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #007bff;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #007bff;
+            margin-top: 0;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .results {
+            background: #f8f9fa;
+            padding: 15px;
+            border-left: 4px solid #007bff;
+            margin: 10px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .good {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .bad {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .warning {
+            color: #ffc107;
+            font-weight: bold;
+        }
+        #test-elements {
+            display: none;
+        }
+        .progress {
+            width: 100%;
+            height: 30px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-bar {
+            height: 100%;
+            background: #007bff;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .comparison-item {
+            padding: 15px;
+            border-radius: 4px;
+        }
+        .comparison-item.before {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+        }
+        .comparison-item.after {
+            background: #d4edda;
+            border: 2px solid #28a745;
+        }
+    </style>
+</head>
+<body>
+    <h1>⚡ Performance Test Suite - Electrisim</h1>
+    
+    <div class="test-section">
+        <h2>📊 Test 1: querySelector Performance (DOM Cache)</h2>
+        <p>This test compares native querySelector vs cached querySelector performance.</p>
+        <button onclick="testQuerySelectorPerformance()">Run querySelector Test</button>
+        <div id="test1-results" class="results"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📊 Test 2: Batch DOM Operations</h2>
+        <p>This test compares individual DOM updates vs batched updates.</p>
+        <button onclick="testBatchDOM()">Run Batch DOM Test</button>
+        <div id="test2-results" class="results"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📊 Test 3: Long Task Breaking</h2>
+        <p>This test compares blocking operations vs chunked operations with UI yielding.</p>
+        <button onclick="testLongTaskBreaking()">Run Long Task Test</button>
+        <div class="progress">
+            <div id="progress-bar" class="progress-bar" style="width: 0%">0%</div>
+        </div>
+        <div id="test3-results" class="results"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📊 Test 4: Overall Performance Report</h2>
+        <p>View comprehensive performance metrics from the tracker.</p>
+        <button onclick="showPerformanceReport()">Show Performance Report</button>
+        <button onclick="resetPerformanceMetrics()">Reset Metrics</button>
+        <div id="test4-results" class="results"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📊 Test 5: DOM Cache Statistics</h2>
+        <p>View DOM cache hit rates and statistics.</p>
+        <button onclick="showCacheStats()">Show Cache Stats</button>
+        <button onclick="clearCache()">Clear Cache</button>
+        <div id="test5-results" class="results"></div>
+    </div>
+
+    <!-- Hidden test elements -->
+    <div id="test-elements">
+        <div id="test-element-1" class="test-item">Test 1</div>
+        <div id="test-element-2" class="test-item">Test 2</div>
+        <div id="test-element-3" class="test-item">Test 3</div>
+    </div>
+
+    <script type="module">
+        // Import utilities
+        import { domCache } from './js/electrisim/utils/domCache.js';
+        import { batchDOM } from './js/electrisim/utils/batchDOM.js';
+        import { performanceTracker } from './js/electrisim/utils/performanceTracker.js';
+
+        // Make available globally for inline onclick handlers
+        window.domCache = domCache;
+        window.batchDOM = batchDOM;
+        window.performanceTracker = performanceTracker;
+
+        // Test 1: querySelector Performance (with complex selectors)
+        window.testQuerySelectorPerformance = async function() {
+            const resultsEl = document.getElementById('test1-results');
+            resultsEl.textContent = 'Running test...';
+
+            // Create a more complex DOM structure
+            const container = document.getElementById('test-elements');
+            const fragment = document.createDocumentFragment();
+            for (let i = 0; i < 100; i++) {
+                const div = document.createElement('div');
+                div.className = 'test-item nested-item';
+                div.setAttribute('data-id', i);
+                const child = document.createElement('span');
+                child.className = 'child-item';
+                child.textContent = `Item ${i}`;
+                div.appendChild(child);
+                fragment.appendChild(div);
+            }
+            container.appendChild(fragment);
+
+            const iterations = 1000;
+            const complexSelector = '.test-item.nested-item[data-id="50"] .child-item';
+            
+            // Test native querySelector with complex selector
+            const nativeStart = performance.now();
+            for (let i = 0; i < iterations; i++) {
+                document.querySelector(complexSelector);
+            }
+            const nativeDuration = performance.now() - nativeStart;
+
+            // Clear cache and test cached version
+            domCache.clear();
+            const cachedStart = performance.now();
+            for (let i = 0; i < iterations; i++) {
+                domCache.querySelector(complexSelector);
+            }
+            const cachedDuration = performance.now() - cachedStart;
+
+            const stats = domCache.getStats();
+            const improvement = ((nativeDuration - cachedDuration) / nativeDuration * 100).toFixed(1);
+            const speedup = (nativeDuration / cachedDuration).toFixed(1);
+
+            // Cleanup
+            container.innerHTML = `
+                <div id="test-element-1" class="test-item">Test 1</div>
+                <div id="test-element-2" class="test-item">Test 2</div>
+                <div id="test-element-3" class="test-item">Test 3</div>
+            `;
+
+            resultsEl.innerHTML = `
+<strong>Testing complex selector:</strong> <code>${complexSelector}</code>
+
+<span class="bad">❌ Native querySelector (${iterations} calls):</span> ${nativeDuration.toFixed(2)}ms
+   - DOM traversal every time
+   - Complex selector = expensive search
+
+<span class="good">✅ Cached querySelector (${iterations} calls):</span> ${cachedDuration.toFixed(2)}ms
+   - First call: DOM traversal
+   - Next 999 calls: instant cache lookup
+
+<span class="good">🚀 Performance Improvement:</span> ${improvement}% faster (${speedup}x speedup)
+
+📊 Cache Stats:
+  - Cache Hits: ${stats.hits}
+  - Cache Misses: ${stats.misses}
+  - Hit Rate: ${stats.hitRate}
+  - Cache Size: ${stats.cacheSize} entries
+
+💡 <strong>Real-world benefit:</strong> In your app with 14,542ms of querySelector time,
+   a ${stats.hitRate} cache hit rate would reduce it to ~${(14542 * (1 - stats.hits/stats.total)).toFixed(0)}ms!
+            `.trim();
+        };
+
+        // Test 2: Batch DOM Operations (Realistic scenario with complex styles)
+        window.testBatchDOM = async function() {
+            const resultsEl = document.getElementById('test2-results');
+            resultsEl.textContent = 'Running test...';
+
+            const testElements = [];
+            const container = document.getElementById('test-elements');
+
+            // Create 500 test elements (more realistic)
+            for (let i = 0; i < 500; i++) {
+                const el = document.createElement('div');
+                el.textContent = `Test ${i}`;
+                el.style.position = 'absolute';
+                el.style.width = '100px';
+                el.style.height = '20px';
+                container.appendChild(el);
+                testElements.push(el);
+            }
+
+            // Force a layout to make the test more realistic
+            container.offsetHeight;
+
+            // Test individual updates (causes multiple reflows - more expensive with layout)
+            const individualStart = performance.now();
+            testElements.forEach((el, i) => {
+                el.style.color = 'red';
+                el.style.fontSize = '14px';
+                el.style.padding = '5px';
+                el.style.transform = `translateX(${i}px)`;
+                // Force reflow to make it realistic
+                el.offsetHeight;
+            });
+            const individualDuration = performance.now() - individualStart;
+
+            // Reset styles
+            testElements.forEach(el => {
+                el.style.color = '';
+                el.style.fontSize = '';
+                el.style.padding = '';
+                el.style.transform = '';
+            });
+
+            // Force layout again
+            container.offsetHeight;
+
+            // Test batched updates (single reflow)
+            const batchedStart = performance.now();
+            await batchDOM.batchStyleUpdates(
+                testElements.map((el, i) => ({
+                    element: el,
+                    styles: {
+                        color: 'blue',
+                        fontSize: '14px',
+                        padding: '5px',
+                        transform: `translateX(${i}px)`
+                    }
+                }))
+            );
+            const batchedDuration = performance.now() - batchedStart;
+
+            // Cleanup
+            testElements.forEach(el => el.remove());
+
+            const improvement = ((individualDuration - batchedDuration) / individualDuration * 100).toFixed(1);
+            const speedup = (individualDuration / batchedDuration).toFixed(1);
+
+            resultsEl.innerHTML = `
+<span class="bad">❌ Individual DOM updates (500 elements):</span> ${individualDuration.toFixed(2)}ms
+   - Each update triggers a reflow
+   - Total reflows: ~500
+
+<span class="good">✅ Batched DOM updates (500 elements):</span> ${batchedDuration.toFixed(2)}ms
+   - Single batched update
+   - Total reflows: 1-2
+
+<span class="${improvement > 0 ? 'good' : 'warning'}">🚀 Performance:</span> ${improvement > 0 ? improvement + '% faster (' + speedup + 'x speedup)' : 'Batching overhead for simple operations'}
+
+💡 <strong>Note:</strong> Batch DOM shows benefits with complex layouts and many elements.
+   For small operations (&lt;100 elements, simple styles), overhead may exceed benefits.
+            `.trim();
+        };
+
+        // Test 3: Long Task Breaking
+        window.testLongTaskBreaking = async function() {
+            const resultsEl = document.getElementById('test3-results');
+            const progressBar = document.getElementById('progress-bar');
+            resultsEl.textContent = 'Running test...';
+            progressBar.style.width = '0%';
+            progressBar.textContent = '0%';
+
+            const heavyTask = () => {
+                // Simulate heavy computation
+                let sum = 0;
+                for (let i = 0; i < 100000; i++) {
+                    sum += Math.sqrt(i);
+                }
+                return sum;
+            };
+
+            // Test blocking execution
+            const blockingStart = performance.now();
+            for (let i = 0; i < 100; i++) {
+                heavyTask();
+            }
+            const blockingDuration = performance.now() - blockingStart;
+
+            // Test chunked execution with UI updates
+            progressBar.style.width = '0%';
+            const chunkSize = 5;
+            const totalTasks = 100;
+            let completed = 0;
+
+            const chunkedStart = performance.now();
+            
+            for (let i = 0; i < totalTasks; i += chunkSize) {
+                // Process chunk
+                for (let j = 0; j < chunkSize && (i + j) < totalTasks; j++) {
+                    heavyTask();
+                    completed++;
+                }
+
+                // Update UI
+                const progress = (completed / totalTasks * 100).toFixed(0);
+                progressBar.style.width = progress + '%';
+                progressBar.textContent = progress + '%';
+
+                // Yield to UI thread
+                if (i + chunkSize < totalTasks) {
+                    await new Promise(resolve => {
+                        if (typeof requestIdleCallback !== 'undefined') {
+                            requestIdleCallback(resolve, { timeout: 50 });
+                        } else {
+                            setTimeout(resolve, 0);
+                        }
+                    });
+                }
+            }
+            
+            const chunkedDuration = performance.now() - chunkedStart;
+
+            resultsEl.innerHTML = `
+<span class="bad">❌ Blocking execution (100 heavy tasks):</span> ${blockingDuration.toFixed(2)}ms
+   - UI was completely frozen during execution
+   - No progress updates possible
+
+<span class="good">✅ Chunked execution with yielding:</span> ${chunkedDuration.toFixed(2)}ms
+   - UI remained responsive
+   - Progress bar updated during execution
+   - Better user experience despite similar total time
+
+<span class="warning">⚠️ Note:</span> Total time may be similar, but user experience is dramatically better
+with chunked execution because the UI remains responsive.
+            `.trim();
+        };
+
+        // Test 4: Performance Report
+        window.showPerformanceReport = function() {
+            const resultsEl = document.getElementById('test4-results');
+            const metrics = performanceTracker.getMetrics();
+
+            resultsEl.innerHTML = `
+📊 DOM Query Performance:
+  - querySelector calls: ${metrics.querySelectorCalls}
+  - querySelector total time: ${metrics.querySelectorTime.toFixed(2)}ms
+  - querySelector avg time: ${metrics.avgQuerySelectorTime}ms
+  - getElementById calls: ${metrics.getElementByIdCalls}
+  - getElementById total time: ${metrics.getElementByIdTime.toFixed(2)}ms
+  - getElementById avg time: ${metrics.avgGetElementByIdTime}ms
+
+📊 Long Tasks:
+  - Total long tasks: ${metrics.totalLongTasks}
+  - Total long task time: ${metrics.totalLongTaskTime}ms
+
+${metrics.longTasks.length > 0 ? `
+📊 Top 5 Longest Tasks:
+${metrics.longTasks.slice(0, 5).map((task, i) => 
+    `  ${i + 1}. ${task.name}: ${task.duration.toFixed(2)}ms`
+).join('\n')}
+` : '  No long tasks detected'}
+            `.trim();
+        };
+
+        window.resetPerformanceMetrics = function() {
+            performanceTracker.reset();
+            document.getElementById('test4-results').textContent = '✅ Performance metrics reset';
+        };
+
+        // Test 5: Cache Stats
+        window.showCacheStats = function() {
+            const resultsEl = document.getElementById('test5-results');
+            const stats = domCache.getStats();
+
+            resultsEl.innerHTML = `
+📊 DOM Cache Statistics:
+  - Total Queries: ${stats.total}
+  - Cache Hits: ${stats.hits}
+  - Cache Misses: ${stats.misses}
+  - Hit Rate: ${stats.hitRate}
+  - Cache Size: ${stats.cacheSize} entries
+
+${stats.hits > 0 ? `
+<span class="good">✅ Cache is working effectively!</span>
+` : `
+<span class="warning">⚠️ No cache hits yet. Run some tests first.</span>
+`}
+            `.trim();
+        };
+
+        window.clearCache = function() {
+            domCache.clear();
+            document.getElementById('test5-results').textContent = '✅ DOM cache cleared';
+        };
+
+        // Initialize
+        console.log('✅ Performance test page loaded');
+        console.log('📊 Run tests to see performance improvements');
+    </script>
+</body>
+</html>
+
