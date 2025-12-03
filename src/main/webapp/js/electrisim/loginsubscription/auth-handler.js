@@ -62,8 +62,10 @@ async function apiCall(endpoint, options = {}) {
         if (!response.ok) {
             // Try to get error details from response
             let errorMessage = `HTTP error! status: ${response.status}`;
+            let errorData = null;
+            
             try {
-                const errorData = await response.json();
+                errorData = await response.json();
                 if (errorData.message) {
                     errorMessage = errorData.message;
                 } else if (errorData.error) {
@@ -91,7 +93,14 @@ async function apiCall(endpoint, options = {}) {
                         errorMessage = `Request failed with status ${response.status}`;
                 }
             }
-            throw new Error(errorMessage);
+            
+            const error = new Error(errorMessage);
+            // Attach the OAuth provider info if available
+            if (errorData && errorData.oauthProvider) {
+                error.oauthProvider = errorData.oauthProvider;
+                error.isOAuthError = true;
+            }
+            throw error;
         }
 
         return await response.json();
@@ -269,6 +278,9 @@ function createLoginForm(container) {
         submitBtn.disabled = true;
         submitBtn.textContent = 'Logging in...';
         errorElement.textContent = '';
+        errorElement.style.backgroundColor = '';
+        errorElement.style.padding = '';
+        errorElement.style.borderRadius = '';
         
         try {
             const email = form.querySelector('#email').value;
@@ -292,7 +304,42 @@ function createLoginForm(container) {
                 : '/index.html';
             window.location.href = baseUrl;
         } catch (error) {
-            errorElement.textContent = error.message;
+            // Handle OAuth-specific errors
+            if (error.isOAuthError && error.oauthProvider) {
+                errorElement.innerHTML = `
+                    <strong>⚠️ OAuth Account Detected</strong><br>
+                    ${error.message}<br>
+                    <small>Please use the <strong>${error.oauthProvider.toUpperCase()}</strong> button below.</small>
+                `;
+                errorElement.style.backgroundColor = '#fff3cd';
+                errorElement.style.padding = '15px';
+                errorElement.style.borderRadius = '5px';
+                errorElement.style.border = '1px solid #ffc107';
+                errorElement.style.color = '#856404';
+                
+                // Highlight the correct OAuth button
+                const buttons = {
+                    'google': form.querySelector('.google-btn'),
+                    'linkedin': form.querySelector('.linkedin-btn'),
+                    'microsoft': form.querySelector('.microsoft-btn')
+                };
+                
+                const targetBtn = buttons[error.oauthProvider];
+                if (targetBtn) {
+                    targetBtn.style.animation = 'pulse 1s infinite';
+                    targetBtn.style.border = '2px solid #ffc107';
+                    targetBtn.style.boxShadow = '0 0 10px rgba(255, 193, 7, 0.5)';
+                    
+                    // Remove highlighting after 5 seconds
+                    setTimeout(() => {
+                        targetBtn.style.animation = '';
+                        targetBtn.style.border = '';
+                        targetBtn.style.boxShadow = '';
+                    }, 5000);
+                }
+            } else {
+                errorElement.textContent = error.message;
+            }
         } finally {
             submitBtn.disabled = false;
             submitBtn.textContent = 'Login';
