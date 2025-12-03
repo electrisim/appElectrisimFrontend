@@ -251,7 +251,7 @@ function createLoginForm(container) {
         </div>
         <button type="submit" class="submit-btn">Login</button>
         <p style="text-align:center; margin-top:10px;">
-          <a href="/src/main/webapp/forgot-password.html">Forgot Password?</a>
+          <a href="${config.isDevelopment ? '/src/main/webapp/forgot-password.html' : '/forgot-password.html'}">Forgot Password?</a>
         </p>
         <div class="divider">or</div>
         <button type="button" class="google-btn">
