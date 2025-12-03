@@ -239,6 +239,7 @@
                 const data = await response.json();
                 
                 if (data.hasActiveSubscription) {
+                    alert('✅ Success! Your subscription is active!\n\nYou now have access to all premium features.');
                     console.log('✅ Your subscription is active! You can now access all premium features.');
                 } else {
                     alert('❌ Subscription not found. Please contact support if you believe this is an error.');

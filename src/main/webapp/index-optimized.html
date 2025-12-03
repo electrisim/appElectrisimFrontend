@@ -1,0 +1,594 @@
+<!--  [if IE]><meta http-equiv="X-UA-Compatible" content="IE=5" ><![endif]-->
+<!DOCTYPE html>
+<html>
+<head>
+    <!-- Resource Hints for Performance -->
+    <link rel="preconnect" href="https://js.stripe.com" crossorigin>
+    <link rel="preconnect" href="https://unpkg.com" crossorigin>
+    <link rel="dns-prefetch" href="https://web-sdk.smartlook.com">
+    
+    <!-- Critical CSS -->
+    <link rel="stylesheet" type="text/css" href="mxgraph/css/common.css"> 
+    <link rel="stylesheet" type="text/css" href="js/croppie/croppie.min.css">
+    <link rel="stylesheet" type="text/css" href="styles/grapheditor.css">
+    
+    <!-- Preload Critical Scripts -->
+    <link rel="preload" href="js/app.min.js" as="script">
+    <link rel="preload" href="js/ag-grid-community.min.js" as="script">
+    <link rel="preload" href="mxgraph/mxClient.js" as="script">
+    
+    <script type="text/javascript">
+        window.mxBasePath = 'mxgraph';
+        window.mxClient = { basePath: 'mxgraph' };
+        
+        // Performance tracking
+        window.performance.mark('page-start');
+    </script>
+
+    <!-- Defer Smartlook Analytics - Load After Page Interactive -->
+    <script type='text/javascript' defer>
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                window.smartlook||(function(d) {
+                    var o=smartlook=function(){ o.api.push(arguments)},h=d.getElementsByTagName('head')[0];
+                    var c=d.createElement('script');o.api=new Array();c.async=true;c.type='text/javascript';
+                    c.charset='utf-8';c.src='https://web-sdk.smartlook.com/recorder.js';h.appendChild(c);
+                })(document);
+                smartlook('init', '31f78a73918844d1c038266ca853b5b9bd7da408', { region: 'eu' });
+            }, 3000); // Load after 3 seconds
+        });
+    </script>
+
+    <title>Electrisim - Model, Simulate And Analyse Power System With the Free Cloud App</title>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="Description" content="open-source online application for modelling, simulation and analysis of power system">
+    <meta name="Keywords" content="electrical analysis, power system, simulation, load flow, short circuit">
+    <meta itemprop="name" content="app.electrisim.com - open-source online application for electrical system">
+    <meta itemprop="description" content="open-source online application for modelling, simlulation and analysis of power system">
+    <meta itemprop="image" content="">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="msapplication-config" content="images/browserconfig.xml">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#48d800">
+
+    <script type="text/javascript">
+        // URL Parameters handling
+        var urlParams = (function() {
+            var result = new Object();
+            var params = window.location.search.slice(1).split('&');
+            for (var i = 0; i < params.length; i++) {
+                idx = params[i].indexOf('=');
+                if (idx > 0) {
+                    result[params[i].substring(0, idx)] = params[i].substring(idx + 1);
+                }
+            }
+            return result;
+        })();
+
+        // Forces CDN caches by passing URL parameters via URL hash
+        if (window.location.hash != null && window.location.hash.substring(0, 2) == '#P') {
+            try {
+                urlParams = JSON.parse(decodeURIComponent(window.location.hash.substring(2)));
+                if (urlParams.hash != null) {
+                    window.location.hash = urlParams.hash;
+                }
+            } catch (e) {
+                // ignore
+            }
+        }
+
+        // Global variables
+        var mxIsElectron = window && window.process && window.process.type;
+
+		// Redirects page if required
+		if (urlParams['dev'] != '1')
+		{
+			(function()
+			{
+				var proto = window.location.protocol;
+				
+				if (!mxIsElectron)
+				{
+					var host = window.location.host;
+		
+					// Redirects apex, drive and rt to www
+					if (host === 'draw.io' || host === 'rt.draw.io' || host === 'drive.draw.io')
+					{
+						host = 'www.draw.io';
+					}
+					
+					var href = proto + '//' + host + window.location.href.substring(
+							window.location.protocol.length +
+							window.location.host.length + 2);
+		
+					// Redirects if href changes
+					if (href != window.location.href)
+					{
+						window.location.href = href;
+					}
+				}
+			})();
+		}
+
+		/**
+		 * Adds meta tag to the page.
+		 */
+		 function mxmeta(name, content, httpEquiv)
+		{
+			try
+			{
+				var s = document.createElement('meta');
+				
+				if (name != null) 
+				{
+					s.setAttribute('name', name);
+				}
+
+				s.setAttribute('content', content);
+				
+				if (httpEquiv != null) 
+				{
+					s.setAttribute('http-equiv', httpEquiv);
+				}
+
+			  	var t = document.getElementsByTagName('meta')[0];
+			  	t.parentNode.insertBefore(s, t);
+			}
+			catch (e)
+			{
+				// ignore
+			}
+		};      
+
+        // Add auth fallback functions for app.min.js compatibility
+        window.isAuthenticated = window.isAuthenticated || function() {
+            return !!localStorage.getItem('token');
+        };
+        
+        window.getCurrentUser = window.getCurrentUser || function() {
+            const userStr = localStorage.getItem('user');
+            return userStr ? JSON.parse(userStr) : null;
+        };
+
+        function checkAllLoaded() {
+            if (mxScriptsLoaded && mxWinLoaded) {
+                try {
+                    performance.mark('scripts-loaded');
+                    performance.measure('script-load-time', 'page-start', 'scripts-loaded');
+                    
+                    // Remove loading screen first
+                    var geInfo = document.getElementById('geInfo');
+                    if (geInfo != null) {
+                        geInfo.parentNode.removeChild(geInfo);
+                    }
+                    
+                    if (typeof App !== 'undefined' && App.main) {
+                        App.main();
+                    }
+                } catch (e) {
+                    console.error('Error in checkAllLoaded:', e);
+                }
+            }
+        }
+
+        function mxscript(src, onLoad, id, dataAppKey, noWrite, type) {
+            type = type || 'text/javascript';
+            var defer = onLoad == null && !noWrite;
+            
+            if ((urlParams['dev'] != '1' && typeof document.createElement('canvas').getContext === "function") ||
+                onLoad != null || noWrite) {
+                var s = document.createElement('script');
+                s.setAttribute('type', type);
+                s.setAttribute('src', src);
+                if (defer) s.setAttribute('defer', 'true');
+                if (id != null) s.setAttribute('id', id);
+                if (dataAppKey != null) s.setAttribute('data-app-key', dataAppKey);
+                
+                if (onLoad != null) {
+                    var r = false;
+                    s.onload = s.onreadystatechange = function() {
+                        if (!r && (!this.readyState || this.readyState == 'complete')) {
+                            r = true;
+                            onLoad();
+                        }
+                    };
+                }
+                
+                var t = document.getElementsByTagName('script')[0];
+                if (t && t.parentNode) {
+                    t.parentNode.insertBefore(s, t);
+                }
+            } else {
+                document.write('<script src="' + src + '"' + 
+                    ((id != null) ? ' id="' + id +'" ' : '') +
+                    ((dataAppKey != null) ? ' data-app-key="' + dataAppKey +'" ' : '') + 
+                    '></scr' + 'ipt>');
+            }
+        }
+
+		/**
+		 * Asynchronously adds scripts to the page.
+		 */
+		 function mxinclude(src)
+		{
+			var g = document.createElement('script');
+			g.type = 'text/javascript';
+			g.async = true;
+			g.src = src;
+			
+		    var s = document.getElementsByTagName('script')[0];
+		    s.parentNode.insertBefore(g, s);
+		};
+        
+        // Meta tags for app
+        var name = 'electrisim.com';
+        mxmeta('apple-mobile-web-app-title', name);
+        mxmeta('application-name', name);
+
+        if (mxIsElectron) {
+            mxmeta(null, 'default-src \'self\' \'unsafe-inline\'; connect-src \'self\' https://*.draw.io https://fonts.googleapis.com https://fonts.gstatic.com; img-src * data:; media-src *; font-src *; style-src-elem \'self\' \'unsafe-inline\' https://fonts.googleapis.com', 'Content-Security-Policy');
+        }
+
+		// Checks for local storage
+		var isLocalStorage = false;
+		
+		try
+		{
+			isLocalStorage = urlParams['local'] != '1' && typeof(localStorage) != 'undefined';
+		}
+		catch (e)
+		{
+			// ignored
+		}
+
+		var mxScriptsLoaded = false, mxWinLoaded = false;
+		
+		window.onload = function() {
+            mxWinLoaded = true;
+            checkAllLoaded();
+        };
+		
+		var t0 = new Date();
+
+		// Changes paths for local development environment
+		if (urlParams['dev'] == '1')
+		{
+			// Used to request grapheditor/mxgraph sources in dev mode
+			var mxDevUrl = document.location.protocol + '//devhost.jgraph.com/mxgraph2';
+			
+			// Used to request draw.io sources in dev mode
+			var drawDevUrl = document.location.protocol + '//devhost.jgraph.com/drawio/src/main/webapp/';
+			
+			if (document.location.protocol == 'file:')
+			{
+				mxDevUrl = '../../../../../mxgraph2';
+				drawDevUrl = './';
+				
+				// Forces includes for dev environment in node.js
+				mxForceIncludes = true;
+			}
+
+			var geBasePath = mxDevUrl + '/javascript/examples/grapheditor/www/js';
+			var mxBasePath = mxDevUrl + '/javascript/src';
+			
+			mxscript(drawDevUrl + 'js/PreConfig.js');
+			mxscript(drawDevUrl + 'js/diagramly/Init.js');
+			mxscript(geBasePath + '/Init.js');
+			mxscript(mxDevUrl + '/javascript/src/js/mxClient.js');
+			
+			// Adds all JS code that depends on mxClient. This indirection via Devel.js is
+			// required in some browsers to make sure mxClient.js (and the files that it
+			// loads asynchronously) are available when the code loaded in Devel.js runs.
+			mxscript(drawDevUrl + 'js/diagramly/Devel.js');
+			
+			// Electron
+			if (mxIsElectron)
+			{
+				mxscript('js/diagramly/DesktopLibrary.js');
+				mxscript('js/diagramly/ElectronApp.js');
+			}
+			
+			mxscript(drawDevUrl + 'js/PostConfig.js');
+		}
+		else
+		{
+			(function()
+			{
+				var hostName = window.location.hostname;
+				
+				// Supported domains are *.draw.io and the packaged version in Quip
+				var supportedDomain = (hostName.substring(hostName.length - 8, hostName.length) === '.draw.io') ||
+					(hostName.substring(hostName.length - 13, hostName.length) === '.diagrams.net');
+					(hostName.substring(hostName.length - 17, hostName.length) === '.quipelements.com');
+
+				// Lazy load manager for dialog scripts
+				window.lazyLoadedModules = {};
+				window.lazyLoadModule = function(moduleName, callback) {
+					if (window.lazyLoadedModules[moduleName]) {
+						if (callback) callback();
+						return Promise.resolve();
+					}
+					
+					return new Promise(function(resolve, reject) {
+						var script = document.createElement('script');
+						script.type = 'module';
+						script.async = true;
+						script.src = 'js/electrisim/' + moduleName + '.js';
+						script.onload = function() {
+							window.lazyLoadedModules[moduleName] = true;
+							if (callback) callback();
+							resolve();
+						};
+						script.onerror = function(e) {
+							console.error('Failed to load module:', moduleName, e);
+							reject(e);
+						};
+						document.head.appendChild(script);
+					});
+				};
+				
+				// Lazy load dialog on demand
+				window.lazyLoadDialog = function(dialogName, callback) {
+					var moduleName = 'dialogs/' + dialogName;
+					return window.lazyLoadModule(moduleName, callback);
+				};
+									
+				function loadAppJS()				
+				{
+					// Use requestIdleCallback to load non-critical third-party scripts
+					var loadNonCriticalScripts = function() {
+						// Load XLSX library lazily (only when needed for export)
+						window.loadXLSX = window.loadXLSX || function(callback) {
+							if (window.XLSX) {
+								if (callback) callback();
+								return Promise.resolve();
+							}
+							return new Promise(function(resolve, reject) {
+								var script = document.createElement('script');
+								script.src = 'https://unpkg.com/xlsx-style@0.8.13/dist/xlsx.full.min.js';
+								script.async = true;
+								script.onload = function() {
+									if (callback) callback();
+									resolve();
+								};
+								script.onerror = reject;
+								document.head.appendChild(script);
+							});
+						};
+
+						// Load Stripe lazily (only when payment needed)
+						window.loadStripe = window.loadStripe || function(callback) {
+							if (window.Stripe) {
+								if (callback) callback();
+								return Promise.resolve();
+							}
+							return new Promise(function(resolve, reject) {
+								var script = document.createElement('script');
+								script.src = 'https://js.stripe.com/v3/';
+								script.async = true;
+								script.onload = function() {
+									// Load stripe integration modules
+									Promise.all([
+										window.lazyLoadModule('loginsubscription/stripe'),
+										window.lazyLoadModule('loginsubscription/stripe-subscription')
+									]).then(function() {
+										if (callback) callback();
+										resolve();
+									}).catch(reject);
+								};
+								script.onerror = reject;
+								document.head.appendChild(script);
+							});
+						};
+					};
+
+					// Use requestIdleCallback if available, otherwise setTimeout
+					if ('requestIdleCallback' in window) {
+						requestIdleCallback(loadNonCriticalScripts, { timeout: 2000 });
+					} else {
+						setTimeout(loadNonCriticalScripts, 2000);
+					}
+
+					// Load AG Grid library before app.min.js
+					mxscript('js/ag-grid-community.min.js', function()
+					{
+                        // Load auth-globals.js BEFORE app.min.js
+                    mxscript('js/electrisim/auth-globals.js', function()
+                    {
+						// Use async loading for app.min.js
+						var appScript = document.createElement('script');
+						appScript.src = 'js/app.min.js';
+						appScript.async = false;
+						appScript.defer = true;
+						appScript.onload = function() {
+						console.log('✅ app.min.js loaded');
+						performance.mark('app-min-loaded');
+						
+						// Load only critical Electrisim scripts immediately
+						// Others will be lazy loaded on demand
+						var criticalScripts = [
+							'js/electrisim/auth-globals.js',
+							'js/electrisim/safe-performance-optimizer.js',
+							'js/electrisim/utils/performanceUtils.js',
+							'js/electrisim/utils/domCache.js',
+							'js/electrisim/utils/batchDOM.js',
+							'js/electrisim/utils/performanceTracker.js'
+						];
+						
+						// Load critical scripts
+						function loadCriticalScripts(index) {
+							if (index < criticalScripts.length) {
+								var script = document.createElement('script');
+								script.type = 'module';
+								script.src = criticalScripts[index];
+								script.async = true;
+								script.onload = function() {
+									loadCriticalScripts(index + 1);
+								};
+								script.onerror = function() {
+									console.warn('Failed to load:', criticalScripts[index]);
+									loadCriticalScripts(index + 1);
+								};
+								document.head.appendChild(script);
+							} else {
+								// Load auth handler after critical scripts
+								window.lazyLoadModule('loginsubscription/auth-handler').then(function() {
+									console.log('✅ Auth handler loaded');
+									
+									// Mark scripts as loaded
+									mxScriptsLoaded = true;
+									checkAllLoaded();
+								}).catch(function(e) {
+									console.error('Failed to load auth handler:', e);
+									mxScriptsLoaded = true;
+									checkAllLoaded();
+								});
+							}
+						}
+						
+						// Start loading critical scripts
+						loadCriticalScripts(0);
+						
+						}; // Close app.min.js onload
+						
+						appScript.onerror = function(e) {
+							console.error('Failed to load app.min.js:', e);
+							document.getElementById('geStatus').innerHTML = 'Failed to load application. Please refresh.';
+						};
+						
+						document.head.appendChild(appScript);
+						console.log('🚀 app.min.js loading started');
+						
+					}); // Close auth-globals.js callback
+					}); // Close ag-grid callback
+							
+					if (!supportedDomain)
+					{
+						mxscript('js/PostConfig.js');
+					}
+					
+					// Electron
+					if (mxIsElectron)
+					{
+						mxscript('js/diagramly/DesktopLibrary.js', function()
+						{
+							mxscript('js/diagramly/ElectronApp.js', function()
+							{
+								mxscript('js/extensions.min.js', function()
+								{
+									mxscript('js/stencils.min.js', function()
+									{
+										mxscript('js/shapes.min.js', function()
+										{
+											mxscript('js/PostConfig.js');
+										});
+									});
+								});
+							});
+						});
+					}
+				};
+				
+				if (!supportedDomain || mxIsElectron)
+				{
+					mxscript('js/PreConfig.js', loadAppJS);
+				}
+				else
+				{
+					loadAppJS();
+				}
+			})();
+		}
+
+        // Basic error handling
+        window.onerror = function(msg, url, line, col, error) {
+            var status = document.getElementById('geStatus');
+            if (status != null) {
+                status.innerHTML = 'Error loading page. Please refresh.';
+            }
+            console.error('Page error:', msg, url, line, col, error);
+        };
+    </script>
+
+    <link rel="chrome-webstore-item" href="https://chrome.google.com/webstore/detail/plgmlhohecdddhbmmkncjdmlhcmaachm">
+    <link rel="apple-touch-icon" sizes="180x180" href="images/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="images/logo_Electrisim_removebg-preview.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="images/logo_Electrisim_removebg-preview.png">
+    <link rel="mask-icon" href="images/safari-pinned-tab.svg" color="#d89000">
+    <link rel="canonical" href="https://app.electrisim.com">
+    <link rel="manifest" href="images/manifest.json">
+    <link rel="shortcut icon" href="images/logo_Electrisim_removebg-preview.png">
+    <style type="text/css">
+        body { overflow:hidden; }
+        div.picker { z-index: 10007; }
+        .geSidebarContainer .geTitle input {
+            font-size:8pt;
+            color:#606060;
+        }
+        .geBlock {
+            z-index:-3;
+            margin:100px;
+            margin-top:40px;
+            margin-bottom:30px;
+            padding:20px;
+        }
+        .geBlock h1, .geBlock h2 {
+            margin-top:0px;
+            padding-top:0px;
+        }
+        
+        .geEditor ::-webkit-scrollbar {
+            width:14px;
+            height:14px;
+        }
+        .geEditor ::-webkit-scrollbar-track {
+            background-clip:padding-box;
+            border:solid transparent;
+            border-width:1px;
+        }
+        .geEditor ::-webkit-scrollbar-corner {
+            background-color:transparent;
+        }
+        .geEditor ::-webkit-scrollbar-thumb {
+            background-color:rgba(0,0,0,.1);
+            background-clip:padding-box;
+            border:solid transparent;
+            border-radius:10px;
+        }
+        .geEditor ::-webkit-scrollbar-thumb:hover{
+            background-color:rgba(0,0,0,.4);
+        }
+    </style>
+    <!--[if (IE 9)|(IE 10)]><!-->
+    <script type="text/vbscript">
+        Function mxUtilsBinaryToArray(Binary)
+            Dim i
+            ReDim byteArray(LenB(Binary))
+            For i = 1 To LenB(Binary)
+                byteArray(i-1) = AscB(MidB(Binary, i, 1))
+            Next
+            mxUtilsBinaryToArray = byteArray
+        End Function
+    </script>
+    <!--<![endif]-->
+</head>
+<body class="geEditor">
+    <div id="geInfo">
+        <div class="geBlock" style="text-align:center;min-width:50%;">
+            <h1>Electrisim - open-source app for power system modelling, simulation and analysis</h1>
+            <h2 id="geStatus">Working only in a desktop web browser. <u>Not working on mobile phones.</u></h2>
+            <p>
+                app.electrisim.com is open-source online application for modelling, simulation and analysis of power system.
+            </p>
+            <p>
+                Loading...
+            </p>
+            <p>
+                Please ensure JavaScript is enabled. Tested on Google Chrome.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+
