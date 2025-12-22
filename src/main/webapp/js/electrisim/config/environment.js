@@ -10,11 +10,11 @@ const config = {
       isDevelopment: true
     },
     production: {
-      // Backend simulation API (Railway)
-      backendUrl: 'https://web-production-e2ade.up.railway.app',
+      // Backend simulation API (Custom Domain on Railway)
+      backendUrl: 'https://sim.electrisim.com',
       
-      // Stripe subscription API (Railway)
-      apiBaseUrl: 'https://customers-production-16f8.up.railway.app/api',
+      // Stripe subscription API (Custom Domain on Railway)
+      apiBaseUrl: 'https://api.electrisim.com/api',
       frontendUrl: 'https://app.electrisim.com',
       stripePublishableKey: 'pk_live_51OOivlAd4ULYw2NbUnCgqV6KHAiRzkuoMJfcYKv1R5DsarBaly7QDOQCwwHI4GQUhYqA57SGHIOIwYleWKs0UQNe00fiZkcYco',
       isDevelopment: false

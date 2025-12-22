@@ -204,6 +204,7 @@ export function configureTransformerAttributes(grafka, vertex, options = {}) {
     g.setAttribute("tap_step_percent", options.tap_step_percent || "0");
     g.setAttribute("tap_step_degree", options.tap_step_degree ||"0");
     g.setAttribute("tap_phase_shifter", false);
+    g.setAttribute("tap_changer_type", options.tap_changer_type || "Ratio"); // pandapower 3.0+: "Ratio", "Symmetrical", or "Ideal"
     
     //optimal power flow
     /*
@@ -272,6 +273,7 @@ export function configureThreeWindingTransformerAttributes(grafka, vertex, optio
     g.setAttribute("tap_max", "0");
     g.setAttribute("tap_pos", "0");
     g.setAttribute("tap_at_star_point", true);
+    g.setAttribute("tap_changer_type", "Ratio"); // pandapower 3.0+: "Ratio", "Symmetrical", or "Ideal"
     // g.setAttribute("in_service", true); //in_service nie działa
 
     //Optimal power flow

@@ -28,6 +28,7 @@ export const defaultThreeWindingTransformerData = {
     tap_step_percent: 1.0,
     tap_pos: 0.0,
     tap_phase_shifter: false,
+    tap_changer_type: "Ratio",  // New in pandapower 3.0+: "Ratio" or "Symmetrical"
     in_service: true,
     // Zero sequence parameters (optional)
     vk0_hv_percent: 0.0,
@@ -183,6 +184,14 @@ export class ThreeWindingTransformerDialog extends Dialog {
                 description: 'Whether the transformer is an ideal phase shifter (True/False)',
                 type: 'checkbox',
                 value: this.data.tap_phase_shifter
+            },
+            {
+                id: 'tap_changer_type',
+                label: 'Tap Changer Type (tap_changer_type)',
+                description: 'Type of tap changer: "Ratio" (default) adjusts voltage magnitude only, "Symmetrical" distributes tap change to both windings',
+                type: 'select',
+                value: this.data.tap_changer_type,
+                options: ['Ratio', 'Symmetrical']
             }
         ];
         
@@ -874,6 +883,7 @@ export class ThreeWindingTransformerDialog extends Dialog {
             'tap_step_percent': transformerData.tap_step_percent || 1,
             'tap_pos': transformerData.tap_pos || 0,
             'tap_phase_shifter': transformerData.tap_phase_shifter === 'True' || transformerData.tap_phase_shifter === true,
+            'tap_changer_type': transformerData.tap_changer_type || 'Ratio',
             'in_service': true,
             // Optional zero sequence parameters
             'vk0_hv_percent': transformerData.vk0_hv_percent || 0,
@@ -944,7 +954,7 @@ export class ThreeWindingTransformerDialog extends Dialog {
 
 // Legacy exports for backward compatibility (maintaining AG-Grid structure for existing code)
 export const rowDefsThreeWindingTransformerBase = [
-    { name: "Three Winding Transformer", sn_hv_mva:0.0, sn_mv_mva:0.0, sn_lv_mva:0.0, vn_hv_kv:0.0, vn_mv_kv:0.0, vn_lv_kv:0.0, vk_hv_percent:0.0, vk_mv_percent:0.0, vk_lv_percent:0.0, vkr_hv_percent:0.0, vkr_mv_percent:0.0, vkr_lv_percent:0.0, pfe_kw:0.0, i0_percent:0.0, shift_mv_degree:0.0, shift_lv_degree:0.0, tap_side:"hv", tap_neutral:0.0, tap_min:-10.0, tap_max:10.0, tap_step_percent:1.0, tap_pos:0.0, tap_phase_shifter:false },
+    { name: "Three Winding Transformer", sn_hv_mva:0.0, sn_mv_mva:0.0, sn_lv_mva:0.0, vn_hv_kv:0.0, vn_mv_kv:0.0, vn_lv_kv:0.0, vk_hv_percent:0.0, vk_mv_percent:0.0, vk_lv_percent:0.0, vkr_hv_percent:0.0, vkr_mv_percent:0.0, vkr_lv_percent:0.0, pfe_kw:0.0, i0_percent:0.0, shift_mv_degree:0.0, shift_lv_degree:0.0, tap_side:"hv", tap_neutral:0.0, tap_min:-10.0, tap_max:10.0, tap_step_percent:1.0, tap_pos:0.0, tap_phase_shifter:false, tap_changer_type:"Ratio" },
 ];
     
 export const columnDefsThreeWindingTransformerBase = [  
@@ -1086,6 +1096,11 @@ export const columnDefsThreeWindingTransformerBase = [
       field: "tap_phase_shifter",
       headerTooltip: "whether the transformer is an ideal phase shifter",
       maxWidth: 120,
+    },
+    {
+      field: "tap_changer_type",
+      headerTooltip: "tap changer type: 'Ratio' (default) or 'Symmetrical' - new in pandapower 3.0+",
+      maxWidth: 150,
     }
   ];
   
