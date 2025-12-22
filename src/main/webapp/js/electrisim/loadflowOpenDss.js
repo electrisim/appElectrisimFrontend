@@ -550,9 +550,9 @@ function loadFlowOpenDss(a, b, c) {
     }
 }
 
-// Helper function to remove result cells before new analysis
-// Removes ALL result cells EXCEPT initial placeholders (those with "Click Simulate")
-// This ensures clean results on each run, compatible with both old and new models
+// Helper function to remove old-style result cells (for backward compatibility)
+// Removes ONLY standalone result cells (not children of components)
+// KEEPS proper child placeholders (they will be updated, not removed)
 const removeOldStyleResultCells = (grafka) => {
     const model = grafka.getModel();
     const cells = model.cells;
@@ -570,7 +570,18 @@ const removeOldStyleResultCells = (grafka) => {
             continue;
         }
         
-        // Remove ALL result cells (by style)
+        // KEEP proper child placeholders (children of component cells)
+        // These will be updated by findPlaceholderForCellOpenDSS, not removed
+        if (cell.parent && cell.parent.id !== '1' && cell.parent.id !== '0') {
+            const parentStyle = cell.parent.getStyle ? cell.parent.getStyle() : '';
+            // If parent is a component (Bus, Line, External Grid, Load, etc.), keep this child
+            if (parentStyle && parentStyle.includes('shapeELXXX=')) {
+                // This is a proper child placeholder - KEEP IT (it will be updated)
+                continue;
+            }
+        }
+        
+        // Remove standalone result cells (old-style, not children of components)
         if (cellStyle && (cellStyle.includes('shapeELXXX=Result') || 
             cellStyle.includes('shapeELXXX=ResultBus') || 
             cellStyle.includes('shapeELXXX=ResultExternalGrid'))) {
@@ -578,7 +589,7 @@ const removeOldStyleResultCells = (grafka) => {
             continue;
         }
         
-        // Remove result cells detected by content patterns (fallback for cells without proper style)
+        // Remove standalone result cells detected by content patterns
         if (value && typeof value === 'string') {
             const lowerValue = value.toLowerCase();
             if (lowerValue.includes('u[pu]') || lowerValue.includes('u[degree]') ||
@@ -590,9 +601,9 @@ const removeOldStyleResultCells = (grafka) => {
         }
     }
     
-    // Remove result cells
+    // Remove old-style standalone result cells
     if (cellsToRemove.length > 0) {
-        console.log(`Removing ${cellsToRemove.length} result cells before new analysis`);
+        console.log(`Removing ${cellsToRemove.length} old-style standalone result cells`);
         model.beginUpdate();
         try {
             cellsToRemove.forEach(cell => {
