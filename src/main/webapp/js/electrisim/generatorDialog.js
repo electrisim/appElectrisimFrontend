@@ -1,1 +1,715 @@
-import{Dialog as e}from"./Dialog.js";export const defaultGeneratorData={name:"Generator",p_mw:0,vm_pu:1,sn_mva:0,scaling:1,slack:!1,controllable:!1,vn_kv:0,xdss_pu:0,rdss_ohm:0,cos_phi:.8,pg_percent:0,power_station_trafo:null,max_p_mw:0,min_p_mw:0,max_q_mvar:0,min_q_mvar:0,in_service:!0};export class GeneratorDialog extends e{constructor(e){super("Generator Parameters","Apply"),this.ui=e||window.App?.main?.editor?.editorUi,this.graph=this.ui?.editor?.graph,this.currentTab="loadflow",this.data={...defaultGeneratorData},this.inputs=new Map,this.loadFlowParameters=[{id:"name",label:"Name",symbol:"name",description:"Name identifier for the generator",type:"text",value:this.data.name},{id:"p_mw",label:"Active Power",symbol:"p_mw",unit:"MW",description:"The active power of the generator (positive for generation!)",type:"number",value:this.data.p_mw.toString(),step:"0.1"},{id:"vm_pu",label:"Voltage Set Point",symbol:"vm_pu",unit:"p.u.",description:"The voltage set point of the generator (>0)",type:"number",value:this.data.vm_pu.toString(),step:"0.01",min:"0"},{id:"scaling",label:"Scaling Factor",symbol:"scaling",description:"Scaling factor for the active power of the generator (>0)",type:"number",value:this.data.scaling.toString(),step:"0.1",min:"0"},{id:"slack",label:"Slack Generator",symbol:"slack",description:"True if generator is slack generator for loadflow calculation",type:"checkbox",value:this.data.slack},{id:"controllable",label:"Controllable",symbol:"controllable",description:"True if generator is controllable by OPF",type:"checkbox",value:this.data.controllable},{id:"in_service",label:"In Service",symbol:"in_service",description:"Specifies if the generator is in service (True/False)",type:"checkbox",value:this.data.in_service}],this.shortCircuitParameters=[{id:"sn_mva",label:"Nominal Power",symbol:"sn_mva",unit:"MVA",description:"Nominal power of the generator for short-circuit calculation (>0)",type:"number",value:this.data.sn_mva.toString(),step:"0.1",min:"0"},{id:"vn_kv",label:"Rated Voltage",symbol:"vn_kv",unit:"kV",description:"Rated voltage of the generator for short-circuit calculation (>0)",type:"number",value:this.data.vn_kv.toString(),step:"0.1",min:"0"},{id:"xdss_pu",label:"Subtransient Reactance",symbol:"xdss_pu",unit:"p.u.",description:"Subtransient generator reactance for short-circuit calculation (>0)",type:"number",value:this.data.xdss_pu.toString(),step:"0.01",min:"0"},{id:"rdss_ohm",label:"Subtransient Resistance",symbol:"rdss_ohm",unit:"Ω",description:"Subtransient generator resistance for short-circuit calculation (>=0)",type:"number",value:this.data.rdss_ohm.toString(),step:"0.01",min:"0"},{id:"cos_phi",label:"Power Factor",symbol:"cos_phi",description:"Rated cosine phi of the generator for short-circuit calculation (0...1)",type:"number",value:this.data.cos_phi.toString(),step:"0.01",min:"0",max:"1"},{id:"pg_percent",label:"PG Percent",symbol:"pg_percent",unit:"%",description:"Rated pg (voltage control range) of the generator for short-circuit calculation (>=0)",type:"number",value:this.data.pg_percent.toString(),step:"0.1",min:"0"},{id:"power_station_trafo",label:"Power Station Transformer",symbol:"power_station_trafo",description:"Index of the power station transformer for short-circuit calculation",type:"number",value:this.data.power_station_trafo?.toString()||"",step:"1"}],this.opfParameters=[{id:"max_p_mw",label:"Maximum Active Power",symbol:"max_p_mw",unit:"MW",description:"Maximum active power injection. Only respected for OPF calculations",type:"number",value:this.data.max_p_mw.toString(),step:"1"},{id:"min_p_mw",label:"Minimum Active Power",symbol:"min_p_mw",unit:"MW",description:"Minimum active power injection. Only respected for OPF calculations",type:"number",value:this.data.min_p_mw.toString(),step:"1"},{id:"max_q_mvar",label:"Maximum Reactive Power",symbol:"max_q_mvar",unit:"MVar",description:"Maximum reactive power injection. Only respected for OPF calculations",type:"number",value:this.data.max_q_mvar.toString(),step:"1"},{id:"min_q_mvar",label:"Minimum Reactive Power",symbol:"min_q_mvar",unit:"MVar",description:"Minimum reactive power injection. Only respected for OPF calculations",type:"number",value:this.data.min_q_mvar.toString(),step:"1"}]}getDescription(){return'<strong>Configure Generator Parameters</strong><br>Set parameters for synchronous generator with power flow and short-circuit capabilities. See the <a href="https://electrisim.com/documentation#generator" target="_blank">Electrisim documentation</a>.'}show(e){this.callback=e,this.showTabDialog()}showTabDialog(){this.ui=this.ui||window.App?.main?.editor?.editorUi;const e=document.createElement("div");Object.assign(e.style,{fontFamily:"Arial, sans-serif",fontSize:"14px",lineHeight:"1.5",color:"#333",padding:"0",margin:"0",width:"100%",height:"100%",boxSizing:"border-box",display:"flex",flexDirection:"column"});const t=document.createElement("div");Object.assign(t.style,{padding:"6px 10px",backgroundColor:"#e3f2fd",border:"1px solid #bbdefb",borderRadius:"4px",fontSize:"12px",color:"#1565c0",marginBottom:"12px"}),t.innerHTML=this.getDescription(),e.appendChild(t);const o=document.createElement("div");Object.assign(o.style,{display:"flex",borderBottom:"2px solid #e9ecef",marginBottom:"16px"});const i=this.createTab("Load Flow","loadflow","loadflow"===this.currentTab),a=this.createTab("Short Circuit","shortcircuit","shortcircuit"===this.currentTab),n=this.createTab("OPF","opf","opf"===this.currentTab);o.appendChild(i),o.appendChild(a),o.appendChild(n),e.appendChild(o);const r=document.createElement("div");Object.assign(r.style,{overflowY:"auto",overflowX:"hidden",flex:"1 1 auto",minHeight:"0",scrollbarWidth:"thin",scrollbarColor:"#c1c1c1 #f1f1f1",paddingRight:"8px"});const s=this.createTabContent("loadflow",this.loadFlowParameters),l=this.createTabContent("shortcircuit",this.shortCircuitParameters),c=this.createTabContent("opf",this.opfParameters);r.appendChild(s),r.appendChild(l),r.appendChild(c),e.appendChild(r);const d=document.createElement("div");Object.assign(d.style,{display:"flex",gap:"8px",justifyContent:"flex-end",marginTop:"16px",paddingTop:"16px",borderTop:"1px solid #e9ecef"});const p=this.createButton("Cancel","#6c757d","#5a6268"),u=this.createButton("Apply","#007bff","#0056b3");if(p.onclick=e=>{e.preventDefault(),this.destroy(),this.ui&&"function"==typeof this.ui.hideDialog&&this.ui.hideDialog()},u.onclick=e=>{e.preventDefault();const t=this.getFormValues();console.log("Generator values:",t),this.callback&&this.callback(t),this.destroy(),this.ui&&"function"==typeof this.ui.hideDialog&&this.ui.hideDialog()},d.appendChild(p),d.appendChild(u),e.appendChild(d),this.container=e,i.onclick=()=>this.switchTab("loadflow",i,[a,n],s,[l,c]),a.onclick=()=>this.switchTab("shortcircuit",a,[i,n],l,[s,c]),n.onclick=()=>this.switchTab("opf",n,[i,a],c,[s,l]),this.ui&&"function"==typeof this.ui.showDialog){const t=window.innerHeight-80;this.ui.showDialog(e,1e3,t,!0,!1)}else this.showModalFallback(e)}createTab(e,t,o){const i=document.createElement("div");return Object.assign(i.style,{padding:"12px 20px",cursor:"pointer",borderBottom:o?"2px solid #007bff":"2px solid transparent",backgroundColor:o?"#f8f9fa":"transparent",color:o?"#007bff":"#6c757d",fontWeight:o?"600":"400",transition:"all 0.2s ease",userSelect:"none"}),i.textContent=e,i.dataset.tab=t,i.addEventListener("mouseenter",()=>{i.classList.contains("active")||(i.style.backgroundColor="#f8f9fa")}),i.addEventListener("mouseleave",()=>{i.classList.contains("active")||(i.style.backgroundColor="transparent")}),o&&i.classList.add("active"),i}createTabContent(e,t){const o=document.createElement("div");o.dataset.tab=e,Object.assign(o.style,{display:e===this.currentTab?"block":"none"});const i=document.createElement("form");return Object.assign(i.style,{display:"flex",flexDirection:"column",gap:"16px"}),t.forEach(e=>{const t=document.createElement("div");Object.assign(t.style,{display:"grid",gridTemplateColumns:"1fr 200px",gap:"20px",alignItems:"start",padding:"16px",backgroundColor:"#f8f9fa",border:"1px solid #e9ecef",borderRadius:"8px",minHeight:"80px"});const o=document.createElement("div");Object.assign(o.style,{display:"flex",flexDirection:"column",justifyContent:"center",minHeight:"60px"});const a=document.createElement("label");Object.assign(a.style,{fontWeight:"600",fontSize:"14px",color:"#495057",marginBottom:"6px",lineHeight:"1.2"});let n=e.label;e.symbol&&(n+=` (${e.symbol})`),e.unit&&(n+=` [${e.unit}]`),a.textContent=n,a.htmlFor=e.id;const r=document.createElement("div");Object.assign(r.style,{fontSize:"12px",color:"#6c757d",lineHeight:"1.4",fontStyle:"italic",marginBottom:"4px"}),r.textContent=e.description,o.appendChild(a),o.appendChild(r);const s=document.createElement("div");let l;Object.assign(s.style,{display:"flex",alignItems:"center",justifyContent:"flex-end",minHeight:"60px",width:"200px"}),"checkbox"===e.type?(l=document.createElement("input"),l.type="checkbox",l.checked=e.value,Object.assign(l.style,{width:"24px",height:"24px",accentColor:"#007bff",cursor:"pointer",margin:"0"})):(l=document.createElement("input"),l.type=e.type,l.value=e.value,Object.assign(l.style,{width:"180px",padding:"10px 14px",border:"2px solid #ced4da",borderRadius:"6px",fontSize:"14px",fontFamily:"inherit",backgroundColor:"#ffffff",boxSizing:"border-box",transition:"all 0.2s ease",outline:"none"}),l.addEventListener("focus",()=>{l.style.borderColor="#007bff",l.style.boxShadow="0 0 0 3px rgba(0, 123, 255, 0.15)",l.style.transform="translateY(-1px)"}),l.addEventListener("blur",()=>{l.style.borderColor="#ced4da",l.style.boxShadow="none",l.style.transform="translateY(0)"}),l.addEventListener("mouseenter",()=>{l!==document.activeElement&&(l.style.borderColor="#adb5bd",l.style.backgroundColor="#f8f9fa")}),l.addEventListener("mouseleave",()=>{l!==document.activeElement&&(l.style.borderColor="#ced4da",l.style.backgroundColor="#ffffff")})),"number"===e.type&&(e.step&&(l.step=e.step),void 0!==e.min&&(l.min=e.min),void 0!==e.max&&(l.max=e.max)),l.id=e.id,this.inputs.set(e.id,l),s.appendChild(l),t.appendChild(o),t.appendChild(s),i.appendChild(t)}),o.appendChild(i),o}createButton(e,t,o){const i=document.createElement("button");return i.textContent=e,Object.assign(i.style,{padding:"8px 16px",backgroundColor:t,color:"white",border:"none",borderRadius:"4px",cursor:"pointer",fontSize:"14px",fontWeight:"500",transition:"background-color 0.2s"}),i.addEventListener("mouseenter",()=>{i.style.backgroundColor=o}),i.addEventListener("mouseleave",()=>{i.style.backgroundColor=t}),i}switchTab(e,t,o,i,a){this.currentTab=e,Object.assign(t.style,{borderBottom:"2px solid #007bff",backgroundColor:"#f8f9fa",color:"#007bff",fontWeight:"600"}),t.classList.add("active"),o.forEach(e=>{Object.assign(e.style,{borderBottom:"2px solid transparent",backgroundColor:"transparent",color:"#6c757d",fontWeight:"400"}),e.classList.remove("active")}),i.style.display="block",a.forEach(e=>{e.style.display="none"})}getFormValues(){const e={};return[...this.loadFlowParameters,...this.shortCircuitParameters,...this.opfParameters].forEach(t=>{const o=this.inputs.get(t.id);o&&("number"===t.type?e[t.id]=parseFloat(o.value)||0:"checkbox"===t.type?e[t.id]=o.checked:e[t.id]=o.value)}),e}destroy(){super.destroy(),window._globalDialogShowing&&delete window._globalDialogShowing,console.log("Generator dialog destroyed and flags cleared")}populateDialog(e){if(console.log("=== GeneratorDialog.populateDialog called ==="),console.log("Cell data:",e),e&&e.attributes){console.log(`Found ${e.attributes.length} attributes to process`);for(let t=0;t<e.attributes.length;t++){const o=e.attributes[t],i=o.name,a=o.value;console.log(`Processing attribute: ${i} = ${a}`);const n=this.loadFlowParameters.find(e=>e.id===i);if(n){const e=n.value;"checkbox"===n.type?n.value="true"===a||!0===a:n.value=a,console.log(`  Updated loadFlow ${i}: ${e} → ${n.value}`)}const r=this.shortCircuitParameters.find(e=>e.id===i);if(r){const e=r.value;"checkbox"===r.type?r.value="true"===a||!0===a:r.value=a,console.log(`  Updated shortCircuit ${i}: ${e} → ${r.value}`)}const s=this.opfParameters.find(e=>e.id===i);if(s){const e=s.value;"checkbox"===s.type?s.value="true"===a||!0===a:s.value=a,console.log(`  Updated opf ${i}: ${e} → ${s.value}`)}n||r||s||console.log(`  WARNING: No parameter found for attribute ${i}`)}}else console.log("No cell data or attributes found");console.log("=== GeneratorDialog.populateDialog completed ===")}}
+import { Dialog } from './Dialog.js';
+
+// Default values for generator parameters (based on pandapower documentation)
+export const defaultGeneratorData = {
+    name: "Generator",
+    p_mw: 0.0,
+    vm_pu: 1.0,
+    sn_mva: 0.0,
+    scaling: 1.0,
+    slack: false,
+    controllable: false,
+    vn_kv: 0.0,
+    xdss_pu: 0.0,
+    rdss_ohm: 0.0,
+    cos_phi: 0.8,
+    pg_percent: 0.0,
+    power_station_trafo: null,
+    max_p_mw: 0.0,
+    min_p_mw: 0.0,
+    max_q_mvar: 0.0,
+    min_q_mvar: 0.0,
+    in_service: true
+};
+
+export class GeneratorDialog extends Dialog {
+    constructor(editorUi) {
+        super('Generator Parameters', 'Apply');
+        
+        this.ui = editorUi || window.App?.main?.editor?.editorUi;
+        this.graph = this.ui?.editor?.graph;
+        this.currentTab = 'loadflow';
+        this.data = { ...defaultGeneratorData };
+        this.inputs = new Map(); // Initialize inputs map for form elements
+        
+        // Load Flow parameters (necessary for executing a power flow calculation)
+        this.loadFlowParameters = [
+            {
+                id: 'name',
+                label: 'Name',
+                symbol: 'name',
+                description: 'Name identifier for the generator',
+                type: 'text',
+                value: this.data.name
+            },
+            {
+                id: 'p_mw',
+                label: 'Active Power',
+                symbol: 'p_mw',
+                unit: 'MW',
+                description: 'The active power of the generator (positive for generation!)',
+                type: 'number',
+                value: this.data.p_mw.toString(),
+                step: '0.1'
+            },
+            {
+                id: 'vm_pu',
+                label: 'Voltage Set Point',
+                symbol: 'vm_pu',
+                unit: 'p.u.',
+                description: 'The voltage set point of the generator (>0)',
+                type: 'number',
+                value: this.data.vm_pu.toString(),
+                step: '0.01',
+                min: '0'
+            },
+            {
+                id: 'scaling',
+                label: 'Scaling Factor',
+                symbol: 'scaling',
+                description: 'Scaling factor for the active power of the generator (>0)',
+                type: 'number',
+                value: this.data.scaling.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'slack',
+                label: 'Slack Generator',
+                symbol: 'slack',
+                description: 'True if generator is slack generator for loadflow calculation',
+                type: 'checkbox',
+                value: this.data.slack
+            },
+            {
+                id: 'controllable',
+                label: 'Controllable',
+                symbol: 'controllable',
+                description: 'True if generator is controllable by OPF',
+                type: 'checkbox',
+                value: this.data.controllable
+            },
+            {
+                id: 'in_service',
+                label: 'In Service',
+                symbol: 'in_service',
+                description: 'Specifies if the generator is in service (True/False)',
+                type: 'checkbox',
+                value: this.data.in_service
+            }
+        ];
+        
+        // Short Circuit parameters
+        this.shortCircuitParameters = [
+            {
+                id: 'sn_mva',
+                label: 'Nominal Power',
+                symbol: 'sn_mva',
+                unit: 'MVA',
+                description: 'Nominal power of the generator for short-circuit calculation (>0)',
+                type: 'number',
+                value: this.data.sn_mva.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'vn_kv',
+                label: 'Rated Voltage',
+                symbol: 'vn_kv',
+                unit: 'kV',
+                description: 'Rated voltage of the generator for short-circuit calculation (>0)',
+                type: 'number',
+                value: this.data.vn_kv.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'xdss_pu',
+                label: 'Subtransient Reactance',
+                symbol: 'xdss_pu',
+                unit: 'p.u.',
+                description: 'Subtransient generator reactance for short-circuit calculation (>0)',
+                type: 'number',
+                value: this.data.xdss_pu.toString(),
+                step: '0.01',
+                min: '0'
+            },
+            {
+                id: 'rdss_ohm',
+                label: 'Subtransient Resistance',
+                symbol: 'rdss_ohm',
+                unit: 'Ω',
+                description: 'Subtransient generator resistance for short-circuit calculation (>=0)',
+                type: 'number',
+                value: this.data.rdss_ohm.toString(),
+                step: '0.01',
+                min: '0'
+            },
+            {
+                id: 'cos_phi',
+                label: 'Power Factor',
+                symbol: 'cos_phi',
+                description: 'Rated cosine phi of the generator for short-circuit calculation (0...1)',
+                type: 'number',
+                value: this.data.cos_phi.toString(),
+                step: '0.01',
+                min: '0',
+                max: '1'
+            },
+            {
+                id: 'pg_percent',
+                label: 'PG Percent',
+                symbol: 'pg_percent',
+                unit: '%',
+                description: 'Rated pg (voltage control range) of the generator for short-circuit calculation (>=0)',
+                type: 'number',
+                value: this.data.pg_percent.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'power_station_trafo',
+                label: 'Power Station Transformer',
+                symbol: 'power_station_trafo',
+                description: 'Index of the power station transformer for short-circuit calculation',
+                type: 'number',
+                value: this.data.power_station_trafo?.toString() || '',
+                step: '1'
+            }
+        ];
+        
+        // OPF (Optimal Power Flow) parameters
+        this.opfParameters = [
+            {
+                id: 'max_p_mw',
+                label: 'Maximum Active Power',
+                symbol: 'max_p_mw',
+                unit: 'MW',
+                description: 'Maximum active power injection. Only respected for OPF calculations',
+                type: 'number',
+                value: this.data.max_p_mw.toString(),
+                step: '1'
+            },
+            {
+                id: 'min_p_mw',
+                label: 'Minimum Active Power',
+                symbol: 'min_p_mw',
+                unit: 'MW',
+                description: 'Minimum active power injection. Only respected for OPF calculations',
+                type: 'number',
+                value: this.data.min_p_mw.toString(),
+                step: '1'
+            },
+            {
+                id: 'max_q_mvar',
+                label: 'Maximum Reactive Power',
+                symbol: 'max_q_mvar',
+                unit: 'MVar',
+                description: 'Maximum reactive power injection. Only respected for OPF calculations',
+                type: 'number',
+                value: this.data.max_q_mvar.toString(),
+                step: '1'
+            },
+            {
+                id: 'min_q_mvar',
+                label: 'Minimum Reactive Power',
+                symbol: 'min_q_mvar',
+                unit: 'MVar',
+                description: 'Minimum reactive power injection. Only respected for OPF calculations',
+                type: 'number',
+                value: this.data.min_q_mvar.toString(),
+                step: '1'
+            }
+        ];
+    }
+    
+    getDescription() {
+        return '<strong>Configure Generator Parameters</strong><br>Set parameters for synchronous generator with power flow and short-circuit capabilities. See the <a href="https://electrisim.com/documentation#generator" target="_blank">Electrisim documentation</a>.';
+    }
+    
+    show(callback) {
+        // Store callback for later use
+        this.callback = callback;
+        
+        // Create custom dialog content with tabs
+        this.showTabDialog();
+    }
+    
+    showTabDialog() {
+        // Use global App if ui is not valid
+        this.ui = this.ui || window.App?.main?.editor?.editorUi;
+        
+        // Create main container
+        const container = document.createElement('div');
+        Object.assign(container.style, {
+            fontFamily: 'Arial, sans-serif',
+            fontSize: '14px',
+            lineHeight: '1.5',
+            color: '#333',
+            padding: '0',
+            margin: '0',
+            width: '100%',
+            height: '100%',
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column'
+        });
+
+        // Add description
+        const description = document.createElement('div');
+        Object.assign(description.style, {
+            padding: '6px 10px',
+            backgroundColor: '#e3f2fd',
+            border: '1px solid #bbdefb',
+            borderRadius: '4px',
+            fontSize: '12px',
+            color: '#1565c0',
+            marginBottom: '12px'
+        });
+        description.innerHTML = this.getDescription();
+        container.appendChild(description);
+
+        // Create tab container
+        const tabContainer = document.createElement('div');
+        Object.assign(tabContainer.style, {
+            display: 'flex',
+            borderBottom: '2px solid #e9ecef',
+            marginBottom: '16px'
+        });
+
+        // Create tabs
+        const loadFlowTab = this.createTab('Load Flow', 'loadflow', this.currentTab === 'loadflow');
+        const shortCircuitTab = this.createTab('Short Circuit', 'shortcircuit', this.currentTab === 'shortcircuit');
+        const opfTab = this.createTab('OPF', 'opf', this.currentTab === 'opf');
+        
+        tabContainer.appendChild(loadFlowTab);
+        tabContainer.appendChild(shortCircuitTab);
+        tabContainer.appendChild(opfTab);
+        container.appendChild(tabContainer);
+
+        // Create content area
+        const contentArea = document.createElement('div');
+        Object.assign(contentArea.style, {
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            flex: '1 1 auto',
+            minHeight: '0',
+            scrollbarWidth: 'thin',
+            scrollbarColor: '#c1c1c1 #f1f1f1',
+            paddingRight: '8px'
+        });
+
+        // Create tab content containers
+        const loadFlowContent = this.createTabContent('loadflow', this.loadFlowParameters);
+        const shortCircuitContent = this.createTabContent('shortcircuit', this.shortCircuitParameters);
+        const opfContent = this.createTabContent('opf', this.opfParameters);
+        
+        contentArea.appendChild(loadFlowContent);
+        contentArea.appendChild(shortCircuitContent);
+        contentArea.appendChild(opfContent);
+        container.appendChild(contentArea);
+
+        // Add button container
+        const buttonContainer = document.createElement('div');
+        Object.assign(buttonContainer.style, {
+            display: 'flex',
+            gap: '8px',
+            justifyContent: 'flex-end',
+            marginTop: '16px',
+            paddingTop: '16px',
+            borderTop: '1px solid #e9ecef'
+        });
+
+        const cancelButton = this.createButton('Cancel', '#6c757d', '#5a6268');
+        const applyButton = this.createButton('Apply', '#007bff', '#0056b3');
+        
+        cancelButton.onclick = (e) => {
+            e.preventDefault();
+            this.destroy();
+            if (this.ui && typeof this.ui.hideDialog === 'function') {
+                this.ui.hideDialog();
+            }
+        };
+
+        applyButton.onclick = (e) => {
+            e.preventDefault();
+            const values = this.getFormValues();
+            console.log('Generator values:', values);
+            
+            if (this.callback) {
+                this.callback(values);
+            }
+            
+            this.destroy();
+            if (this.ui && typeof this.ui.hideDialog === 'function') {
+                this.ui.hideDialog();
+            }
+        };
+
+        buttonContainer.appendChild(cancelButton);
+        buttonContainer.appendChild(applyButton);
+        container.appendChild(buttonContainer);
+
+        this.container = container;
+        
+        // Tab click handlers
+        loadFlowTab.onclick = () => this.switchTab('loadflow', loadFlowTab, [shortCircuitTab, opfTab], loadFlowContent, [shortCircuitContent, opfContent]);
+        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [loadFlowTab, opfTab], shortCircuitContent, [loadFlowContent, opfContent]);
+        opfTab.onclick = () => this.switchTab('opf', opfTab, [loadFlowTab, shortCircuitTab], opfContent, [loadFlowContent, shortCircuitContent]);
+
+        // Show dialog using DrawIO's dialog system
+        if (this.ui && typeof this.ui.showDialog === 'function') {
+            const screenHeight = window.innerHeight - 80;
+            this.ui.showDialog(container, 1000, screenHeight, true, false);
+        } else {
+            this.showModalFallback(container);
+        }
+    }
+    
+    createTab(title, tabId, isActive) {
+        const tab = document.createElement('div');
+        Object.assign(tab.style, {
+            padding: '12px 20px',
+            cursor: 'pointer',
+            borderBottom: isActive ? '2px solid #007bff' : '2px solid transparent',
+            backgroundColor: isActive ? '#f8f9fa' : 'transparent',
+            color: isActive ? '#007bff' : '#6c757d',
+            fontWeight: isActive ? '600' : '400',
+            transition: 'all 0.2s ease',
+            userSelect: 'none'
+        });
+        tab.textContent = title;
+        tab.dataset.tab = tabId;
+        
+        tab.addEventListener('mouseenter', () => {
+            if (!tab.classList.contains('active')) {
+                tab.style.backgroundColor = '#f8f9fa';
+            }
+        });
+        
+        tab.addEventListener('mouseleave', () => {
+            if (!tab.classList.contains('active')) {
+                tab.style.backgroundColor = 'transparent';
+            }
+        });
+        
+        if (isActive) {
+            tab.classList.add('active');
+        }
+        
+        return tab;
+    }
+    
+    createTabContent(tabId, parameters) {
+        const content = document.createElement('div');
+        content.dataset.tab = tabId;
+        Object.assign(content.style, {
+            display: tabId === this.currentTab ? 'block' : 'none'
+        });
+
+        const form = document.createElement('form');
+        Object.assign(form.style, {
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px'
+        });
+
+        parameters.forEach(param => {
+            const parameterRow = document.createElement('div');
+            Object.assign(parameterRow.style, {
+                display: 'grid',
+                gridTemplateColumns: '1fr 200px',
+                gap: '20px',
+                alignItems: 'start',
+                padding: '16px',
+                backgroundColor: '#f8f9fa',
+                border: '1px solid #e9ecef',
+                borderRadius: '8px',
+                minHeight: '80px'
+            });
+
+            // Left column: Label and description
+            const leftColumn = document.createElement('div');
+            Object.assign(leftColumn.style, {
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                minHeight: '60px'
+            });
+
+            const label = document.createElement('label');
+            Object.assign(label.style, {
+                fontWeight: '600',
+                fontSize: '14px',
+                color: '#495057',
+                marginBottom: '6px',
+                lineHeight: '1.2'
+            });
+            // Include symbol and unit in label if available
+            let labelText = param.label;
+            if (param.symbol) {
+                labelText += ` (${param.symbol})`;
+            }
+            if (param.unit) {
+                labelText += ` [${param.unit}]`;
+            }
+            label.textContent = labelText;
+            label.htmlFor = param.id;
+
+            const description = document.createElement('div');
+            Object.assign(description.style, {
+                fontSize: '12px',
+                color: '#6c757d',
+                lineHeight: '1.4',
+                fontStyle: 'italic',
+                marginBottom: '4px'
+            });
+            description.textContent = param.description;
+
+            leftColumn.appendChild(label);
+            leftColumn.appendChild(description);
+
+            // Right column: Input field with fixed width
+            const rightColumn = document.createElement('div');
+            Object.assign(rightColumn.style, {
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+                minHeight: '60px',
+                width: '200px'
+            });
+            
+            let input;
+            
+            // Handle different input types
+            if (param.type === 'checkbox') {
+                input = document.createElement('input');
+                input.type = 'checkbox';
+                input.checked = param.value;
+                Object.assign(input.style, {
+                    width: '24px',
+                    height: '24px',
+                    accentColor: '#007bff',
+                    cursor: 'pointer',
+                    margin: '0'
+                });
+            } else {
+                input = document.createElement('input');
+                input.type = param.type;
+                input.value = param.value;
+                Object.assign(input.style, {
+                    width: '180px',
+                    padding: '10px 14px',
+                    border: '2px solid #ced4da',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                    backgroundColor: '#ffffff',
+                    boxSizing: 'border-box',
+                    transition: 'all 0.2s ease',
+                    outline: 'none'
+                });
+                
+                input.addEventListener('focus', () => {
+                    input.style.borderColor = '#007bff';
+                    input.style.boxShadow = '0 0 0 3px rgba(0, 123, 255, 0.15)';
+                    input.style.transform = 'translateY(-1px)';
+                });
+                
+                input.addEventListener('blur', () => {
+                    input.style.borderColor = '#ced4da';
+                    input.style.boxShadow = 'none';
+                    input.style.transform = 'translateY(0)';
+                });
+                
+                // Add hover effect
+                input.addEventListener('mouseenter', () => {
+                    if (input !== document.activeElement) {
+                        input.style.borderColor = '#adb5bd';
+                        input.style.backgroundColor = '#f8f9fa';
+                    }
+                });
+                
+                input.addEventListener('mouseleave', () => {
+                    if (input !== document.activeElement) {
+                        input.style.borderColor = '#ced4da';
+                        input.style.backgroundColor = '#ffffff';
+                    }
+                });
+            }
+            
+            // Set additional attributes for number inputs
+            if (param.type === 'number') {
+                if (param.step) input.step = param.step;
+                if (param.min !== undefined) input.min = param.min;
+                if (param.max !== undefined) input.max = param.max;
+            }
+
+            input.id = param.id;
+            this.inputs.set(param.id, input);
+            rightColumn.appendChild(input);
+
+            parameterRow.appendChild(leftColumn);
+            parameterRow.appendChild(rightColumn);
+            form.appendChild(parameterRow);
+        });
+
+        content.appendChild(form);
+        return content;
+    }
+    
+    createButton(text, bgColor, hoverColor) {
+        const button = document.createElement('button');
+        button.textContent = text;
+        Object.assign(button.style, {
+            padding: '8px 16px',
+            backgroundColor: bgColor,
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: '500',
+            transition: 'background-color 0.2s'
+        });
+        
+        button.addEventListener('mouseenter', () => {
+            button.style.backgroundColor = hoverColor;
+        });
+        
+        button.addEventListener('mouseleave', () => {
+            button.style.backgroundColor = bgColor;
+        });
+        
+        return button;
+    }
+    
+    switchTab(tabId, activeTab, inactiveTabs, activeContent, inactiveContents) {
+        this.currentTab = tabId;
+        
+        // Update active tab styles
+        Object.assign(activeTab.style, {
+            borderBottom: '2px solid #007bff',
+            backgroundColor: '#f8f9fa',
+            color: '#007bff',
+            fontWeight: '600'
+        });
+        activeTab.classList.add('active');
+        
+        // Update inactive tab styles
+        inactiveTabs.forEach(inactiveTab => {
+            Object.assign(inactiveTab.style, {
+                borderBottom: '2px solid transparent',
+                backgroundColor: 'transparent',
+                color: '#6c757d',
+                fontWeight: '400'
+            });
+            inactiveTab.classList.remove('active');
+        });
+        
+        // Update content visibility
+        activeContent.style.display = 'block';
+        inactiveContents.forEach(inactiveContent => {
+            inactiveContent.style.display = 'none';
+        });
+    }
+    
+    getFormValues() {
+        const values = {};
+        
+        // Collect all parameter values from all tabs
+        [...this.loadFlowParameters, ...this.shortCircuitParameters, ...this.opfParameters].forEach(param => {
+            const input = this.inputs.get(param.id);
+            if (input) {
+                if (param.type === 'number') {
+                    values[param.id] = parseFloat(input.value) || 0;
+                } else if (param.type === 'checkbox') {
+                    values[param.id] = input.checked;
+                } else {
+                    values[param.id] = input.value;
+                }
+            }
+        });
+        
+        return values;
+    }
+    
+    destroy() {
+        // Call parent destroy method
+        super.destroy();
+        
+        // Clear global dialog flags to allow future dialogs
+        if (window._globalDialogShowing) {
+            delete window._globalDialogShowing;
+        }
+        
+        console.log('Generator dialog destroyed and flags cleared');
+    }
+    
+    populateDialog(cellData) {
+        console.log('=== GeneratorDialog.populateDialog called ===');
+        console.log('Cell data:', cellData);
+        
+        // Update parameter values based on cell data
+        if (cellData && cellData.attributes) {
+            console.log(`Found ${cellData.attributes.length} attributes to process`);
+            
+            for (let i = 0; i < cellData.attributes.length; i++) {
+                const attribute = cellData.attributes[i];
+                const attributeName = attribute.name;
+                const attributeValue = attribute.value;
+                
+                console.log(`Processing attribute: ${attributeName} = ${attributeValue}`);
+                
+                // Update the dialog's parameter values (not DOM inputs)
+                const loadFlowParam = this.loadFlowParameters.find(p => p.id === attributeName);
+                if (loadFlowParam) {
+                    const oldValue = loadFlowParam.value;
+                    if (loadFlowParam.type === 'checkbox') {
+                        loadFlowParam.value = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        loadFlowParam.value = attributeValue;
+                    }
+                    console.log(`  Updated loadFlow ${attributeName}: ${oldValue} → ${loadFlowParam.value}`);
+                }
+                
+                const shortCircuitParam = this.shortCircuitParameters.find(p => p.id === attributeName);
+                if (shortCircuitParam) {
+                    const oldValue = shortCircuitParam.value;
+                    if (shortCircuitParam.type === 'checkbox') {
+                        shortCircuitParam.value = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        shortCircuitParam.value = attributeValue;
+                    }
+                    console.log(`  Updated shortCircuit ${attributeName}: ${oldValue} → ${shortCircuitParam.value}`);
+                }
+                
+                const opfParam = this.opfParameters.find(p => p.id === attributeName);
+                if (opfParam) {
+                    const oldValue = opfParam.value;
+                    if (opfParam.type === 'checkbox') {
+                        opfParam.value = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        opfParam.value = attributeValue;
+                    }
+                    console.log(`  Updated opf ${attributeName}: ${oldValue} → ${opfParam.value}`);
+                }
+                
+                if (!loadFlowParam && !shortCircuitParam && !opfParam) {
+                    console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
+                }
+            }
+        } else {
+            console.log('No cell data or attributes found');
+        }
+        
+        console.log('=== GeneratorDialog.populateDialog completed ===');
+    }
+}
+
+// Note: Legacy AG-Grid exports have been removed to prevent conflicts with the new modern dialog system
+// The GeneratorDialog class is now the primary interface for editing generator parameters
+  
+  
+  
+  

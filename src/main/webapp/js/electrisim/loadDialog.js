@@ -1,1 +1,769 @@
-import{Dialog as e}from"./Dialog.js";export const defaultLoadData={name:"Load",p_mw:0,q_mvar:0,const_z_percent:0,const_i_percent:0,sn_mva:0,scaling:1,type:"wye",controllable:!1,max_p_mw:0,min_p_mw:0,max_q_mvar:0,min_q_mvar:0,in_service:!0};export class LoadDialog extends e{constructor(e){super("Load Parameters","Apply"),this.ui=e||window.App?.main?.editor?.editorUi,this.graph=this.ui?.editor?.graph,this.currentTab="loadflow",this.data={...defaultLoadData},this.inputs=new Map,this.loadFlowParameters=[{id:"name",label:"Name",symbol:"name",description:"Name identifier for the load",type:"text",value:this.data.name},{id:"p_mw",label:"Active Power",symbol:"p_mw",unit:"MW",description:"The active power of the load (>=0)",type:"number",value:this.data.p_mw.toString(),step:"0.1",min:"0"},{id:"q_mvar",label:"Reactive Power",symbol:"q_mvar",unit:"MVar",description:"The reactive power of the load",type:"number",value:this.data.q_mvar.toString(),step:"0.1"},{id:"const_z_percent",label:"Constant Impedance",symbol:"const_z_percent",unit:"%",description:"Percentage of p_mw and q_mvar that will be associated to constant impedance load at rated voltage (0...100)",type:"number",value:this.data.const_z_percent.toString(),step:"0.1",min:"0",max:"100"},{id:"const_i_percent",label:"Constant Current",symbol:"const_i_percent",unit:"%",description:"Percentage of p_mw and q_mvar that will be associated to constant current load at rated voltage (0...100)",type:"number",value:this.data.const_i_percent.toString(),step:"0.1",min:"0",max:"100"},{id:"scaling",label:"Scaling Factor",symbol:"scaling",description:"Scaling factor for the load power (>0)",type:"number",value:this.data.scaling.toString(),step:"0.1",min:"0"},{id:"in_service",label:"In Service",symbol:"in_service",description:"Specifies if the load is in service (True/False)",type:"checkbox",value:this.data.in_service}],this.shortCircuitParameters=[{id:"sn_mva",label:"Nominal Power",symbol:"sn_mva",unit:"MVA",description:"Nominal power of the load for short circuit calculation (>0)",type:"number",value:this.data.sn_mva.toString(),step:"0.1",min:"0"},{id:"type",label:"Connection Type",symbol:"type",description:"Type variable to classify the load: wye/delta",type:"select",value:this.data.type,options:["wye","delta"]}],this.opfParameters=[{id:"controllable",label:"Controllable",symbol:"controllable",description:"True if load is controllable by OPF (True/False)",type:"checkbox",value:this.data.controllable},{id:"max_p_mw",label:"Maximum Active Power",symbol:"max_p_mw",unit:"MW",description:"Maximum active power consumption. Only respected for OPF calculations",type:"number",value:this.data.max_p_mw.toString(),step:"1"},{id:"min_p_mw",label:"Minimum Active Power",symbol:"min_p_mw",unit:"MW",description:"Minimum active power consumption. Only respected for OPF calculations",type:"number",value:this.data.min_p_mw.toString(),step:"1"},{id:"max_q_mvar",label:"Maximum Reactive Power",symbol:"max_q_mvar",unit:"MVar",description:"Maximum reactive power consumption. Only respected for OPF calculations",type:"number",value:this.data.max_q_mvar.toString(),step:"1"},{id:"min_q_mvar",label:"Minimum Reactive Power",symbol:"min_q_mvar",unit:"MVar",description:"Minimum reactive power consumption. Only respected for OPF calculations",type:"number",value:this.data.min_q_mvar.toString(),step:"1"}]}getDescription(){return'<strong>Configure Load Parameters</strong><br>Set parameters for electrical load with power values and load characteristics. See the <a href="https://electrisim.com/documentation#load" target="_blank">Electrisim documentation</a>.'}show(e){this.callback=e,this.showTabDialog()}showTabDialog(){this.ui=this.ui||window.App?.main?.editor?.editorUi;const e=document.createElement("div");Object.assign(e.style,{fontFamily:"Arial, sans-serif",fontSize:"14px",lineHeight:"1.5",color:"#333",padding:"0",margin:"0",width:"100%",height:"100%",boxSizing:"border-box",display:"flex",flexDirection:"column"});const t=document.createElement("div");Object.assign(t.style,{padding:"6px 10px",backgroundColor:"#e3f2fd",border:"1px solid #bbdefb",borderRadius:"4px",fontSize:"12px",color:"#1565c0",marginBottom:"12px"}),t.innerHTML=this.getDescription(),e.appendChild(t);const o=document.createElement("div");Object.assign(o.style,{display:"flex",borderBottom:"2px solid #e9ecef",marginBottom:"16px"});const a=this.createTab("Load Flow","loadflow","loadflow"===this.currentTab),i=this.createTab("Short Circuit","shortcircuit","shortcircuit"===this.currentTab),n=this.createTab("OPF","opf","opf"===this.currentTab);o.appendChild(a),o.appendChild(i),o.appendChild(n),e.appendChild(o);const r=document.createElement("div");Object.assign(r.style,{overflowY:"auto",overflowX:"hidden",flex:"1 1 auto",minHeight:"0",scrollbarWidth:"thin",scrollbarColor:"#c1c1c1 #f1f1f1",paddingRight:"8px"});const l=this.createTabContent("loadflow",this.loadFlowParameters),s=this.createTabContent("shortcircuit",this.shortCircuitParameters),d=this.createTabContent("opf",this.opfParameters);r.appendChild(l),r.appendChild(s),r.appendChild(d),e.appendChild(r);const c=document.createElement("div");Object.assign(c.style,{display:"flex",gap:"8px",justifyContent:"flex-end",marginTop:"16px",paddingTop:"16px",borderTop:"1px solid #e9ecef"});const p=this.createButton("Cancel","#6c757d","#5a6268"),m=this.createButton("Apply","#007bff","#0056b3");if(p.onclick=e=>{e.preventDefault(),this.destroy(),this.ui&&"function"==typeof this.ui.hideDialog&&this.ui.hideDialog()},m.onclick=e=>{e.preventDefault();const t=this.getFormValues();console.log("Load values:",t),this.callback&&this.callback(t),this.destroy(),this.ui&&"function"==typeof this.ui.hideDialog&&this.ui.hideDialog()},c.appendChild(p),c.appendChild(m),e.appendChild(c),this.container=e,a.onclick=()=>this.switchTab("loadflow",a,[i,n],l,[s,d]),i.onclick=()=>this.switchTab("shortcircuit",i,[a,n],s,[l,d]),n.onclick=()=>this.switchTab("opf",n,[a,i],d,[l,s]),this.ui&&"function"==typeof this.ui.showDialog){const t=window.innerHeight-80;this.ui.showDialog(e,1e3,t,!0,!1)}else this.showModalFallback(e)}createTab(e,t,o){const a=document.createElement("div");return Object.assign(a.style,{padding:"12px 20px",cursor:"pointer",borderBottom:o?"2px solid #007bff":"2px solid transparent",backgroundColor:o?"#f8f9fa":"transparent",color:o?"#007bff":"#6c757d",fontWeight:o?"600":"400",transition:"all 0.2s ease",userSelect:"none"}),a.textContent=e,a.dataset.tab=t,a.addEventListener("mouseenter",()=>{a.classList.contains("active")||(a.style.backgroundColor="#f8f9fa")}),a.addEventListener("mouseleave",()=>{a.classList.contains("active")||(a.style.backgroundColor="transparent")}),o&&a.classList.add("active"),a}createTabContent(e,t){const o=document.createElement("div");o.dataset.tab=e,Object.assign(o.style,{display:e===this.currentTab?"block":"none"});const a=document.createElement("form");return Object.assign(a.style,{display:"flex",flexDirection:"column",gap:"16px"}),t.forEach(e=>{const t=document.createElement("div");Object.assign(t.style,{display:"grid",gridTemplateColumns:"1fr 200px",gap:"20px",alignItems:"start",padding:"16px",backgroundColor:"#f8f9fa",border:"1px solid #e9ecef",borderRadius:"8px",minHeight:"80px"});const o=document.createElement("div");Object.assign(o.style,{display:"flex",flexDirection:"column",justifyContent:"center",minHeight:"60px"});const i=document.createElement("label");Object.assign(i.style,{fontWeight:"600",fontSize:"14px",color:"#495057",marginBottom:"6px",lineHeight:"1.2"});let n=e.label;e.symbol&&(n+=` (${e.symbol})`),e.unit&&(n+=` [${e.unit}]`),i.textContent=n,i.htmlFor=e.id;const r=document.createElement("div");Object.assign(r.style,{fontSize:"12px",color:"#6c757d",lineHeight:"1.4",fontStyle:"italic",marginBottom:"4px"}),r.textContent=e.description,o.appendChild(i),o.appendChild(r);const l=document.createElement("div");let s;Object.assign(l.style,{display:"flex",alignItems:"center",justifyContent:"flex-end",minHeight:"60px",width:"200px"}),"checkbox"===e.type?(s=document.createElement("input"),s.type="checkbox",s.checked=e.value,Object.assign(s.style,{width:"24px",height:"24px",accentColor:"#007bff",cursor:"pointer",margin:"0"})):"select"===e.type?(s=document.createElement("select"),e.options.forEach(t=>{const o=document.createElement("option");o.value=t,o.textContent=t.charAt(0).toUpperCase()+t.slice(1),t===e.value&&(o.selected=!0),s.appendChild(o)}),Object.assign(s.style,{width:"180px",padding:"10px 14px",border:"2px solid #ced4da",borderRadius:"6px",fontSize:"14px",fontFamily:"inherit",backgroundColor:"#ffffff",boxSizing:"border-box",transition:"all 0.2s ease",outline:"none",cursor:"pointer"})):(s=document.createElement("input"),s.type=e.type,s.value=e.value,Object.assign(s.style,{width:"180px",padding:"10px 14px",border:"2px solid #ced4da",borderRadius:"6px",fontSize:"14px",fontFamily:"inherit",backgroundColor:"#ffffff",boxSizing:"border-box",transition:"all 0.2s ease",outline:"none"}),s.addEventListener("focus",()=>{s.style.borderColor="#007bff",s.style.boxShadow="0 0 0 3px rgba(0, 123, 255, 0.15)",s.style.transform="translateY(-1px)"}),s.addEventListener("blur",()=>{s.style.borderColor="#ced4da",s.style.boxShadow="none",s.style.transform="translateY(0)"}),s.addEventListener("mouseenter",()=>{s!==document.activeElement&&(s.style.borderColor="#adb5bd",s.style.backgroundColor="#f8f9fa")}),s.addEventListener("mouseleave",()=>{s!==document.activeElement&&(s.style.borderColor="#ced4da",s.style.backgroundColor="#ffffff")})),"number"===e.type&&(e.step&&(s.step=e.step),void 0!==e.min&&(s.min=e.min),void 0!==e.max&&(s.max=e.max)),s.id=e.id,this.inputs.set(e.id,s),l.appendChild(s),t.appendChild(o),t.appendChild(l),a.appendChild(t)}),o.appendChild(a),o}createButton(e,t,o){const a=document.createElement("button");return a.textContent=e,Object.assign(a.style,{padding:"8px 16px",backgroundColor:t,color:"white",border:"none",borderRadius:"4px",cursor:"pointer",fontSize:"14px",fontWeight:"500",transition:"background-color 0.2s"}),a.addEventListener("mouseenter",()=>{a.style.backgroundColor=o}),a.addEventListener("mouseleave",()=>{a.style.backgroundColor=t}),a}switchTab(e,t,o,a,i){this.currentTab=e,Object.assign(t.style,{borderBottom:"2px solid #007bff",backgroundColor:"#f8f9fa",color:"#007bff",fontWeight:"600"}),t.classList.add("active"),o.forEach(e=>{Object.assign(e.style,{borderBottom:"2px solid transparent",backgroundColor:"transparent",color:"#6c757d",fontWeight:"400"}),e.classList.remove("active")}),a.style.display="block",i.forEach(e=>{e.style.display="none"})}getFormValues(){const e={};return[...this.loadFlowParameters,...this.shortCircuitParameters,...this.opfParameters].forEach(t=>{const o=this.inputs.get(t.id);o&&("number"===t.type?e[t.id]=parseFloat(o.value)||0:"checkbox"===t.type?e[t.id]=o.checked:(t.type,e[t.id]=o.value))}),e}destroy(){super.destroy(),window._globalDialogShowing&&delete window._globalDialogShowing,console.log("Load dialog destroyed and flags cleared")}populateDialog(e){if(console.log("=== LoadDialog.populateDialog called ==="),console.log("Cell data:",e),e&&e.attributes){console.log(`Found ${e.attributes.length} attributes to process`);for(let t=0;t<e.attributes.length;t++){const o=e.attributes[t],a=o.name,i=o.value;console.log(`Processing attribute: ${a} = ${i}`);const n=this.loadFlowParameters.find(e=>e.id===a);if(n){const e=n.value;"checkbox"===n.type?n.value="true"===i||!0===i:n.value=i,console.log(`  Updated loadFlow ${a}: ${e} → ${n.value}`)}const r=this.shortCircuitParameters.find(e=>e.id===a);if(r){const e=r.value;"checkbox"===r.type?r.value="true"===i||!0===i:r.value=i,console.log(`  Updated shortCircuit ${a}: ${e} → ${r.value}`)}const l=this.opfParameters.find(e=>e.id===a);if(l){const e=l.value;"checkbox"===l.type?l.value="true"===i||!0===i:l.value=i,console.log(`  Updated opf ${a}: ${e} → ${l.value}`)}n||r||l||console.log(`  WARNING: No parameter found for attribute ${a}`)}}else console.log("No cell data or attributes found");console.log("=== LoadDialog.populateDialog completed ===")}}export const rowDefsLoad=[defaultLoadData];export const columnDefsLoad=[{field:"name",headerTooltip:"Name of the load",maxWidth:150},{field:"p_mw",headerTooltip:"The active power of the load",maxWidth:120,valueParser:"numberParser"},{field:"q_mvar",headerTooltip:"The reactive power of the load",maxWidth:120,valueParser:"numberParser"},{field:"const_z_percent",headerTooltip:"Percentage of p_mw and q_mvar that will be associated to constant impedance load at rated voltage",maxWidth:140,valueParser:"numberParser"},{field:"const_i_percent",headerTooltip:"Percentage of p_mw and q_mvar that will be associated to constant current load at rated voltage",maxWidth:140,valueParser:"numberParser"},{field:"sn_mva",headerTooltip:"Nominal power of the load",maxWidth:120,valueParser:"numberParser"},{field:"scaling",headerTooltip:"An OPTIONAL scaling factor to be set customly. Multiplies with p_mw and q_mvar.",maxWidth:140,valueParser:"numberParser"},{field:"type",headerTooltip:"Type variable to classify the load: wye/delta",maxWidth:100},{field:"in_service",headerTooltip:"Specifies if the load is in service (True/False)",maxWidth:100}];export const gridOptionsLoad={columnDefs:columnDefsLoad,defaultColDef:{minWidth:100,editable:!0},rowData:rowDefsLoad,singleClickEdit:!0,stopEditingWhenGridLosesFocus:!0};globalThis.gridOptionsLoad=gridOptionsLoad,globalThis.rowDefsLoad=rowDefsLoad,globalThis.columnDefsLoad=columnDefsLoad,globalThis.LoadDialog=LoadDialog;
+import { Dialog } from './Dialog.js';
+
+// Default values for load parameters (based on pandapower documentation)
+export const defaultLoadData = {
+    name: "Load",
+    p_mw: 0.0,
+    q_mvar: 0.0,
+    const_z_percent: 0.0,
+    const_i_percent: 0.0,
+    sn_mva: 0.0,
+    scaling: 1.0,
+    type: 'wye',
+    controllable: false,
+    max_p_mw: 0.0,
+    min_p_mw: 0.0,
+    max_q_mvar: 0.0,
+    min_q_mvar: 0.0,
+    in_service: true
+};
+
+export class LoadDialog extends Dialog {
+    constructor(editorUi) {
+        super('Load Parameters', 'Apply');
+        
+        this.ui = editorUi || window.App?.main?.editor?.editorUi;
+        this.graph = this.ui?.editor?.graph;
+        this.currentTab = 'loadflow';
+        this.data = { ...defaultLoadData };
+        this.inputs = new Map(); // Initialize inputs map for form elements
+        
+        // Load Flow parameters (necessary for executing a power flow calculation)
+        this.loadFlowParameters = [
+            {
+                id: 'name',
+                label: 'Name',
+                symbol: 'name',
+                description: 'Name identifier for the load',
+                type: 'text',
+                value: this.data.name
+            },
+            {
+                id: 'p_mw',
+                label: 'Active Power',
+                symbol: 'p_mw',
+                unit: 'MW',
+                description: 'The active power of the load (>=0)',
+                type: 'number',
+                value: this.data.p_mw.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'q_mvar',
+                label: 'Reactive Power',
+                symbol: 'q_mvar',
+                unit: 'MVar',
+                description: 'The reactive power of the load',
+                type: 'number',
+                value: this.data.q_mvar.toString(),
+                step: '0.1'
+            },
+            {
+                id: 'const_z_percent',
+                label: 'Constant Impedance',
+                symbol: 'const_z_percent',
+                unit: '%',
+                description: 'Percentage of p_mw and q_mvar that will be associated to constant impedance load at rated voltage (0...100)',
+                type: 'number',
+                value: this.data.const_z_percent.toString(),
+                step: '0.1',
+                min: '0',
+                max: '100'
+            },
+            {
+                id: 'const_i_percent',
+                label: 'Constant Current',
+                symbol: 'const_i_percent',
+                unit: '%',
+                description: 'Percentage of p_mw and q_mvar that will be associated to constant current load at rated voltage (0...100)',
+                type: 'number',
+                value: this.data.const_i_percent.toString(),
+                step: '0.1',
+                min: '0',
+                max: '100'
+            },
+            {
+                id: 'scaling',
+                label: 'Scaling Factor',
+                symbol: 'scaling',
+                description: 'Scaling factor for the load power (>0)',
+                type: 'number',
+                value: this.data.scaling.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'in_service',
+                label: 'In Service',
+                symbol: 'in_service',
+                description: 'Specifies if the load is in service (True/False)',
+                type: 'checkbox',
+                value: this.data.in_service
+            }
+        ];
+        
+        // Short Circuit parameters
+        this.shortCircuitParameters = [
+            {
+                id: 'sn_mva',
+                label: 'Nominal Power',
+                symbol: 'sn_mva',
+                unit: 'MVA',
+                description: 'Nominal power of the load for short circuit calculation (>0)',
+                type: 'number',
+                value: this.data.sn_mva.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'type',
+                label: 'Connection Type',
+                symbol: 'type',
+                description: 'Type variable to classify the load: wye/delta',
+                type: 'select',
+                value: this.data.type,
+                options: ['wye', 'delta']
+            }
+        ];
+        
+        // OPF (Optimal Power Flow) parameters
+        this.opfParameters = [
+            {
+                id: 'controllable',
+                label: 'Controllable',
+                symbol: 'controllable',
+                description: 'True if load is controllable by OPF (True/False)',
+                type: 'checkbox',
+                value: this.data.controllable
+            },
+            {
+                id: 'max_p_mw',
+                label: 'Maximum Active Power',
+                symbol: 'max_p_mw',
+                unit: 'MW',
+                description: 'Maximum active power consumption. Only respected for OPF calculations',
+                type: 'number',
+                value: this.data.max_p_mw.toString(),
+                step: '1'
+            },
+            {
+                id: 'min_p_mw',
+                label: 'Minimum Active Power',
+                symbol: 'min_p_mw',
+                unit: 'MW',
+                description: 'Minimum active power consumption. Only respected for OPF calculations',
+                type: 'number',
+                value: this.data.min_p_mw.toString(),
+                step: '1'
+            },
+            {
+                id: 'max_q_mvar',
+                label: 'Maximum Reactive Power',
+                symbol: 'max_q_mvar',
+                unit: 'MVar',
+                description: 'Maximum reactive power consumption. Only respected for OPF calculations',
+                type: 'number',
+                value: this.data.max_q_mvar.toString(),
+                step: '1'
+            },
+            {
+                id: 'min_q_mvar',
+                label: 'Minimum Reactive Power',
+                symbol: 'min_q_mvar',
+                unit: 'MVar',
+                description: 'Minimum reactive power consumption. Only respected for OPF calculations',
+                type: 'number',
+                value: this.data.min_q_mvar.toString(),
+                step: '1'
+            }
+        ];
+    }
+    
+    getDescription() {
+        return '<strong>Configure Load Parameters</strong><br>Set parameters for electrical load with power values and load characteristics. See the <a href="https://electrisim.com/documentation#load" target="_blank">Electrisim documentation</a>.';
+    }
+    
+    show(callback) {
+        // Store callback for later use
+        this.callback = callback;
+        
+        // Create custom dialog content with tabs
+        this.showTabDialog();
+    }
+    
+    showTabDialog() {
+        // Use global App if ui is not valid
+        this.ui = this.ui || window.App?.main?.editor?.editorUi;
+        
+        // Create main container
+        const container = document.createElement('div');
+        Object.assign(container.style, {
+            fontFamily: 'Arial, sans-serif',
+            fontSize: '14px',
+            lineHeight: '1.5',
+            color: '#333',
+            padding: '0',
+            margin: '0',
+            width: '100%',
+            height: '100%',
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column'
+        });
+
+        // Add description
+        const description = document.createElement('div');
+        Object.assign(description.style, {
+            padding: '6px 10px',
+            backgroundColor: '#e3f2fd',
+            border: '1px solid #bbdefb',
+            borderRadius: '4px',
+            fontSize: '12px',
+            color: '#1565c0',
+            marginBottom: '12px'
+        });
+        description.innerHTML = this.getDescription();
+        container.appendChild(description);
+
+        // Create tab container
+        const tabContainer = document.createElement('div');
+        Object.assign(tabContainer.style, {
+            display: 'flex',
+            borderBottom: '2px solid #e9ecef',
+            marginBottom: '16px'
+        });
+
+        // Create tabs
+        const loadFlowTab = this.createTab('Load Flow', 'loadflow', this.currentTab === 'loadflow');
+        const shortCircuitTab = this.createTab('Short Circuit', 'shortcircuit', this.currentTab === 'shortcircuit');
+        const opfTab = this.createTab('OPF', 'opf', this.currentTab === 'opf');
+        
+        tabContainer.appendChild(loadFlowTab);
+        tabContainer.appendChild(shortCircuitTab);
+        tabContainer.appendChild(opfTab);
+        container.appendChild(tabContainer);
+
+        // Create content area
+        const contentArea = document.createElement('div');
+        Object.assign(contentArea.style, {
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            flex: '1 1 auto',
+            minHeight: '0',
+            scrollbarWidth: 'thin',
+            scrollbarColor: '#c1c1c1 #f1f1f1',
+            paddingRight: '8px'
+        });
+
+        // Create tab content containers
+        const loadFlowContent = this.createTabContent('loadflow', this.loadFlowParameters);
+        const shortCircuitContent = this.createTabContent('shortcircuit', this.shortCircuitParameters);
+        const opfContent = this.createTabContent('opf', this.opfParameters);
+        
+        contentArea.appendChild(loadFlowContent);
+        contentArea.appendChild(shortCircuitContent);
+        contentArea.appendChild(opfContent);
+        container.appendChild(contentArea);
+
+        // Add button container
+        const buttonContainer = document.createElement('div');
+        Object.assign(buttonContainer.style, {
+            display: 'flex',
+            gap: '8px',
+            justifyContent: 'flex-end',
+            marginTop: '16px',
+            paddingTop: '16px',
+            borderTop: '1px solid #e9ecef'
+        });
+
+        const cancelButton = this.createButton('Cancel', '#6c757d', '#5a6268');
+        const applyButton = this.createButton('Apply', '#007bff', '#0056b3');
+        
+        cancelButton.onclick = (e) => {
+            e.preventDefault();
+            this.destroy();
+            if (this.ui && typeof this.ui.hideDialog === 'function') {
+                this.ui.hideDialog();
+            }
+        };
+
+        applyButton.onclick = (e) => {
+            e.preventDefault();
+            const values = this.getFormValues();
+            console.log('Load values:', values);
+            
+            if (this.callback) {
+                this.callback(values);
+            }
+            
+            this.destroy();
+            if (this.ui && typeof this.ui.hideDialog === 'function') {
+                this.ui.hideDialog();
+            }
+        };
+
+        buttonContainer.appendChild(cancelButton);
+        buttonContainer.appendChild(applyButton);
+        container.appendChild(buttonContainer);
+
+        this.container = container;
+        
+        // Tab click handlers
+        loadFlowTab.onclick = () => this.switchTab('loadflow', loadFlowTab, [shortCircuitTab, opfTab], loadFlowContent, [shortCircuitContent, opfContent]);
+        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [loadFlowTab, opfTab], shortCircuitContent, [loadFlowContent, opfContent]);
+        opfTab.onclick = () => this.switchTab('opf', opfTab, [loadFlowTab, shortCircuitTab], opfContent, [loadFlowContent, shortCircuitContent]);
+
+        // Show dialog using DrawIO's dialog system
+        if (this.ui && typeof this.ui.showDialog === 'function') {
+            const screenHeight = window.innerHeight - 80;
+            this.ui.showDialog(container, 1000, screenHeight, true, false);
+        } else {
+            this.showModalFallback(container);
+        }
+    }
+    
+    createTab(title, tabId, isActive) {
+        const tab = document.createElement('div');
+        Object.assign(tab.style, {
+            padding: '12px 20px',
+            cursor: 'pointer',
+            borderBottom: isActive ? '2px solid #007bff' : '2px solid transparent',
+            backgroundColor: isActive ? '#f8f9fa' : 'transparent',
+            color: isActive ? '#007bff' : '#6c757d',
+            fontWeight: isActive ? '600' : '400',
+            transition: 'all 0.2s ease',
+            userSelect: 'none'
+        });
+        tab.textContent = title;
+        tab.dataset.tab = tabId;
+        
+        tab.addEventListener('mouseenter', () => {
+            if (!tab.classList.contains('active')) {
+                tab.style.backgroundColor = '#f8f9fa';
+            }
+        });
+        
+        tab.addEventListener('mouseleave', () => {
+            if (!tab.classList.contains('active')) {
+                tab.style.backgroundColor = 'transparent';
+            }
+        });
+        
+        if (isActive) {
+            tab.classList.add('active');
+        }
+        
+        return tab;
+    }
+    
+    createTabContent(tabId, parameters) {
+        const content = document.createElement('div');
+        content.dataset.tab = tabId;
+        Object.assign(content.style, {
+            display: tabId === this.currentTab ? 'block' : 'none'
+        });
+
+        const form = document.createElement('form');
+        Object.assign(form.style, {
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px'
+        });
+
+        parameters.forEach(param => {
+            const parameterRow = document.createElement('div');
+            Object.assign(parameterRow.style, {
+                display: 'grid',
+                gridTemplateColumns: '1fr 200px',
+                gap: '20px',
+                alignItems: 'start',
+                padding: '16px',
+                backgroundColor: '#f8f9fa',
+                border: '1px solid #e9ecef',
+                borderRadius: '8px',
+                minHeight: '80px'
+            });
+
+            // Left column: Label and description
+            const leftColumn = document.createElement('div');
+            Object.assign(leftColumn.style, {
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                minHeight: '60px'
+            });
+
+            const label = document.createElement('label');
+            Object.assign(label.style, {
+                fontWeight: '600',
+                fontSize: '14px',
+                color: '#495057',
+                marginBottom: '6px',
+                lineHeight: '1.2'
+            });
+            // Include symbol and unit in label if available
+            let labelText = param.label;
+            if (param.symbol) {
+                labelText += ` (${param.symbol})`;
+            }
+            if (param.unit) {
+                labelText += ` [${param.unit}]`;
+            }
+            label.textContent = labelText;
+            label.htmlFor = param.id;
+
+            const description = document.createElement('div');
+            Object.assign(description.style, {
+                fontSize: '12px',
+                color: '#6c757d',
+                lineHeight: '1.4',
+                fontStyle: 'italic',
+                marginBottom: '4px'
+            });
+            description.textContent = param.description;
+
+            leftColumn.appendChild(label);
+            leftColumn.appendChild(description);
+
+            // Right column: Input field with fixed width
+            const rightColumn = document.createElement('div');
+            Object.assign(rightColumn.style, {
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+                minHeight: '60px',
+                width: '200px'
+            });
+            
+            let input;
+            
+            // Handle different input types
+            if (param.type === 'checkbox') {
+                input = document.createElement('input');
+                input.type = 'checkbox';
+                input.checked = param.value;
+                Object.assign(input.style, {
+                    width: '24px',
+                    height: '24px',
+                    accentColor: '#007bff',
+                    cursor: 'pointer',
+                    margin: '0'
+                });
+            } else if (param.type === 'select') {
+                input = document.createElement('select');
+                param.options.forEach(option => {
+                    const optionElement = document.createElement('option');
+                    optionElement.value = option;
+                    optionElement.textContent = option.charAt(0).toUpperCase() + option.slice(1);
+                    if (option === param.value) {
+                        optionElement.selected = true;
+                    }
+                    input.appendChild(optionElement);
+                });
+                Object.assign(input.style, {
+                    width: '180px',
+                    padding: '10px 14px',
+                    border: '2px solid #ced4da',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                    backgroundColor: '#ffffff',
+                    boxSizing: 'border-box',
+                    transition: 'all 0.2s ease',
+                    outline: 'none',
+                    cursor: 'pointer'
+                });
+            } else {
+                input = document.createElement('input');
+                input.type = param.type;
+                input.value = param.value;
+                Object.assign(input.style, {
+                    width: '180px',
+                    padding: '10px 14px',
+                    border: '2px solid #ced4da',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                    backgroundColor: '#ffffff',
+                    boxSizing: 'border-box',
+                    transition: 'all 0.2s ease',
+                    outline: 'none'
+                });
+                
+                input.addEventListener('focus', () => {
+                    input.style.borderColor = '#007bff';
+                    input.style.boxShadow = '0 0 0 3px rgba(0, 123, 255, 0.15)';
+                    input.style.transform = 'translateY(-1px)';
+                });
+                
+                input.addEventListener('blur', () => {
+                    input.style.borderColor = '#ced4da';
+                    input.style.boxShadow = 'none';
+                    input.style.transform = 'translateY(0)';
+                });
+                
+                // Add hover effect
+                input.addEventListener('mouseenter', () => {
+                    if (input !== document.activeElement) {
+                        input.style.borderColor = '#adb5bd';
+                        input.style.backgroundColor = '#f8f9fa';
+                    }
+                });
+                
+                input.addEventListener('mouseleave', () => {
+                    if (input !== document.activeElement) {
+                        input.style.borderColor = '#ced4da';
+                        input.style.backgroundColor = '#ffffff';
+                    }
+                });
+            }
+            
+            // Set additional attributes for number inputs
+            if (param.type === 'number') {
+                if (param.step) input.step = param.step;
+                if (param.min !== undefined) input.min = param.min;
+                if (param.max !== undefined) input.max = param.max;
+            }
+
+            input.id = param.id;
+            this.inputs.set(param.id, input);
+            rightColumn.appendChild(input);
+
+            parameterRow.appendChild(leftColumn);
+            parameterRow.appendChild(rightColumn);
+            form.appendChild(parameterRow);
+        });
+
+        content.appendChild(form);
+        return content;
+    }
+    
+    createButton(text, bgColor, hoverColor) {
+        const button = document.createElement('button');
+        button.textContent = text;
+        Object.assign(button.style, {
+            padding: '8px 16px',
+            backgroundColor: bgColor,
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: '500',
+            transition: 'background-color 0.2s'
+        });
+        
+        button.addEventListener('mouseenter', () => {
+            button.style.backgroundColor = hoverColor;
+        });
+        
+        button.addEventListener('mouseleave', () => {
+            button.style.backgroundColor = bgColor;
+        });
+        
+        return button;
+    }
+    
+    switchTab(tabId, activeTab, inactiveTabs, activeContent, inactiveContents) {
+        this.currentTab = tabId;
+        
+        // Update active tab styles
+        Object.assign(activeTab.style, {
+            borderBottom: '2px solid #007bff',
+            backgroundColor: '#f8f9fa',
+            color: '#007bff',
+            fontWeight: '600'
+        });
+        activeTab.classList.add('active');
+        
+        // Update inactive tab styles
+        inactiveTabs.forEach(inactiveTab => {
+            Object.assign(inactiveTab.style, {
+                borderBottom: '2px solid transparent',
+                backgroundColor: 'transparent',
+                color: '#6c757d',
+                fontWeight: '400'
+            });
+            inactiveTab.classList.remove('active');
+        });
+        
+        // Update content visibility
+        activeContent.style.display = 'block';
+        inactiveContents.forEach(inactiveContent => {
+            inactiveContent.style.display = 'none';
+        });
+    }
+    
+    getFormValues() {
+        const values = {};
+        
+        // Collect all parameter values from all tabs
+        [...this.loadFlowParameters, ...this.shortCircuitParameters, ...this.opfParameters].forEach(param => {
+            const input = this.inputs.get(param.id);
+            if (input) {
+                if (param.type === 'number') {
+                    values[param.id] = parseFloat(input.value) || 0;
+                } else if (param.type === 'checkbox') {
+                    values[param.id] = input.checked;
+                } else if (param.type === 'select') {
+                    values[param.id] = input.value;
+                } else {
+                    values[param.id] = input.value;
+                }
+            }
+        });
+        
+        return values;
+    }
+    
+    destroy() {
+        // Call parent destroy method
+        super.destroy();
+        
+        // Clear global dialog flags to allow future dialogs
+        if (window._globalDialogShowing) {
+            delete window._globalDialogShowing;
+        }
+        
+        console.log('Load dialog destroyed and flags cleared');
+    }
+    
+    populateDialog(cellData) {
+        console.log('=== LoadDialog.populateDialog called ===');
+        console.log('Cell data:', cellData);
+        
+        // Update parameter values based on cell data
+        if (cellData && cellData.attributes) {
+            console.log(`Found ${cellData.attributes.length} attributes to process`);
+            
+            for (let i = 0; i < cellData.attributes.length; i++) {
+                const attribute = cellData.attributes[i];
+                const attributeName = attribute.name;
+                const attributeValue = attribute.value;
+                
+                console.log(`Processing attribute: ${attributeName} = ${attributeValue}`);
+                
+                // Update the dialog's parameter values (not DOM inputs)
+                const loadFlowParam = this.loadFlowParameters.find(p => p.id === attributeName);
+                if (loadFlowParam) {
+                    const oldValue = loadFlowParam.value;
+                    if (loadFlowParam.type === 'checkbox') {
+                        loadFlowParam.value = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        loadFlowParam.value = attributeValue;
+                    }
+                    console.log(`  Updated loadFlow ${attributeName}: ${oldValue} → ${loadFlowParam.value}`);
+                }
+                
+                const shortCircuitParam = this.shortCircuitParameters.find(p => p.id === attributeName);
+                if (shortCircuitParam) {
+                    const oldValue = shortCircuitParam.value;
+                    if (shortCircuitParam.type === 'checkbox') {
+                        shortCircuitParam.value = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        shortCircuitParam.value = attributeValue;
+                    }
+                    console.log(`  Updated shortCircuit ${attributeName}: ${oldValue} → ${shortCircuitParam.value}`);
+                }
+                
+                const opfParam = this.opfParameters.find(p => p.id === attributeName);
+                if (opfParam) {
+                    const oldValue = opfParam.value;
+                    if (opfParam.type === 'checkbox') {
+                        opfParam.value = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        opfParam.value = attributeValue;
+                    }
+                    console.log(`  Updated opf ${attributeName}: ${oldValue} → ${opfParam.value}`);
+                }
+                
+                if (!loadFlowParam && !shortCircuitParam && !opfParam) {
+                    console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
+                }
+            }
+        } else {
+            console.log('No cell data or attributes found');
+        }
+        
+        console.log('=== LoadDialog.populateDialog completed ===');
+    }
+}
+
+// Legacy exports for backward compatibility (maintaining AG-Grid structure for existing code)
+export const rowDefsLoad = [defaultLoadData];
+
+export const columnDefsLoad = [  
+    {
+      field: "name",
+        headerTooltip: "Name of the load",
+        maxWidth: 150
+    },
+    {
+      field: "p_mw",
+      headerTooltip: "The active power of the load",
+        maxWidth: 120,
+        valueParser: 'numberParser'
+    },
+    {
+      field: "q_mvar",
+      headerTooltip: "The reactive power of the load",
+        maxWidth: 120,
+        valueParser: 'numberParser'
+    },
+    {
+      field: "const_z_percent",
+        headerTooltip: "Percentage of p_mw and q_mvar that will be associated to constant impedance load at rated voltage",
+        maxWidth: 140,
+        valueParser: 'numberParser'
+    },
+    {
+      field: "const_i_percent",
+        headerTooltip: "Percentage of p_mw and q_mvar that will be associated to constant current load at rated voltage",
+        maxWidth: 140,
+        valueParser: 'numberParser'
+    },
+    {
+      field: "sn_mva",
+      headerTooltip: "Nominal power of the load",
+      maxWidth: 120,
+        valueParser: 'numberParser'
+    },
+    {
+      field: "scaling",
+        headerTooltip: "An OPTIONAL scaling factor to be set customly. Multiplies with p_mw and q_mvar.",
+        maxWidth: 140,
+        valueParser: 'numberParser'
+    },
+    {
+      field: "type",
+        headerTooltip: "Type variable to classify the load: wye/delta",
+        maxWidth: 100
+    },
+    {
+        field: "in_service",
+        headerTooltip: "Specifies if the load is in service (True/False)",
+        maxWidth: 100
+    }
+  ];
+  
+export const gridOptionsLoad = {
+    columnDefs: columnDefsLoad,
+    defaultColDef: {  
+        minWidth: 100,
+        editable: true,
+    },
+    rowData: rowDefsLoad,
+    singleClickEdit: true,
+    stopEditingWhenGridLosesFocus: true
+  };     
+
+// Make all necessary variables globally available
+globalThis.gridOptionsLoad = gridOptionsLoad;
+globalThis.rowDefsLoad = rowDefsLoad;
+globalThis.columnDefsLoad = columnDefsLoad;
+globalThis.LoadDialog = LoadDialog;
+  
+  
+  
+  

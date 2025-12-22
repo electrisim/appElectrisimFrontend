@@ -10,6 +10,8 @@ window.ComponentsDataDialog = ComponentsDataDialog;
 window.LoadFlowDialog = LoadFlowDialog;
 window.OpenDSSLoadFlowDialog = OpenDSSLoadFlowDialog;
 
+// are loaded as standalone modules and make themselves available globally
+
         // Wait for all dependencies to be ready
         function waitForApp(callback) {
             if (typeof EditorUi === 'undefined' || 

@@ -1,1 +1,706 @@
-const getConnectedBusId=(e,o=!1)=>{if(o)return{busFrom:e.source?.mxObjectId?.replace("#","_"),busTo:e.target?.mxObjectId?.replace("#","_")};const n=e.edges[0];if(!n)return null;if(!n.target&&!n.source)return null;const t=n.target&&n.target.mxObjectId!==e.mxObjectId?n.target?n.target.mxObjectId:null:n.source?n.source.mxObjectId:null;return t?t.replace("#","_"):null},getAttributesAsObject=(e,o)=>{const n={};if(!e||!e.value||!e.value.attributes)return console.warn("Cell is missing required properties"),n;const t=e.value.attributes;for(const[e,a]of Object.entries(o)){const o="object"==typeof a&&a.optional,i="object"==typeof a?a.name:a;let r=!1;for(let o=0;o<t.length;o++)if(t[o].nodeName===i){n[e]=t[o].nodeValue,r=!0;break}r||o?!r&&o&&("parallel"===e?(console.log(`⚠ ${e} not found, using default value: 1`),n[e]="1"):"df"===e?(console.log(`⚠ ${e} not found, using default value: 1.0`),n[e]="1.0"):"vector_group"===e?(console.log(`⚠ ${e} not found, using default value: Dyn11`),n[e]="Dyn11"):("vk0_percent"===e||"vkr0_percent"===e||"mag0_percent"===e||"si0_hv_partial"===e)&&(console.log(`⚠ ${e} not found, using default value: 0.0`),n[e]="0.0")):(console.warn(`Missing required attribute ${e} with name ${i}`),n[e]=null)}return n},e="Generator",o="Load",n="Line";function optimalPowerFlowPandaPower(t,a,i){const r={externalGrid:0,generator:0,busbar:0,load:0,line:0},l={simulationParameters:[],externalGrid:[],generator:[],busbar:[],load:[],line:[]},s=a.getModel.bind(a)(),d=s.getDescendants();let c=t;if(a.isEnabled()&&!a.isCellLocked(a.getDefaultParent())){function tryCreateDialog(){let a=null;"undefined"!=typeof window&&window.OptimalPowerFlowDialog?a=window.OptimalPowerFlowDialog:"undefined"!=typeof globalThis&&globalThis.OptimalPowerFlowDialog&&(a=globalThis.OptimalPowerFlowDialog),a?new a(t).show(function(t,a){globalThis.opfRunCount||(globalThis.opfRunCount=0),globalThis.opfRunCount++;const i=globalThis.opfRunCount,p=performance.now();console.log(`=== OPTIMAL POWER FLOW SIMULATION #${i} STARTED ===`),new Map;const u=new Map,m=new Map,w=new Map;if(console.log("Starting fresh simulation with clean caches"),c.spinner.spin(document.body,"Waiting for optimal power flow results..."),parseFloat(t[13]),parseFloat(t[14]),t.length>0){function getUserEmail(){try{const e=localStorage.getItem("user");if(e){const o=JSON.parse(e);if(o&&o.email)return o.email}if("function"==typeof getCurrentUser){const e=getCurrentUser();if(e&&e.email)return e.email}if(window.getCurrentUser&&"function"==typeof window.getCurrentUser){const e=window.getCurrentUser();if(e&&e.email)return e.email}if(window.authHandler&&window.authHandler.getCurrentUser){const e=window.authHandler.getCurrentUser();if(e&&e.email)return e.email}return"unknown@user.com"}catch(e){return console.warn("Error getting user email:",e),"unknown@user.com"}}const g=getUserEmail();console.log("Optimal Power Flow - User email:",g),l.simulationParameters.push({typ:"OptimalPowerFlowPandaPower Parameters",opf_type:t[0],frequency:t[1],ac_algorithm:t[2],dc_algorithm:t[3],calculate_voltage_angles:t[4],init:t[5],delta:t[6],trafo_model:t[7],trafo_loading:t[8],ac_line_model:t[9],numba:t[10],suppress_warnings:t[11],cost_function:t[12],user_email:g});const _=performance.now();console.log(`Processing ${d.length} cells...`);const f=[],v=[];d.forEach(e=>{if(e.getStyle()?.includes("Result"))return void f.push(e);const o=e.getValue();if(o&&"string"==typeof o){const n=o.toLowerCase();if(n.includes("u[pu]")&&n.includes("p[mw]")||n.includes("u[degree]")&&n.includes("q[mvar]")||n.includes("pf:")||n.includes("q/p:")||n.includes("loading[%]")||n.includes("i_hv[ka]")||n.includes("i_mv[ka]")||n.includes("i_lv[ka]")||n.includes("i_from[ka]")||n.includes("i_to[ka]")||n.includes("pl[mw]")||n.includes("vm[pu]")||n.includes("va[degree]")||n.includes("um[pu]")||n.includes("p[mw]:")||n.includes("q[mvar]:")||n.includes("q_mvar:")||n.includes("vm_internal_pu:")||n.includes("va_internal_degree:")||n.includes("vm_pu:")||n.includes("va_degree:")||n.includes("firing angle[degree]:")||n.includes("x[ohm]:")||n.includes("q[mvar]:")||n.includes("p_from[mw]:")||n.includes("q_from[mvar]:")||n.includes("p_to[mw]:")||n.includes("q_to[mvar]:")||n.includes("p_l[mw]:")||n.includes("q_l[mvar]:")||n.includes("vm_from[pu]:")||n.includes("va_from[degree]:")||n.includes("vm_to[pu]:")||n.includes("va_to[degree]:")||n.includes("p_a[mw]:")||n.includes("q_a[mvar]:")||n.includes("p_b[mw]:")||n.includes("q_b[mvar]:")||n.includes("p_c[mw]:")||n.includes("q_c[mvar]:")||n.includes("pl[mw]:")||n.includes("ql[mvar]:")||n.includes("ikss[ka]")||n.includes("ip[ka]")||n.includes("ith[ka]")||n.includes("rk[ohm]")||n.includes("xk[ohm]"))return void f.push(e)}const n=(e=>{if(!e)return null;const o=e.split(";").map(e=>e.split("="));return Object.fromEntries(o)})(e.getStyle());if(!n)return;const t=n.shapeELXXX;t&&"NotEditableLine"!=t&&v.push({cell:e,style:n,componentType:t})});let h=0;const y=performance.now();if(f.length>0){console.log(`Removing ${f.length} result cells from previous simulation...`);try{s.beginUpdate(),f.forEach(e=>{const o=s.getCell(e.id);o&&(s.remove(o),h++)})}finally{s.endUpdate()}console.log(`Successfully removed ${h} result cells`)}else console.log("No result cells to remove (first run or already clean)");const b=performance.now()-y,x=performance.now()-_;console.log(`Cell processing: ${x.toFixed(2)}ms (removed ${h} result cells in ${b.toFixed(2)}ms, found ${v.length} valid cells)`);const k=performance.now();let P=0;v.forEach(({cell:t,style:i,componentType:s})=>{P++;let d,c=t.mxObjectId.replace("#","_");try{if("Bus"===s&&window.gridOptionsBus&&window.gridOptionsBus.api){const e=window.gridOptionsBus.api.getRenderedNodes();if(e&&e.length>0){const o=e.find(e=>e.data&&e.data.id===t.id);o&&o.data&&o.data.name&&(c=o.data.name)}}else if(s===o&&window.gridOptionsLoad&&window.gridOptionsLoad.api){const e=window.gridOptionsLoad.api.getRenderedNodes();if(e&&e.length>0){const o=e.find(e=>e.data&&e.data.id===t.id);o&&o.data&&o.data.name&&(c=o.data.name)}}else if(s===e&&window.gridOptionsGenerator&&window.gridOptionsGenerator.api){const e=window.gridOptionsGenerator.api.getRenderedNodes();if(e&&e.length>0){const o=e.find(e=>e.data&&e.data.id===t.id);o&&o.data&&o.data.name&&(c=o.data.name)}}else if(s===n&&window.gridOptionsLineDialog&&window.gridOptionsLineDialog.api){const e=window.gridOptionsLineDialog.api.getRenderedNodes();if(e&&e.length>0){const o=e.find(e=>e.data&&e.data.id===t.id);o&&o.data&&o.data.name&&(c=o.data.name)}}}catch(e){console.warn("Could not get user-friendly name for",s,t.id,e)}switch(d="Line"===s||"DCLine"===s?{name:t.mxObjectId.replace("#","_"),userFriendlyName:c,id:t.id,bus:getConnectedBusId(t,!0)}:{name:t.mxObjectId.replace("#","_"),userFriendlyName:c,id:t.id,bus:getConnectedBusId(t)},s){case"External Grid":const i={...d,typ:"External Grid"+r.externalGrid++,...getAttributesAsObject(t,{vm_pu:"vm_pu",va_degree:"va_degree",s_sc_max_mva:"s_sc_max_mva",s_sc_min_mva:"s_sc_min_mva",rx_max:"rx_max",rx_min:"rx_min",r0x0_max:"r0x0_max",x0x_max:"x0x_max"})};l.externalGrid.push(i);break;case e:const s=parseFloat(getAttributesAsObject(t,{p_mw:"p_mw"}).p_mw)||10,c={...d,typ:"Generator",...getAttributesAsObject(t,{p_mw:"p_mw",vm_pu:"vm_pu",sn_mva:"sn_mva",scaling:"scaling",vn_kv:"vn_kv",xdss_pu:"xdss_pu",rdss_ohm:"rdss_ohm",cos_phi:"cos_phi",pg_percent:"pg_percent",power_station_trafo:"power_station_trafo"}),min_p_mw:a[t.id]?.min??0,max_p_mw:a[t.id]?.max??s};l.generator.push(c),r.generator++;break;case"Bus":const p={typ:"Bus"+r.busbar++,name:t.mxObjectId.replace("#","_"),id:t.id,vn_kv:t.value.attributes[2].nodeValue};l.busbar.push(p);break;case o:const u={typ:"Load"+r.load++,name:t.mxObjectId.replace("#","_"),id:t.id,bus:getConnectedBusId(t),...getAttributesAsObject(t,{p_mw:"p_mw",q_mvar:"q_mvar",const_z_percent:"const_z_percent",const_i_percent:"const_i_percent",sn_mva:"sn_mva",scaling:"scaling",type:"type"})};l.load.push(u);break;case n:const m={typ:"Line"+r.line++,name:t.mxObjectId.replace("#","_"),id:t.id,busFrom:t.source?.mxObjectId?.replace("#","_"),busTo:t.target?.mxObjectId?.replace("#","_"),...getAttributesAsObject(t,{length_km:"length_km",parallel:"parallel",df:"df",r_ohm_per_km:"r_ohm_per_km",x_ohm_per_km:"x_ohm_per_km",c_nf_per_km:"c_nf_per_km",g_us_per_km:"g_us_per_km",max_i_ka:"max_i_ka",type:"type"})};l.line.push(m)}});const O=performance.now()-k;console.log(`Component processing: ${O.toFixed(2)}ms (${P} components)`);const F=[...l.simulationParameters,...l.externalGrid,...l.generator,...l.busbar,...l.load,...l.line],C=Object.assign({},F);console.log("OPF Data:",JSON.stringify(C));const D=performance.now()-p;console.log("=== OPF PERFORMANCE SUMMARY ==="),console.log(`Run #${i} - Total processing: ${D.toFixed(2)}ms`),console.log(`Components processed: ${P}`),console.log(`Result cells removed: ${h}`),console.log(`Simulation completed. Cache sizes - cells: ${u.size}, names: ${m.size}, attributes: ${w.size}`),u.clear(),m.clear(),w.clear(),console.log("Caches cleared for next simulation"),processNetworkData("https://03dht3kc-5000.euw.devtunnels.ms/",C)}}):setTimeout(tryCreateDialog,100)}tryCreateDialog()}}async function processNetworkData(e,o,n,t){try{const n=await fetch(e,{mode:"cors",method:"post",headers:{"Content-Type":"application/json"},body:JSON.stringify(o)});if(200!==n.status)throw new Error("server");const t=await n.json();if(console.log("OPF Results:",t),t.error&&t.diagnostic)return console.log("Optimal Power Flow failed with diagnostic information:",t),void(window.DiagnosticReportDialog?new window.DiagnosticReportDialog(t.diagnostic).show():alert(`Optimal Power Flow calculation failed: ${t.message}\n\nException: ${t.exception}`));if(t.error)return void alert("Optimal Power Flow Error: "+t.error);window.OptimalPowerFlowResultsDialog?new window.OptimalPowerFlowResultsDialog(t).show():alert("OPF completed. Results dialog not available."),console.log("Optimal Power Flow completed successfully"),setTimeout(()=>{try{"undefined"!=typeof apka&&apka.spinner&&apka.spinner.stop(),"undefined"!=typeof window&&window.apka&&window.apka.spinner&&window.apka.spinner.stop(),document.querySelectorAll('.spinner, [class*="spinner"]').forEach(e=>{"none"!==e.style.display&&(e.style.display="none",e.remove())}),document.querySelectorAll("div, span, p").forEach(e=>{e.textContent&&e.textContent.includes("Waiting for optimal power flow results")&&(e.style.display="none",e.remove())}),"undefined"!=typeof apka&&apka.editor&&apka.editor.setStatus&&apka.editor.setStatus("")}catch(e){console.warn("Timeout spinner stop failed:",e)}},100)}catch(e){if("server"===e.message)return;console.error("Error processing OPF data:",e)}finally{try{"undefined"!=typeof apka&&apka.spinner&&apka.spinner.stop(),"undefined"!=typeof window&&window.apka&&window.apka.spinner&&window.apka.spinner.stop(),document.querySelectorAll('.spinner, [class*="spinner"]').forEach(e=>{"none"!==e.style.display&&(e.style.display="none",e.remove())}),document.querySelectorAll("div, span, p").forEach(e=>{e.textContent&&e.textContent.includes("Waiting for optimal power flow results")&&(e.style.display="none",e.remove())}),"undefined"!=typeof apka&&apka.editor&&apka.editor.setStatus&&apka.editor.setStatus("")}catch(e){console.warn("Could not stop spinner:",e)}}}if("undefined"!=typeof globalThis?globalThis.optimalPowerFlowPandaPower=optimalPowerFlowPandaPower:"undefined"!=typeof window&&(window.optimalPowerFlowPandaPower=optimalPowerFlowPandaPower),"undefined"!=typeof module&&module.exports)module.exports={optimalPowerFlowPandaPower:optimalPowerFlowPandaPower};else if("object"==typeof exports)try{exports.optimalPowerFlowPandaPower=optimalPowerFlowPandaPower}catch(e){}
+// Dependencies will be resolved from global scope when needed
+import ENV from './config/environment.js';
+
+//define buses to which the cell is connected
+const getConnectedBusId = (cell, isLine = false) => {
+    if (isLine) {                 
+        return {            
+            busFrom: cell.source?.mxObjectId?.replace('#', '_'),
+            busTo: cell.target?.mxObjectId?.replace('#', '_')
+        };            
+    }
+    const edge = cell.edges[0];
+    if (!edge) {
+        return null;
+    }
+
+    if (!edge.target && !edge.source) {
+        return null;
+    }
+
+    const bus = edge.target && edge.target.mxObjectId !== cell.mxObjectId ?
+        (edge.target ? edge.target.mxObjectId : null) : 
+        (edge.source ? edge.source.mxObjectId : null);
+
+    return bus ? bus.replace('#', '_') : null;
+};
+
+// Helper function to parse cell style
+const parseCellStyle = (style) => {
+    if (!style) return null;
+    const pairs = style.split(';').map(pair => pair.split('='));
+    return Object.fromEntries(pairs);
+};
+
+// Helper function to get attributes as object
+const getAttributesAsObject = (cell, attributeMap) => {
+    const result = {};
+    if (!cell || !cell.value || !cell.value.attributes) {
+        console.warn('Cell is missing required properties');
+        return result;
+    }
+
+    const attributes = cell.value.attributes;
+
+    for (const [key, config] of Object.entries(attributeMap)) {
+        const isOptional = typeof config === 'object' && config.optional;
+        const attributeName = typeof config === 'object' ? config.name : config;
+
+        let found = false;
+        for (let i = 0; i < attributes.length; i++) {
+            if (attributes[i].nodeName === attributeName) {
+                result[key] = attributes[i].nodeValue;
+                found = true;
+                break;
+            }
+        }
+
+        if (!found && !isOptional) {
+            console.warn(`Missing required attribute ${key} with name ${attributeName}`);
+            result[key] = null;
+        } else if (!found && isOptional) {
+            // For optional parameters, include them with default values if not found
+            if (key === 'parallel') {
+                console.log(`⚠ ${key} not found, using default value: 1`);
+                result[key] = '1';  // Default parallel lines/transformers
+            } else if (key === 'df') {
+                console.log(`⚠ ${key} not found, using default value: 1.0`);
+                result[key] = '1.0';  // Default derating factor
+            } else if (key === 'vector_group') {
+                console.log(`⚠ ${key} not found, using default value: Dyn11`);
+                result[key] = 'Dyn11';  // Default vector group
+            } else if (key === 'vk0_percent') {
+                console.log(`⚠ ${key} not found, using default value: 0.0`);
+                result[key] = '0.0';  // Will be set to vk_percent in backend if needed
+            } else if (key === 'vkr0_percent') {
+                console.log(`⚠ ${key} not found, using default value: 0.0`);
+                result[key] = '0.0';  // Will be set to vkr_percent in backend if needed
+            } else if (key === 'mag0_percent') {
+                console.log(`⚠ ${key} not found, using default value: 0.0`);
+                result[key] = '0.0';  // Default zero sequence magnetizing current
+            } else if (key === 'si0_hv_partial') {
+                console.log(`⚠ ${key} not found, using default value: 0.0`);
+                result[key] = '0.0';  // Default zero sequence partial current
+            }
+            // Note: Other optional parameters can be left undefined as they truly are optional
+        }
+    }
+
+    return result;
+};
+
+// Define component types as constants
+const COMPONENT_TYPES = {
+    EXTERNAL_GRID: 'External Grid',
+    GENERATOR: 'Generator',
+    BUS: 'Bus',
+    LOAD: 'Load',
+    LINE: 'Line'
+};
+
+function optimalPowerFlowPandaPower(a, b, c) {
+    // Create counters and arrays for different components
+    const counters = {
+        externalGrid: 0,
+        generator: 0,
+        busbar: 0,
+        load: 0,
+        line: 0
+    };
+
+    const componentArrays = {
+        simulationParameters: [],
+        externalGrid: [],
+        generator: [],
+        busbar: [],
+        load: [],
+        line: []
+    };    
+
+    // Cache commonly used functions and values
+    const getModel = b.getModel.bind(b);
+    const model = getModel();
+    const cellsArray = model.getDescendants();   
+
+    let apka = a;
+    let grafka = b;
+
+    if (b.isEnabled() && !b.isCellLocked(b.getDefaultParent())) {
+        // Try to create dialog when ready
+        function tryCreateDialog() {
+            let DialogClass = null;
+            
+            if (typeof window !== 'undefined' && window.OptimalPowerFlowDialog) {
+                DialogClass = window.OptimalPowerFlowDialog;
+            } else if (typeof globalThis !== 'undefined' && globalThis.OptimalPowerFlowDialog) {
+                DialogClass = globalThis.OptimalPowerFlowDialog;
+            }
+            
+            if (!DialogClass) {
+                setTimeout(tryCreateDialog, 100);
+                return;
+            }
+            
+            const dialog = new DialogClass(a);
+            dialog.show(function (params, perGenLimits) {
+                
+                // Global simulation counter for performance tracking
+                if (!globalThis.opfRunCount) {
+                    globalThis.opfRunCount = 0;
+                }
+                globalThis.opfRunCount++;
+                const runNumber = globalThis.opfRunCount;
+                const startTime = performance.now();
+                console.log(`=== OPTIMAL POWER FLOW SIMULATION #${runNumber} STARTED ===`);
+                
+                // Initialize performance optimization caches
+                const modelCache = new Map();
+                const cellCache = new Map();
+                const nameCache = new Map();
+                const attributeCache = new Map();
+                console.log('Starting fresh simulation with clean caches');
+                
+                apka.spinner.spin(document.body, "Waiting for optimal power flow results...");
+
+                // Extract min/max from params (find their indices)
+                // Assuming min_p_mw is at index 13, max_p_mw at index 14
+                const min_p_mw_user = parseFloat(params[13]);
+                const max_p_mw_user = parseFloat(params[14]);
+
+                if (params.length > 0) {
+                    // Get current user email with robust fallback
+                    function getUserEmail() {
+                        try {
+                            // First try: direct localStorage access (most reliable)
+                            const userStr = localStorage.getItem('user');
+                            if (userStr) {
+                                const user = JSON.parse(userStr);
+                                if (user && user.email) {
+                                    return user.email;
+                                }
+                            }
+                            
+                            // Second try: global getCurrentUser function
+                            if (typeof getCurrentUser === 'function') {
+                                const currentUser = getCurrentUser();
+                                if (currentUser && currentUser.email) {
+                                    return currentUser.email;
+                                }
+                            }
+                            
+                            // Third try: window.getCurrentUser
+                            if (window.getCurrentUser && typeof window.getCurrentUser === 'function') {
+                                const currentUser = window.getCurrentUser();
+                                if (currentUser && currentUser.email) {
+                                    return currentUser.email;
+                                }
+                            }
+                            
+                            // Fourth try: authHandler
+                            if (window.authHandler && window.authHandler.getCurrentUser) {
+                                const currentUser = window.authHandler.getCurrentUser();
+                                if (currentUser && currentUser.email) {
+                                    return currentUser.email;
+                                }
+                            }
+                            
+                            // Fallback
+                            return 'unknown@user.com';
+                        } catch (error) {
+                            console.warn('Error getting user email:', error);
+                            return 'unknown@user.com';
+                        }
+                    }
+                    
+                    const userEmail = getUserEmail();
+                    console.log('Optimal Power Flow - User email:', userEmail); // Debug log
+                    
+                    componentArrays.simulationParameters.push({
+                        typ: "OptimalPowerFlowPandaPower Parameters",
+                        opf_type: params[0],
+                        frequency: params[1],
+                        ac_algorithm: params[2],
+                        dc_algorithm: params[3],
+                        calculate_voltage_angles: params[4],
+                        init: params[5],
+                        delta: params[6],
+                        trafo_model: params[7],
+                        trafo_loading: params[8],
+                        ac_line_model: params[9],
+                        numba: params[10],
+                        suppress_warnings: params[11],
+                        cost_function: params[12],
+                        user_email: userEmail  // Add user email to simulation data
+                    });
+
+                        // Process cells with performance optimization
+                        const cellProcessingStart = performance.now();
+                        console.log(`Processing ${cellsArray.length} cells...`);
+                        
+                        // First pass: collect result cells to remove and valid cells to process
+                        const resultCellsToRemove = [];
+                        const validCells = [];
+                        
+                        cellsArray.forEach(cell => {
+                            // Style-based detection (for properly tagged results)
+                            if (cell.getStyle()?.includes("Result")) {
+                                resultCellsToRemove.push(cell);
+                                return;
+                            }
+                            
+                            // Content-based detection (for result labels that might have lost their style)
+                            const value = cell.getValue();
+                            if (value && typeof value === 'string') {
+                                const lowerValue = value.toLowerCase();
+                                if (// Load flow patterns
+                                    (lowerValue.includes('u[pu]') && lowerValue.includes('p[mw]')) ||
+                                    (lowerValue.includes('u[degree]') && lowerValue.includes('q[mvar]')) ||
+                                    lowerValue.includes('pf:') ||
+                                    lowerValue.includes('q/p:') ||
+                                    lowerValue.includes('loading[%]') ||
+                                    lowerValue.includes('i_hv[ka]') ||
+                                    lowerValue.includes('i_mv[ka]') ||
+                                    lowerValue.includes('i_lv[ka]') ||
+                                    lowerValue.includes('i_from[ka]') ||
+                                    lowerValue.includes('i_to[ka]') ||
+                                    lowerValue.includes('pl[mw]') ||
+                                    lowerValue.includes('vm[pu]') ||
+                                    lowerValue.includes('va[degree]') ||
+                                    lowerValue.includes('um[pu]') ||
+                                    // Static Generator and other component standalone patterns
+                                    lowerValue.includes('p[mw]:') ||
+                                    lowerValue.includes('q[mvar]:') ||
+                                    // SSC specific patterns
+                                    lowerValue.includes('q_mvar:') ||
+                                    lowerValue.includes('vm_internal_pu:') ||
+                                    lowerValue.includes('va_internal_degree:') ||
+                                    lowerValue.includes('vm_pu:') ||
+                                    lowerValue.includes('va_degree:') ||
+                                    // TCSC and SVC patterns
+                                    lowerValue.includes('firing angle[degree]:') ||
+                                    lowerValue.includes('x[ohm]:') ||
+                                    lowerValue.includes('q[mvar]:') ||
+                                    lowerValue.includes('p_from[mw]:') ||
+                                    lowerValue.includes('q_from[mvar]:') ||
+                                    lowerValue.includes('p_to[mw]:') ||
+                                    lowerValue.includes('q_to[mvar]:') ||
+                                    lowerValue.includes('p_l[mw]:') ||
+                                    lowerValue.includes('q_l[mvar]:') ||
+                                    lowerValue.includes('vm_from[pu]:') ||
+                                    lowerValue.includes('va_from[degree]:') ||
+                                    lowerValue.includes('vm_to[pu]:') ||
+                                    lowerValue.includes('va_to[degree]:') ||
+                                    // Asymmetric patterns
+                                    lowerValue.includes('p_a[mw]:') ||
+                                    lowerValue.includes('q_a[mvar]:') ||
+                                    lowerValue.includes('p_b[mw]:') ||
+                                    lowerValue.includes('q_b[mvar]:') ||
+                                    lowerValue.includes('p_c[mw]:') ||
+                                    lowerValue.includes('q_c[mvar]:') ||
+                                    // Impedance patterns
+                                    lowerValue.includes('pl[mw]:') ||
+                                    lowerValue.includes('ql[mvar]:') ||
+                                    // Short circuit patterns (in case they remain)
+                                    lowerValue.includes('ikss[ka]') || 
+                                    lowerValue.includes('ip[ka]') || 
+                                    lowerValue.includes('ith[ka]') ||
+                                    lowerValue.includes('rk[ohm]') ||
+                                    lowerValue.includes('xk[ohm]')) {
+                                    resultCellsToRemove.push(cell);
+                                    return;
+                                }
+                            }
+
+                            const style = parseCellStyle(cell.getStyle());
+                            if (!style) return;
+
+                            const componentType = style.shapeELXXX;
+                            if (!componentType || componentType == 'NotEditableLine') return;
+                            
+                            validCells.push({ cell, style, componentType });
+                        });
+                        
+                        // Batch remove result cells for better performance
+                        let resultCellsRemoved = 0;
+                        const removalStart = performance.now();
+                        
+                        if (resultCellsToRemove.length > 0) {
+                            console.log(`Removing ${resultCellsToRemove.length} result cells from previous simulation...`);
+                            try {
+                                model.beginUpdate();
+                                resultCellsToRemove.forEach(cell => {
+                                    const cellToRemove = model.getCell(cell.id);
+                                    if (cellToRemove) {
+                                        model.remove(cellToRemove);
+                                        resultCellsRemoved++;
+                                    }
+                                });
+                            } finally {
+                                model.endUpdate();
+                            }
+                            console.log(`Successfully removed ${resultCellsRemoved} result cells`);
+                        } else {
+                            console.log('No result cells to remove (first run or already clean)');
+                        }
+                        
+                        const removalTime = performance.now() - removalStart;
+                        const cellProcessingTime = performance.now() - cellProcessingStart;
+                        console.log(`Cell processing: ${cellProcessingTime.toFixed(2)}ms (removed ${resultCellsRemoved} result cells in ${removalTime.toFixed(2)}ms, found ${validCells.length} valid cells)`);
+
+                        // Process valid cells with optimized processing
+                        const componentProcessingStart = performance.now();
+                        let processedComponents = 0;
+                        
+                        validCells.forEach(({ cell, style, componentType }) => {
+                            processedComponents++;
+
+                            // Get user-friendly name from grid data if available
+                            let userFriendlyName = cell.mxObjectId.replace('#', '_'); // fallback to technical ID
+                            
+                            // Try to get the actual user-friendly name from the grid
+                            try {
+                                // For buses, check busDialog grid
+                                if (componentType === COMPONENT_TYPES.BUS && window.gridOptionsBus && window.gridOptionsBus.api) {
+                                    const busData = window.gridOptionsBus.api.getRenderedNodes();
+                                    if (busData && busData.length > 0) {
+                                        // Find matching bus by technical ID
+                                        const matchingBus = busData.find(node => node.data && node.data.id === cell.id);
+                                        if (matchingBus && matchingBus.data && matchingBus.data.name) {
+                                            userFriendlyName = matchingBus.data.name;
+                                        }
+                                    }
+                                }
+                                // For loads, check loadDialog grid
+                                else if (componentType === COMPONENT_TYPES.LOAD && window.gridOptionsLoad && window.gridOptionsLoad.api) {
+                                    const loadData = window.gridOptionsLoad.api.getRenderedNodes();
+                                    if (loadData && loadData.length > 0) {
+                                        const matchingLoad = loadData.find(node => node.data && node.data.id === cell.id);
+                                        if (matchingLoad && matchingLoad.data && matchingLoad.data.name) {
+                                            userFriendlyName = matchingLoad.data.name;
+                                        }
+                                    }
+                                }
+                                // For generators, check generatorDialog grid
+                                else if (componentType === COMPONENT_TYPES.GENERATOR && window.gridOptionsGenerator && window.gridOptionsGenerator.api) {
+                                    const genData = window.gridOptionsGenerator.api.getRenderedNodes();
+                                    if (genData && genData.length > 0) {
+                                        const matchingGen = genData.find(node => node.data && node.data.id === cell.id);
+                                        if (matchingGen && matchingGen.data && matchingGen.data.name) {
+                                            userFriendlyName = matchingGen.data.name;
+                                        }
+                                    }
+                                }
+                                // For lines, check lineDialog grid
+                                else if (componentType === COMPONENT_TYPES.LINE && window.gridOptionsLineDialog && window.gridOptionsLineDialog.api) {
+                                    const lineData = window.gridOptionsLineDialog.api.getRenderedNodes();
+                                    if (lineData && lineData.length > 0) {
+                                        const matchingLine = lineData.find(node => node.data && node.data.id === cell.id);
+                                        if (matchingLine && matchingLine.data && matchingLine.data.name) {
+                                            userFriendlyName = matchingLine.data.name;
+                                        }
+                                    }
+                                }
+                            } catch (error) {
+                                console.warn('Could not get user-friendly name for', componentType, cell.id, error);
+                            }
+                            
+                            let baseData;
+                            if(componentType === 'Line' || componentType === 'DCLine'){
+                                baseData = {
+                                    name: cell.mxObjectId.replace('#', '_'), // technical ID
+                                    userFriendlyName: userFriendlyName, // user-friendly name
+                                    id: cell.id,
+                                    bus: getConnectedBusId(cell, true)
+                                };
+                            } else {
+                                baseData = {
+                                    name: cell.mxObjectId.replace('#', '_'), // technical ID
+                                    userFriendlyName: userFriendlyName, // user-friendly name
+                                    id: cell.id,
+                                    bus: getConnectedBusId(cell)
+                                };
+                            }
+
+                            // Process basic component types
+                            switch (componentType) {
+                                case COMPONENT_TYPES.EXTERNAL_GRID:
+                                    const externalGrid = {
+                                        ...baseData,
+                                        typ: `External Grid${counters.externalGrid++}`,
+                                        ...getAttributesAsObject(cell, {                                
+                                            vm_pu: 'vm_pu',
+                                            va_degree: 'va_degree',
+                                            s_sc_max_mva: 's_sc_max_mva',
+                                            s_sc_min_mva: 's_sc_min_mva',
+                                            rx_max: 'rx_max',
+                                            rx_min: 'rx_min',
+                                            r0x0_max: 'r0x0_max',
+                                            x0x_max: 'x0x_max'
+                                        })
+                                    };
+                                    componentArrays.externalGrid.push(externalGrid);
+                                    break;
+
+                                case COMPONENT_TYPES.GENERATOR:
+                                    const p_mw_val = parseFloat(getAttributesAsObject(cell, {p_mw: 'p_mw'}).p_mw) || 10;
+                                    const generator = {
+                                        ...baseData,
+                                        typ: "Generator",
+                                        ...getAttributesAsObject(cell, {
+                                            p_mw: 'p_mw',
+                                            vm_pu: 'vm_pu',
+                                            sn_mva: 'sn_mva',
+                                            scaling: 'scaling',
+                                            vn_kv: 'vn_kv',
+                                            xdss_pu: 'xdss_pu',
+                                            rdss_ohm: 'rdss_ohm',
+                                            cos_phi: 'cos_phi',
+                                            pg_percent: 'pg_percent',
+                                            power_station_trafo: 'power_station_trafo'
+                                        }),
+                                        min_p_mw: perGenLimits[cell.id]?.min ?? 0,
+                                        max_p_mw: perGenLimits[cell.id]?.max ?? p_mw_val
+                                    };
+                                    componentArrays.generator.push(generator);
+                                    counters.generator++;
+                                    break;
+
+                                case COMPONENT_TYPES.BUS:
+                                    const busbar = {
+                                        typ: `Bus${counters.busbar++}`,
+                                        name: cell.mxObjectId.replace('#', '_'),
+                                        id: cell.id,
+                                        vn_kv: cell.value.attributes[2].nodeValue
+                                    };
+                                    componentArrays.busbar.push(busbar);
+                                    break;
+
+                                case COMPONENT_TYPES.LOAD:
+                                    const load = {
+                                        typ: `Load${counters.load++}`,
+                                        name: cell.mxObjectId.replace('#', '_'),
+                                        id: cell.id,
+                                        bus: getConnectedBusId(cell),
+                                        ...getAttributesAsObject(cell, {
+                                            p_mw: 'p_mw',
+                                            q_mvar: 'q_mvar',
+                                            const_z_percent: 'const_z_percent',
+                                            const_i_percent: 'const_i_percent',
+                                            sn_mva: 'sn_mva',
+                                            scaling: 'scaling',
+                                            type: 'type'
+                                        })
+                                    };
+                                    componentArrays.load.push(load);
+                                    break;
+
+                                case COMPONENT_TYPES.LINE:
+                                    const line = {
+                                        typ: `Line${counters.line++}`,
+                                        name: cell.mxObjectId.replace('#', '_'),
+                                        id: cell.id,
+                                        busFrom: cell.source?.mxObjectId?.replace('#', '_'),
+                                        busTo: cell.target?.mxObjectId?.replace('#', '_'),
+                                        ...getAttributesAsObject(cell, {
+                                            length_km: 'length_km',
+                                            parallel: 'parallel',
+                                            df: 'df',
+                                            r_ohm_per_km: 'r_ohm_per_km',
+                                            x_ohm_per_km: 'x_ohm_per_km',
+                                            c_nf_per_km: 'c_nf_per_km',
+                                            g_us_per_km: 'g_us_per_km',
+                                            max_i_ka: 'max_i_ka',
+                                            type: 'type'
+                                        })
+                                    };
+                                    componentArrays.line.push(line);
+                                    break;
+                            }
+                        });
+                        
+                        const componentProcessingTime = performance.now() - componentProcessingStart;
+                        console.log(`Component processing: ${componentProcessingTime.toFixed(2)}ms (${processedComponents} components)`);
+
+                        // Combine all arrays
+                        const array = [
+                            ...componentArrays.simulationParameters,
+                            ...componentArrays.externalGrid,
+                            ...componentArrays.generator,
+                            ...componentArrays.busbar,
+                            ...componentArrays.load,
+                            ...componentArrays.line
+                        ];
+
+                        const obj = Object.assign({}, array);
+                        console.log('OPF Data:', JSON.stringify(obj));
+                        
+                        // Log performance summary
+                        const totalProcessingTime = performance.now() - startTime;
+                        console.log(`=== OPF PERFORMANCE SUMMARY ===`);
+                        console.log(`Run #${runNumber} - Total processing: ${totalProcessingTime.toFixed(2)}ms`);
+                        console.log(`Components processed: ${processedComponents}`);
+                        console.log(`Result cells removed: ${resultCellsRemoved}`);
+                        
+                        // Clean up caches to prevent memory accumulation
+                        console.log(`Simulation completed. Cache sizes - cells: ${cellCache.size}, names: ${nameCache.size}, attributes: ${attributeCache.size}`);
+                        cellCache.clear();
+                        nameCache.clear();
+                        attributeCache.clear();
+                        console.log('Caches cleared for next simulation');
+
+                        // Send to backend
+                        console.log('🌐 Using backend URL:', ENV.backendUrl);
+                        processNetworkData(ENV.backendUrl + "/", obj, b, grafka);
+                    } 
+                });
+            }
+
+            tryCreateDialog();
+        }
+    }
+
+
+// Main processing function (FROM BACKEND TO FRONTEND)
+async function processNetworkData(url, obj, b, grafka) {
+    try {
+        const response = await fetch(url, {
+            mode: "cors",
+            method: "post",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(obj)
+        });
+
+        if (response.status !== 200) {
+            throw new Error("server");
+        }
+
+        const dataJson = await response.json();
+        console.log('OPF Results:', dataJson);
+
+        // Check for diagnostic response format
+        if (dataJson.error && dataJson.diagnostic) {
+            console.log('Optimal Power Flow failed with diagnostic information:', dataJson);
+            
+            // Show diagnostic dialog if available
+            if (window.DiagnosticReportDialog) {
+                const diagnosticDialog = new window.DiagnosticReportDialog(dataJson.diagnostic);
+                diagnosticDialog.show();
+            } else {
+                // Fallback to alert if dialog is not available
+                alert(`Optimal Power Flow calculation failed: ${dataJson.message}\n\nException: ${dataJson.exception}`);
+            }
+            return;
+        }
+
+        // Basic result processing (can be expanded)
+        if (dataJson.error) {
+            alert('Optimal Power Flow Error: ' + dataJson.error);
+            return;
+        }
+
+        // Show results in a modal dialog
+        if (window.OptimalPowerFlowResultsDialog) {
+            const dlg = new window.OptimalPowerFlowResultsDialog(dataJson);
+            dlg.show();
+        } else {
+            alert('OPF completed. Results dialog not available.');
+        }
+        
+        console.log('Optimal Power Flow completed successfully');
+        
+        // Force stop spinner after a short delay to ensure it's cleared
+        setTimeout(() => {
+            try {
+                if (typeof apka !== 'undefined' && apka.spinner) {
+                    apka.spinner.stop();
+                }
+                if (typeof window !== 'undefined' && window.apka && window.apka.spinner) {
+                    window.apka.spinner.stop();
+                }
+                // Manual cleanup - remove any spinner elements from DOM
+                const spinnerElements = document.querySelectorAll('.spinner, [class*="spinner"]');
+                spinnerElements.forEach(el => {
+                    if (el.style.display !== 'none') {
+                        el.style.display = 'none';
+                        el.remove();
+                    }
+                });
+                
+                // Remove any text overlays or status messages
+                const textOverlays = document.querySelectorAll('div, span, p');
+                textOverlays.forEach(el => {
+                    if (el.textContent && el.textContent.includes('Waiting for optimal power flow results')) {
+                        el.style.display = 'none';
+                        el.remove();
+                    }
+                });
+                
+                // Clear any status messages
+                if (typeof apka !== 'undefined' && apka.editor && apka.editor.setStatus) {
+                    apka.editor.setStatus('');
+                }
+            } catch (e) {
+                console.warn('Timeout spinner stop failed:', e);
+            }
+        }, 100);
+
+    } catch (err) {
+        if (err.message === "server") return;
+        console.error('Error processing OPF data:', err);
+    } finally {
+        // Stop the spinner to clear the "Waiting for optimal power flow results..." message
+        try {
+            if (typeof apka !== 'undefined' && apka.spinner) {
+                apka.spinner.stop();
+            }
+            // Also try to stop any global spinner
+            if (typeof window !== 'undefined' && window.apka && window.apka.spinner) {
+                window.apka.spinner.stop();
+            }
+            // Manual cleanup - remove any spinner elements from DOM
+            const spinnerElements = document.querySelectorAll('.spinner, [class*="spinner"]');
+            spinnerElements.forEach(el => {
+                if (el.style.display !== 'none') {
+                    el.style.display = 'none';
+                    el.remove();
+                }
+            });
+            
+            // Remove any text overlays or status messages
+            const textOverlays = document.querySelectorAll('div, span, p');
+            textOverlays.forEach(el => {
+                if (el.textContent && el.textContent.includes('Waiting for optimal power flow results')) {
+                    el.style.display = 'none';
+                    el.remove();
+                }
+            });
+            
+            // Clear any status messages
+            if (typeof apka !== 'undefined' && apka.editor && apka.editor.setStatus) {
+                apka.editor.setStatus('');
+            }
+        } catch (spinnerError) {
+            console.warn('Could not stop spinner:', spinnerError);
+        }
+    }
+}
+
+// Make optimalPowerFlowPandaPower available globally immediately after definition
+if (typeof globalThis !== 'undefined') {
+    globalThis.optimalPowerFlowPandaPower = optimalPowerFlowPandaPower;
+} else if (typeof window !== 'undefined') {
+    window.optimalPowerFlowPandaPower = optimalPowerFlowPandaPower;
+}
+
+// Export for module usage if supported
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { optimalPowerFlowPandaPower };
+} else if (typeof exports === 'object') {
+    try {
+        exports.optimalPowerFlowPandaPower = optimalPowerFlowPandaPower;
+    } catch (e) {
+        // Ignore export errors in non-module environments
+    }
+}
