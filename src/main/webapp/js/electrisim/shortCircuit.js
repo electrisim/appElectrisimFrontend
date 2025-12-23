@@ -257,6 +257,9 @@ window.shortCircuitPandaPower = function(a, b, c) {
             b.getStylesheet().putCellStyle('labelstyle', STYLES.label);
             b.getStylesheet().putCellStyle('lineStyle', STYLES.line);
 
+            // Log what is being sent to backend
+            console.log('📤 SENDING TO BACKEND:', JSON.stringify(obj, null, 2));
+
             // PERFORMANCE OPTIMIZATION: Request gzip compression
             const requestStart = performance.now();
             const response = await fetch(url, {
@@ -275,9 +278,8 @@ window.shortCircuitPandaPower = function(a, b, c) {
 
             const dataJson = await response.json();
             const requestTime = performance.now() - requestStart;
-            console.log(`Short circuit backend response received in ${requestTime.toFixed(0)}ms`);
-            console.log('dataJson')
-            console.log(dataJson)
+            // Log what is received from backend
+            console.log('📥 RECEIVED FROM BACKEND:', JSON.stringify(dataJson, null, 2));
 
             // Handle errors first
             if (handleNetworkErrors(dataJson)) {

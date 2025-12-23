@@ -528,6 +528,9 @@ function timeSeriesSimulationPandaPower(a, b, c) {
 // Main processing function (FROM BACKEND TO FRONTEND)
 async function processNetworkData(url, obj, b, grafka) {
     try {
+        // Log what is being sent to backend
+        console.log('📤 SENDING TO BACKEND:', JSON.stringify(obj, null, 2));
+
         const response = await fetch(url, {
             mode: "cors",
             method: "post",
@@ -542,7 +545,8 @@ async function processNetworkData(url, obj, b, grafka) {
         }
 
         const dataJson = await response.json();
-        console.log('Time Series Simulation Results:', dataJson);
+        // Log what is received from backend
+        console.log('📥 RECEIVED FROM BACKEND:', JSON.stringify(dataJson, null, 2));
 
         // Check for diagnostic response format
         if (dataJson.error && dataJson.diagnostic) {

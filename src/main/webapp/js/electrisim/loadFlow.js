@@ -746,7 +746,7 @@ function loadFlowPandaPower(a, b, c) {
     globalThis.simulationRunCount++;
     const runNumber = globalThis.simulationRunCount;
     const startTime = performance.now();
-    console.log(`=== LOAD FLOW SIMULATION #${runNumber} STARTED ===`);
+    // Simulation started - debug log removed
 
     // Create counters object
     const counters = {
@@ -783,13 +783,64 @@ function loadFlowPandaPower(a, b, c) {
     console.log('Starting fresh simulation with clean caches');
     
     // Helper function to get cached cell
-    const getCachedCell = (cellId) => {
+    // Tries multiple lookup strategies: by id, by name (mxObjectId), and by searching all cells
+    const getCachedCell = (cellId, cellName = null) => {
+        // First try cache
         if (cellCache.has(cellId)) {
             return cellCache.get(cellId);
         }
-        const cell = modelCache.getCell(cellId);
-        cellCache.set(cellId, cell);
-        return cell;
+        
+        // Try direct lookup by id
+        let cell = modelCache.getCell(cellId);
+        if (cell) {
+            cellCache.set(cellId, cell);
+            return cell;
+        }
+        
+        // If cellName is provided, try lookup by mxObjectId (convert name back to mxObjectId format)
+        if (cellName) {
+            const mxObjectId = '#' + cellName.replace('_', '');
+            cell = modelCache.getCell(mxObjectId);
+            if (cell) {
+                cellCache.set(cellId, cell);
+                return cell;
+            }
+        }
+        
+        // Fallback: search through all cells to find match by id, mxObjectId, or attribute id
+        const allCells = modelCache.getDescendants();
+        for (let i = 0; i < allCells.length; i++) {
+            const candidate = allCells[i];
+            
+            // Check cell's internal ID and mxObjectId
+            if (candidate.id === cellId || 
+                candidate.mxObjectId === cellId || 
+                candidate.mxObjectId === ('#' + cellId.replace('_', '')) ||
+                (cellName && candidate.mxObjectId === ('#' + cellName.replace('_', '')))) {
+                cellCache.set(cellId, candidate);
+                return candidate;
+            }
+            
+            // Also check if the ID is stored in cell's value attributes
+            if (candidate.value && candidate.value.attributes) {
+                const idAttr = candidate.value.attributes.getNamedItem('id');
+                if (idAttr && idAttr.nodeValue === cellId) {
+                    cellCache.set(cellId, candidate);
+                    return candidate;
+                }
+                // Also check all attributes for id match
+                for (let j = 0; j < candidate.value.attributes.length; j++) {
+                    const attr = candidate.value.attributes[j];
+                    if (attr.nodeName === 'id' && attr.nodeValue === cellId) {
+                        cellCache.set(cellId, candidate);
+                        return candidate;
+                    }
+                }
+            }
+        }
+        
+        console.warn('ELXXX: Could not find cell for id:', cellId, 'name:', cellName);
+        return null;
     };
     
     // Optimized userFriendlyName function with caching
@@ -1066,6 +1117,7 @@ function loadFlowPandaPower(a, b, c) {
             }
         }
         
+        
         return cellsToRemove.length;
     };
 
@@ -1265,8 +1317,77 @@ function loadFlowPandaPower(a, b, c) {
         },
 
         generators: (data, b, grafka) => {
-            data.forEach(cell => {
-                const resultCell = getCachedCell(cell.id);
+            console.log('ELXXX: Processing generators, count:', data.length);
+            data.forEach((cell, index) => {
+                console.log(`ELXXX: Generator ${index}: id=${cell.id}, name=${cell.name}, p_mw=${cell.p_mw}`);
+                
+                // Try to get cell by id, with name as fallback
+                const resultCell = getCachedCell(cell.id, cell.name);
+                
+                if (!resultCell) {
+                    console.error('ELXXX: Could not find Generator cell for id:', cell.id, 'name:', cell.name);
+                    console.error('ELXXX: Attempting to find cell manually...');
+                    // Try to find by searching all cells (including attribute-based ID lookup)
+                    const allCells = grafka.getModel().getDescendants();
+                    let foundCell = null;
+                    for (let i = 0; i < allCells.length; i++) {
+                        const candidate = allCells[i];
+                        
+                        // Check cell's internal ID and mxObjectId
+                        if (candidate.id === cell.id || 
+                            candidate.mxObjectId === cell.id ||
+                            candidate.mxObjectId === ('#' + cell.id.replace('_', '')) ||
+                            (cell.name && candidate.mxObjectId === ('#' + cell.name.replace('_', '')))) {
+                            foundCell = candidate;
+                            console.log('ELXXX: Found cell manually by ID/mxObjectId:', candidate.id, candidate.mxObjectId);
+                            break;
+                        }
+                        
+                        // Also check if the ID is stored in cell's value attributes
+                        if (candidate.value && candidate.value.attributes) {
+                            const idAttr = candidate.value.attributes.getNamedItem('id');
+                            if (idAttr && idAttr.nodeValue === cell.id) {
+                                foundCell = candidate;
+                                console.log('ELXXX: Found cell manually by attribute ID:', candidate.id, candidate.mxObjectId);
+                                break;
+                            }
+                            // Also check all attributes for id match
+                            for (let j = 0; j < candidate.value.attributes.length; j++) {
+                                const attr = candidate.value.attributes[j];
+                                if (attr.nodeName === 'id' && attr.nodeValue === cell.id) {
+                                    foundCell = candidate;
+                                    console.log('ELXXX: Found cell manually by attribute ID (loop):', candidate.id, candidate.mxObjectId);
+                                    break;
+                                }
+                            }
+                            if (foundCell) break;
+                        }
+                    }
+                    if (!foundCell) {
+                        console.error('ELXXX: Cell not found even after manual search. Available cell IDs:', 
+                            allCells.slice(0, 10).map(c => ({id: c.id, mxObjectId: c.mxObjectId})));
+                        return; // Skip this generator if cell not found
+                    }
+                    // Use found cell
+                    const genName = getComponentName(foundCell, 'Generator');
+                    const resultString = `${genName}
+            P[MW]: ${formatNumber(cell.p_mw)}
+            Q[MVar]: ${formatNumber(cell.q_mvar)}
+            U[degree]: ${formatNumber(cell.va_degree)}
+            Um[pu]: ${formatNumber(cell.vm_pu)}`;
+                    const placeholder = findPlaceholderForCell(grafka, foundCell, true);
+                    if (placeholder) {
+                        console.log('ELXXX: Found placeholder for Generator');
+                        grafka.getModel().setValue(placeholder, resultString);
+                    } else {
+                        console.log('ELXXX: No placeholder found, creating new one');
+                        const labelka = b.insertVertex(foundCell, null, resultString, -0.15, 1.7, 0, 0, 'shapeELXXX=Result', true);
+                        processCellStyles(b, labelka);
+                    }
+                    return;
+                }
+                
+                console.log('ELXXX: Found Generator cell:', resultCell.id, resultCell.mxObjectId);
                 const genName = getComponentName(resultCell, 'Generator');
                 
                 const resultString = `${genName}
@@ -1276,10 +1397,13 @@ function loadFlowPandaPower(a, b, c) {
             Um[pu]: ${formatNumber(cell.vm_pu)}`;
 
                 const placeholder = findPlaceholderForCell(grafka, resultCell, true);
+                console.log('ELXXX: Placeholder found:', !!placeholder, 'for Generator cell:', resultCell.id);
                 
                 if (placeholder) {
                     grafka.getModel().setValue(placeholder, resultString);
+                    console.log('ELXXX: Updated Generator placeholder with results');
                 } else {
+                    console.log('ELXXX: No placeholder found, creating new one for Generator');
                     const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.7, 0, 0, 'shapeELXXX=Result', true);
                     processCellStyles(b, labelka);
                 }
@@ -1635,10 +1759,8 @@ function loadFlowPandaPower(a, b, c) {
                 stylesheet.putCellStyle('lineStyle', STYLES.line);
             }
 
-            // Log payload before sending
-            console.log('🔍 Payload obj[0] (simulationParameters):', obj[0]);
-            console.log('🔍 exportPython value:', obj[0]?.exportPython);
-            console.log('🔍 Full payload keys:', Object.keys(obj));
+            // Log what is being sent to backend
+            console.log('📤 SENDING TO BACKEND:', JSON.stringify(obj, null, 2));
 
             const response = await fetch(url, {
                 mode: "cors",
@@ -1650,45 +1772,63 @@ function loadFlowPandaPower(a, b, c) {
                 body: JSON.stringify(obj)
             });
 
+            console.log('ELXXX: Response status:', response.status, response.statusText);
+            
             if (response.status !== 200) {
+                const errorText = await response.text();
+                console.error('ELXXX: Server error response:', errorText);
                 throw new Error("server");
             }
 
-            const dataJson = await response.json();
-            console.log('Received data size:', JSON.stringify(dataJson).length, 'bytes');
-            console.log('Response keys:', Object.keys(dataJson));
-            console.log('Has pandapower_python?', 'pandapower_python' in dataJson);
+            const responseText = await response.text();
+            console.log('ELXXX: Raw response text length:', responseText.length);
+            console.log('ELXXX: Raw response (first 500 chars):', responseText.substring(0, 500));
+            
+            // Fix invalid JSON: Replace Infinity and -Infinity with null (JSON doesn't support Infinity)
+            const fixedResponseText = responseText
+                .replace(/:\s*-Infinity/g, ': null')
+                .replace(/:\s*Infinity/g, ': null')
+                .replace(/:\s*NaN/g, ': null');
+            
+            let dataJson;
+            try {
+                dataJson = JSON.parse(fixedResponseText);
+            } catch (parseError) {
+                console.error('ELXXX: JSON parse error:', parseError);
+                console.error('ELXXX: Response text that failed to parse:', responseText);
+                console.error('ELXXX: Fixed response text (first 500 chars):', fixedResponseText.substring(0, 500));
+                throw parseError;
+            }
+            
+            // Log what is received from backend
+            console.log('📥 RECEIVED FROM BACKEND:', JSON.stringify(dataJson, null, 2));
+            
+            // Debug: Check if generators are in the response
+            if (dataJson.generators) {
+                console.log('ELXXX: ✅ Generators found in response:', dataJson.generators.length, 'items');
+                console.log('ELXXX: Generator data:', JSON.stringify(dataJson.generators, null, 2));
+            } else {
+                console.log('ELXXX: ❌ No generators key in response. Available keys:', Object.keys(dataJson));
+                // Check for alternative key names
+                if (dataJson.generator) {
+                    console.log('ELXXX: Found "generator" (singular) instead of "generators"');
+                }
+            }
 
             // Handle errors first
             if (handleNetworkErrors(dataJson)) {
+                console.log('ELXXX: Network errors detected, returning early');
                 return;
             }
 
             // Handle Python code export if requested
             if (dataJson.pandapower_python) {
-                console.log('✅ Exporting Pandapower Python code to file...');
-                console.log('Python code length:', dataJson.pandapower_python.length, 'characters');
                 downloadPandapowerPython(dataJson.pandapower_python);
-            } else {
-                console.log('ℹ️ No Python code export requested or available in response');
             }
             
             // Handle Pandapower results export if requested
-            console.log('🔍 Checking for Pandapower results export...');
-            console.log('  - obj exists:', !!obj);
-            console.log('  - obj[0] exists:', !!(obj && obj[0]));
-            console.log('  - obj[0]:', obj ? obj[0] : 'obj is null');
-            console.log('  - exportPandapowerResults value:', obj && obj[0] ? obj[0].exportPandapowerResults : 'N/A');
-            
             if (obj && obj[0] && obj[0].exportPandapowerResults) {
-                console.log('✅ Exporting Pandapower results to file...');
                 downloadPandapowerResults(dataJson);
-            } else {
-                console.log('ℹ️ Pandapower results export not requested or flag not set');
-                console.log('  Condition breakdown:');
-                console.log('    - obj:', !!obj);
-                console.log('    - obj[0]:', !!(obj && obj[0]));
-                console.log('    - obj[0].exportPandapowerResults:', !!(obj && obj[0] && obj[0].exportPandapowerResults));
             }
 
             // Optimize result processing with enhanced performance monitoring
@@ -1708,13 +1848,24 @@ function loadFlowPandaPower(a, b, c) {
                 const pendingOperations = [];
                 
                 // Collect all operations first with timing
+                console.log('ELXXX: Available keys in dataJson:', Object.keys(dataJson));
                 Object.entries(elementProcessors).forEach(([type, processor]) => {
                     if (dataJson[type]) {
+                        console.log(`ELXXX: ✅ Found ${type} data with ${dataJson[type].length} items`);
+                        if (type === 'generators') {
+                            console.log(`ELXXX: Generator data details:`, JSON.stringify(dataJson[type], null, 2));
+                        }
                         pendingOperations.push({
                             type,
-                            operation: () => processor(dataJson[type], b, grafka),
+                            operation: () => {
+                                console.log(`ELXXX: Executing processor for ${type}`);
+                                processor(dataJson[type], b, grafka);
+                                console.log(`ELXXX: Completed processor for ${type}`);
+                            },
                             dataSize: dataJson[type].length
                         });
+                    } else {
+                        console.log(`ELXXX: ❌ No ${type} data in response`);
                     }
                 });
                 
@@ -1738,8 +1889,15 @@ function loadFlowPandaPower(a, b, c) {
             }
 
         } catch (err) {
-            if (err.message === "server") return;
-           // alert('Error processing network data.' + err+'\n \nCheck input data or contact electrisim@electrisim.com', );
+            console.error('ELXXX: Error in processNetworkData:', err);
+            console.error('ELXXX: Error message:', err.message);
+            console.error('ELXXX: Error stack:', err.stack);
+            if (err.message === "server") {
+                console.error('ELXXX: Server error detected, returning early');
+                return;
+            }
+            // Log the error but don't show alert (commented out)
+            // alert('Error processing network data.' + err+'\n \nCheck input data or contact electrisim@electrisim.com', );
         } finally {
             if (typeof apka !== 'undefined' && apka.spinner) {
                 apka.spinner.stop();
@@ -1758,10 +1916,7 @@ function loadFlowPandaPower(a, b, c) {
 
         apka.spinner.spin(document.body, "Waiting for results...")
 
-        console.log('🔍 loadFlowPandaPower callback received parameter "a":', a);
-        console.log('🔍 Type of "a":', typeof a, ', Is array?', Array.isArray(a));
-        console.log('🔍 a.exportPython:', a?.exportPython);
-        console.log('🔍 a.exportPandapowerResults:', a?.exportPandapowerResults);
+        // Debug logs removed - only backend communication logs shown
 
         // Initialize load flow parameters
         // Handle both old array format and new object format
@@ -1813,33 +1968,13 @@ function loadFlowPandaPower(a, b, c) {
             }
             
             const userEmail = getUserEmail();
-            console.log('Load Flow - User email:', userEmail); // Debug log
-            
-            // Additional debugging
-            console.log('=== Load Flow Debug ===');
-            console.log('localStorage user:', localStorage.getItem('user'));
-            console.log('localStorage token:', localStorage.getItem('token'));
-            console.log('Final userEmail:', userEmail);
-            console.log('======================');
             
             // Support both new object format and old array format
             const isObjectFormat = typeof a === 'object' && !Array.isArray(a) && a !== null;
             
-            console.log('=== Load Flow Parameters Debug ===');
-            console.log('Parameters format:', isObjectFormat ? 'OBJECT' : 'ARRAY');
-            console.log('Parameters value:', a);
-            console.log('exportPython value:', isObjectFormat ? a.exportPython : 'N/A (array format)');
-            console.log('exportPython type:', typeof a.exportPython);
-            console.log('exportPython === true:', a.exportPython === true);
-            console.log('exportPython === false:', a.exportPython === false);
-            console.log('All keys in a:', Object.keys(a));
-            console.log('===================================');
-            
             // Ensure exportPython is properly captured as a boolean
             const exportPythonValue = isObjectFormat ? (a.exportPython === true) : false;
             const exportPandapowerResultsValue = isObjectFormat ? (a.exportPandapowerResults === true) : false;
-            console.log('🔍 Final exportPython value being sent:', exportPythonValue);
-            console.log('🔍 Final exportPandapowerResults value being sent:', exportPandapowerResultsValue);
             
             componentArrays.simulationParameters.push({
                 typ: "PowerFlowPandaPower Parameters",
@@ -2722,7 +2857,7 @@ function loadFlowPandaPower(a, b, c) {
         console.log(`Component processing: ${componentProcessingTime.toFixed(2)}ms (pre-compute: ${preComputeTime.toFixed(2)}ms, processed ${processedComponents} components)`);
         
         // Log detailed component type timings
-        console.log(`=== COMPONENT TYPE BREAKDOWN ===`);
+        // Component breakdown - debug log removed
         Object.entries(componentTypeTimings)
             .sort(([,a], [,b]) => b.time - a.time) // Sort by time descending
             .forEach(([type, {time, count}]) => {
@@ -2744,7 +2879,7 @@ function loadFlowPandaPower(a, b, c) {
         
         // Performance logging with detailed breakdown
         const dataProcessingTime = performance.now() - startTime;
-        console.log(`=== PERFORMANCE BREAKDOWN ===`);
+        // Performance breakdown - debug log removed
         console.log(`Cell processing: ${cellProcessingTime.toFixed(2)}ms (cell removal: ${removalTime.toFixed(2)}ms)`);
         console.log(`Component processing: ${componentProcessingTime.toFixed(2)}ms (pre-compute: ${preComputeTime.toFixed(2)}ms)`);
         console.log(`Array building: ${arrayBuildTime.toFixed(2)}ms`);
@@ -2755,10 +2890,7 @@ function loadFlowPandaPower(a, b, c) {
         console.log(`Payload composition:`, payloadAnalysis);
 
         // Debug: Log the first element which should be simulationParameters
-        console.log('🔍 About to send to backend - First element (simulationParameters):', obj[0]);
-        console.log('🔍 exportPython value in payload:', obj[0]?.exportPython);
-        console.log('🔍 exportPandapowerResults value in payload:', obj[0]?.exportPandapowerResults);
-        console.log('🌐 Using backend URL:', ENV.backendUrl);
+        // Debug logs removed - backend communication logs shown separately
         
         processNetworkData(ENV.backendUrl + "/", obj, b, grafka);
         
