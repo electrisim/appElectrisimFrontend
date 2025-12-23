@@ -1158,7 +1158,8 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
             dataDict["0"] = obj;
         }
         
-        console.log('Sending to OpenDSS backend:', dataDict);
+        // Log what is being sent to backend
+        console.log('📤 SENDING TO BACKEND:', JSON.stringify(dataDict, null, 2));
 
         // Performance optimization: Request gzip compression
         const requestStart = performance.now();
@@ -1178,8 +1179,8 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
 
         const dataJson = await response.json();
         const requestTime = performance.now() - requestStart;
-        console.log(`OpenDSS backend response received in ${requestTime.toFixed(0)}ms`);
-        console.log('OpenDSS backend response:', dataJson);
+        // Log what is received from backend
+        console.log('📥 RECEIVED FROM BACKEND:', JSON.stringify(dataJson, null, 2));
 
         // Handle errors first
         if (handleNetworkErrors(dataJson)) {
@@ -1318,22 +1319,9 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
         
         // Handle OpenDSS results export if requested
         // Note: exportOpenDSSResults flag should be passed through from parameters
-        console.log('🔍 Checking for OpenDSS results export...');
-        console.log('  - obj exists:', !!obj);
-        console.log('  - obj[0] exists:', !!(obj && obj[0]));
-        console.log('  - obj[0]:', obj ? obj[0] : 'obj is null');
-        console.log('  - exportOpenDSSResults value:', obj && obj[0] ? obj[0].exportOpenDSSResults : 'N/A');
-        
-        if (obj && obj[0] && obj[0].exportOpenDSSResults) {
-            console.log('✅ Exporting OpenDSS results to file...');
-            downloadOpenDSSResults(dataJson);
-        } else {
-            console.log('ℹ️ OpenDSS results export not requested or flag not set');
-            console.log('  Condition breakdown:');
-            console.log('    - obj:', !!obj);
-            console.log('    - obj[0]:', !!(obj && obj[0]));
-            console.log('    - obj[0].exportOpenDSSResults:', !!(obj && obj[0] && obj[0].exportOpenDSSResults));
-        }
+            if (obj && obj[0] && obj[0].exportOpenDSSResults) {
+                downloadOpenDSSResults(dataJson);
+            }
 
     } catch (err) {
         if (err.message === "server") {
@@ -1471,7 +1459,7 @@ function collectNetworkDataStructured(graph) {
     globalThis.openDssRunCount++;
     const runNumber = globalThis.openDssRunCount;
     const startTime = performance.now();
-    console.log(`=== OPENDSS DATA COLLECTION #${runNumber} STARTED ===`);
+            // OpenDSS data collection started - debug log removed
     
     // Initialize performance optimization caches
     const modelCache = new Map();
@@ -2670,7 +2658,7 @@ function collectNetworkDataStructured(graph) {
     const cellProcessingTime = performance.now() - cellProcessingStart;
     const totalProcessingTime = performance.now() - startTime;
     
-    console.log(`=== OPENDSS DATA COLLECTION PERFORMANCE SUMMARY ===`);
+    // OpenDSS performance summary - debug log removed
     console.log(`Run #${runNumber} - Cell processing: ${cellProcessingTime.toFixed(2)}ms`);
     console.log(`Component processing: ${componentProcessingTime.toFixed(2)}ms`);
     console.log(`Total processing: ${totalProcessingTime.toFixed(2)}ms`);
@@ -2724,9 +2712,7 @@ function getBusVoltage(cellValue) {
 
 // Function to execute Pandapower load flow calculation
 function executePandapowerLoadFlow(parameters, app, graph) {
-    console.log('✅ executePandapowerLoadFlow called with parameters:', parameters);
-    console.log('✅ exportPython value:', parameters.exportPython);
-    console.log('✅ exportPandapowerResults value:', parameters.exportPandapowerResults);
+        // Debug logs removed - only backend communication logs shown
     
     // Start the spinner
     app.spinner.spin(document.body, "Waiting for Pandapower results...");
@@ -2734,8 +2720,7 @@ function executePandapowerLoadFlow(parameters, app, graph) {
     // If parameters is already an object with all properties, pass it directly
     // This preserves exportPython and other flags!
     if (typeof parameters === 'object' && !Array.isArray(parameters) && parameters.frequency) {
-        console.log('✅ Parameters is already an object, passing directly to core logic');
-        console.log('✅ Preserving exportPython:', parameters.exportPython);
+            // Parameters processing - debug log removed
         executePandapowerCoreLogic(parameters, app, graph);
     } else {
         // Legacy array format support
@@ -2754,9 +2739,7 @@ function executePandapowerLoadFlow(parameters, app, graph) {
 
 // Function to execute pandapower core logic without showing dialog
 function executePandapowerCoreLogic(parameters, app, graph) {
-    console.log('⚠️ executePandapowerCoreLogic called - THIS SHOULD NOT BE USED FOR NORMAL LOAD FLOW!');
-    console.log('Executing pandapower core logic with parameters:', parameters);
-    console.log('exportPython in parameters:', parameters.exportPython);
+        // Core logic execution - debug logs removed
     
     // Convert old array format to new object format
     let paramObject;
@@ -2771,9 +2754,7 @@ function executePandapowerCoreLogic(parameters, app, graph) {
             engine: 'pandapower'
         };
     } else if (typeof parameters === 'object' && parameters !== null) {
-        console.log('✅ Object format detected - preserving all properties including exportPython');
-        console.log('✅ exportPython value:', parameters.exportPython);
-        console.log('✅ exportPandapowerResults value:', parameters.exportPandapowerResults);
+            // Object format detected - debug logs removed
         // Parameters is already an object, use it directly (preserves exportPython!)
         paramObject = {
             frequency: parameters.frequency || '50',
@@ -2785,8 +2766,7 @@ function executePandapowerCoreLogic(parameters, app, graph) {
             enforceLimits: parameters.enforceLimits || false,  // Also preserve other checkboxes
             engine: parameters.engine || 'pandapower'
         };
-        console.log('✅ Final paramObject.exportPython:', paramObject.exportPython);
-        console.log('✅ Final paramObject.exportPandapowerResults:', paramObject.exportPandapowerResults);
+            // Final parameter values - debug logs removed
     } else {
         console.warn('⚠️ Unexpected parameters format:', typeof parameters);
         paramObject = {
@@ -2807,8 +2787,7 @@ function executePandapowerCoreLogic(parameters, app, graph) {
         // Temporarily override the show method on the prototype
         window.LoadFlowDialog.prototype.show = function(callback) {
             console.log('Overridden LoadFlowDialog.show called, immediately calling callback with param OBJECT:', paramObject);
-            console.log('✅ exportPython in paramObject being passed to callback:', paramObject.exportPython);
-            console.log('✅ exportPandapowerResults in paramObject being passed to callback:', paramObject.exportPandapowerResults);
+            // Parameter values passed to callback - debug logs removed
             // Call the callback with the object format
             callback(paramObject);
         };

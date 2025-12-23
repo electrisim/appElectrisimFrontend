@@ -414,6 +414,9 @@ function contingencyAnalysisPandaPower(a, b, c) {
             b.getStylesheet().putCellStyle('labelstyle', STYLES.label);
             b.getStylesheet().putCellStyle('lineStyle', STYLES.line);
 
+            // Log what is being sent to backend
+            console.log('📤 SENDING TO BACKEND:', JSON.stringify(obj, null, 2));
+
             const response = await fetch(url, {
                 mode: "cors",
                 method: "post",
@@ -428,8 +431,8 @@ function contingencyAnalysisPandaPower(a, b, c) {
             }
 
             const dataJson = await response.json();
-            console.log('Contingency Analysis dataJson')
-            console.log(dataJson)
+            // Log what is received from backend
+            console.log('📥 RECEIVED FROM BACKEND:', JSON.stringify(dataJson, null, 2));
 
             // Handle errors first
             if (handleNetworkErrors(dataJson)) {
@@ -882,9 +885,8 @@ function contingencyAnalysisPandaPower(a, b, c) {
             ];
 
             const obj = Object.assign({}, array);
-            console.log('Contingency Analysis data being sent to backend:');
-            console.log(JSON.stringify(obj, null, 2));
-            console.log('🌐 Using backend URL:', ENV.backendUrl);
+            // Log what is being sent to backend
+            console.log('📤 SENDING TO BACKEND:', JSON.stringify(obj, null, 2));
 
             processNetworkData(ENV.backendUrl + "/", obj, b, grafka);
         });
