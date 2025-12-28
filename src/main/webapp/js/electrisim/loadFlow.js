@@ -2574,12 +2574,9 @@ function loadFlowPandaPower(a, b, c) {
                                 scaling: 'scaling',
                                 cos_phi_n: 'cos_phi_n',
                                 efficiency_n_percent: 'efficiency_n_percent',
-                                Irc_pu: 'Irc_pu',
+                                lrc_pu: 'lrc_pu',
                                 rx: 'rx',
                                 vn_kv: 'vn_kv',
-                                efficiency_percent: 'efficiency_percent',
-                                loading_percent: 'loading_percent',
-                                scaling: 'scaling',
                                 in_service: { name: 'in_service', optional: true }
                             })
                         };
