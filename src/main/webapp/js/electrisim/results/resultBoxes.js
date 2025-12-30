@@ -342,7 +342,16 @@ function updateClonedLinePlaceholder(graph, clonedLineCell) {
 
 /**
  * Updates the result placeholder for a cloned component cell (connected via edge).
- * Handles: External Grid, Generator, Load, Motor, SSC, etc.
+ * Handles ALL components connected to buses via edges, including:
+ * - External Grid, Generator, Static Generator, Asymmetric Static Generator
+ * - Load, Asymmetric Load, Motor, Storage
+ * - Transformer, Three Winding Transformer
+ * - Shunt Reactor, Capacitor
+ * - Impedance, Ward, Extended Ward
+ * - SVC, TCSC, SSC, DC Line
+ * 
+ * Note: Each edge of a component gets its own placeholder. Components with multiple edges
+ * (e.g., Transformers with HV and LV edges) will have multiple placeholders updated.
  */
 function updateClonedComponentPlaceholder(graph, clonedCell) {
     if (!graph || !clonedCell) return;
@@ -357,6 +366,8 @@ function updateClonedComponentPlaceholder(graph, clonedCell) {
 
     graph.model.beginUpdate();
     try {
+        var firstPlaceholderId = null;
+        
         // Find result placeholders in the connected edges
         for (var e = 0; e < clonedCell.edges.length; e++) {
             var edge = clonedCell.edges[e];
@@ -365,14 +376,11 @@ function updateClonedComponentPlaceholder(graph, clonedCell) {
             var childCount = graph.model.getChildCount(edge);
             for (var i = 0; i < childCount; i++) {
                 var child = graph.model.getChildAt(edge, i);
-                var childStyle = child.style || '';
+                if (!child) continue;
+                // Use model API for consistency
+                var childStyle = graph.model.getStyle(child) || '';
                 
-                // Check if this is a result placeholder connected to our component
-                if (isResultPlaceholderStyle(childStyle) && childStyle.includes('connectedTo=' + clonedCell.id)) {
-                    // This placeholder is correctly linked (unlikely after clone)
-                    continue;
-                }
-                
+                // Check if this is a result placeholder
                 if (isResultPlaceholderStyle(childStyle)) {
                     // Get the new placeholder ID
                     var newPlaceholderId = child.id;
@@ -400,16 +408,34 @@ function updateClonedComponentPlaceholder(graph, clonedCell) {
                     // Reset placeholder content to default message
                     graph.model.setValue(child, 'Click Simulate to generate results.');
 
-                    // Update the component cell's placeholderId attribute
-                    if (clonedCell.value && typeof clonedCell.value.setAttribute === 'function') {
-                        clonedCell.value.setAttribute('placeholderId', newPlaceholderId);
-                        graph.model.setValue(clonedCell, clonedCell.value);
-                    } else {
-                        clonedCell.placeholderId = newPlaceholderId;
+                    // Store the first placeholder ID for the component cell (for backward compatibility)
+                    // Note: Components can have multiple edges, each with its own placeholder
+                    if (!firstPlaceholderId) {
+                        firstPlaceholderId = newPlaceholderId;
                     }
 
-                    console.log('ELXXX: Updated cloned component placeholder - Cell ID:', clonedCell.id, 'Placeholder ID:', newPlaceholderId);
+                    console.log('ELXXX: Updated cloned component placeholder - Cell ID:', clonedCell.id, 'Edge:', edge.id, 'Placeholder ID:', newPlaceholderId);
                 }
+            }
+        }
+        
+        // Update the component cell's placeholderId attribute with the first placeholder found
+        // (for backward compatibility, though each edge has its own placeholder)
+        if (firstPlaceholderId) {
+            if (clonedCell.value && typeof clonedCell.value.setAttribute === 'function') {
+                clonedCell.value.setAttribute('placeholderId', firstPlaceholderId);
+                graph.model.setValue(clonedCell, clonedCell.value);
+            } else {
+                clonedCell.placeholderId = firstPlaceholderId;
+            }
+        } else {
+            // No placeholder found on existing edges - clear any stale placeholderId
+            // A new placeholder will be created when a new edge is drawn
+            if (clonedCell.value && typeof clonedCell.value.setAttribute === 'function') {
+                clonedCell.value.removeAttribute('placeholderId');
+                graph.model.setValue(clonedCell, clonedCell.value);
+            } else {
+                delete clonedCell.placeholderId;
             }
         }
     } catch (err) {
@@ -662,7 +688,10 @@ mxGraph.prototype.addEdge = function (edge, parent, source, target, index) {
             var targetShape = getShapeElxxx(targetStyle);
             var edgeShape = getShapeElxxx(edgeStyle);
 
-            // 1) Placeholders for equipment (including External Grid) connected to a Bus
+            // 1) Placeholders for ALL components connected to a Bus via edges
+            // This includes: External Grid, Generator, Load, Motor, Transformer, Shunt Reactor,
+            // Capacitor, Static Generator, Asymmetric Static Generator, Asymmetric Load,
+            // Impedance, Ward, Extended Ward, Storage, SVC, TCSC, SSC, DC Line, etc.
             var sourceIsBus = isBusStyle(sourceStyle);
             var targetIsBus = isBusStyle(targetStyle);
 
@@ -672,14 +701,30 @@ mxGraph.prototype.addEdge = function (edge, parent, source, target, index) {
                 var componentCell = sourceIsBus ? target : source;
                 var componentShape = sourceIsBus ? targetShape : sourceShape;
 
-                // Avoid creating duplicate placeholders if one already exists
-                var existingId = componentCell.value &&
-                    componentCell.value.attributes &&
-                    componentCell.value.attributes.placeholderId &&
-                    componentCell.value.attributes.placeholderId.nodeValue;
+                // For edge-based placeholders, check if a placeholder already exists on THIS specific edge
+                // Each edge should have its own placeholder, even if the component has placeholders on other edges
+                // This is critical for components with multiple edges (e.g., Transformers with HV and LV edges)
+                var edgeHasPlaceholder = false;
+                if (result) {
+                    // Use model API for consistency with rest of codebase
+                    var childCount = this.model.getChildCount(result);
+                    for (var i = 0; i < childCount; i++) {
+                        var child = this.model.getChildAt(result, i);
+                        if (!child) continue;
+                        var childStyle = this.model.getStyle(child) || '';
+                        if (childStyle && (childStyle.includes('shapeELXXX=Result') || 
+                            childStyle.includes('shapeELXXX=ResultExternalGrid'))) {
+                            edgeHasPlaceholder = true;
+                            break;
+                        }
+                    }
+                }
 
-                if (!existingId) {
+                // Only create placeholder if this edge doesn't already have one
+                // This ensures each edge gets its own placeholder when components are cloned
+                if (!edgeHasPlaceholder) {
                     // Use a dedicated logical shape for External Grid result boxes
+                    // All other components use 'Result' shape
                     var logicalShape = (componentShape === 'External Grid')
                         ? 'ResultExternalGrid'
                         : 'Result';
