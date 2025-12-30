@@ -623,53 +623,62 @@ const removeOldStyleResultCells = (grafka) => {
 // Helper function to find existing placeholder for a cell
 // This ensures we UPDATE existing placeholders instead of creating new ones
 // Compatible with placeholders created by resultBoxes.js, loadFlow.js, etc.
+// Works for both bus placeholders (children of bus) and component placeholders (children of edge)
+// IMPORTANT: Always search among children first, don't rely on placeholderId attribute
+// because cloned cells have stale placeholderId pointing to the original placeholder
 const findPlaceholderForCellOpenDSS = (grafka, resultCell, isEdgeBased = true) => {
     let placeholder = null;
+    const model = grafka.getModel();
     
     if (!isEdgeBased) {
         // For Bus - placeholder is a direct child of the bus cell
-        if (resultCell.children && resultCell.children.length > 0) {
-            for (let i = 0; i < resultCell.children.length; i++) {
-                const child = resultCell.children[i];
-                const childStyle = child.getStyle ? child.getStyle() : (child.style || '');
-                // Check for ResultBus, Result styles (but not ResultExternalGrid)
-                if (childStyle && (childStyle.includes('shapeELXXX=ResultBus') || 
-                    (childStyle.includes('shapeELXXX=Result') && !childStyle.includes('ResultExternalGrid')))) {
-                    placeholder = child;
-                    break;
-                }
+        // Use model API for consistency
+        const childCount = model.getChildCount(resultCell);
+        for (let i = 0; i < childCount; i++) {
+            const child = model.getChildAt(resultCell, i);
+            if (!child) continue;
+            const childStyle = model.getStyle(child) || '';
+            // Check for ResultBus, Result styles (but not ResultExternalGrid)
+            if (childStyle && (childStyle.includes('shapeELXXX=ResultBus') || 
+                (childStyle.includes('shapeELXXX=Result') && !childStyle.includes('ResultExternalGrid')))) {
+                placeholder = child;
+                break;
             }
         }
         return placeholder;
     }
     
     // For Lines - placeholder is a direct child of the line (edge) cell
-    if (resultCell.children && resultCell.children.length > 0) {
-        for (let i = 0; i < resultCell.children.length; i++) {
-            const child = resultCell.children[i];
-            const childStyle = child.getStyle ? child.getStyle() : (child.style || '');
-            if (childStyle && childStyle.includes('shapeELXXX=Result')) {
-                placeholder = child;
-                break;
-            }
+    // Use model API for consistency
+    const lineChildCount = model.getChildCount(resultCell);
+    for (let i = 0; i < lineChildCount; i++) {
+        const child = model.getChildAt(resultCell, i);
+        if (!child) continue;
+        const childStyle = model.getStyle(child) || '';
+        if (childStyle && childStyle.includes('shapeELXXX=Result')) {
+            placeholder = child;
+            break;
         }
     }
     
-    // For edge-based components (Load, Generator, External Grid, etc.)
-    // Search among edge children
+    // For edge-based components (Load, Generator, External Grid, Transformer, Shunt Reactor, etc.)
+    // ALWAYS search among edge children first - don't rely on placeholderId
+    // because cloned components have stale placeholderId pointing to original placeholder
     if (!placeholder) {
         const edges = grafka.getEdges(resultCell);
         if (edges && edges.length > 0) {
             for (let e = 0; e < edges.length; e++) {
                 const edge = edges[e];
-                if (edge.children && edge.children.length > 0) {
-                    for (let i = 0; i < edge.children.length; i++) {
-                        const child = edge.children[i];
-                        const childStyle = child.getStyle ? child.getStyle() : (child.style || '');
-                        if (childStyle && (childStyle.includes('shapeELXXX=Result') || childStyle.includes('shapeELXXX=ResultExternalGrid'))) {
-                            placeholder = child;
-                            break;
-                        }
+                if (!edge) continue;
+                // Use model API for consistency
+                const edgeChildCount = model.getChildCount(edge);
+                for (let i = 0; i < edgeChildCount; i++) {
+                    const child = model.getChildAt(edge, i);
+                    if (!child) continue;
+                    const childStyle = model.getStyle(child) || '';
+                    if (childStyle && (childStyle.includes('shapeELXXX=Result') || childStyle.includes('shapeELXXX=ResultExternalGrid'))) {
+                        placeholder = child;
+                        break;
                     }
                 }
                 if (placeholder) break;
@@ -1098,6 +1107,14 @@ const COLOR_STATES = {
 };
 
 function processCellStyles(b, labelka, isEdge = false) {
+    // Preserve original style to maintain shapeELXXX attributes for backward compatibility
+    const currentStyle = b.getModel().getStyle(labelka) || '';
+    
+    // Extract shapeELXXX attributes from current style (for backward compatibility)
+    const shapeELXXXMatch = currentStyle.match(/shapeELXXX=[^;]+/);
+    const shapeELXXXAttr = shapeELXXXMatch ? shapeELXXXMatch[0] : '';
+    
+    // Apply individual style properties (setCellStyles preserves other properties)
     if (isEdge) {
         Object.entries(STYLES.line).forEach(([style, value]) => {
             b.setCellStyles(style, value, [labelka]);
@@ -1107,6 +1124,15 @@ function processCellStyles(b, labelka, isEdge = false) {
         Object.entries(STYLES.label).forEach(([style, value]) => {
             b.setCellStyles(style, value, [labelka]);
         });
+    }
+    
+    // Ensure shapeELXXX attribute is preserved (setCellStyles might not preserve it)
+    if (shapeELXXXAttr) {
+        const finalStyle = b.getModel().getStyle(labelka) || '';
+        if (!finalStyle.includes(shapeELXXXAttr)) {
+            const newStyle = finalStyle ? finalStyle + ';' + shapeELXXXAttr : shapeELXXXAttr;
+            b.getModel().setStyle(labelka, newStyle);
+        }
     }
 }
 

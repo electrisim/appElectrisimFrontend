@@ -75,6 +75,35 @@ window.shortCircuitPandaPower = function(a, b, c) {
         }
     };
 
+    // Highly optimized cell processor with pre-computed styles
+    const PRECOMPUTED_STYLES = {
+        label: Object.entries(STYLES.label).map(([style, value]) => `${style}=${value}`).join(';'),
+        line: Object.entries(STYLES.line).map(([style, value]) => `${style}=${value}`).join(';')
+    };
+    
+    function processCellStyles(b, labelka, isEdge = false) {
+        // Preserve original style to maintain shapeELXXX attributes for backward compatibility
+        const currentStyle = b.getModel().getStyle(labelka) || '';
+        
+        // Extract shapeELXXX attributes from current style (for backward compatibility)
+        const shapeELXXXMatch = currentStyle.match(/shapeELXXX=[^;]+/);
+        const shapeELXXXAttr = shapeELXXXMatch ? shapeELXXXMatch[0] : '';
+        
+        // Use pre-computed style strings for maximum performance
+        const styleString = isEdge ? PRECOMPUTED_STYLES.line : PRECOMPUTED_STYLES.label;
+        
+        // Combine new styles with preserved shapeELXXX attribute
+        const finalStyle = shapeELXXXAttr 
+            ? (styleString ? styleString + ';' + shapeELXXXAttr : shapeELXXXAttr)
+            : styleString;
+        
+        b.setCellStyle(finalStyle, [labelka]);
+        
+        if (isEdge) {
+            b.orderCells(true, [labelka]);
+        }
+    }
+
     // Helper function to format numbers
     const formatNumber = (num, decimals = 3) => {
         // Handle NaN, null, undefined, or string 'NaN' values
@@ -203,22 +232,69 @@ window.shortCircuitPandaPower = function(a, b, c) {
 
     // Helper function to find existing placeholder for a cell (for Short Circuit)
     // This ensures we UPDATE existing placeholders instead of creating new ones
-    const findPlaceholderForCellSC = (grafka, resultCell) => {
+    // Works for both bus placeholders (children of bus) and component placeholders (children of edge)
+    // IMPORTANT: Always search among children first, don't rely on placeholderId attribute
+    // because cloned cells have stale placeholderId pointing to the original placeholder
+    const findPlaceholderForCellSC = (grafka, resultCell, isEdgeBased = true) => {
         let placeholder = null;
+        const model = grafka.getModel();
         
-        // For Bus - placeholder is a direct child of the bus cell
-        if (resultCell.children && resultCell.children.length > 0) {
-            for (let i = 0; i < resultCell.children.length; i++) {
-                const child = resultCell.children[i];
-                const childStyle = child.getStyle ? child.getStyle() : (child.style || '');
-                // Check for ResultBus, Result styles
+        if (!isEdgeBased) {
+            // For Bus - placeholder is a direct child of the bus cell
+            // Use model API for consistency
+            const childCount = model.getChildCount(resultCell);
+            for (let i = 0; i < childCount; i++) {
+                const child = model.getChildAt(resultCell, i);
+                if (!child) continue;
+                const childStyle = model.getStyle(child) || '';
+                // Check for both ResultBus and Result styles
                 if (childStyle && (childStyle.includes('shapeELXXX=ResultBus') || 
-                    childStyle.includes('shapeELXXX=Result'))) {
+                    (childStyle.includes('shapeELXXX=Result') && !childStyle.includes('ResultExternalGrid')))) {
                     placeholder = child;
                     break;
                 }
             }
+            return placeholder;
         }
+        
+        // For Lines - placeholder is a direct child of the line (edge) cell
+        // Use model API for consistency
+        const lineChildCount = model.getChildCount(resultCell);
+        for (let i = 0; i < lineChildCount; i++) {
+            const child = model.getChildAt(resultCell, i);
+            if (!child) continue;
+            const childStyle = model.getStyle(child) || '';
+            if (childStyle && childStyle.includes('shapeELXXX=Result')) {
+                placeholder = child;
+                break;
+            }
+        }
+        
+        // For edge-based components (Load, Generator, External Grid, Transformer, Shunt Reactor, etc.)
+        // ALWAYS search among edge children first - don't rely on placeholderId
+        // because cloned components have stale placeholderId pointing to original placeholder
+        if (!placeholder) {
+            const edges = grafka.getEdges(resultCell);
+            if (edges && edges.length > 0) {
+                for (let e = 0; e < edges.length; e++) {
+                    const edge = edges[e];
+                    if (!edge) continue;
+                    // Use model API for consistency
+                    const edgeChildCount = model.getChildCount(edge);
+                    for (let i = 0; i < edgeChildCount; i++) {
+                        const child = model.getChildAt(edge, i);
+                        if (!child) continue;
+                        const childStyle = model.getStyle(child) || '';
+                        if (childStyle && (childStyle.includes('shapeELXXX=Result') || childStyle.includes('shapeELXXX=ResultExternalGrid'))) {
+                            placeholder = child;
+                            break;
+                        }
+                    }
+                    if (placeholder) break;
+                }
+            }
+        }
+        
         return placeholder;
     };
 
@@ -238,12 +314,13 @@ window.shortCircuitPandaPower = function(a, b, c) {
                 xk[ohm]: ${formatNumber(cell.xk_ohm)}`;
 
                 // Find existing placeholder and update it, or create new one if not found
-                const placeholder = findPlaceholderForCellSC(grafka, resultCell);
+                // Buses are not edge-based, so pass false
+                const placeholder = findPlaceholderForCellSC(grafka, resultCell, false);
                 if (placeholder) {
                     grafka.getModel().setValue(placeholder, resultString);
                 } else {
                     const labelka = b.insertVertex(resultCell, null, resultString, 0.2, 4.5, 0, 0, 'shapeELXXX=ResultBus', true);
-                    //processCellStyles(b, labelka);
+                    processCellStyles(b, labelka);
                 }
             });
         },
