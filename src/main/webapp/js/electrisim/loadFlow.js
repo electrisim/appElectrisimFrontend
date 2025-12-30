@@ -957,9 +957,22 @@ function loadFlowPandaPower(a, b, c) {
     };
     
     function processCellStyles(b, labelka, isEdge = false) {
+        // Preserve original style to maintain shapeELXXX attributes for backward compatibility
+        const currentStyle = b.getModel().getStyle(labelka) || '';
+        
+        // Extract shapeELXXX attributes from current style (for backward compatibility)
+        const shapeELXXXMatch = currentStyle.match(/shapeELXXX=[^;]+/);
+        const shapeELXXXAttr = shapeELXXXMatch ? shapeELXXXMatch[0] : '';
+        
         // Use pre-computed style strings for maximum performance
         const styleString = isEdge ? PRECOMPUTED_STYLES.line : PRECOMPUTED_STYLES.label;
-        b.setCellStyle(styleString, [labelka]);
+        
+        // Combine new styles with preserved shapeELXXX attribute
+        const finalStyle = shapeELXXXAttr 
+            ? (styleString ? styleString + ';' + shapeELXXXAttr : shapeELXXXAttr)
+            : styleString;
+        
+        b.setCellStyle(finalStyle, [labelka]);
         
         if (isEdge) {
             b.orderCells(true, [labelka]);
