@@ -293,8 +293,7 @@ window.shortCircuitPandaPower = function(a, b, c) {
                     if (placeholder) break;
                 }
             }
-        }
-        
+        }        
         return placeholder;
     };
 
