@@ -18,6 +18,12 @@ import { SVCDialog } from '../SVCDialog.js';
 import { TCSCDialog } from '../TCSCDialog.js';
 import { WardDialog } from '../wardDialog.js';
 import { BusDialog } from '../busDialog.js';
+import { DcBusDialog } from '../dcBusDialog.js';
+import { LoadDcDialog } from '../loadDcDialog.js';
+import { SourceDcDialog } from '../sourceDcDialog.js';
+import { SwitchDialog } from '../switchDialog.js';
+import { VscDialog } from '../vscDialog.js';
+import { B2bVscDialog } from '../b2bVscDialog.js';
 import { TransformerDialog } from '../transformerBaseDialog.js';
 import { ThreeWindingTransformerDialog } from '../threeWindingTransformerBaseDialog.js';
 import { LineDialog } from '../lineBaseDialog.js';
@@ -265,6 +271,43 @@ export class EditDataDialog {
                 this.handlePVSystem();
                 return;
             }
+            
+            // Handle DC Bus with new tabbed dialog
+            if (this.elementType === "DC Bus") {
+                this.handleDcBus();
+                return;
+            }
+            
+            // Handle Load DC with new tabbed dialog
+            if (this.elementType === "Load DC") {
+                this.handleLoadDc();
+                return;
+            }
+            
+            // Handle Source DC with new tabbed dialog
+            if (this.elementType === "Source DC") {
+                this.handleSourceDc();
+                return;
+            }
+            
+            // Handle Switch with new tabbed dialog
+            if (this.elementType === "Switch") {
+                this.handleSwitch();
+                return;
+            }
+            
+            // Handle VSC with new tabbed dialog
+            if (this.elementType === "VSC") {
+                this.handleVSC();
+                return;
+            }
+            
+            // Handle B2B VSC with new tabbed dialog
+            if (this.elementType === "B2B VSC") {
+                this.handleB2BVSC();
+                return;
+            }
+            
             
             // Create the main container for normal elements
             this.container = this.createContainer();
@@ -1941,7 +1984,277 @@ export class EditDataDialog {
             alert('Error opening PVSystem dialog: ' + error.message);
         }
     }
-
+    
+    // Handle DC Bus
+    handleDcBus() {
+        this.shouldShowDialog = false;
+        this.container.style.display = 'none';
+        this.container.innerHTML = '';
+        
+        if (window._globalDialogShowing || document.querySelector('.modal-overlay')) {
+            console.log('DC Bus dialog: Another dialog is already showing, ignoring request');
+            return;
+        }
+        
+        window._globalDialogShowing = true;
+        if (this.cell) {
+            this.cell._dialogShowing = true;
+        }
+        
+        try {
+            const dcBusDialog = new DcBusDialog(this.ui);
+            this.setDialogCleanup(dcBusDialog);
+            dcBusDialog.populateDialog(this.cell.value);
+            
+            dcBusDialog.show((values) => {
+                console.log('DC Bus dialog values received:', values);
+                this.applyDcBusValues(values);
+                this.cleanup();
+                if (window._globalDialogShowing) {
+                    delete window._globalDialogShowing;
+                }
+                if (this.cell && this.cell._dialogShowing) {
+                    delete this.cell._dialogShowing;
+                }
+            });
+        } catch (error) {
+            console.error('Error showing DC Bus dialog:', error);
+            this.cleanup();
+            if (window._globalDialogShowing) {
+                delete window._globalDialogShowing;
+            }
+            if (this.cell && this.cell._dialogShowing) {
+                delete this.cell._dialogShowing;
+            }
+            alert('Error opening DC Bus dialog: ' + error.message);
+        }
+    }
+    
+    // Handle Load DC
+    handleLoadDc() {
+        this.shouldShowDialog = false;
+        this.container.style.display = 'none';
+        this.container.innerHTML = '';
+        
+        if (window._globalDialogShowing || document.querySelector('.modal-overlay')) {
+            console.log('Load DC dialog: Another dialog is already showing, ignoring request');
+            return;
+        }
+        
+        window._globalDialogShowing = true;
+        if (this.cell) {
+            this.cell._dialogShowing = true;
+        }
+        
+        try {
+            const loadDcDialog = new LoadDcDialog(this.ui);
+            this.setDialogCleanup(loadDcDialog);
+            loadDcDialog.populateDialog(this.cell.value);
+            
+            loadDcDialog.show((values) => {
+                console.log('Load DC dialog values received:', values);
+                this.applyLoadDcValues(values);
+                this.cleanup();
+                if (window._globalDialogShowing) {
+                    delete window._globalDialogShowing;
+                }
+                if (this.cell && this.cell._dialogShowing) {
+                    delete this.cell._dialogShowing;
+                }
+            });
+        } catch (error) {
+            console.error('Error showing Load DC dialog:', error);
+            this.cleanup();
+            if (window._globalDialogShowing) {
+                delete window._globalDialogShowing;
+            }
+            if (this.cell && this.cell._dialogShowing) {
+                delete this.cell._dialogShowing;
+            }
+            alert('Error opening Load DC dialog: ' + error.message);
+        }
+    }
+    
+    // Handle Source DC
+    handleSourceDc() {
+        this.shouldShowDialog = false;
+        this.container.style.display = 'none';
+        this.container.innerHTML = '';
+        
+        if (window._globalDialogShowing || document.querySelector('.modal-overlay')) {
+            console.log('Source DC dialog: Another dialog is already showing, ignoring request');
+            return;
+        }
+        
+        window._globalDialogShowing = true;
+        if (this.cell) {
+            this.cell._dialogShowing = true;
+        }
+        
+        try {
+            const sourceDcDialog = new SourceDcDialog(this.ui);
+            this.setDialogCleanup(sourceDcDialog);
+            sourceDcDialog.populateDialog(this.cell.value);
+            
+            sourceDcDialog.show((values) => {
+                console.log('Source DC dialog values received:', values);
+                this.applySourceDcValues(values);
+                this.cleanup();
+                if (window._globalDialogShowing) {
+                    delete window._globalDialogShowing;
+                }
+                if (this.cell && this.cell._dialogShowing) {
+                    delete this.cell._dialogShowing;
+                }
+            });
+        } catch (error) {
+            console.error('Error showing Source DC dialog:', error);
+            this.cleanup();
+            if (window._globalDialogShowing) {
+                delete window._globalDialogShowing;
+            }
+            if (this.cell && this.cell._dialogShowing) {
+                delete this.cell._dialogShowing;
+            }
+            alert('Error opening Source DC dialog: ' + error.message);
+        }
+    }
+    
+    // Handle Switch
+    handleSwitch() {
+        this.shouldShowDialog = false;
+        this.container.style.display = 'none';
+        this.container.innerHTML = '';
+        
+        if (window._globalDialogShowing || document.querySelector('.modal-overlay')) {
+            console.log('Switch dialog: Another dialog is already showing, ignoring request');
+            return;
+        }
+        
+        window._globalDialogShowing = true;
+        if (this.cell) {
+            this.cell._dialogShowing = true;
+        }
+        
+        try {
+            const switchDialog = new SwitchDialog(this.ui);
+            this.setDialogCleanup(switchDialog);
+            switchDialog.populateDialog(this.cell.value);
+            
+            switchDialog.show((values) => {
+                console.log('Switch dialog values received:', values);
+                this.applySwitchValues(values);
+                this.cleanup();
+                if (window._globalDialogShowing) {
+                    delete window._globalDialogShowing;
+                }
+                if (this.cell && this.cell._dialogShowing) {
+                    delete this.cell._dialogShowing;
+                }
+            });
+        } catch (error) {
+            console.error('Error showing Switch dialog:', error);
+            this.cleanup();
+            if (window._globalDialogShowing) {
+                delete window._globalDialogShowing;
+            }
+            if (this.cell && this.cell._dialogShowing) {
+                delete this.cell._dialogShowing;
+            }
+            alert('Error opening Switch dialog: ' + error.message);
+        }
+    }
+    
+    // Handle VSC
+    handleVSC() {
+        this.shouldShowDialog = false;
+        this.container.style.display = 'none';
+        this.container.innerHTML = '';
+        
+        if (window._globalDialogShowing || document.querySelector('.modal-overlay')) {
+            console.log('VSC dialog: Another dialog is already showing, ignoring request');
+            return;
+        }
+        
+        window._globalDialogShowing = true;
+        if (this.cell) {
+            this.cell._dialogShowing = true;
+        }
+        
+        try {
+            const vscDialog = new VscDialog(this.ui);
+            this.setDialogCleanup(vscDialog);
+            vscDialog.populateDialog(this.cell.value);
+            
+            vscDialog.show((values) => {
+                console.log('VSC dialog values received:', values);
+                this.applyVscValues(values);
+                this.cleanup();
+                if (window._globalDialogShowing) {
+                    delete window._globalDialogShowing;
+                }
+                if (this.cell && this.cell._dialogShowing) {
+                    delete this.cell._dialogShowing;
+                }
+            });
+        } catch (error) {
+            console.error('Error showing VSC dialog:', error);
+            this.cleanup();
+            if (window._globalDialogShowing) {
+                delete window._globalDialogShowing;
+            }
+            if (this.cell && this.cell._dialogShowing) {
+                delete this.cell._dialogShowing;
+            }
+            alert('Error opening VSC dialog: ' + error.message);
+        }
+    }
+    
+    // Handle B2B VSC
+    handleB2BVSC() {
+        this.shouldShowDialog = false;
+        this.container.style.display = 'none';
+        this.container.innerHTML = '';
+        
+        if (window._globalDialogShowing || document.querySelector('.modal-overlay')) {
+            console.log('B2B VSC dialog: Another dialog is already showing, ignoring request');
+            return;
+        }
+        
+        window._globalDialogShowing = true;
+        if (this.cell) {
+            this.cell._dialogShowing = true;
+        }
+        
+        try {
+            const b2bVscDialog = new B2bVscDialog(this.ui);
+            this.setDialogCleanup(b2bVscDialog);
+            b2bVscDialog.populateDialog(this.cell.value);
+            
+            b2bVscDialog.show((values) => {
+                console.log('B2B VSC dialog values received:', values);
+                this.applyB2bVscValues(values);
+                this.cleanup();
+                if (window._globalDialogShowing) {
+                    delete window._globalDialogShowing;
+                }
+                if (this.cell && this.cell._dialogShowing) {
+                    delete this.cell._dialogShowing;
+                }
+            });
+        } catch (error) {
+            console.error('Error showing B2B VSC dialog:', error);
+            this.cleanup();
+            if (window._globalDialogShowing) {
+                delete window._globalDialogShowing;
+            }
+            if (this.cell && this.cell._dialogShowing) {
+                delete this.cell._dialogShowing;
+            }
+            alert('Error opening B2B VSC dialog: ' + error.message);
+        }
+    }
+    
     populateAsymmetricLoadDialog(dialog) {
         // Get current values from the cell and populate the dialog
         if (this.cell.value && this.cell.value.attributes) {
@@ -2882,6 +3195,36 @@ export class EditDataDialog {
                 rowDefs: null,
                 helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/bus.html'
             }),
+            'DC Bus': () => ({ 
+                gridOptions: null, // Modern dialog handles this
+                rowDefs: null,
+                helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/dc_bus.html'
+            }),
+            'Load DC': () => ({ 
+                gridOptions: null, // Modern dialog handles this
+                rowDefs: null,
+                helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/load_dc.html'
+            }),
+            'Source DC': () => ({ 
+                gridOptions: null, // Modern dialog handles this
+                rowDefs: null,
+                helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/source_dc.html'
+            }),
+            'Switch': () => ({ 
+                gridOptions: null, // Modern dialog handles this
+                rowDefs: null,
+                helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/switch.html'
+            }),
+            'VSC': () => ({ 
+                gridOptions: null, // Modern dialog handles this
+                rowDefs: null,
+                helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/vsc.html'
+            }),
+            'B2B VSC': () => ({ 
+                gridOptions: null, // Modern dialog handles this
+                rowDefs: null,
+                helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/b2b_vsc.html'
+            }),
             'Shunt Reactor': () => ({ 
                 gridOptions: window.gridOptionsShuntReactor, 
                 rowDefs: window.rowDefsShuntReactor,
@@ -3819,6 +4162,55 @@ export class EditDataDialog {
             }
         }
     }
+    
+    applyDcBusValues(values) {
+        this.ensureCellValueIsXmlElement();
+        for (const [attributeName, attributeValue] of Object.entries(values)) {
+            this.cell.value.setAttribute(attributeName, attributeValue);
+        }
+        console.log('DC Bus values applied to cell');
+    }
+    
+    applyLoadDcValues(values) {
+        this.ensureCellValueIsXmlElement();
+        for (const [attributeName, attributeValue] of Object.entries(values)) {
+            this.cell.value.setAttribute(attributeName, attributeValue);
+        }
+        console.log('Load DC values applied to cell');
+    }
+    
+    applySourceDcValues(values) {
+        this.ensureCellValueIsXmlElement();
+        for (const [attributeName, attributeValue] of Object.entries(values)) {
+            this.cell.value.setAttribute(attributeName, attributeValue);
+        }
+        console.log('Source DC values applied to cell');
+    }
+    
+    applySwitchValues(values) {
+        this.ensureCellValueIsXmlElement();
+        for (const [attributeName, attributeValue] of Object.entries(values)) {
+            this.cell.value.setAttribute(attributeName, attributeValue);
+        }
+        console.log('Switch values applied to cell');
+    }
+    
+    applyVscValues(values) {
+        this.ensureCellValueIsXmlElement();
+        for (const [attributeName, attributeValue] of Object.entries(values)) {
+            this.cell.value.setAttribute(attributeName, attributeValue);
+        }
+        console.log('VSC values applied to cell');
+    }
+    
+    applyB2bVscValues(values) {
+        this.ensureCellValueIsXmlElement();
+        for (const [attributeName, attributeValue] of Object.entries(values)) {
+            this.cell.value.setAttribute(attributeName, attributeValue);
+        }
+        console.log('B2B VSC values applied to cell');
+    }
+    
 }
 
 // Set default help link

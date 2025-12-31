@@ -654,12 +654,16 @@ const COMPONENT_TYPES = {
     STATIC_GENERATOR: 'Static Generator',
     ASYMMETRIC_STATIC_GENERATOR: 'Asymmetric Static Generator',
     BUS: 'Bus',
+    DC_BUS: 'DC Bus',
     TRANSFORMER: 'Transformer',
     THREE_WINDING_TRANSFORMER: 'Three Winding Transformer',
     SHUNT_REACTOR: 'Shunt Reactor',
     CAPACITOR: 'Capacitor',
     LOAD: 'Load',
+    LOAD_DC: 'Load DC',
     ASYMMETRIC_LOAD: 'Asymmetric Load',
+    SOURCE_DC: 'Source DC',
+    SWITCH: 'Switch',
     IMPEDANCE: 'Impedance',
     WARD: 'Ward',
     EXTENDED_WARD: 'Extended Ward',
@@ -668,6 +672,8 @@ const COMPONENT_TYPES = {
     SVC: 'SVC',
     TCSC: 'TCSC',
     SSC: 'SSC',
+    VSC: 'VSC',
+    B2B_VSC: 'B2B VSC',
     DC_LINE: 'DC Line',
     LINE: 'Line'
 };
@@ -755,12 +761,16 @@ function loadFlowPandaPower(a, b, c) {
         staticGenerator: 0,
         asymmetricGenerator: 0,
         busbar: 0,
+        dcBus: 0,
         transformer: 0,
         threeWindingTransformer: 0,
         shuntReactor: 0,
         capacitor: 0,
         load: 0,
+        loadDc: 0,
         asymmetricLoad: 0,
+        sourceDc: 0,
+        switch: 0,
         impedance: 0,
         ward: 0,
         extendedWard: 0,
@@ -769,6 +779,8 @@ function loadFlowPandaPower(a, b, c) {
         SVC: 0,
         TCSC: 0,
         SSC: 0,
+        VSC: 0,
+        B2BVSC: 0,
         dcLine: 0,
         line: 0
     };
@@ -885,12 +897,16 @@ function loadFlowPandaPower(a, b, c) {
         staticGenerator: [],
         asymmetricGenerator: [],
         busbar: [],
+        dcBus: [],
         transformer: [],
         threeWindingTransformer: [],
         shuntReactor: [],
         capacitor: [],
         load: [],
+        loadDc: [],
         asymmetricLoad: [],
+        sourceDc: [],
+        switch: [],
         impedance: [],
         ward: [],
         extendedWard: [],
@@ -899,6 +915,8 @@ function loadFlowPandaPower(a, b, c) {
         SVC: [],
         TCSC: [],
         SSC: [],
+        VSC: [],
+        B2BVSC: [],
         dcLine: [],
         line: []
     };    
@@ -2724,6 +2742,149 @@ function loadFlowPandaPower(a, b, c) {
                         componentArrays.SSC.push(SSC);
                         break;
 
+                    case COMPONENT_TYPES.DC_BUS:
+                        const dcBus = {
+                            typ: `DC Bus${counters.dcBus++}`,
+                            name: cell.mxObjectId.replace('#', '_'),
+                            id: cell.id,
+                            vn_kv: cell.value.attributes[2]?.nodeValue || "0",
+                            userFriendlyName: baseData.userFriendlyName
+                        };
+                        componentArrays.dcBus.push(dcBus);
+                        break;
+
+                    case COMPONENT_TYPES.LOAD_DC:
+                        const loadDc = {
+                            typ: `Load DC${counters.loadDc++}`,
+                            name: cell.mxObjectId.replace('#', '_'),
+                            id: cell.id,
+                            userFriendlyName: (() => {
+                                if (cell.value && cell.value.attributes) {
+                                    for (let i = 0; i < cell.value.attributes.length; i++) {
+                                        if (cell.value.attributes[i].nodeName === 'name') {
+                                            return cell.value.attributes[i].nodeValue;
+                                        }
+                                    }
+                                }
+                                return cell.mxObjectId.replace('#', '_');
+                            })(),
+                            bus: getConnectedBusId(cell),
+                            ...getAttributesAsObject(cell, {
+                                p_mw: 'p_mw',
+                                in_service: { name: 'in_service', optional: true }
+                            })
+                        };
+                        componentArrays.loadDc.push(loadDc);
+                        break;
+
+                    case COMPONENT_TYPES.SOURCE_DC:
+                        const sourceDc = {
+                            typ: `Source DC${counters.sourceDc++}`,
+                            name: cell.mxObjectId.replace('#', '_'),
+                            id: cell.id,
+                            userFriendlyName: (() => {
+                                if (cell.value && cell.value.attributes) {
+                                    for (let i = 0; i < cell.value.attributes.length; i++) {
+                                        if (cell.value.attributes[i].nodeName === 'name') {
+                                            return cell.value.attributes[i].nodeValue;
+                                        }
+                                    }
+                                }
+                                return cell.mxObjectId.replace('#', '_');
+                            })(),
+                            bus: getConnectedBusId(cell),
+                            ...getAttributesAsObject(cell, {
+                                vm_pu: 'vm_pu',
+                                in_service: { name: 'in_service', optional: true }
+                            })
+                        };
+                        componentArrays.sourceDc.push(sourceDc);
+                        break;
+
+                    case COMPONENT_TYPES.SWITCH:
+                        const switchElement = {
+                            typ: `Switch${counters.switch++}`,
+                            name: cell.mxObjectId.replace('#', '_'),
+                            id: cell.id,
+                            userFriendlyName: (() => {
+                                if (cell.value && cell.value.attributes) {
+                                    for (let i = 0; i < cell.value.attributes.length; i++) {
+                                        if (cell.value.attributes[i].nodeName === 'name') {
+                                            return cell.value.attributes[i].nodeValue;
+                                        }
+                                    }
+                                }
+                                return cell.mxObjectId.replace('#', '_');
+                            })(),
+                            ...getAttributesAsObject(cell, {
+                                et: 'et',
+                                type: 'type',
+                                closed: 'closed',
+                                z_ohm: 'z_ohm',
+                                in_service: { name: 'in_service', optional: true }
+                            })
+                        };
+                        componentArrays.switch.push(switchElement);
+                        break;
+
+                    case COMPONENT_TYPES.VSC:
+                        const vsc = {
+                            typ: `VSC${counters.VSC++}`,
+                            name: cell.mxObjectId.replace('#', '_'),
+                            id: cell.id,
+                            userFriendlyName: (() => {
+                                if (cell.value && cell.value.attributes) {
+                                    for (let i = 0; i < cell.value.attributes.length; i++) {
+                                        if (cell.value.attributes[i].nodeName === 'name') {
+                                            return cell.value.attributes[i].nodeValue;
+                                        }
+                                    }
+                                }
+                                return cell.mxObjectId.replace('#', '_');
+                            })(),
+                            bus: getConnectedBusId(cell),
+                            ...getAttributesAsObject(cell, {
+                                p_mw: 'p_mw',
+                                vm_pu: 'vm_pu',
+                                sn_mva: 'sn_mva',
+                                rx: 'rx',
+                                max_ik_ka: 'max_ik_ka',
+                                in_service: { name: 'in_service', optional: true }
+                            })
+                        };
+                        componentArrays.VSC.push(vsc);
+                        break;
+
+                    case COMPONENT_TYPES.B2B_VSC:
+                        const b2bVsc = {
+                            typ: `B2B VSC${counters.B2BVSC++}`,
+                            name: cell.mxObjectId.replace('#', '_'),
+                            id: cell.id,
+                            userFriendlyName: (() => {
+                                if (cell.value && cell.value.attributes) {
+                                    for (let i = 0; i < cell.value.attributes.length; i++) {
+                                        if (cell.value.attributes[i].nodeName === 'name') {
+                                            return cell.value.attributes[i].nodeValue;
+                                        }
+                                    }
+                                }
+                                return cell.mxObjectId.replace('#', '_');
+                            })(),
+                            ...getAttributesAsObject(cell, {
+                                bus1: 'bus1',
+                                bus2: 'bus2',
+                                p_mw: 'p_mw',
+                                vm1_pu: 'vm1_pu',
+                                vm2_pu: 'vm2_pu',
+                                sn_mva: 'sn_mva',
+                                rx: 'rx',
+                                max_ik_ka: 'max_ik_ka',
+                                in_service: { name: 'in_service', optional: true }
+                            })
+                        };
+                        componentArrays.B2BVSC.push(b2bVsc);
+                        break;
+
                     case COMPONENT_TYPES.DC_LINE:
                         const dcLine = {
                             typ: `DC Line${counters.dcLine++}`,
@@ -2858,6 +3019,12 @@ function loadFlowPandaPower(a, b, c) {
         addComponents(componentArrays.SSC);
         addComponents(componentArrays.SVC);
         addComponents(componentArrays.TCSC);
+        addComponents(componentArrays.VSC);
+        addComponents(componentArrays.B2BVSC);
+        addComponents(componentArrays.dcBus);
+        addComponents(componentArrays.loadDc);
+        addComponents(componentArrays.sourceDc);
+        addComponents(componentArrays.switch);
         addComponents(componentArrays.dcLine);
         addComponents(componentArrays.line);
         

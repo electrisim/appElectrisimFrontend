@@ -638,6 +638,88 @@ export function configureLineAttributes(grafka, vertex, options = {}) {
     grafka.getModel().setValue(vertex, g) 
 }
 
+export function configureDcBusAttributes(grafka, vertex, options = {}) {
+    var g = mxUtils.createXmlDocument().createElement("object");
+    
+    g.setAttribute("name", options.name || "DC Bus");
+    g.setAttribute("Load_flow_parameters", "");
+    g.setAttribute("vn_kv", options.vn_kv || "0");
+    
+    grafka.getModel().setValue(vertex, g);
+    grafka.insertVertex(vertex, null, options.name || "DC Bus", 0, -0.5, 0, 0, null, true);
+}
+
+export function configureLoadDcAttributes(grafka, vertex, options = {}) {
+    var g = mxUtils.createXmlDocument().createElement("object");
+    g.setAttribute("name", "Load DC");
+    
+    g.setAttribute("Load_flow_parameters", "");
+    g.setAttribute("p_mw", options.p_mw || "0");
+    
+    grafka.getModel().setValue(vertex, g);
+    grafka.insertVertex(vertex, null, 'Load DC', 0.5, 1.5, 0, 0, null, true);
+}
+
+export function configureSourceDcAttributes(grafka, vertex, options = {}) {
+    var g = mxUtils.createXmlDocument().createElement("object");
+    g.setAttribute("name", "Source DC");
+    
+    g.setAttribute("Load_flow_parameters", "");
+    g.setAttribute("vm_pu", options.vm_pu || "1.0");
+    
+    grafka.getModel().setValue(vertex, g);
+    grafka.insertVertex(vertex, null, 'Source DC', 0.5, -0.25, 0, 0, null, true);
+}
+
+export function configureSwitchAttributes(grafka, vertex, options = {}) {
+    var g = mxUtils.createXmlDocument().createElement("object");
+    g.setAttribute("name", "Switch");
+    
+    g.setAttribute("Load_flow_parameters", "");
+    g.setAttribute("et", options.et || "b"); // element type: 'b' for bus, 'l' for line
+    g.setAttribute("type", options.type || "LS"); // switch type: 'LS' load switch, 'CB' circuit breaker, 'LBS' load break switch
+    g.setAttribute("closed", options.closed !== undefined ? options.closed : true);
+    g.setAttribute("z_ohm", options.z_ohm || "0.0");
+    
+    grafka.getModel().setValue(vertex, g);
+}
+
+export function configureVscAttributes(grafka, vertex, options = {}) {
+    var g = mxUtils.createXmlDocument().createElement("object");
+    g.setAttribute("name", "VSC");
+    
+    g.setAttribute("Load_flow_parameters", "");
+    g.setAttribute("bus", options.bus || "");
+    g.setAttribute("p_mw", options.p_mw || "0");
+    g.setAttribute("vm_pu", options.vm_pu || "1.0");
+    g.setAttribute("sn_mva", options.sn_mva || "0");
+    g.setAttribute("rx", options.rx || "0.1");
+    g.setAttribute("max_ik_ka", options.max_ik_ka || "0");
+    g.setAttribute("in_service", options.in_service !== undefined ? options.in_service : true);
+    
+    grafka.getModel().setValue(vertex, g);
+    grafka.insertVertex(vertex, null, 'VSC', 0.5, 1.5, 0, 0, null, true);
+}
+
+export function configureB2bVscAttributes(grafka, vertex, options = {}) {
+    var g = mxUtils.createXmlDocument().createElement("object");
+    g.setAttribute("name", "B2B VSC");
+    
+    g.setAttribute("Load_flow_parameters", "");
+    g.setAttribute("bus1", options.bus1 || "");
+    g.setAttribute("bus2", options.bus2 || "");
+    g.setAttribute("p_mw", options.p_mw || "0");
+    g.setAttribute("vm1_pu", options.vm1_pu || "1.0");
+    g.setAttribute("vm2_pu", options.vm2_pu || "1.0");
+    g.setAttribute("sn_mva", options.sn_mva || "0");
+    g.setAttribute("rx", options.rx || "0.1");
+    g.setAttribute("max_ik_ka", options.max_ik_ka || "0");
+    g.setAttribute("in_service", options.in_service !== undefined ? options.in_service : true);
+    
+    grafka.getModel().setValue(vertex, g);
+    grafka.insertVertex(vertex, null, 'B2B VSC', 0.5, 1.5, 0, 0, null, true);
+}
+
 // Make all configure functions globally available for app.min.js
 if (typeof window !== 'undefined') {
     window.configureExternalGridAttributes = configureExternalGridAttributes;
@@ -661,6 +743,12 @@ if (typeof window !== 'undefined') {
     window.configureSSCAttributes = configureSSCAttributes;
     window.configureDCLineAttributes = configureDCLineAttributes;
     window.configureLineAttributes = configureLineAttributes;
+    window.configureDcBusAttributes = configureDcBusAttributes;
+    window.configureLoadDcAttributes = configureLoadDcAttributes;
+    window.configureSourceDcAttributes = configureSourceDcAttributes;
+    window.configureSwitchAttributes = configureSwitchAttributes;
+    window.configureVscAttributes = configureVscAttributes;
+    window.configureB2bVscAttributes = configureB2bVscAttributes;
 }
 
 

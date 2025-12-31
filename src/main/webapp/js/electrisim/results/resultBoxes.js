@@ -14,10 +14,11 @@ function getShapeElxxx(style) {
     return match ? match[1] : null;
 }
 
-// Helper to detect Bus style
+// Helper to detect Bus style (including DC Bus)
 function isBusStyle(style) {
     if (!style) return false;
     return style.includes('shapeELXXX=Bus') ||
+        style.includes('shapeELXXX=DC Bus') ||
         style.includes('shape=mxgraph.electrical.transmission.busbar');
 }
 
@@ -691,7 +692,8 @@ mxGraph.prototype.addEdge = function (edge, parent, source, target, index) {
             // 1) Placeholders for ALL components connected to a Bus via edges
             // This includes: External Grid, Generator, Load, Motor, Transformer, Shunt Reactor,
             // Capacitor, Static Generator, Asymmetric Static Generator, Asymmetric Load,
-            // Impedance, Ward, Extended Ward, Storage, SVC, TCSC, SSC, DC Line, etc.
+            // Impedance, Ward, Extended Ward, Storage, SVC, TCSC, SSC, DC Line,
+            // DC Bus, Load DC, Source DC, Switch, VSC, B2B VSC, etc.
             var sourceIsBus = isBusStyle(sourceStyle);
             var targetIsBus = isBusStyle(targetStyle);
 
