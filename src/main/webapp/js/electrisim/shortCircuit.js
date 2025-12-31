@@ -16,11 +16,14 @@ window.shortCircuitPandaPower = function(a, b, c) {
         staticGenerator: 0,
         asymmetricGenerator: 0,
         busbar: 0,
+        dcBus: 0,
         transformer: 0,
         threeWindingTransformer: 0,
         shuntReactor: 0,
         capacitor: 0,
         load: 0,
+        loadDc: 0,
+        sourceDc: 0,
         asymmetricLoad: 0,
         impedance: 0,
         ward: 0,
@@ -30,6 +33,9 @@ window.shortCircuitPandaPower = function(a, b, c) {
         SVC: 0,
         TCSC: 0,
         SSC: 0,
+        switch: 0,
+        vsc: 0,
+        b2bVsc: 0,
         dcLine: 0,
         line: 0
     };
@@ -42,11 +48,14 @@ window.shortCircuitPandaPower = function(a, b, c) {
         staticGenerator: [],
         asymmetricGenerator: [],
         busbar: [],
+        dcbuses: [],
         transformer: [],
         threeWindingTransformer: [],
         shuntReactor: [],
         capacitor: [],
         load: [],
+        loaddc: [],
+        sourcedc: [],
         asymmetricLoad: [],
         impedance: [],
         ward: [],
@@ -56,6 +65,9 @@ window.shortCircuitPandaPower = function(a, b, c) {
         SVC: [],
         TCSC: [],
         SSC: [],
+        switches: [],
+        vscs: [],
+        b2bvscs: [],
         dcLine: [],
         line: []
     };
@@ -1281,6 +1293,103 @@ window.shortCircuitPandaPower = function(a, b, c) {
                         componentArrays.dcLine.push(dcLine);
                         break;
 
+                    case COMPONENT_TYPES.DC_BUS:
+                        const dcBus = {
+                            typ: `DC Bus${counters.dcBus++}`,
+                            name: cell.mxObjectId.replace('#', '_'),
+                            id: cell.id,
+                            ...getAttributesAsObject(cell, {
+                                vn_kv: 'vn_kv',
+                                in_service: 'in_service'
+                            })
+                        };
+                        componentArrays.dcbuses.push(dcBus);
+                        break;
+
+                    case COMPONENT_TYPES.LOAD_DC:
+                        const loadDc = {
+                            typ: `Load DC${counters.loadDc++}`,
+                            name: cell.mxObjectId.replace('#', '_'),
+                            id: cell.id,
+                            bus: getConnectedBusId(cell),
+                            ...getAttributesAsObject(cell, {
+                                p_mw: 'p_mw',
+                                in_service: 'in_service'
+                            })
+                        };
+                        componentArrays.loaddc.push(loadDc);
+                        break;
+
+                    case COMPONENT_TYPES.SOURCE_DC:
+                        const sourceDc = {
+                            typ: `Source DC${counters.sourceDc++}`,
+                            name: cell.mxObjectId.replace('#', '_'),
+                            id: cell.id,
+                            bus: getConnectedBusId(cell),
+                            ...getAttributesAsObject(cell, {
+                                p_mw: 'p_mw',
+                                vm_pu: 'vm_pu',
+                                in_service: 'in_service'
+                            })
+                        };
+                        componentArrays.sourcedc.push(sourceDc);
+                        break;
+
+                    case COMPONENT_TYPES.SWITCH:
+                        const switchElement = {
+                            typ: `Switch${counters.switch++}`,
+                            name: cell.mxObjectId.replace('#', '_'),
+                            id: cell.id,
+                            bus: getConnectedBusId(cell),
+                            ...getAttributesAsObject(cell, {
+                                closed: 'closed',
+                                type: 'type',
+                                z_ohm: 'z_ohm',
+                                in_ka: 'in_ka',
+                                in_service: 'in_service'
+                            })
+                        };
+                        componentArrays.switches.push(switchElement);
+                        break;
+
+                    case COMPONENT_TYPES.VSC:
+                        const vsc = {
+                            typ: `VSC${counters.vsc++}`,
+                            name: cell.mxObjectId.replace('#', '_'),
+                            id: cell.id,
+                            bus: getConnectedBusId(cell),
+                            ...getAttributesAsObject(cell, {
+                                p_mw: 'p_mw',
+                                vm_pu: 'vm_pu',
+                                sn_mva: 'sn_mva',
+                                rx: 'rx',
+                                max_ik_ka: 'max_ik_ka',
+                                in_service: 'in_service'
+                            })
+                        };
+                        componentArrays.vscs.push(vsc);
+                        break;
+
+                    case COMPONENT_TYPES.B2B_VSC:
+                        const b2bVsc = {
+                            typ: `B2B VSC${counters.b2bVsc++}`,
+                            name: cell.mxObjectId.replace('#', '_'),
+                            id: cell.id,
+                            bus1: getConnectedBusId(cell),
+                            ...getAttributesAsObject(cell, {
+                                bus2: 'bus2',
+                                p_mw: 'p_mw',
+                                vm1_pu: 'vm1_pu',
+                                vm2_pu: 'vm2_pu',
+                                sn_mva: 'sn_mva',
+                                rx: 'rx',
+                                max_ik_ka: 'max_ik_ka',
+                                in_service: 'in_service'
+                            })
+                        };
+                        componentArrays.b2bvscs.push(b2bVsc);
+                        break;
+
                     case COMPONENT_TYPES.LINE:
                         try {
                             console.log('Processing line:', cell.mxObjectId);
@@ -1355,18 +1464,27 @@ window.shortCircuitPandaPower = function(a, b, c) {
                 ...componentArrays.staticGenerator,
                 ...componentArrays.asymmetricGenerator,
                 ...componentArrays.busbar,
+                ...componentArrays.dcbuses,
                 ...componentArrays.transformer,
                 ...componentArrays.threeWindingTransformer,
                 ...componentArrays.shuntReactor,
                 ...componentArrays.capacitor,
                 ...componentArrays.load,
+                ...componentArrays.loaddc,
+                ...componentArrays.sourcedc,
                 ...componentArrays.asymmetricLoad,
                 ...componentArrays.impedance,
                 ...componentArrays.ward,
                 ...componentArrays.extendedWard,
+                ...componentArrays.motor,
+                ...componentArrays.storage,
                 ...componentArrays.SSC,
                 ...componentArrays.SVC,
                 ...componentArrays.TCSC,
+                ...componentArrays.switches,
+                ...componentArrays.vscs,
+                ...componentArrays.b2bvscs,
+                ...componentArrays.dcLine,
                 ...componentArrays.line
             ];
 
