@@ -381,7 +381,15 @@ window.addEventListener('message', function(event) {
                         })
                         .catch(error => {
                             console.error('Error verifying subscription:', error);
-                            alert('Subscription activated but unable to refresh status. Please try refreshing the page manually.');
+                            if (error.message && error.message.includes('Token expired')) {
+                                alert('Subscription activated! Your session has expired. Please log in again to continue.');
+                                // Redirect to login
+                                if (window.location.href.includes('app.electrisim.com')) {
+                                    window.location.href = '/login.html';
+                                }
+                            } else {
+                                alert('Subscription activated but unable to refresh status. Please try refreshing the page manually.');
+                            }
                         });
                 } catch (error) {
                     console.error('Error handling subscription success:', error);
