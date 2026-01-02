@@ -164,7 +164,20 @@ export class ContingencyDialog extends Dialog {
                 }
             } catch (error) {
                 console.error('ContingencyDialog: Error checking subscription status:', error);
-                alert('Unable to verify subscription status. Please try again.');
+                // Provide more helpful error messages based on error type
+                if (error.message && error.message.includes('Token expired')) {
+                    alert('Your session has expired. Please log in again.');
+                    // Redirect to login if possible
+                    if (window.location.href.includes('app.electrisim.com')) {
+                        window.location.href = '/login.html';
+                    }
+                } else if (error.message && error.message.includes('NetworkError')) {
+                    alert('Network connection error. Please check your internet connection and try again.');
+                } else if (error.message && error.message.includes('Failed to fetch')) {
+                    alert('Unable to connect to the server. Please check your internet connection and try again.');
+                } else {
+                    alert('Unable to verify subscription status. Please try again. If the issue persists, contact support.');
+                }
             }
         });
     }

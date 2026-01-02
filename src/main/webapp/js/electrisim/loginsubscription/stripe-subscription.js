@@ -413,15 +413,40 @@ const SubscriptionManager = {
                 }
             });
 
+            // Handle non-OK responses with better error details
             if (!response.ok) {
-                console.error('Subscription check failed:', response.status);
+                let errorData;
+                try {
+                    errorData = await response.json();
+                } catch (e) {
+                    errorData = { error: `HTTP ${response.status}: ${response.statusText}` };
+                }
+
+                console.error('Subscription check failed:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    error: errorData.error || errorData.message,
+                    details: errorData.details,
+                    apiUrl: `${API_BASE_URL}/stripe/check-subscription`
+                });
                 return false;
             }
-            
+
             const data = await response.json();
+
+            // Ensure we have the expected response structure
+            if (typeof data.hasActiveSubscription !== 'boolean') {
+                console.warn('Unexpected response format from subscription check:', data);
+                return false;
+            }
+
             return data.hasActiveSubscription;
         } catch (error) {
-            console.error('Error checking subscription status:', error);
+            console.error('Error checking subscription status:', {
+                message: error.message,
+                stack: error.stack,
+                apiUrl: `${API_BASE_URL}/stripe/check-subscription`
+            });
             return false;
         }
     },
@@ -621,15 +646,48 @@ window.checkSubscriptionStatus = async function() {
             }
         });
 
+        // Handle non-OK responses with better error details
         if (!response.ok) {
-            console.error('Subscription check failed:', response.status);
+            let errorData;
+            try {
+                errorData = await response.json();
+            } catch (e) {
+                errorData = { error: `HTTP ${response.status}: ${response.statusText}` };
+            }
+
+            console.error('Subscription check failed:', {
+                status: response.status,
+                statusText: response.statusText,
+                error: errorData.error || errorData.message,
+                details: errorData.details,
+                apiUrl: `${API_BASE_URL}/stripe/check-subscription`
+            });
+
+            // If it's a 401, the token might be expired
+            if (response.status === 401) {
+                console.log('Token expired or invalid, redirecting to login');
+                handleUnauthenticated();
+                return false;
+            }
+
             return false;
         }
-        
+
         const data = await response.json();
+
+        // Ensure we have the expected response structure
+        if (typeof data.hasActiveSubscription !== 'boolean') {
+            console.warn('Unexpected response format from subscription check:', data);
+            return false;
+        }
+
         return data.hasActiveSubscription;
     } catch (error) {
-        console.error('Error checking subscription status:', error);
+        console.error('Error checking subscription status:', {
+            message: error.message,
+            stack: error.stack,
+            apiUrl: `${API_BASE_URL}/stripe/check-subscription`
+        });
         return false;
     }
 };
