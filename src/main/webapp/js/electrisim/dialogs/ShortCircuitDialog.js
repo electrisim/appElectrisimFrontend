@@ -146,7 +146,8 @@ export class ShortCircuitDialog extends Dialog {
             return false;
         } catch (error) {
             console.error('ShortCircuitDialog: Error in checkSubscriptionStatus:', error);
-            return false;
+            // Re-throw so the show() catch block can handle it with specific error messages
+            throw error;
         }
     }
 } 

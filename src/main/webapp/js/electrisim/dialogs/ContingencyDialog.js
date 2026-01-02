@@ -211,7 +211,8 @@ export class ContingencyDialog extends Dialog {
             return false;
         } catch (error) {
             console.error('ContingencyDialog: Error in checkSubscriptionStatus:', error);
-            return false;
+            // Re-throw so the show() catch block can handle it with specific error messages
+            throw error;
         }
     }
 }
