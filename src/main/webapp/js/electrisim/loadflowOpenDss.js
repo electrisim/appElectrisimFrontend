@@ -810,7 +810,9 @@ const elementProcessors = {
                 if (placeholder) {
                     grafka.getModel().setValue(placeholder, resultString);
                 } else {
-                    const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.1, 0, 0, 'shapeELXXX=ResultExternalGrid', true);
+                    // Create fallback with proper dimensions to ensure correct font size
+                    // Use same dimensions as resultBoxes.js placeholder (60x40)
+                    const labelka = b.insertVertex(resultCell, null, resultString, -0.5, 1, 0, 0, 'shapeELXXX=ResultExternalGrid', true);
                     processCellStyles(b, labelka);
                 }
             } catch (error) {

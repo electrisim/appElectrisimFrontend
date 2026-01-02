@@ -1340,9 +1340,11 @@ function loadFlowPandaPower(a, b, c) {
                 if (placeholder) {
                     model.setValue(placeholder, resultString);
                 } else {
-                    const labelka = b.insertVertex(resultCell, null, resultString, 0.5, 0, 0, 0, 'shapeELXXX=ResultExternalGrid', true);
+                    // Create fallback with proper dimensions to ensure correct font size
+                    // Use same dimensions as resultBoxes.js placeholder (60x40)
+                    const labelka = b.insertVertex(resultCell, null, resultString, -0.5, 1, 0, 0, 'shapeELXXX=ResultExternalGrid', true);
                     processCellStyles(b, labelka);
-                    b.setCellStyle(`resultSource=${cell.id}`, [labelka]);
+                   // b.setCellStyle(`resultSource=${cell.id}`, [labelka]);
                 }
             });
         },
