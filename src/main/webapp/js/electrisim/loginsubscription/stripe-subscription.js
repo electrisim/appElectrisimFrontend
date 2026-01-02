@@ -58,19 +58,25 @@ async function checkSubscriptionStatus() {
 
         if (response.status === 401) {
             console.log('Token expired or invalid');
-            return handleUnauthenticated();
+            throw new Error('Token expired');
         }
 
         if (!response.ok) {
-            console.error('Subscription check failed:', response.status);
-            return false;
+            let errorData;
+            try {
+                errorData = await response.json();
+            } catch (e) {
+                errorData = { error: `HTTP ${response.status}: ${response.statusText}` };
+            }
+            console.error('Subscription check failed:', response.status, errorData);
+            throw new Error(errorData.error || errorData.details || `Subscription check failed: ${response.status}`);
         }
         
         const data = await response.json();
         return data.hasActiveSubscription;
     } catch (error) {
         console.error('Error checking subscription status:', error);
-        return false;
+        throw error;
     }
 }
 
@@ -410,7 +416,7 @@ const SubscriptionManager = {
             
             if (!token) {
                 console.error('No authentication token found');
-                return false;
+                throw new Error('No authentication token found');
             }
             
             const response = await fetch(`${API_BASE_URL}/stripe/check-subscription`, {
@@ -437,7 +443,14 @@ const SubscriptionManager = {
                     details: errorData.details,
                     apiUrl: `${API_BASE_URL}/stripe/check-subscription`
                 });
-                return false;
+
+                // Throw specific error for 401 (token expired)
+                if (response.status === 401) {
+                    throw new Error('Token expired');
+                }
+
+                // Throw error for other failures
+                throw new Error(errorData.error || errorData.details || `Subscription check failed: ${response.status}`);
             }
 
             const data = await response.json();
@@ -445,7 +458,7 @@ const SubscriptionManager = {
             // Ensure we have the expected response structure
             if (typeof data.hasActiveSubscription !== 'boolean') {
                 console.warn('Unexpected response format from subscription check:', data);
-                return false;
+                throw new Error('Invalid response format from server');
             }
 
             return data.hasActiveSubscription;
@@ -455,7 +468,8 @@ const SubscriptionManager = {
                 stack: error.stack,
                 apiUrl: `${API_BASE_URL}/stripe/check-subscription`
             });
-            return false;
+            // Re-throw so dialog catch blocks can handle it
+            throw error;
         }
     },
     
@@ -674,11 +688,12 @@ window.checkSubscriptionStatus = async function() {
             // If it's a 401, the token might be expired
             if (response.status === 401) {
                 console.log('Token expired or invalid, redirecting to login');
-                handleUnauthenticated();
-                return false;
+                // Throw error so dialog can show appropriate message before redirect
+                throw new Error('Token expired');
             }
 
-            return false;
+            // Throw error for other failures so dialog catch blocks can handle them
+            throw new Error(errorData.error || errorData.details || `Subscription check failed: ${response.status}`);
         }
 
         const data = await response.json();
@@ -686,7 +701,7 @@ window.checkSubscriptionStatus = async function() {
         // Ensure we have the expected response structure
         if (typeof data.hasActiveSubscription !== 'boolean') {
             console.warn('Unexpected response format from subscription check:', data);
-            return false;
+            throw new Error('Invalid response format from server');
         }
 
         return data.hasActiveSubscription;
@@ -696,7 +711,8 @@ window.checkSubscriptionStatus = async function() {
             stack: error.stack,
             apiUrl: `${API_BASE_URL}/stripe/check-subscription`
         });
-        return false;
+        // Re-throw the error so dialog catch blocks can handle it with specific messages
+        throw error;
     }
 };
 

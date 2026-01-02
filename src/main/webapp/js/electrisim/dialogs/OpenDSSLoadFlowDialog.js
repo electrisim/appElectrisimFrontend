@@ -189,7 +189,8 @@ export class OpenDSSLoadFlowDialog extends Dialog {
             return false;
         } catch (error) {
             console.error('OpenDSSLoadFlowDialog: Error in checkSubscriptionStatus:', error);
-            return false;
+            // Re-throw so the show() catch block can handle it with specific error messages
+            throw error;
         }
     }
 }
