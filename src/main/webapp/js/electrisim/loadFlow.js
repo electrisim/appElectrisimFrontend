@@ -1047,10 +1047,19 @@ function loadFlowPandaPower(a, b, c) {
             return true;
         }
 
-        // Handle simple error response (validation errors, etc.)
+        // Handle simple error response (validation errors, connection errors, etc.)
         if (dataJson.error && !dataJson.diagnostic) {
             console.error('Power flow calculation failed:', dataJson.error);
-            alert(`Power flow calculation failed:\n\n${dataJson.error}`);
+            
+            // Check if it's a connection error (missing bus connections)
+            if (dataJson.error.includes('CONNECTION ERROR')) {
+                // Format connection errors nicely with line breaks
+                const formattedError = dataJson.error.replace(/\\n/g, '\n');
+                alert(`⚠️ ${formattedError}`);
+            } else {
+                // Standard error display
+                alert(`❌ Power Flow Calculation Failed\n\n${dataJson.error}`);
+            }
             return true;
         }
 
@@ -1810,6 +1819,20 @@ function loadFlowPandaPower(a, b, c) {
             if (response.status !== 200) {
                 const errorText = await response.text();
                 console.error('ELXXX: Server error response:', errorText);
+                
+                // Try to parse error response as JSON to get detailed error message
+                try {
+                    const errorJson = JSON.parse(errorText);
+                    if (errorJson.error) {
+                        // Display the detailed error message from backend
+                        alert(`❌ Power Flow Calculation Failed\n\n${errorJson.error}`);
+                        throw new Error(errorJson.error);
+                    }
+                } catch (parseError) {
+                    // If not JSON or doesn't have error field, use generic error
+                    console.error('Could not parse error as JSON:', parseError);
+                }
+                
                 throw new Error("server");
             }
 
