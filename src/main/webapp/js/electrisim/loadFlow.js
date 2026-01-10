@@ -3094,4 +3094,17 @@ if (!globalThis.simulationRunCount) {
 globalThis.loadFlowPandaPower = loadFlowPandaPower;
 
 // Export for module usage
-export { loadFlowPandaPower };
+export { 
+    loadFlowPandaPower,
+    getConnectedBusId,
+    parseCellStyle,
+    getAttributesAsObject,
+    getTransformerConnections,
+    updateTransformerBusConnections,
+    updateThreeWindingTransformerConnections,
+    getThreeWindingConnections,
+    getImpedanceConnections,
+    getConnectedBuses,
+    validateBusConnections,
+    COMPONENT_TYPES
+};
