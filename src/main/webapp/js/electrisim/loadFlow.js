@@ -389,12 +389,56 @@ const getAttributesAsObject = (cell, attributeMap) => {
 
 // Add helper function for transformer bus connections
 const getTransformerConnections = (cell, strictValidation = false) => {
+    // Validate that cell has edges
+    if (!cell.edges || cell.edges.length < 2) {
+        console.error(`Transformer "${cell.id || cell.mxObjectId || 'Unknown'}" does not have enough connections. A transformer must be connected to exactly 2 buses (HV and LV).`);
+        return {
+            hv_bus: null,
+            lv_bus: null
+        };
+    }
+    
     const hvEdge = cell.edges[0];
     const lvEdge = cell.edges[1];
+    
+    // Validate edges exist
+    if (!hvEdge || !lvEdge) {
+        console.error(`Transformer "${cell.id || cell.mxObjectId || 'Unknown'}" has invalid edge connections.`);
+        return {
+            hv_bus: null,
+            lv_bus: null
+        };
+    }
 
-    // Get connected cells
-    const hvConnectedCell = hvEdge.target.mxObjectId !== cell.mxObjectId ? hvEdge.target : hvEdge.source;
-    const lvConnectedCell = lvEdge.target.mxObjectId !== cell.mxObjectId ? lvEdge.target : lvEdge.source;
+    // Get connected cells with null checks
+    const getConnectedCell = (edge) => {
+        if (!edge) return null;
+        
+        // Check if target exists and is not the transformer itself
+        if (edge.target && edge.target.mxObjectId && edge.target.mxObjectId !== cell.mxObjectId) {
+            return edge.target;
+        }
+        
+        // Fall back to source if target is null or is the transformer
+        if (edge.source && edge.source.mxObjectId && edge.source.mxObjectId !== cell.mxObjectId) {
+            return edge.source;
+        }
+        
+        // If both target and source are null or invalid, return null
+        return null;
+    };
+    
+    const hvConnectedCell = getConnectedCell(hvEdge);
+    const lvConnectedCell = getConnectedCell(lvEdge);
+    
+    // Check if connections are valid
+    if (!hvConnectedCell || !hvConnectedCell.mxObjectId) {
+        console.error(`Transformer "${cell.id || cell.mxObjectId || 'Unknown'}" HV side is not properly connected to a bus.`);
+    }
+    
+    if (!lvConnectedCell || !lvConnectedCell.mxObjectId) {
+        console.error(`Transformer "${cell.id || cell.mxObjectId || 'Unknown'}" LV side is not properly connected to a bus.`);
+    }
     
     // Validate that connected cells are buses
     const isBus = (connectedCell) => {
@@ -407,18 +451,19 @@ const getTransformerConnections = (cell, strictValidation = false) => {
     
     // Only validate if strict validation is enabled
     if (strictValidation) {
-        if (!isBus(hvConnectedCell)) {
-            console.warn(`Transformer "${cell.id}" HV side is connected to "${hvConnectedCell.id}" which may not be a Bus. PandaPower requires explicit Bus connections.`);
+        if (hvConnectedCell && !isBus(hvConnectedCell)) {
+            console.warn(`Transformer "${cell.id || cell.mxObjectId || 'Unknown'}" HV side is connected to "${hvConnectedCell.id || 'Unknown'}" which may not be a Bus. PandaPower requires explicit Bus connections.`);
         }
         
-        if (!isBus(lvConnectedCell)) {
-            console.warn(`Transformer "${cell.id}" LV side is connected to "${lvConnectedCell.id}" which may not be a Bus. PandaPower requires explicit Bus connections.`);
+        if (lvConnectedCell && !isBus(lvConnectedCell)) {
+            console.warn(`Transformer "${cell.id || cell.mxObjectId || 'Unknown'}" LV side is connected to "${lvConnectedCell.id || 'Unknown'}" which may not be a Bus. PandaPower requires explicit Bus connections.`);
         }
     }
 
+    // Return bus IDs with null safety
     return {
-        hv_bus: hvConnectedCell.mxObjectId.replace('#', '_'),
-        lv_bus: lvConnectedCell.mxObjectId.replace('#', '_')
+        hv_bus: hvConnectedCell && hvConnectedCell.mxObjectId ? hvConnectedCell.mxObjectId.replace('#', '_') : null,
+        lv_bus: lvConnectedCell && lvConnectedCell.mxObjectId ? lvConnectedCell.mxObjectId.replace('#', '_') : null
     };
 };
 
@@ -2271,6 +2316,33 @@ function loadFlowPandaPower(a, b, c) {
 
                     case COMPONENT_TYPES.TRANSFORMER:
                         const { hv_bus, lv_bus } = getTransformerConnections(cell);
+                        
+                        // Validate transformer connections
+                        if (!hv_bus || !lv_bus) {
+                            const transformerName = (() => {
+                                if (cell.value && cell.value.attributes) {
+                                    for (let i = 0; i < cell.value.attributes.length; i++) {
+                                        if (cell.value.attributes[i].nodeName === 'name') {
+                                            return cell.value.attributes[i].nodeValue;
+                                        }
+                                    }
+                                }
+                                return cell.mxObjectId ? cell.mxObjectId.replace('#', '_') : cell.id || 'Unknown';
+                            })();
+                            
+                            console.error(`Transformer "${transformerName}" (ID: ${cell.id}) is not properly connected:`);
+                            if (!hv_bus) {
+                                console.error(`  - HV side is missing bus connection`);
+                            }
+                            if (!lv_bus) {
+                                console.error(`  - LV side is missing bus connection`);
+                            }
+                            console.error(`  - Please ensure the transformer is connected to Bus elements on both sides`);
+                            
+                            // Skip this transformer - it will cause backend errors anyway
+                            break;
+                        }
+                        
                         const transformer = {
                             typ: `Transformer${counters.transformer++}`,
                             name: cell.mxObjectId.replace('#', '_'),
