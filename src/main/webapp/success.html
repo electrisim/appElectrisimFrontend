@@ -69,19 +69,6 @@
             line-height: 1.6;
         }
 
-        .session-info {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 20px;
-            margin: 30px 0;
-            border-left: 4px solid #4CAF50;
-        }
-
-        .session-id {
-            font-family: 'Courier New', monospace;
-            color: #495057;
-            word-break: break-all;
-        }
 
         .buttons {
             display: flex;
@@ -122,25 +109,6 @@
             transform: translateY(-2px);
         }
 
-        .loading {
-            display: none;
-            margin: 20px 0;
-        }
-
-        .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #4CAF50;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
 
         @media (max-width: 600px) {
             .success-container {
@@ -168,99 +136,15 @@
         <p class="subtitle">
             Thank you for subscribing to Electrisim! Your subscription is now active and you have access to all premium features.
         </p>
-        
-        <div class="session-info">
-            <strong>Session ID:</strong><br>
-            <span class="session-id" id="sessionId">Loading...</span>
-        </div>
-
-        <div class="loading" id="loading">
-            <div class="spinner"></div>
-            <p>Verifying your subscription...</p>
-        </div>
 
         <div class="buttons">
             <a href="/" class="btn btn-primary" id="dashboard-btn">Go to Dashboard</a>
-            <a href="javascript:void(0)" onclick="checkSubscription()" class="btn btn-secondary">Verify Subscription</a>
         </div>
     </div>
 
     <script>
-        // Configuration
-        const config = {
-            development: {
-                apiBaseUrl: 'http://localhost:5502/api',
-                isDevelopment: true
-            },
-            production: {
-                apiBaseUrl: 'https://customers-production-16f8.up.railway.app/api',
-                isDevelopment: false
-            }
-        };
 
-        const currentConfig = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost' 
-            ? config.development 
-            : config.production;
 
-        // Get session ID from URL parameters
-        const urlParams = new URLSearchParams(window.location.search);
-        const sessionId = urlParams.get('session_id');
-        
-        if (sessionId) {
-            document.getElementById('sessionId').textContent = sessionId;
-        } else {
-            document.getElementById('sessionId').textContent = 'No session ID found';
-        }
-
-        // Function to check subscription status
-        async function checkSubscription() {
-            const loading = document.getElementById('loading');
-            loading.style.display = 'block';
-            
-            try {
-                const token = localStorage.getItem('token');
-                if (!token) {
-                    alert('❌ No authentication token found. Please log in again.');
-                    return;
-                }
-
-                const response = await fetch(`${currentConfig.apiBaseUrl}/stripe/check-subscription`, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const data = await response.json();
-                
-                if (data.hasActiveSubscription) {
-                    alert('✅ Success! Your subscription is active!\n\nYou now have access to all premium features.');
-                    console.log('✅ Your subscription is active! You can now access all premium features.');
-                } else {
-                    alert('❌ Subscription not found. Please contact support if you believe this is an error.');
-                }
-            } catch (error) {
-                console.error('Error checking subscription:', error);
-                alert('❌ Error verifying subscription. Please try again or contact support.');
-            } finally {
-                loading.style.display = 'none';
-            }
-        }
-
-        // Auto-check subscription after 2 seconds
-        setTimeout(() => {
-            const token = localStorage.getItem('token');
-            if (token) {
-                checkSubscription();
-            } else {
-                console.log('No token found, skipping auto-check');
-            }
-        }, 2000);
 
         // Add some interactive effects
         document.addEventListener('DOMContentLoaded', function() {
