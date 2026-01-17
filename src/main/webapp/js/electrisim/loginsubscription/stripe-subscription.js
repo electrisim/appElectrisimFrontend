@@ -131,6 +131,28 @@ async function redirectToStripeCheckout(priceId) {
 
         const data = await response.json();
         
+        // Check if token was updated due to customer ID fix
+        if (data.tokenUpdated && data.newToken) {
+            console.log('✅ Token updated automatically during checkout (customer ID fix)');
+            localStorage.setItem('token', data.newToken);
+            
+            // Update user data if available
+            try {
+                const payload = JSON.parse(atob(data.newToken.split('.')[1]));
+                if (payload.email) {
+                    const userData = {
+                        id: payload.id,
+                        email: payload.email,
+                        stripeCustomerId: payload.stripeCustomerId
+                    };
+                    localStorage.setItem('user', JSON.stringify(userData));
+                    console.log('✅ User data updated with new customer ID');
+                }
+            } catch (e) {
+                console.warn('Could not parse new token:', e);
+            }
+        }
+        
         if (!data.url) {
             console.error('Invalid response data:', data);
             throw new Error('No checkout URL received');
@@ -697,6 +719,28 @@ window.checkSubscriptionStatus = async function() {
         }
 
         const data = await response.json();
+
+        // Check if token was updated due to customer ID fix
+        if (data.tokenUpdated && data.newToken) {
+            console.log('✅ Token updated automatically due to customer ID fix');
+            localStorage.setItem('token', data.newToken);
+            
+            // Update user data if available
+            try {
+                const payload = JSON.parse(atob(data.newToken.split('.')[1]));
+                if (payload.email) {
+                    const userData = {
+                        id: payload.id,
+                        email: payload.email,
+                        stripeCustomerId: payload.stripeCustomerId
+                    };
+                    localStorage.setItem('user', JSON.stringify(userData));
+                    console.log('✅ User data updated with new customer ID');
+                }
+            } catch (e) {
+                console.warn('Could not parse new token:', e);
+            }
+        }
 
         // Ensure we have the expected response structure
         if (typeof data.hasActiveSubscription !== 'boolean') {
