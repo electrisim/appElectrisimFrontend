@@ -37,6 +37,7 @@ export class ComponentsDataDialog {
         this.gridInstances = {}; // Store grid instances for cleanup
         this.originalData = {}; // Store original data for cancel functionality
         this.hasChanges = false; // Track if any changes were made
+        this.changedCells = new Map(); // Track which cells have been edited: Map<cellId, Set<attributeName>>
         
         // Initialize component arrays
         Object.values(COMPONENT_TYPES).forEach(type => {
@@ -91,10 +92,14 @@ export class ComponentsDataDialog {
         Object.entries(attributeMap).forEach(([key, config]) => {
             const attributeName = typeof config === 'string' ? config : config.name;
             const isOptional = typeof config === 'object' && config.optional;
+            const defaultValue = typeof config === 'object' && config.defaultValue !== undefined ? config.defaultValue : undefined;
             
             const attribute = Array.from(cell.value.attributes).find(attr => attr.name === attributeName);
             if (attribute) {
                 result[key] = attribute.value;
+            } else if (isOptional && defaultValue !== undefined) {
+                // Use default value for optional attributes
+                result[key] = defaultValue;
             } else if (!isOptional) {
                 result[key] = 'N/A';
             }
@@ -237,7 +242,7 @@ export class ComponentsDataDialog {
                         ...this.getAttributesAsObject(cell, {
                             vm_pu: 'vm_pu',
                             va_degree: 'va_degree',
-                            in_service: 'in_service',
+                            in_service: { name: 'in_service', optional: true, defaultValue: 'true' },
                             s_sc_max_mva: 's_sc_max_mva',
                             s_sc_min_mva: 's_sc_min_mva',
                             rx_max: 'rx_max',
@@ -265,7 +270,7 @@ export class ComponentsDataDialog {
                             scaling: 'scaling',
                             slack: 'slack',
                             controllable: 'controllable',
-                            in_service: 'in_service',
+                            in_service: { name: 'in_service', optional: true, defaultValue: 'true' },
                             vn_kv: 'vn_kv',
                             xdss_pu: 'xdss_pu',
                             rdss_ohm: 'rdss_ohm',
@@ -297,7 +302,7 @@ export class ComponentsDataDialog {
                             max_ik_ka: 'max_ik_ka',
                             kappa: 'kappa',
                             current_source: 'current_source',
-                            in_service: 'in_service'
+                            in_service: { name: 'in_service', optional: true, defaultValue: 'true' }
                         })
                     });
                     break;
@@ -316,7 +321,7 @@ export class ComponentsDataDialog {
                             sn_mva: 'sn_mva',
                             scaling: 'scaling',
                             type: 'type',
-                            in_service: 'in_service'
+                            in_service: { name: 'in_service', optional: true, defaultValue: 'true' }
                         })
                     });
                     break;
@@ -327,7 +332,7 @@ export class ComponentsDataDialog {
                         type: `Bus ${counters.busbar++}`,
                         ...this.getAttributesAsObject(cell, {
                             vn_kv: 'vn_kv',
-                            in_service: 'in_service',
+                            in_service: { name: 'in_service', optional: true, defaultValue: 'true' },
                             type: 'type',
                             max_vm_pu: 'max_vm_pu',
                             min_vm_pu: 'min_vm_pu'
@@ -347,7 +352,7 @@ export class ComponentsDataDialog {
                             sn_mva: 'sn_mva',
                             scaling: 'scaling',
                             type: 'type',
-                            in_service: 'in_service',
+                            in_service: { name: 'in_service', optional: true, defaultValue: 'true' },
                             controllable: 'controllable',
                             max_p_mw: 'max_p_mw',
                             min_p_mw: 'min_p_mw',
@@ -378,7 +383,7 @@ export class ComponentsDataDialog {
                             x0_ohm_per_km: 'x0_ohm_per_km',
                             c0_nf_per_km: 'c0_nf_per_km',
                             endtemp_degree: 'endtemp_degree',
-                            in_service: 'in_service'
+                            in_service: { name: 'in_service', optional: true, defaultValue: 'true' }
                         })
                     });
                     break;
@@ -396,7 +401,7 @@ export class ComponentsDataDialog {
                             pfe_kw: 'pfe_kw',
                             i0_percent: 'i0_percent',
                             vector_group: 'vector_group',
-                            in_service: 'in_service',
+                            in_service: { name: 'in_service', optional: true, defaultValue: 'true' },
                             shift_degree: 'shift_degree',
                             parallel: 'parallel',
                             tap_side: 'tap_side',
@@ -444,7 +449,7 @@ export class ComponentsDataDialog {
                             tap_step_percent: 'tap_step_percent',
                             tap_pos: 'tap_pos',
                             tap_phase_shifter: 'tap_phase_shifter',
-                            in_service: 'in_service',
+                            in_service: { name: 'in_service', optional: true, defaultValue: 'true' },
                             vk0_hv_percent: 'vk0_hv_percent',
                             vk0_mv_percent: 'vk0_mv_percent',
                             vk0_lv_percent: 'vk0_lv_percent',
@@ -466,7 +471,7 @@ export class ComponentsDataDialog {
                             vn_kv: 'vn_kv',
                             step: { name: 'step', optional: true },
                             max_step: { name: 'max_step', optional: true },
-                            in_service: 'in_service'
+                            in_service: { name: 'in_service', optional: true, defaultValue: 'true' }
                         })
                     });
                     break;
@@ -481,7 +486,7 @@ export class ComponentsDataDialog {
                             vn_kv: 'vn_kv',
                             step: { name: 'step', optional: true },
                             max_step: { name: 'max_step', optional: true },
-                            in_service: 'in_service'
+                            in_service: { name: 'in_service', optional: true, defaultValue: 'true' }
                         })
                     });
                     break;
@@ -500,7 +505,7 @@ export class ComponentsDataDialog {
                             sn_mva: 'sn_mva',
                             scaling: 'scaling',
                             type: 'type',
-                            in_service: 'in_service'
+                            in_service: { name: 'in_service', optional: true, defaultValue: 'true' }
                         })
                     });
                     break;
@@ -513,7 +518,7 @@ export class ComponentsDataDialog {
                             rft_pu: 'rft_pu',
                             xft_pu: 'xft_pu',
                             sn_mva: 'sn_mva',
-                            in_service: 'in_service'
+                            in_service: { name: 'in_service', optional: true, defaultValue: 'true' }
                         })
                     });
                     break;
@@ -527,7 +532,7 @@ export class ComponentsDataDialog {
                             qs_mvar: 'qs_mvar',
                             pz_mw: 'pz_mw',
                             qz_mvar: 'qz_mvar',
-                            in_service: 'in_service'
+                            in_service: { name: 'in_service', optional: true, defaultValue: 'true' }
                         })
                     });
                     break;
@@ -544,7 +549,7 @@ export class ComponentsDataDialog {
                             r_ohm: 'r_ohm',
                             x_ohm: 'x_ohm',
                             vm_pu: 'vm_pu',
-                            in_service: 'in_service'
+                            in_service: { name: 'in_service', optional: true, defaultValue: 'true' }
                         })
                     });
                     break;
@@ -564,7 +569,7 @@ export class ComponentsDataDialog {
                             vn_kv: 'vn_kv',
                             lrc_pu: 'lrc_pu',
                             rx: 'rx',
-                            in_service: 'in_service'
+                            in_service: { name: 'in_service', optional: true, defaultValue: 'true' }
                         })
                     });
                     break;
@@ -582,7 +587,7 @@ export class ComponentsDataDialog {
                             min_e_mwh: 'min_e_mwh',
                             scaling: 'scaling',
                             type: 'type',
-                            in_service: 'in_service'
+                            in_service: { name: 'in_service', optional: true, defaultValue: 'true' }
                         })
                     });
                     break;
@@ -599,7 +604,7 @@ export class ComponentsDataDialog {
                             controllable: 'controllable',
                             min_angle_degree: 'min_angle_degree',
                             max_angle_degree: 'max_angle_degree',
-                            in_service: 'in_service'
+                            in_service: { name: 'in_service', optional: true, defaultValue: 'true' }
                         })
                     });
                     break;
@@ -616,7 +621,7 @@ export class ComponentsDataDialog {
                             controllable: 'controllable',
                             min_angle_degree: 'min_angle_degree',
                             max_angle_degree: 'max_angle_degree',
-                            in_service: 'in_service'
+                            in_service: { name: 'in_service', optional: true, defaultValue: 'true' }
                         })
                     });
                     break;
@@ -632,7 +637,7 @@ export class ComponentsDataDialog {
                             vm_internal_pu: 'vm_internal_pu',
                             va_internal_degree: 'va_internal_degree',
                             controllable: 'controllable',
-                            in_service: 'in_service'
+                            in_service: { name: 'in_service', optional: true, defaultValue: 'true' }
                         })
                     });
                     break;
@@ -647,7 +652,7 @@ export class ComponentsDataDialog {
                             loss_mw: 'loss_mw',
                             vm_from_pu: 'vm_from_pu',
                             vm_to_pu: 'vm_to_pu',
-                            in_service: 'in_service'
+                            in_service: { name: 'in_service', optional: true, defaultValue: 'true' }
                         })
                     });
                     break;
@@ -761,6 +766,20 @@ export class ComponentsDataDialog {
             // Handle cell value changes
             onCellValueChanged: (event) => {
                 this.hasChanges = true; // Mark that changes were made
+                
+                // Track which cell and attribute was changed
+                const cellId = event.data.id;
+                const attributeName = event.colDef.field;
+                const newValue = event.newValue;
+                const oldValue = event.oldValue;
+                
+                console.log(`Cell value changed: cell=${cellId}, attr=${attributeName}, old="${oldValue}", new="${newValue}"`);
+                
+                if (!this.changedCells.has(cellId)) {
+                    this.changedCells.set(cellId, new Set());
+                }
+                this.changedCells.get(cellId).add(attributeName);
+                
                 // Don't apply changes immediately - only track them
             },
             // Custom keyboard navigation: Enter moves to cell below
@@ -798,6 +817,19 @@ export class ComponentsDataDialog {
             },
             onGridReady: (params) => {
                 this.gridInstances[componentType] = params.api;
+                
+                // Store original data as deep copies for comparison
+                if (!this.originalData[componentType]) {
+                    this.originalData[componentType] = components.map(comp => {
+                        const original = {};
+                        Object.keys(comp).forEach(key => {
+                            // Deep copy the value
+                            original[key] = comp[key] != null ? comp[key] : null;
+                        });
+                        console.log(`Stored original data for ${comp.name}:`, original);
+                        return original;
+                    });
+                }
                 
                 // Use Community-compatible column sizing
                 setTimeout(() => {
@@ -846,31 +878,83 @@ export class ComponentsDataDialog {
         let changeCount = 0;
         const model = this.graph.getModel();
         
+        console.log('=== APPLY CHANGES START ===');
+        console.log('Changed cells tracked:', this.changedCells);
+        console.log('Grid instances:', Object.keys(this.gridInstances));
+        
         model.beginUpdate();
         try {
             // Iterate through all tabs/component types
             Object.entries(this.gridInstances).forEach(([componentType, gridApi]) => {
+                console.log(`Processing component type: ${componentType}`);
+                const originalData = this.originalData[componentType] || [];
                 const rowData = [];
-                gridApi.forEachNode(node => rowData.push(node.data));
+                gridApi.forEachNode(node => {
+                    // Create a deep copy of the node data to avoid reference issues
+                    const dataCopy = {};
+                    Object.keys(node.data).forEach(key => {
+                        dataCopy[key] = node.data[key];
+                    });
+                    rowData.push(dataCopy);
+                });
                 
-                // Update each component's attributes
+                console.log(`Found ${rowData.length} rows in grid`);
+                
+                // Create a lookup map for original data by ID
+                const originalDataById = {};
+                originalData.forEach(orig => {
+                    if (orig.id) {
+                        originalDataById[orig.id] = orig;
+                    }
+                });
+                
+                // Update each component's attributes - only if they've changed
                 rowData.forEach(data => {
                     const cell = this.findCellById(data.id);
-                    if (!cell) return;
+                    if (!cell) {
+                        console.log(`Cell not found for id: ${data.id}`);
+                        return;
+                    }
+                    
+                    // Find original by ID instead of index (pagination-safe)
+                    const original = originalDataById[data.id];
+                    const changedAttributes = this.changedCells.get(data.id) || new Set();
+                    
+                    console.log(`Processing row ${data.name} (id=${data.id}), changed attrs:`, Array.from(changedAttributes));
+                    console.log(`Original data for this row:`, original);
                     
                     // Get all editable attributes (non-readonly columns)
                     const readOnlyColumns = ['id', 'name', 'bus', 'from_bus', 'to_bus', 'type'];
                     Object.keys(data).forEach(key => {
-                        if (!readOnlyColumns.includes(key.toLowerCase())) {
-                            const success = this.updateCellAttribute(cell, key, data[key]);
-                            if (success) {
-                                changeCount++;
+                        // Skip readonly columns
+                        if (readOnlyColumns.includes(key.toLowerCase())) {
+                            return;
+                        }
+                        
+                        // Only update if this attribute was actually changed
+                        if (changedAttributes.has(key)) {
+                            const newValue = data[key];
+                            const oldValue = original ? original[key] : undefined;
+                            
+                            console.log(`Checking attribute ${key}: oldValue="${oldValue}", newValue="${newValue}"`);
+                            
+                            // Only update if the value actually changed and is not empty
+                            if (newValue !== oldValue && newValue !== undefined && newValue !== null && newValue !== '') {
+                                console.log(`Updating ${key} from "${oldValue}" to "${newValue}" for cell ${data.id}`);
+                                const success = this.updateCellAttribute(cell, key, newValue);
+                                if (success) {
+                                    changeCount++;
+                                }
+                            } else {
+                                console.log(`Skipping update for ${key}: condition failed`);
                             }
                         }
                     });
                     
-                    // Trigger value change event to mark model as modified
-                    model.valueForCellChanged(cell, cell.value);
+                    // Only trigger value change event if this cell was actually modified
+                    if (changedAttributes.size > 0) {
+                        model.valueForCellChanged(cell, cell.value);
+                    }
                 });
             });
         } finally {
@@ -907,8 +991,24 @@ export class ComponentsDataDialog {
     // Update mxCell attribute
     updateCellAttribute(cell, attributeName, newValue) {
         try {
-            if (!cell.value || !cell.value.attributes) {
-                console.warn('Cell has no attributes to update');
+            console.log(`updateCellAttribute called: attr=${attributeName}, value=${newValue}`);
+            console.log(`Cell value type:`, typeof cell.value, cell.value);
+            
+            if (!cell.value) {
+                console.warn('Cell has no value');
+                return false;
+            }
+            
+            // Check if cell.value is an Element (has setAttribute method)
+            if (typeof cell.value.setAttribute === 'function') {
+                // Direct setAttribute for XML elements
+                cell.value.setAttribute(attributeName, newValue.toString());
+                console.log(`Set attribute ${attributeName} to ${newValue} using setAttribute`);
+                return true;
+            }
+            
+            if (!cell.value.attributes) {
+                console.warn('Cell has no attributes collection');
                 return false;
             }
 
@@ -927,10 +1027,21 @@ export class ComponentsDataDialog {
                 console.log(`Updated attribute ${attributeName} to ${newValue}`);
             } else {
                 // Create new attribute if it doesn't exist
-                const newAttr = cell.value.ownerDocument.createAttribute(attributeName);
-                newAttr.value = newValue.toString();
-                cell.value.attributes.setNamedItem(newAttr);
-                console.log(`Created new attribute ${attributeName} with value ${newValue}`);
+                if (cell.value.ownerDocument) {
+                    const newAttr = cell.value.ownerDocument.createAttribute(attributeName);
+                    newAttr.value = newValue.toString();
+                    cell.value.attributes.setNamedItem(newAttr);
+                    console.log(`Created new attribute ${attributeName} with value ${newValue}`);
+                } else {
+                    // Fallback: use setAttribute if available
+                    if (typeof cell.value.setAttribute === 'function') {
+                        cell.value.setAttribute(attributeName, newValue.toString());
+                        console.log(`Created attribute ${attributeName} with value ${newValue} using setAttribute`);
+                    } else {
+                        console.error(`Cannot create attribute ${attributeName}: no ownerDocument or setAttribute`);
+                        return false;
+                    }
+                }
             }
 
             return true;
@@ -1388,6 +1499,9 @@ export class ComponentsDataDialog {
             }
         });
         this.gridInstances = {};
+        this.originalData = {};
+        this.changedCells.clear();
+        this.hasChanges = false;
 
         if (this.ui && typeof this.ui.hideDialog === 'function') {
             this.ui.hideDialog();
