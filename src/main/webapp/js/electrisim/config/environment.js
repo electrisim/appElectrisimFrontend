@@ -10,9 +10,8 @@ const config = {
       isDevelopment: true
     },
     production: {
-      // Backend simulation API (Dev Tunnels URL - custom domain sim.electrisim.com not working)
-      // TODO: Switch back to 'https://sim.electrisim.com' once custom domain is fixed in Railway
-      backendUrl: 'https://03dht3kc-5000.euw.devtunnels.ms',
+      // Backend simulation API (Railway production URL)
+      backendUrl: 'https://web-production-e2ade.up.railway.app',
       
       // Stripe subscription API (Railway direct URL - custom domain api.electrisim.com not working)
       // TODO: Switch back to 'https://api.electrisim.com/api' once custom domain is fixed in Railway
