@@ -24,6 +24,11 @@ export const defaultTransformerData = {
     tap_phase_shifter: false,
     tap_changer_type: "Ratio",  // New in pandapower 3.0+: "Ratio" or "Symmetrical"
     in_service: true,
+    // Discrete Tap Control (pandapower control loop - two-winding transformers only)
+    discrete_tap_control: false,
+    control_side: "lv",  // Which bus voltage to control: "lv" or "hv"
+    vm_lower_pu: 0.99,
+    vm_upper_pu: 1.01,
     // Short circuit parameters with defaults
     vector_group: "Dyn",
     vk0_percent: 0.0,  // Will be set to vk_percent if not specified
@@ -206,6 +211,45 @@ export class TransformerDialog extends Dialog {
                 type: 'select',
                 value: this.data.tap_changer_type,
                 options: ['Ratio', 'Symmetrical']
+            },
+            {
+                id: 'discrete_tap_control',
+                label: 'Discrete Tap Control',
+                symbol: 'discrete_tap_control',
+                description: 'Enable DiscreteTapControl: keep controlled bus voltage within vm_lower_pu–vm_upper_pu deadband during load flow (requires "Include controllers" in Load Flow dialog)',
+                type: 'checkbox',
+                value: this.data.discrete_tap_control
+            },
+            {
+                id: 'control_side',
+                label: 'Control Side',
+                symbol: 'control_side',
+                description: 'Which bus voltage to monitor and control: "hv" for high voltage side or "lv" for low voltage side (typically "lv")',
+                type: 'select',
+                value: this.data.control_side,
+                options: ['lv', 'hv']
+            },
+            {
+                id: 'vm_lower_pu',
+                label: 'Voltage Lower Limit',
+                symbol: 'vm_lower_pu',
+                unit: 'pu',
+                description: 'Lower bound of permissible voltage band for Discrete Tap Control (e.g. 0.99)',
+                type: 'number',
+                value: this.data.vm_lower_pu.toString(),
+                step: '0.01',
+                min: '0.9'
+            },
+            {
+                id: 'vm_upper_pu',
+                label: 'Voltage Upper Limit',
+                symbol: 'vm_upper_pu',
+                unit: 'pu',
+                description: 'Upper bound of permissible voltage band for Discrete Tap Control (e.g. 1.01)',
+                type: 'number',
+                value: this.data.vm_upper_pu.toString(),
+                step: '0.01',
+                min: '0.9'
             }
         ];
         
@@ -851,7 +895,11 @@ export class TransformerDialog extends Dialog {
             'tap_pos': transformerData.tap_pos || 0,
             'tap_phase_shifter': transformerData.tap_phase_shifter === 'True' || transformerData.tap_phase_shifter === true,
             'tap_changer_type': transformerData.tap_changer_type || 'Ratio',
-            'in_service': true
+            'in_service': true,
+            'discrete_tap_control': transformerData.discrete_tap_control === 'True' || transformerData.discrete_tap_control === true,
+            'control_side': transformerData.control_side || 'lv',
+            'vm_lower_pu': transformerData.vm_lower_pu != null ? parseFloat(transformerData.vm_lower_pu) : 0.99,
+            'vm_upper_pu': transformerData.vm_upper_pu != null ? parseFloat(transformerData.vm_upper_pu) : 1.01
         };
 
         // Update input values

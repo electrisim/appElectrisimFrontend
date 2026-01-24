@@ -2778,18 +2778,20 @@ function executePandapowerCoreLogic(parameters, app, graph) {
     // Convert old array format to new object format
     let paramObject;
     if (Array.isArray(parameters)) {
-        console.log('⚠️ Array format detected - converting to object (exportPython will be false)');
+        console.log('⚠️ Array format detected - converting to object (exportPython, run_control will be false)');
         paramObject = {
             frequency: parameters[0] || '50',
             algorithm: parameters[1] || 'nr',
             calculate_voltage_angles: parameters[2] || 'auto',
             initialization: parameters[3] || 'auto',
             exportPython: false,  // Default to false for this legacy path
+            run_control: false,
             engine: 'pandapower'
         };
     } else if (typeof parameters === 'object' && parameters !== null) {
             // Object format detected - debug logs removed
-        // Parameters is already an object, use it directly (preserves exportPython!)
+        // Parameters is already an object, use it directly (preserves exportPython, run_control, etc.!)
+        const runControl = parameters.run_control === true || parameters.run_control === 'true';
         paramObject = {
             frequency: parameters.frequency || '50',
             algorithm: parameters.algorithm || 'nr',
@@ -2798,6 +2800,7 @@ function executePandapowerCoreLogic(parameters, app, graph) {
             exportPython: parameters.exportPython || false,  // PRESERVE the user's choice!
             exportPandapowerResults: parameters.exportPandapowerResults || false,  // PRESERVE results export choice!
             enforceLimits: parameters.enforceLimits || false,  // Also preserve other checkboxes
+            run_control: runControl,  // Include controllers (DiscreteTapControl) for Pandapower
             engine: parameters.engine || 'pandapower'
         };
             // Final parameter values - debug logs removed
@@ -2809,6 +2812,7 @@ function executePandapowerCoreLogic(parameters, app, graph) {
             calculate_voltage_angles: 'auto',
             initialization: 'auto',
             exportPython: false,
+            run_control: false,
             engine: 'pandapower'
         };
     }

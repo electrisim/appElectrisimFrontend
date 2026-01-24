@@ -40,6 +40,162 @@ const downloadPandapowerPython = (pythonCode) => {
     }
 };
 
+// Helper function to display Tap Control Results in a modal dialog
+const showTapControlResultsDialog = (tapControlResults) => {
+    console.log('🎛️ Showing Tap Control Results Dialog', tapControlResults);
+    
+    // Create modal overlay
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 10000;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    `;
+    
+    // Create modal content
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        background-color: white;
+        border-radius: 8px;
+        padding: 20px;
+        max-width: 700px;
+        max-height: 80vh;
+        overflow-y: auto;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    `;
+    
+    // Build HTML content
+    let html = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid #2196F3; padding-bottom: 10px;">
+            <h2 style="margin: 0; color: #1976D2; font-size: 18px;">
+                🎛️ Tap Changer Control Results
+            </h2>
+            <button id="closeTapControlDialog" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">&times;</button>
+        </div>
+    `;
+    
+    tapControlResults.forEach((result, index) => {
+        const statusIcon = result.in_limits ? '✅' : '❌';
+        const statusText = result.in_limits ? 'IN LIMITS' : 'OUT OF LIMITS';
+        const statusColor = result.in_limits ? '#4CAF50' : '#f44336';
+        
+        let limitWarning = '';
+        if (result.at_limit === 'max') {
+            limitWarning = `<div style="background-color: #fff3cd; border: 1px solid #ffc107; padding: 8px; border-radius: 4px; margin-top: 8px;">
+                ⚠️ <strong>TAP AT MAXIMUM LIMIT</strong> - Cannot increase further
+            </div>`;
+        } else if (result.at_limit === 'min') {
+            limitWarning = `<div style="background-color: #fff3cd; border: 1px solid #ffc107; padding: 8px; border-radius: 4px; margin-top: 8px;">
+                ⚠️ <strong>TAP AT MINIMUM LIMIT</strong> - Cannot decrease further
+            </div>`;
+        }
+        
+        let suggestion = '';
+        if (result.taps_needed && result.taps_needed > 0) {
+            suggestion = `<div style="background-color: #e3f2fd; border: 1px solid #2196F3; padding: 8px; border-radius: 4px; margin-top: 8px;">
+                💡 <strong>Suggestion:</strong> Need approximately <strong>${result.taps_needed}</strong> more tap positions 
+                OR increase <code>tap_step_percent</code> to reach target voltage
+            </div>`;
+        }
+        
+        html += `
+            <div style="background-color: #f5f5f5; border-radius: 6px; padding: 15px; margin-bottom: 15px; border-left: 4px solid ${statusColor};">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h3 style="margin: 0; font-size: 16px; color: #333;">
+                        ${result.name}
+                    </h3>
+                    <span style="background-color: ${statusColor}; color: white; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold;">
+                        ${statusIcon} ${statusText}
+                    </span>
+                </div>
+                
+                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                    <tr>
+                        <td style="padding: 4px 0; color: #666; width: 40%;">Tap Position:</td>
+                        <td style="padding: 4px 0; font-weight: 500;">
+                            <strong>${result.tap_pos}</strong> 
+                            <span style="color: #888;">[${result.tap_min} to ${result.tap_max}]</span>
+                            <span style="color: #888; font-size: 11px;"> step: ${result.tap_step_percent}%</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 4px 0; color: #666;">Control Side:</td>
+                        <td style="padding: 4px 0; font-weight: 500; text-transform: uppercase;">${result.control_side}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 4px 0; color: #666;">Controlled Voltage:</td>
+                        <td style="padding: 4px 0; font-weight: 500; color: ${result.in_limits ? '#4CAF50' : '#f44336'};">
+                            <strong>${result.controlled_vm_pu} pu</strong>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 4px 0; color: #666;">Target Range:</td>
+                        <td style="padding: 4px 0; font-weight: 500;">${result.vm_lower_pu} - ${result.vm_upper_pu} pu</td>
+                    </tr>
+                    <tr style="border-top: 1px solid #ddd;">
+                        <td style="padding: 6px 0 4px 0; color: #666;">HV Bus Voltage:</td>
+                        <td style="padding: 6px 0 4px 0;">${result.hv_vm_pu} pu</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 4px 0; color: #666;">LV Bus Voltage:</td>
+                        <td style="padding: 4px 0;">${result.lv_vm_pu} pu</td>
+                    </tr>
+                </table>
+                
+                ${limitWarning}
+                ${suggestion}
+            </div>
+        `;
+    });
+    
+    html += `
+        <div style="text-align: right; margin-top: 15px;">
+            <button id="closeTapControlDialogBtn" style="
+                background-color: #2196F3;
+                color: white;
+                border: none;
+                padding: 10px 25px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 14px;
+                font-weight: 500;
+            ">OK</button>
+        </div>
+    `;
+    
+    modal.innerHTML = html;
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    
+    // Close handlers
+    const closeDialog = () => {
+        document.body.removeChild(overlay);
+    };
+    
+    document.getElementById('closeTapControlDialog').addEventListener('click', closeDialog);
+    document.getElementById('closeTapControlDialogBtn').addEventListener('click', closeDialog);
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) closeDialog();
+    });
+    
+    // ESC key to close
+    const escHandler = (e) => {
+        if (e.key === 'Escape') {
+            closeDialog();
+            document.removeEventListener('keydown', escHandler);
+        }
+    };
+    document.addEventListener('keydown', escHandler);
+};
+
 // Helper function to create table formatting
 const createTableRow = (columns, widths) => {
     return columns.map((col, i) => {
@@ -1931,6 +2087,15 @@ function loadFlowPandaPower(a, b, c) {
             if (obj && obj[0] && obj[0].exportPandapowerResults) {
                 downloadPandapowerResults(dataJson);
             }
+            
+            // Display tap control results dialog if available
+            console.log('🔍 Checking for tap_control_results in response:', dataJson.tap_control_results);
+            if (dataJson.tap_control_results && dataJson.tap_control_results.length > 0) {
+                console.log('✅ Found tap_control_results, showing dialog...');
+                showTapControlResultsDialog(dataJson.tap_control_results);
+            } else {
+                console.log('❌ No tap_control_results found or array is empty');
+            }
 
             // Optimize result processing with enhanced performance monitoring
             const resultProcessingStart = performance.now();
@@ -2076,6 +2241,8 @@ function loadFlowPandaPower(a, b, c) {
             // Ensure exportPython is properly captured as a boolean
             const exportPythonValue = isObjectFormat ? (a.exportPython === true) : false;
             const exportPandapowerResultsValue = isObjectFormat ? (a.exportPandapowerResults === true) : false;
+            // Accept both boolean true and string 'true' (checkbox can serialize as string)
+            const runControlValue = isObjectFormat && (a.run_control === true || a.run_control === 'true');
             
             componentArrays.simulationParameters.push({
                 typ: "PowerFlowPandaPower Parameters",
@@ -2085,6 +2252,7 @@ function loadFlowPandaPower(a, b, c) {
                 initialization: isObjectFormat ? a.initialization : a[3],
                 exportPython: exportPythonValue,  // Use explicitly converted boolean
                 exportPandapowerResults: exportPandapowerResultsValue,  // Results export flag
+                run_control: runControlValue,  // Include controllers (DiscreteTapControl, etc.)
                 user_email: userEmail  // Add user email to simulation data
             });
 
@@ -2389,7 +2557,11 @@ function loadFlowPandaPower(a, b, c) {
                                 tap_step_degree: { name: 'tap_step_degree', optional: true },
                                 tap_phase_shifter: { name: 'tap_phase_shifter', optional: true },
                                 tap_changer_type: { name: 'tap_changer_type', optional: true }, // pandapower 3.0+: "Ratio", "Symmetrical", or "Ideal"
-                                in_service: { name: 'in_service', optional: true }
+                                in_service: { name: 'in_service', optional: true },
+                                discrete_tap_control: { name: 'discrete_tap_control', optional: true },
+                                control_side: { name: 'control_side', optional: true },
+                                vm_lower_pu: { name: 'vm_lower_pu', optional: true },
+                                vm_upper_pu: { name: 'vm_upper_pu', optional: true }
                             })
                         };
                         componentArrays.transformer.push(transformer);
@@ -2998,7 +3170,7 @@ function loadFlowPandaPower(a, b, c) {
                                 }
                                 return cell.mxObjectId.replace('#', '_');
                             })(),
-                            bus: getConnectedBusId(cell),
+                            ...getConnectedBuses(cell),  // DC Lines need busFrom and busTo like regular Lines
                             ...getAttributesAsObject(cell, {
                                 // Load flow parameters                       
                                 p_mw: 'p_mw',

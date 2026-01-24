@@ -75,6 +75,12 @@ export class LoadFlowDialog extends Dialog {
                 label: 'Export Pandapower Results (download .txt file)',
                 type: 'checkbox',
                 value: false
+            },
+            {
+                id: 'run_control',
+                label: 'Include controllers',
+                type: 'checkbox',
+                value: false
             }
         ];
 
@@ -497,39 +503,19 @@ export class LoadFlowDialog extends Dialog {
                     values[param.id] = checkedRadio ? checkedRadio.value : param.options[0].value;
                 }
             } else if (param.type === 'checkbox') {
-                // Try to get checkbox from inputs map
+                // Prefer inputs map (current form), then container (our dialog only), then document.
+                // Use container before getElementById to avoid picking a duplicate from elsewhere in the DOM.
                 let checkbox = this.inputs.get(param.id);
-                console.log(`Checkbox ${param.id} from inputs map:`, checkbox ? `exists, checked=${checkbox.checked}` : 'NOT FOUND');
-                if (checkbox) {
-                    console.log(`  - Instance ID from map:`, checkbox.getAttribute('data-instance-id'));
+                if (!checkbox && this.container) {
+                    checkbox = this.container.querySelector(`input[type="checkbox"]#${CSS.escape(param.id)}`);
                 }
-                
-                // Fallback: try to find it directly in the DOM
                 if (!checkbox) {
                     checkbox = document.getElementById(param.id);
-                    console.log(`  Fallback DOM lookup for ${param.id}:`, checkbox ? `found, checked=${checkbox.checked}` : 'NOT FOUND');
-                    if (checkbox) {
-                        console.log(`  - Instance ID from DOM:`, checkbox.getAttribute('data-instance-id'));
-                    }
                 }
-                
-                // Also try finding it within the container
-                if (!checkbox && this.container) {
-                    checkbox = this.container.querySelector(`input[type="checkbox"]#${param.id}`);
-                    console.log(`  Container lookup for ${param.id}:`, checkbox ? `found, checked=${checkbox.checked}` : 'NOT FOUND');
-                    if (checkbox) {
-                        console.log(`  - Instance ID from container:`, checkbox.getAttribute('data-instance-id'));
-                    }
-                }
-                
-                // Set the value
                 if (checkbox) {
                     values[param.id] = checkbox.checked;
-                    console.log(`  ✅ Final value for ${param.id}:`, checkbox.checked);
-                    console.log(`  ✅ Instance ID:`, checkbox.getAttribute('data-instance-id'));
                 } else {
                     values[param.id] = param.value || false;
-                    console.log(`  ⚠️ Using default value for ${param.id}:`, param.value || false);
                 }
             } else {
                 const input = this.inputs.get(param.id);
