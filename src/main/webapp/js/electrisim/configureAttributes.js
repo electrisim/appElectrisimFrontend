@@ -686,38 +686,40 @@ export function configureSwitchAttributes(grafka, vertex, options = {}) {
 
 export function configureVscAttributes(grafka, vertex, options = {}) {
     var g = mxUtils.createXmlDocument().createElement("object");
-    g.setAttribute("name", "VSC");
+    g.setAttribute("name", options.name || "VSC");
     
+    // VSC connects AC bus to DC bus - connections detected from diagram edges
     g.setAttribute("Load_flow_parameters", "");
-    g.setAttribute("bus", options.bus || "");
-    g.setAttribute("p_mw", options.p_mw || "0");
-    g.setAttribute("vm_pu", options.vm_pu || "1.0");
-    g.setAttribute("sn_mva", options.sn_mva || "0");
-    g.setAttribute("rx", options.rx || "0.1");
-    g.setAttribute("max_ik_ka", options.max_ik_ka || "0");
+    g.setAttribute("r_ohm", options.r_ohm || "0.01");         // Coupling transformer resistance
+    g.setAttribute("x_ohm", options.x_ohm || "0.1");          // Coupling transformer reactance
+    g.setAttribute("r_dc_ohm", options.r_dc_ohm || "0.01");   // Internal DC resistance
+    g.setAttribute("control_mode_ac", options.control_mode_ac || "vm_pu");  // 'vm_pu' or 'q_mvar'
+    g.setAttribute("control_value_ac", options.control_value_ac || "1.0");  // AC control setpoint
+    g.setAttribute("control_mode_dc", options.control_mode_dc || "p_mw");   // 'vm_pu' or 'p_mw'
+    g.setAttribute("control_value_dc", options.control_value_dc || "0.0");  // DC control setpoint
     g.setAttribute("in_service", options.in_service !== undefined ? options.in_service : true);
     
     grafka.getModel().setValue(vertex, g);
-    grafka.insertVertex(vertex, null, 'VSC', 0.5, 1.5, 0, 0, null, true);
+    grafka.insertVertex(vertex, null, options.name || 'VSC', 0.5, 1.5, 0, 0, null, true);
 }
 
 export function configureB2bVscAttributes(grafka, vertex, options = {}) {
     var g = mxUtils.createXmlDocument().createElement("object");
-    g.setAttribute("name", "B2B VSC");
+    g.setAttribute("name", options.name || "B2B VSC");
     
+    // B2B VSC connects AC bus to DC bus - connections detected from diagram edges
     g.setAttribute("Load_flow_parameters", "");
-    g.setAttribute("bus1", options.bus1 || "");
-    g.setAttribute("bus2", options.bus2 || "");
-    g.setAttribute("p_mw", options.p_mw || "0");
-    g.setAttribute("vm1_pu", options.vm1_pu || "1.0");
-    g.setAttribute("vm2_pu", options.vm2_pu || "1.0");
-    g.setAttribute("sn_mva", options.sn_mva || "0");
-    g.setAttribute("rx", options.rx || "0.1");
-    g.setAttribute("max_ik_ka", options.max_ik_ka || "0");
+    g.setAttribute("r_ohm", options.r_ohm || "0.01");         // Coupling transformer resistance
+    g.setAttribute("x_ohm", options.x_ohm || "0.1");          // Coupling transformer reactance
+    g.setAttribute("r_dc_ohm", options.r_dc_ohm || "0.01");   // Internal DC resistance
+    g.setAttribute("control_mode_ac", options.control_mode_ac || "vm_pu");  // 'vm_pu' or 'q_mvar'
+    g.setAttribute("control_value_ac", options.control_value_ac || "1.0");  // AC control setpoint
+    g.setAttribute("control_mode_dc", options.control_mode_dc || "p_mw");   // 'vm_pu' or 'p_mw'
+    g.setAttribute("control_value_dc", options.control_value_dc || "0.0");  // DC control setpoint
     g.setAttribute("in_service", options.in_service !== undefined ? options.in_service : true);
     
     grafka.getModel().setValue(vertex, g);
-    grafka.insertVertex(vertex, null, 'B2B VSC', 0.5, 1.5, 0, 0, null, true);
+    grafka.insertVertex(vertex, null, options.name || 'B2B VSC', 0.5, 1.5, 0, 0, null, true);
 }
 
 // Make all configure functions globally available for app.min.js

@@ -1231,7 +1231,21 @@ function loadFlowPandaPower(a, b, c) {
     function handleNetworkErrors(dataJson) {
         // Check for new diagnostic response format
         if (dataJson.error && dataJson.diagnostic) {
-            console.log('Power flow failed with diagnostic information:', dataJson);
+            console.log('🔴 Power flow failed with diagnostic information:', dataJson);
+            console.log('🔴 Diagnostic data:', JSON.stringify(dataJson.diagnostic, null, 2));
+            
+            // Log specific diagnostic fields for debugging
+            if (dataJson.diagnostic.diagnostic_output) {
+                console.log('🔴 Diagnostic output text:', dataJson.diagnostic.diagnostic_output);
+            } else {
+                console.log('🔴 No diagnostic_output field in response');
+            }
+            if (dataJson.diagnostic.diagnostic_note) {
+                console.log('🔴 Diagnostic note:', dataJson.diagnostic.diagnostic_note);
+            }
+            if (dataJson.diagnostic.diagnostic_error) {
+                console.log('🔴 Diagnostic error:', dataJson.diagnostic.diagnostic_error);
+            }
             
             // Show diagnostic dialog if available
             if (window.DiagnosticReportDialog) {
@@ -1986,6 +2000,79 @@ function loadFlowPandaPower(a, b, c) {
                     grafka.getModel().setValue(placeholder, resultString);
                 } else {
                     const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.1, 0, 0, 'shapeELXXX=Result', true);
+                    processCellStyles(b, labelka);
+                }
+            });
+        },
+        vscs: (data, b, grafka) => {
+            console.log('ELXXX: Processing VSCs, count:', data.length);
+            data.forEach(cell => {
+                console.log('ELXXX: VSC result:', cell);
+                const resultCell = getCachedCell(cell.id);
+                if (!resultCell) {
+                    console.warn('ELXXX: Could not find cell for VSC:', cell.id, cell.name);
+                    return;
+                }
+                const name = getComponentName(resultCell, 'VSC');
+                const resultString = `${name}
+            P[MW]: ${formatNumber(cell.p_mw)}
+            Vm[pu]: ${formatNumber(cell.vm_pu)}`;
+
+                const placeholder = findPlaceholderForCell(grafka, resultCell, true);
+                if (placeholder) {
+                    grafka.getModel().setValue(placeholder, resultString);
+                } else {
+                    const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.7, 0, 0, 'shapeELXXX=ResultVSC', true);
+                    processCellStyles(b, labelka);
+                }
+            });
+        },
+        b2bvscs: (data, b, grafka) => {
+            console.log('ELXXX: Processing B2B VSCs, count:', data.length);
+            data.forEach(cell => {
+                const resultCell = getCachedCell(cell.id);
+                if (!resultCell) {
+                    console.warn('ELXXX: Could not find cell for B2B VSC:', cell.id, cell.name);
+                    return;
+                }
+                const name = getComponentName(resultCell, 'B2B VSC');
+                const resultString = `${name}
+            P[MW]: ${formatNumber(cell.p_mw)}
+            Vm1[pu]: ${formatNumber(cell.vm1_pu)}
+            Vm2[pu]: ${formatNumber(cell.vm2_pu)}`;
+
+                const placeholder = findPlaceholderForCell(grafka, resultCell, true);
+                if (placeholder) {
+                    grafka.getModel().setValue(placeholder, resultString);
+                } else {
+                    const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.7, 0, 0, 'shapeELXXX=ResultB2BVSC', true);
+                    processCellStyles(b, labelka);
+                }
+            });
+        },
+        linedcs: (data, b, grafka) => {
+            console.log('ELXXX: Processing DC Grid Lines (line_dc), count:', data.length);
+            data.forEach(cell => {
+                console.log('ELXXX: LineDC result:', cell);
+                const resultCell = getCachedCell(cell.id);
+                if (!resultCell) {
+                    console.warn('ELXXX: Could not find cell for LineDC:', cell.id, cell.name);
+                    return;
+                }
+                const name = getComponentName(resultCell, 'DC Line');
+                const resultString = `${name}
+            P_from[MW]: ${formatNumber(cell.p_from_mw)}
+            P_to[MW]: ${formatNumber(cell.p_to_mw)}
+            Pl[MW]: ${formatNumber(cell.pl_mw)}
+            Vm_from[pu]: ${formatNumber(cell.vm_from_pu)}
+            Vm_to[pu]: ${formatNumber(cell.vm_to_pu)}
+            Loading[%]: ${formatNumber(cell.loading_percent, 1)}`;
+
+                const placeholder = findPlaceholderForCell(grafka, resultCell, true);
+                if (placeholder) {
+                    grafka.getModel().setValue(placeholder, resultString);
+                } else {
+                    const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.1, 0, 0, 'shapeELXXX=ResultLineDC', true);
                     processCellStyles(b, labelka);
                 }
             });
@@ -3016,8 +3103,21 @@ function loadFlowPandaPower(a, b, c) {
                             typ: `DC Bus${counters.dcBus++}`,
                             name: cell.mxObjectId.replace('#', '_'),
                             id: cell.id,
-                            vn_kv: cell.value.attributes[2]?.nodeValue || "0",
-                            userFriendlyName: baseData.userFriendlyName
+                            userFriendlyName: (() => {
+                                // Check if the cell has a name attribute stored
+                                if (cell.value && cell.value.attributes) {
+                                    for (let i = 0; i < cell.value.attributes.length; i++) {
+                                        if (cell.value.attributes[i].nodeName === 'name') {
+                                            return cell.value.attributes[i].nodeValue;
+                                        }
+                                    }
+                                }
+                                return cell.mxObjectId.replace('#', '_');
+                            })(),
+                            ...getAttributesAsObject(cell, {
+                                vn_kv: 'vn_kv',
+                                in_service: { name: 'in_service', optional: true }
+                            })
                         };
                         componentArrays.dcBus.push(dcBus);
                         break;
@@ -3097,6 +3197,28 @@ function loadFlowPandaPower(a, b, c) {
                         break;
 
                     case COMPONENT_TYPES.VSC:
+                        // VSC connects an AC bus to a DC bus - extract connections from edges
+                        const vscConnections = (() => {
+                            const result = { bus: null, bus_dc: null };
+                            if (cell.edges && cell.edges.length > 0) {
+                                for (const edge of cell.edges) {
+                                    const connectedCell = edge.source?.mxObjectId === cell.mxObjectId ? edge.target : edge.source;
+                                    if (connectedCell && connectedCell.style) {
+                                        const busName = connectedCell.mxObjectId?.replace('#', '_');
+                                        // Check if it's a DC bus or regular AC bus
+                                        if (connectedCell.style.includes('DCBus') || 
+                                            (connectedCell.value?.attributes && 
+                                             Array.from(connectedCell.value.attributes).some(a => a.nodeName === 'name' && a.nodeValue?.includes('DC')))) {
+                                            if (!result.bus_dc) result.bus_dc = busName;
+                                        } else {
+                                            if (!result.bus) result.bus = busName;
+                                        }
+                                    }
+                                }
+                            }
+                            return result;
+                        })();
+                        
                         const vsc = {
                             typ: `VSC${counters.VSC++}`,
                             name: cell.mxObjectId.replace('#', '_'),
@@ -3111,13 +3233,18 @@ function loadFlowPandaPower(a, b, c) {
                                 }
                                 return cell.mxObjectId.replace('#', '_');
                             })(),
-                            bus: getConnectedBusId(cell),
+                            bus: vscConnections.bus,
+                            bus_dc: vscConnections.bus_dc,
                             ...getAttributesAsObject(cell, {
                                 p_mw: 'p_mw',
                                 vm_pu: 'vm_pu',
-                                sn_mva: 'sn_mva',
-                                rx: 'rx',
-                                max_ik_ka: 'max_ik_ka',
+                                r_ohm: 'r_ohm',
+                                x_ohm: 'x_ohm',
+                                r_dc_ohm: 'r_dc_ohm',
+                                control_mode_ac: 'control_mode_ac',
+                                control_value_ac: 'control_value_ac',
+                                control_mode_dc: 'control_mode_dc',
+                                control_value_dc: 'control_value_dc',
                                 in_service: { name: 'in_service', optional: true }
                             })
                         };
@@ -3125,6 +3252,28 @@ function loadFlowPandaPower(a, b, c) {
                         break;
 
                     case COMPONENT_TYPES.B2B_VSC:
+                        // B2B VSC connects an AC bus to DC buses - extract connections from edges
+                        const b2bVscConnections = (() => {
+                            const result = { bus: null, bus_dc: null };
+                            if (cell.edges && cell.edges.length > 0) {
+                                for (const edge of cell.edges) {
+                                    const connectedCell = edge.source?.mxObjectId === cell.mxObjectId ? edge.target : edge.source;
+                                    if (connectedCell && connectedCell.style) {
+                                        const busName = connectedCell.mxObjectId?.replace('#', '_');
+                                        // Check if it's a DC bus or regular AC bus
+                                        if (connectedCell.style.includes('DCBus') || 
+                                            (connectedCell.value?.attributes && 
+                                             Array.from(connectedCell.value.attributes).some(a => a.nodeName === 'name' && a.nodeValue?.includes('DC')))) {
+                                            if (!result.bus_dc) result.bus_dc = busName;
+                                        } else {
+                                            if (!result.bus) result.bus = busName;
+                                        }
+                                    }
+                                }
+                            }
+                            return result;
+                        })();
+                        
                         const b2bVsc = {
                             typ: `B2B VSC${counters.B2BVSC++}`,
                             name: cell.mxObjectId.replace('#', '_'),
@@ -3139,15 +3288,18 @@ function loadFlowPandaPower(a, b, c) {
                                 }
                                 return cell.mxObjectId.replace('#', '_');
                             })(),
+                            bus: b2bVscConnections.bus,
+                            bus_dc: b2bVscConnections.bus_dc,
                             ...getAttributesAsObject(cell, {
-                                bus1: 'bus1',
-                                bus2: 'bus2',
                                 p_mw: 'p_mw',
-                                vm1_pu: 'vm1_pu',
-                                vm2_pu: 'vm2_pu',
-                                sn_mva: 'sn_mva',
-                                rx: 'rx',
-                                max_ik_ka: 'max_ik_ka',
+                                vm_pu: 'vm_pu',
+                                r_ohm: 'r_ohm',
+                                x_ohm: 'x_ohm',
+                                r_dc_ohm: 'r_dc_ohm',
+                                control_mode_ac: 'control_mode_ac',
+                                control_value_ac: 'control_value_ac',
+                                control_mode_dc: 'control_mode_dc',
+                                control_value_dc: 'control_value_dc',
                                 in_service: { name: 'in_service', optional: true }
                             })
                         };
@@ -3155,6 +3307,35 @@ function loadFlowPandaPower(a, b, c) {
                         break;
 
                     case COMPONENT_TYPES.DC_LINE:
+                        // DC Line connects two buses - try edge-based connection first, then vertex-based
+                        const dcLineConnections = (() => {
+                            // First try if it's drawn as an edge (has source/target)
+                            if (cell.source?.mxObjectId && cell.target?.mxObjectId) {
+                                return {
+                                    busFrom: cell.source.mxObjectId.replace('#', '_'),
+                                    busTo: cell.target.mxObjectId.replace('#', '_')
+                                };
+                            }
+                            // Otherwise, check if it's a vertex with edges connecting to buses
+                            const result = { busFrom: null, busTo: null };
+                            if (cell.edges && cell.edges.length >= 2) {
+                                const connectedBuses = [];
+                                for (const edge of cell.edges) {
+                                    const connectedCell = edge.source?.mxObjectId === cell.mxObjectId ? edge.target : edge.source;
+                                    if (connectedCell?.mxObjectId) {
+                                        connectedBuses.push(connectedCell.mxObjectId.replace('#', '_'));
+                                    }
+                                }
+                                if (connectedBuses.length >= 2) {
+                                    result.busFrom = connectedBuses[0];
+                                    result.busTo = connectedBuses[1];
+                                } else if (connectedBuses.length === 1) {
+                                    result.busFrom = connectedBuses[0];
+                                }
+                            }
+                            return result;
+                        })();
+                        
                         const dcLine = {
                             typ: `DC Line${counters.dcLine++}`,
                             name: cell.mxObjectId.replace('#', '_'),
@@ -3170,7 +3351,8 @@ function loadFlowPandaPower(a, b, c) {
                                 }
                                 return cell.mxObjectId.replace('#', '_');
                             })(),
-                            ...getConnectedBuses(cell),  // DC Lines need busFrom and busTo like regular Lines
+                            busFrom: dcLineConnections.busFrom,
+                            busTo: dcLineConnections.busTo,
                             ...getAttributesAsObject(cell, {
                                 // Load flow parameters                       
                                 p_mw: 'p_mw',
@@ -3185,6 +3367,75 @@ function loadFlowPandaPower(a, b, c) {
                         break;
 
                     case COMPONENT_TYPES.LINE:
+                        // Helper function to check if a cell is a DC Bus
+                        const isDcBusCell = (busCell) => {
+                            if (!busCell) return false;
+                            const busStyle = busCell.style || busCell.getStyle?.() || '';
+                            // Check style for DC Bus indicators
+                            if (busStyle.includes('DCBus') || busStyle.includes('DC Bus') || 
+                                busStyle.includes('shapeELXXX=DC Bus') || busStyle.includes('shapeELXXX=DCBus')) {
+                                return true;
+                            }
+                            // Also check the typ attribute in the value
+                            if (busCell.value?.attributes) {
+                                for (let i = 0; i < busCell.value.attributes.length; i++) {
+                                    const attr = busCell.value.attributes[i];
+                                    if (attr.nodeName === 'typ' && attr.nodeValue?.includes('DC Bus')) {
+                                        return true;
+                                    }
+                                }
+                            }
+                            return false;
+                        };
+                        
+                        // Check if both source and target are DC buses
+                        const sourceCell = cell.source;
+                        const targetCell = cell.target;
+                        const sourceIsDcBus = isDcBusCell(sourceCell);
+                        const targetIsDcBus = isDcBusCell(targetCell);
+                        
+                        // If both ends are DC buses, treat this as a DC Line
+                        if (sourceIsDcBus && targetIsDcBus) {
+                            console.log(`Line ${cell.mxObjectId} connects two DC buses - treating as DC Line`);
+                            const dcLineFromAcLine = {
+                                typ: `DC Line${counters.dcLine++}`,
+                                name: cell.mxObjectId.replace('#', '_'),
+                                id: cell.id,
+                                userFriendlyName: (() => {
+                                    if (cell.value && cell.value.attributes) {
+                                        for (let i = 0; i < cell.value.attributes.length; i++) {
+                                            if (cell.value.attributes[i].nodeName === 'name') {
+                                                return cell.value.attributes[i].nodeValue;
+                                            }
+                                        }
+                                    }
+                                    return cell.mxObjectId.replace('#', '_');
+                                })(),
+                                busFrom: sourceCell.mxObjectId.replace('#', '_'),
+                                busTo: targetCell.mxObjectId.replace('#', '_'),
+                                // Try to get DC line parameters, fallback to reasonable defaults
+                                ...getAttributesAsObject(cell, {
+                                    p_mw: { name: 'p_mw', optional: true },
+                                    loss_percent: { name: 'loss_percent', optional: true },
+                                    loss_mw: { name: 'loss_mw', optional: true },
+                                    vm_from_pu: { name: 'vm_from_pu', optional: true },
+                                    vm_to_pu: { name: 'vm_to_pu', optional: true },
+                                    in_service: { name: 'in_service', optional: true }
+                                })
+                            };
+                            // Set default values for DC line if not present
+                            if (!dcLineFromAcLine.p_mw) dcLineFromAcLine.p_mw = '100';  // Default power transfer
+                            if (!dcLineFromAcLine.loss_percent) dcLineFromAcLine.loss_percent = '1';
+                            if (!dcLineFromAcLine.loss_mw) dcLineFromAcLine.loss_mw = '0';
+                            if (!dcLineFromAcLine.vm_from_pu) dcLineFromAcLine.vm_from_pu = '1.0';
+                            if (!dcLineFromAcLine.vm_to_pu) dcLineFromAcLine.vm_to_pu = '1.0';
+                            if (!dcLineFromAcLine.in_service) dcLineFromAcLine.in_service = 'true';
+                            
+                            componentArrays.dcLine.push(dcLineFromAcLine);
+                            break;
+                        }
+                        
+                        // Otherwise, treat as regular AC line
                         const line = {
                             typ: `Line${counters.line++}`,
                             name: cell.mxObjectId.replace('#', '_'),
