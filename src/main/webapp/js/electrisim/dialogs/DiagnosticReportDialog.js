@@ -128,24 +128,40 @@
 
         processDiagnosticData(content) {
             const data = this.diagnosticData;
+            console.log('DiagnosticReportDialog.processDiagnosticData - data type:', typeof data);
+            console.log('DiagnosticReportDialog.processDiagnosticData - data:', data);
+            console.log('DiagnosticReportDialog.processDiagnosticData - has diagnostic_output:', data && data.diagnostic_output ? 'YES (' + data.diagnostic_output.length + ' chars)' : 'NO');
+            
             // If it's a string and looks like a Pandapower diagnostic, render as preformatted
             if (typeof data === 'string' && data.includes('PANDAPOWER DIAGNOSTIC TOOL')) {
+                console.log('DiagnosticReportDialog: Rendering as string diagnostic');
                 this.createPandapowerDiagnosticSection(content, data);
             } else if (Array.isArray(data)) {
+                console.log('DiagnosticReportDialog: Rendering as array');
                 this.createErrorSection(content, 'Error Messages', data);
             } else if (typeof data === 'object') {
+                console.log('DiagnosticReportDialog: Rendering as object (calling createDetailedDiagnostic)');
                 this.createDetailedDiagnostic(content, data);
             } else {
+                console.log('DiagnosticReportDialog: Rendering as generic error');
                 this.createErrorSection(content, 'Error', [String(data)]);
             }
         }
 
         createPandapowerDiagnosticSection(content, diagnosticText) {
+            console.log('DiagnosticReportDialog.createPandapowerDiagnosticSection - creating section with', diagnosticText.length, 'characters');
+            
             const section = document.createElement('div');
             section.style.cssText = 'border: 1px solid #1976d2; border-radius: 4px; padding: 0; background: #f5f5f5; margin-bottom: 16px;';
 
+            // Add a header
+            const header = document.createElement('div');
+            header.style.cssText = 'background: #1976d2; color: white; padding: 10px 16px; font-weight: bold; border-radius: 4px 4px 0 0;';
+            header.textContent = '🔍 Pandapower Diagnostic Output';
+            section.appendChild(header);
+
             const pre = document.createElement('pre');
-            pre.style.cssText = 'margin: 0; padding: 16px; font-family: monospace; font-size: 13px; max-height: 400px; overflow-x: auto; overflow-y: auto; background: #f5f5f5; border-radius: 4px;';
+            pre.style.cssText = 'margin: 0; padding: 16px; font-family: monospace; font-size: 13px; max-height: 400px; overflow-x: auto; overflow-y: auto; background: #f5f5f5; border-radius: 0 0 4px 4px;';
 
             // Optionally, highlight summary and error lines
             const lines = diagnosticText.split('\n');
@@ -189,6 +205,33 @@
         }
 
         createDetailedDiagnostic(content, diagnosticData) {
+            console.log('DiagnosticReportDialog: Processing diagnostic data:', diagnosticData);
+            
+            // Handle pandapower diagnostic text output (from stdout capture)
+            if (diagnosticData.diagnostic_output) {
+                console.log('DiagnosticReportDialog: Found diagnostic_output, length:', diagnosticData.diagnostic_output.length);
+                this.createPandapowerDiagnosticSection(content, diagnosticData.diagnostic_output);
+            } else if (diagnosticData.diagnostic_note) {
+                // Show note if diagnostic output wasn't captured
+                const noteSection = document.createElement('div');
+                noteSection.style.cssText = 'border: 1px solid #2196f3; border-radius: 4px; padding: 16px; background: #e3f2fd; margin-bottom: 16px;';
+                noteSection.innerHTML = `<p style="margin: 0; color: #1565c0;">ℹ️ ${diagnosticData.diagnostic_note}</p>`;
+                content.appendChild(noteSection);
+            }
+            
+            // Handle diagnostic errors
+            if (diagnosticData.diagnostic_error) {
+                const errorSection = document.createElement('div');
+                errorSection.style.cssText = 'border: 1px solid #ff9800; border-radius: 4px; padding: 16px; background: #fff3e0; margin-bottom: 16px;';
+                errorSection.innerHTML = `<p style="margin: 0; color: #e65100;">⚠️ Diagnostic Error: ${diagnosticData.diagnostic_error}</p>`;
+                content.appendChild(errorSection);
+            }
+            
+            // Handle disconnected elements
+            if (diagnosticData.disconnected_elements) {
+                this.createDisconnectedElementsSection(content, diagnosticData.disconnected_elements);
+            }
+            
             // Handle overload issues
             if (diagnosticData.overload) {
                 this.createOverloadSection(content, diagnosticData.overload);
@@ -213,6 +256,48 @@
             if (diagnosticData.convergence) {
                 this.createConvergenceSection(content, diagnosticData.convergence);
             }
+            
+            // Handle general errors
+            if (diagnosticData.general_error) {
+                this.createErrorSection(content, 'Error Details', [diagnosticData.general_error]);
+            }
+        }
+        
+        createDisconnectedElementsSection(content, disconnectedData) {
+            const section = document.createElement('div');
+            section.style.cssText = 'border: 1px solid #ff5722; border-radius: 4px; padding: 16px; background: #fbe9e7;';
+
+            const sectionTitle = document.createElement('h3');
+            sectionTitle.textContent = '🔌 Disconnected Elements';
+            sectionTitle.style.cssText = 'margin: 0 0 12px 0; color: #d84315; font-size: 16px;';
+            section.appendChild(sectionTitle);
+
+            const description = document.createElement('p');
+            description.textContent = 'The following elements are not connected to the external grid:';
+            description.style.cssText = 'margin: 0 0 12px 0; color: #bf360c;';
+            section.appendChild(description);
+
+            const elementTypes = ['buses', 'loads', 'generators', 'trafos', 'sgens'];
+            elementTypes.forEach(elementType => {
+                if (disconnectedData[elementType] && disconnectedData[elementType].length > 0) {
+                    const elementSection = document.createElement('div');
+                    elementSection.style.cssText = 'margin-bottom: 8px;';
+
+                    const elementTitle = document.createElement('span');
+                    elementTitle.textContent = `${elementType.charAt(0).toUpperCase() + elementType.slice(1)}: `;
+                    elementTitle.style.cssText = 'font-weight: bold; color: #d84315;';
+                    elementSection.appendChild(elementTitle);
+
+                    const elementList = document.createElement('span');
+                    elementList.textContent = disconnectedData[elementType].join(', ');
+                    elementList.style.cssText = 'color: #bf360c;';
+                    elementSection.appendChild(elementList);
+
+                    section.appendChild(elementSection);
+                }
+            });
+
+            content.appendChild(section);
         }
 
         createOverloadSection(content, overloadData) {

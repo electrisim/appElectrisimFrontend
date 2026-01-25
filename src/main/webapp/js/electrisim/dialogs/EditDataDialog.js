@@ -1849,6 +1849,16 @@ export class EditDataDialog {
         }
     }
     
+    // Helper method to check if a cell is a DC Bus
+    isDcBus(cell) {
+        if (!cell) return false;
+        const style = cell.getStyle() || '';
+        const styleProps = this.parseStyle(style);
+        const shapeType = styleProps.shapeELXXX || '';
+        return shapeType === 'DC Bus' || shapeType === 'DCBus' || 
+               style.includes('DCBus') || style.includes('DC Bus');
+    }
+    
     // Handle Line
     handleLine() {
         this.shouldShowDialog = false; // Prevent main dialog from being shown
@@ -1860,6 +1870,18 @@ export class EditDataDialog {
         // Check if there's already a dialog showing to prevent duplicates
         if (window._globalDialogShowing || document.querySelector('.modal-overlay')) {
             console.log('Line dialog: Another dialog is already showing, ignoring request');
+            return;
+        }
+        
+        // Check if this line connects two DC Buses - if so, show DC Line dialog instead
+        const source = this.cell.source;
+        const target = this.cell.target;
+        const sourceIsDcBus = this.isDcBus(source);
+        const targetIsDcBus = this.isDcBus(target);
+        
+        if (sourceIsDcBus && targetIsDcBus) {
+            console.log('Line connects two DC Buses - showing DC Line dialog instead');
+            this.handleDCLine();
             return;
         }
         

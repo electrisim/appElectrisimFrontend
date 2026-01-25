@@ -1,14 +1,16 @@
 import { Dialog } from './Dialog.js';
 
 // Default values for VSC parameters (based on pandapower documentation)
+// VSC connects an AC bus to a DC bus - bus connections are detected from diagram edges
 export const defaultVscData = {
     name: "VSC",
-    bus: "",
-    p_mw: 0.0,
-    vm_pu: 1.0,
-    sn_mva: 0.0,
-    rx: 0.1,
-    max_ik_ka: 0.0,
+    r_ohm: 0.01,           // Coupling transformer resistance
+    x_ohm: 0.1,            // Coupling transformer reactance
+    r_dc_ohm: 0.01,        // Internal DC resistance
+    control_mode_ac: "vm_pu",   // AC control mode: 'vm_pu' or 'q_mvar'
+    control_value_ac: 1.0,      // AC control setpoint (voltage in pu or reactive power in MVar)
+    control_mode_dc: "p_mw",    // DC control mode: 'vm_pu' or 'p_mw'
+    control_value_dc: 0.0,      // DC control setpoint (voltage in pu or active power in MW)
     in_service: true
 };
 
@@ -23,6 +25,7 @@ export class VscDialog extends Dialog {
         this.inputs = new Map();
         
         // Load Flow parameters
+        // Note: AC bus and DC bus connections are detected automatically from diagram edges
         this.loadFlowParameters = [
             {
                 id: 'name',
@@ -33,65 +36,73 @@ export class VscDialog extends Dialog {
                 value: this.data.name
             },
             {
-                id: 'bus',
-                label: 'Bus',
-                symbol: 'bus',
-                description: 'Index of the AC bus',
-                type: 'text',
-                value: this.data.bus
+                id: 'r_ohm',
+                label: 'Resistance',
+                symbol: 'r_ohm',
+                unit: 'Ω',
+                description: 'Coupling transformer resistance (≥0)',
+                type: 'number',
+                value: this.data.r_ohm.toString(),
+                step: '0.001',
+                min: '0'
             },
             {
-                id: 'p_mw',
-                label: 'Active Power',
-                symbol: 'p_mw',
-                unit: 'MW',
-                description: 'Active power at the AC bus',
+                id: 'x_ohm',
+                label: 'Reactance',
+                symbol: 'x_ohm',
+                unit: 'Ω',
+                description: 'Coupling transformer reactance',
                 type: 'number',
-                value: this.data.p_mw.toString(),
+                value: this.data.x_ohm.toString(),
+                step: '0.01',
+                min: '0'
+            },
+            {
+                id: 'r_dc_ohm',
+                label: 'DC Resistance',
+                symbol: 'r_dc_ohm',
+                unit: 'Ω',
+                description: 'Internal DC resistance component',
+                type: 'number',
+                value: this.data.r_dc_ohm.toString(),
+                step: '0.001',
+                min: '0'
+            },
+            {
+                id: 'control_mode_ac',
+                label: 'AC Control Mode',
+                symbol: 'control_mode_ac',
+                description: 'Control mode for AC side: vm_pu (voltage) or q_mvar (reactive power)',
+                type: 'select',
+                options: ['vm_pu', 'q_mvar'],
+                value: this.data.control_mode_ac
+            },
+            {
+                id: 'control_value_ac',
+                label: 'AC Control Value',
+                symbol: 'control_value_ac',
+                description: 'AC control setpoint (voltage in p.u. or reactive power in MVar)',
+                type: 'number',
+                value: this.data.control_value_ac.toString(),
+                step: '0.01'
+            },
+            {
+                id: 'control_mode_dc',
+                label: 'DC Control Mode',
+                symbol: 'control_mode_dc',
+                description: 'Control mode for DC side: vm_pu (voltage) or p_mw (active power)',
+                type: 'select',
+                options: ['p_mw', 'vm_pu'],
+                value: this.data.control_mode_dc
+            },
+            {
+                id: 'control_value_dc',
+                label: 'DC Control Value',
+                symbol: 'control_value_dc',
+                description: 'DC control setpoint (voltage in p.u. or active power in MW)',
+                type: 'number',
+                value: this.data.control_value_dc.toString(),
                 step: '0.1'
-            },
-            {
-                id: 'vm_pu',
-                label: 'Voltage Magnitude',
-                symbol: 'vm_pu',
-                unit: 'p.u.',
-                description: 'Voltage magnitude setpoint in p.u.',
-                type: 'number',
-                value: this.data.vm_pu.toString(),
-                step: '0.01',
-                min: '0'
-            },
-            {
-                id: 'sn_mva',
-                label: 'Rated Power',
-                symbol: 'sn_mva',
-                unit: 'MVA',
-                description: 'Rated apparent power of the VSC',
-                type: 'number',
-                value: this.data.sn_mva.toString(),
-                step: '0.1',
-                min: '0'
-            },
-            {
-                id: 'rx',
-                label: 'R/X Ratio',
-                symbol: 'rx',
-                description: 'Resistance to reactance ratio',
-                type: 'number',
-                value: this.data.rx.toString(),
-                step: '0.01',
-                min: '0'
-            },
-            {
-                id: 'max_ik_ka',
-                label: 'Max Short Circuit Current',
-                symbol: 'max_ik_ka',
-                unit: 'kA',
-                description: 'Maximum short circuit current',
-                type: 'number',
-                value: this.data.max_ik_ka.toString(),
-                step: '0.1',
-                min: '0'
             },
             {
                 id: 'in_service',
