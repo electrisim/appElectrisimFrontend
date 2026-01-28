@@ -161,6 +161,15 @@ function isLineStyle(style) {
 }
 
 /**
+ * Helper to detect if a shape is a Transformer (2-winding or 3-winding)
+ * Transformers should only have ONE result placeholder, not one per edge
+ */
+function isTransformerShape(shape) {
+    if (!shape) return false;
+    return shape === 'Transformer' || shape === 'Three Winding Transformer';
+}
+
+/**
  * Updates the result placeholder for a cloned Bus cell.
  * When a Bus is cloned, its placeholder child is also cloned but with wrong IDs.
  * This function updates the cloned placeholder to properly reference the new bus.
@@ -479,6 +488,7 @@ function processClonedCellsForBusPlaceholders(graph, cells) {
 if (typeof window !== 'undefined') {
     window.isResultPlaceholderStyle = isResultPlaceholderStyle;
     window.isLineStyle = isLineStyle;
+    window.isTransformerShape = isTransformerShape;
     window.updateClonedBusPlaceholder = updateClonedBusPlaceholder;
     window.updateClonedLinePlaceholder = updateClonedLinePlaceholder;
     window.updateClonedComponentPlaceholder = updateClonedComponentPlaceholder;
@@ -704,8 +714,6 @@ mxGraph.prototype.addEdge = function (edge, parent, source, target, index) {
                 var componentShape = sourceIsBus ? targetShape : sourceShape;
 
                 // For edge-based placeholders, check if a placeholder already exists on THIS specific edge
-                // Each edge should have its own placeholder, even if the component has placeholders on other edges
-                // This is critical for components with multiple edges (e.g., Transformers with HV and LV edges)
                 var edgeHasPlaceholder = false;
                 if (result) {
                     // Use model API for consistency with rest of codebase
@@ -722,9 +730,35 @@ mxGraph.prototype.addEdge = function (edge, parent, source, target, index) {
                     }
                 }
 
-                // Only create placeholder if this edge doesn't already have one
-                // This ensures each edge gets its own placeholder when components are cloned
-                if (!edgeHasPlaceholder) {
+                // For Transformers (2-winding and 3-winding), only create ONE placeholder total
+                // Check if the component already has a placeholder on ANY of its edges
+                var componentHasAnyPlaceholder = false;
+                if (isTransformerShape(componentShape) && componentCell.edges) {
+                    for (var e = 0; e < componentCell.edges.length; e++) {
+                        var existingEdge = componentCell.edges[e];
+                        if (!existingEdge) continue;
+                        var edgeChildCount = this.model.getChildCount(existingEdge);
+                        for (var j = 0; j < edgeChildCount; j++) {
+                            var edgeChild = this.model.getChildAt(existingEdge, j);
+                            if (!edgeChild) continue;
+                            var edgeChildStyle = this.model.getStyle(edgeChild) || '';
+                            if (edgeChildStyle && (edgeChildStyle.includes('shapeELXXX=Result') || 
+                                edgeChildStyle.includes('shapeELXXX=ResultExternalGrid'))) {
+                                componentHasAnyPlaceholder = true;
+                                break;
+                            }
+                        }
+                        if (componentHasAnyPlaceholder) break;
+                    }
+                }
+
+                // Only create placeholder if:
+                // - This edge doesn't already have one, AND
+                // - For transformers: the component doesn't have any placeholder on any edge
+                var shouldCreatePlaceholder = !edgeHasPlaceholder && 
+                    (!isTransformerShape(componentShape) || !componentHasAnyPlaceholder);
+
+                if (shouldCreatePlaceholder) {
                     // Use a dedicated logical shape for External Grid result boxes
                     // All other components use 'Result' shape
                     var logicalShape = (componentShape === 'External Grid')

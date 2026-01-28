@@ -40,7 +40,10 @@ const downloadOpenDSSCommands = (commands) => {
         console.log('OpenDSS commands file downloaded successfully');
     } catch (error) {
         console.error('Error downloading OpenDSS commands:', error);
-        alert('Failed to download OpenDSS commands file. Please check the console for details.');
+        alert(
+            'Failed to download OpenDSS commands file. Please check the console for details.\n\n' +
+            'If the problem persists, please contact electrisim@electrisim.com for support.'
+        );
     }
 };
 
@@ -268,7 +271,10 @@ const downloadOpenDSSResults = (dataJson) => {
         console.log('OpenDSS results file downloaded successfully');
     } catch (error) {
         console.error('Error downloading OpenDSS results:', error);
-        alert('Failed to download OpenDSS results file. Please check the console for details.');
+        alert(
+            'Failed to download OpenDSS results file. Please check the console for details.\n\n' +
+            'If the problem persists, please contact electrisim@electrisim.com for support.'
+        );
     }
 };
 
@@ -536,7 +542,10 @@ function loadFlowOpenDss(a, b, c) {
                         executeOpenDSSLoadFlow(a, apka, grafka);
                     });
                 } else {
-                    alert('Load Flow dialog is not available. Please refresh the page and try again.');
+                    alert(
+                        'Load Flow dialog is not available. Please refresh the page and try again.\n\n' +
+                        'If the problem persists, please contact electrisim@electrisim.com for support.'
+                    );
                 }
             }
         } else {
@@ -550,7 +559,10 @@ function loadFlowOpenDss(a, b, c) {
                 });
             } else {
                 console.error('No dialog available');
-                alert('Load Flow dialog is not available. Please refresh the page and try again.');
+                alert(
+                    'Load Flow dialog is not available. Please refresh the page and try again.\n\n' +
+                    'If the problem persists, please contact electrisim@electrisim.com for support.'
+                );
             }
         }
     }
@@ -1367,6 +1379,10 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
             } catch (spinnerErr) {
                 console.error('Error stopping spinner:', spinnerErr);
             }
+            alert(
+                'The backend server reported an error or did not respond.\n\n' +
+                'Please try again in a few moments. If the problem persists, contact electrisim@electrisim.com for support.'
+            );
             return;
         }
         console.error('Error processing OpenDSS network data:', err);
@@ -1391,7 +1407,10 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
 // Error handler for OpenDSS
 function handleNetworkErrors(dataJson) {
     if (dataJson.error) {
-        alert('OpenDSS calculation error: ' + dataJson.error);
+        alert(
+            'OpenDSS calculation error: ' + dataJson.error + '\n\n' +
+            'If the problem persists, please contact electrisim@electrisim.com for support.'
+        );
         return true;
     }
     return false;
@@ -2840,7 +2859,10 @@ function executePandapowerCoreLogic(parameters, app, graph) {
     } catch (error) {
         console.error('Error executing pandapower load flow:', error);
         app.spinner.stop();
-        alert('Error executing Pandapower load flow: ' + error.message);
+        alert(
+            'Error executing Pandapower load flow: ' + error.message + '\n\n' +
+            'If the problem persists, please contact electrisim@electrisim.com for support.'
+        );
     } finally {
         // Restore the original show method
         console.log('Restoring original LoadFlowDialog.prototype.show:', originalShow);
@@ -2873,7 +2895,10 @@ async function processPandapowerBackend(obj, graph) {
         
     } catch (error) {
         console.error('Pandapower backend error:', error);
-        alert('Error in Pandapower calculation: ' + error.message);
+        alert(
+            'Error in Pandapower calculation: ' + error.message + '\n\n' +
+            'If the problem persists, please contact electrisim@electrisim.com for support.'
+        );
     } finally {
         // Stop spinner
         if (window.App && window.App.spinner) {
