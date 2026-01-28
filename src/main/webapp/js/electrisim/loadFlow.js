@@ -6,7 +6,10 @@ const downloadPandapowerPython = (pythonCode) => {
     try {
         if (!pythonCode || pythonCode.length === 0) {
             console.error('❌ Cannot download: Python code is empty or undefined');
-            alert('Cannot download: Python code is empty');
+            alert(
+                'Cannot download: Python code is empty.\n\n' +
+                'If the problem persists, please contact electrisim@electrisim.com for support.'
+            );
             return;
         }
         
@@ -36,7 +39,10 @@ const downloadPandapowerPython = (pythonCode) => {
         console.log('✅ Pandapower Python code file downloaded successfully!');
     } catch (error) {
         console.error('❌ Error downloading Pandapower Python code:', error);
-        alert('Failed to download Pandapower Python code file. Error: ' + error.message);
+        alert(
+            'Failed to download Pandapower Python code file. Error: ' + error.message + '\n\n' +
+            'If the problem persists, please contact electrisim@electrisim.com for support.'
+        );
     }
 };
 
@@ -418,7 +424,10 @@ const downloadPandapowerResults = (dataJson) => {
         console.log('✅ Pandapower results file downloaded successfully!');
     } catch (error) {
         console.error('❌ Error downloading Pandapower results:', error);
-        alert('Failed to download Pandapower results file. Error: ' + error.message);
+        alert(
+            'Failed to download Pandapower results file. Error: ' + error.message + '\n\n' +
+            'If the problem persists, please contact electrisim@electrisim.com for support.'
+        );
     }
 };
 
@@ -1257,7 +1266,10 @@ function loadFlowPandaPower(a, b, c) {
                 diagnosticDialog.show();
             } else {
                 // Fallback to alert if dialog is not available
-                alert(`Power flow calculation failed: ${dataJson.message}\n\nException: ${dataJson.exception}`);
+                alert(
+                    `Power flow calculation failed: ${dataJson.message}\n\nException: ${dataJson.exception}\n\n` +
+                    'If the problem persists, please contact electrisim@electrisim.com for support.'
+                );
             }
             return true;
         }
@@ -1273,7 +1285,10 @@ function loadFlowPandaPower(a, b, c) {
                 alert(`⚠️ ${formattedError}`);
             } else {
                 // Standard error display
-                alert(`❌ Power Flow Calculation Failed\n\n${dataJson.error}`);
+                alert(
+                    `❌ Power Flow Calculation Failed\n\n${dataJson.error}\n\n` +
+                    'If the problem persists, please contact electrisim@electrisim.com for support.'
+                );
             }
             return true;
         }
@@ -2113,7 +2128,10 @@ function loadFlowPandaPower(a, b, c) {
                     const errorJson = JSON.parse(errorText);
                     if (errorJson.error) {
                         // Display the detailed error message from backend
-                        alert(`❌ Power Flow Calculation Failed\n\n${errorJson.error}`);
+                        alert(
+                            `❌ Power Flow Calculation Failed\n\n${errorJson.error}\n\n` +
+                            'If the problem persists, please contact electrisim@electrisim.com for support.'
+                        );
                         throw new Error(errorJson.error);
                     }
                 } catch (parseError) {

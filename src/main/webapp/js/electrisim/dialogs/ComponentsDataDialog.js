@@ -62,6 +62,34 @@ export class ComponentsDataDialog {
 
     // Helper function to get connected bus ID (from loadFlow.js)
     getConnectedBusId(cell, isLine = false) {
+        // For lines (edges), directly access source and target
+        if (isLine) {
+            // Check if the cell is an edge itself
+            if (cell.edge || this.model.isEdge(cell)) {
+                const source = cell.source;
+                const target = cell.target;
+                
+                if (source && target) {
+                    return {
+                        from_bus: source.mxObjectId?.replace('#', '_') || source.id,
+                        to_bus: target.mxObjectId?.replace('#', '_') || target.id
+                    };
+                }
+            }
+            
+            // Fallback: treat as a vertex with connections
+            const edges = this.graph.getEdges(cell);
+            if (edges && edges.length >= 2) {
+                return {
+                    from_bus: edges[0].source?.mxObjectId?.replace('#', '_') || edges[0].source?.id || 'N/A',
+                    to_bus: edges[1].target?.mxObjectId?.replace('#', '_') || edges[1].target?.id || 'N/A'
+                };
+            }
+            
+            return null;
+        }
+        
+        // For non-line components, get the first connected bus
         const edges = this.graph.getEdges(cell);
         if (!edges || edges.length === 0) return null;
 
@@ -72,13 +100,6 @@ export class ComponentsDataDialog {
                 connectedCells.push(target);
             }
         });
-
-        if (isLine && connectedCells.length >= 2) {
-            return {
-                from_bus: connectedCells[0].mxObjectId?.replace('#', '_') || connectedCells[0].id,
-                to_bus: connectedCells[1].mxObjectId?.replace('#', '_') || connectedCells[1].id
-            };
-        }
 
         return connectedCells.length > 0 ? 
             (connectedCells[0].mxObjectId?.replace('#', '_') || connectedCells[0].id) : null;
@@ -673,8 +694,11 @@ export class ComponentsDataDialog {
         // Non-editable columns (read-only)
         const readOnlyColumns = ['id', 'name', 'bus', 'from_bus', 'to_bus', 'type'];
         
+        // Columns to hide from display
+        const hiddenColumns = ['id'];
+        
         // Create column definitions with proper types and formatting
-        return Array.from(allProps).map(prop => {
+        return Array.from(allProps).filter(prop => !hiddenColumns.includes(prop)).map(prop => {
             const sampleValue = components.find(comp => comp[prop] != null)?.[prop];
             const isNumeric = !isNaN(sampleValue) && sampleValue !== '' && sampleValue !== 'N/A';
             const isReadOnly = readOnlyColumns.includes(prop.toLowerCase());
