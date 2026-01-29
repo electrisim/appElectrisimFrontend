@@ -52,6 +52,7 @@
 <template url="transmission/IEEE_4bus.drawio" title="IEEE 4 bus" libs="general;uml"/>
 <template url="transmission/IEEE_5bus.drawio" title="IEEE 5 bus" libs="general;uml"/>
 <template url="transmission/IEEE_6bus.drawio" title="IEEE 6 bus" libs="general;uml"/>
+<template url="transmission/10-bus Italian grid.drawio" title="10-bus Italian grid" libs="general;uml"/>
 
 <template url="distribution/multivoltage example.drawio" title="multivoltage example" libs="general;uml"/>
 <template url="distribution/CIGRE_MVnetwork_allDER.drawio" title="Cigre MV network" libs="general;uml"/>
