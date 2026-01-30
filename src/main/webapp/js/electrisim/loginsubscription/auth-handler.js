@@ -351,7 +351,7 @@ function createLoginForm(container) {
         // Use Railway backend URL directly for OAuth
         const backendUrl = config.isDevelopment
             ? 'http://localhost:5502'
-            : 'https://customers-production-16f8.up.railway.app';
+            : 'https://api.electrisim.com';
         window.location.href = `${backendUrl}/api/auth/google`;
     });
 
@@ -361,7 +361,7 @@ function createLoginForm(container) {
         // Use Railway backend URL directly for OAuth
         const backendUrl = config.isDevelopment
             ? 'http://localhost:5502'
-            : 'https://customers-production-16f8.up.railway.app';
+            : 'https://api.electrisim.com';
         const linkedinUrl = `${backendUrl}/api/auth/linkedin`;
         console.log('Redirecting to:', linkedinUrl);
         window.location.href = linkedinUrl;
@@ -373,7 +373,7 @@ function createLoginForm(container) {
         // Use Railway backend URL directly for OAuth
         const backendUrl = config.isDevelopment
             ? 'http://localhost:5502'
-            : 'https://customers-production-16f8.up.railway.app';
+            : 'https://api.electrisim.com';
         const microsoftUrl = `${backendUrl}/api/auth/microsoft`;
         console.log('Redirecting to:', microsoftUrl);
         window.location.href = microsoftUrl;
@@ -456,7 +456,7 @@ function createRegisterForm(container) {
         // Use Railway backend URL directly for OAuth
         const backendUrl = config.isDevelopment
             ? 'http://localhost:5502'
-            : 'https://customers-production-16f8.up.railway.app';
+            : 'https://api.electrisim.com';
         window.location.href = `${backendUrl}/api/auth/google`;
     });
 
@@ -466,7 +466,7 @@ function createRegisterForm(container) {
         // Use Railway backend URL directly for OAuth
         const backendUrl = config.isDevelopment
             ? 'http://localhost:5502'
-            : 'https://customers-production-16f8.up.railway.app';
+            : 'https://api.electrisim.com';
         const linkedinUrl = `${backendUrl}/api/auth/linkedin`;
         console.log('Redirecting to:', linkedinUrl);
         window.location.href = linkedinUrl;
@@ -478,7 +478,7 @@ function createRegisterForm(container) {
         // Use Railway backend URL directly for OAuth
         const backendUrl = config.isDevelopment
             ? 'http://localhost:5502'
-            : 'https://customers-production-16f8.up.railway.app';
+            : 'https://api.electrisim.com';
         const microsoftUrl = `${backendUrl}/api/auth/microsoft`;
         console.log('Redirecting to:', microsoftUrl);
         window.location.href = microsoftUrl;
