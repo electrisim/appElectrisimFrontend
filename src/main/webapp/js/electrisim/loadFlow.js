@@ -2267,8 +2267,19 @@ function loadFlowPandaPower(a, b, c) {
                 console.error('ELXXX: Server error detected, returning early');
                 return;
             }
-            // Log the error but don't show alert (commented out)
-            // alert('Error processing network data.' + err+'\n \nCheck input data or contact electrisim@electrisim.com', );
+            // Show user-friendly message for connection failures (e.g. VPN / ERR_CERT_AUTHORITY_INVALID)
+            if (err.message && (err.message === 'Failed to fetch' || err.message.includes('Failed to fetch') || err.message.includes('NetworkError'))) {
+                alert(
+                    'Unable to connect to the calculation server.\n\n' +
+                    'This often happens when using a corporate VPN: the network\'s security (SSL inspection) can block the connection.\n\n' +
+                    'Try:\n' +
+                    '• Disconnect from VPN and run the calculation again\n' +
+                    '• Use another network or device\n' +
+                    '• Ask IT to allow the app backend or add your organisation\'s root certificate\n\n' +
+                    'If the problem persists, contact electrisim@electrisim.com'
+                );
+                return;
+            }
         } finally {
             if (typeof apka !== 'undefined' && apka.spinner) {
                 apka.spinner.stop();

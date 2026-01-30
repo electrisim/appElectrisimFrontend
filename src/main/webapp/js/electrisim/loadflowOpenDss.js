@@ -1385,6 +1385,20 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
             );
             return;
         }
+        // Connection failure (e.g. VPN / ERR_CERT_AUTHORITY_INVALID) – show VPN guidance
+        if (err.message && (err.message === 'Failed to fetch' || err.message.includes('Failed to fetch') || err.message.includes('NetworkError'))) {
+            console.error('Error connecting to backend (possible VPN/certificate issue):', err);
+            alert(
+                'Unable to connect to the calculation server.\n\n' +
+                'This often happens when using a corporate VPN: the network\'s security (SSL inspection) can block the connection.\n\n' +
+                'Try:\n' +
+                '• Disconnect from VPN and run the calculation again\n' +
+                '• Use another network or device\n' +
+                '• Ask IT to allow the app backend or add your organisation\'s root certificate\n\n' +
+                'If the problem persists, contact electrisim@electrisim.com'
+            );
+            return;
+        }
         console.error('Error processing OpenDSS network data:', err);
         alert('Error processing OpenDSS network data: ' + err + '\n\nCheck input data or contact electrisim@electrisim.com');
     } finally {
