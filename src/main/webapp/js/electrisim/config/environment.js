@@ -13,9 +13,8 @@ const config = {
       // Backend simulation API (custom domain for sim service)
       backendUrl: 'https://sim.electrisim.com',
       
-      // Stripe subscription API (Railway direct URL - custom domain api.electrisim.com not working)
-      // TODO: Switch back to 'https://api.electrisim.com/api' once custom domain is fixed in Railway
-      apiBaseUrl: 'https://customers-production-16f8.up.railway.app/api',
+      // Stripe subscription / auth API (custom domain)
+      apiBaseUrl: 'https://api.electrisim.com/api',
       frontendUrl: 'https://app.electrisim.com',
       stripePublishableKey: 'pk_live_51OOivlAd4ULYw2NbUnCgqV6KHAiRzkuoMJfcYKv1R5DsarBaly7QDOQCwwHI4GQUhYqA57SGHIOIwYleWKs0UQNe00fiZkcYco',
       isDevelopment: false
