@@ -729,7 +729,10 @@ export class LoadFlowDialog extends Dialog {
                 } else if (error.message && error.message.includes('NetworkError')) {
                     alert('Network connection error. Please check your internet connection and try again.');
                 } else if (error.message && error.message.includes('Failed to fetch')) {
-                    alert('Unable to connect to the server. Please check your internet connection and try again.');
+                    alert(
+                        'Unable to connect to the server.\n\n' +
+                        'This often happens when using a corporate VPN (SSL/certificate is not trusted). Try disconnecting from VPN, using another network, or ask IT to add your organisation\'s root certificate. Contact electrisim@electrisim.com if it persists.'
+                    );
                 } else {
                     alert('Unable to verify subscription status. Please try again. If the issue persists, contact support.');
                 }

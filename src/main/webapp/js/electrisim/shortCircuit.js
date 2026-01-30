@@ -403,6 +403,18 @@ window.shortCircuitPandaPower = function(a, b, c) {
 
         } catch (err) {
             if (err.message === "server") return;
+            if (err.message && (err.message === 'Failed to fetch' || err.message.includes('Failed to fetch') || err.message.includes('NetworkError'))) {
+                alert(
+                    'Unable to connect to the calculation server.\n\n' +
+                    'This often happens when using a corporate VPN: the network\'s security (SSL inspection) can block the connection.\n\n' +
+                    'Try:\n' +
+                    '• Disconnect from VPN and run the calculation again\n' +
+                    '• Use another network or device\n' +
+                    '• Ask IT to allow the app backend or add your organisation\'s root certificate\n\n' +
+                    'If the problem persists, contact electrisim@electrisim.com'
+                );
+                return;
+            }
             alert('Error processing network data.' + err + '\n \nCheck input data or contact electrisim@electrisim.com');
         } finally {
             if (typeof apka !== 'undefined' && apka.spinner) {
@@ -747,7 +759,9 @@ window.shortCircuitPandaPower = function(a, b, c) {
 
         apka.spinner.spin(document.body, "Waiting for results...")
 
-        if (a.length > 0) {
+        // Accept both array (legacy) and object (tabbed dialog: engine, fault, case, etc.)
+        const hasPayload = a && (Array.isArray(a) ? a.length > 0 : (typeof a === 'object' && a !== null));
+        if (hasPayload) {
             // Get current user email with robust fallback
             function getUserEmail() {
                 try {
@@ -794,14 +808,36 @@ window.shortCircuitPandaPower = function(a, b, c) {
             
             const userEmail = getUserEmail();
             console.log('Short Circuit - User email:', userEmail); // Debug log
-            
-            componentArrays.simulationParameters.push({
-                typ: "ShortCircuitPandaPower Parameters",
-                fault_type: a[0],
-                fault_location: a[1],
-                fault_impedance: a[2],
-                user_email: userEmail  // Add user email to simulation data
-            });
+
+            // values is an object from ShortCircuitDialog.getFormValues() with engine, fault, case, etc.
+            const values = typeof a === 'object' && a !== null && !Array.isArray(a) ? a : {
+                engine: 'pandapower',
+                fault: (a && a[0]) || '3ph',
+                case: (a && a[1]) || 'max',
+                lv_tol_percent: (a && a[2]) || '6'
+            };
+            if (values.engine === 'opendss') {
+                componentArrays.simulationParameters.push({
+                    typ: "ShortCircuitOpenDss Parameters",
+                    frequency: values.frequency || '50',
+                    fault: values.fault || '3ph',
+                    exportOpenDSSResults: values.exportOpenDSSResults || false,
+                    user_email: userEmail
+                });
+            } else {
+                componentArrays.simulationParameters.push({
+                    typ: "ShortCircuitPandaPower Parameters",
+                    fault_type: values.fault || '3ph',
+                    fault_location: values.case || 'max',
+                    fault_impedance: values.lv_tol_percent || '6',
+                    topology: values.topology || 'auto',
+                    tk_s: values.tk_s || '1',
+                    r_fault_ohm: values.r_fault_ohm || '0',
+                    x_fault_ohm: values.x_fault_ohm || '0',
+                    inverse_y: values.inverse_y || 'True',
+                    user_email: userEmail
+                });
+            }
 
             // Process cells with performance optimization
             const cellProcessingStart = performance.now();
@@ -1507,6 +1543,11 @@ window.shortCircuitPandaPower = function(a, b, c) {
             // Process network data
             console.log('🌐 Using backend URL:', ENV.backendUrl);
             processNetworkData(ENV.backendUrl + "/", obj, b, grafka);
+        } else {
+            if (typeof apka !== 'undefined' && apka.spinner) {
+                apka.spinner.stop();
+            }
+            console.warn('Short Circuit: No payload (empty or invalid dialog values).');
         }
         });
     }
