@@ -3,6 +3,7 @@ import { COMPONENT_TYPES } from './utils/componentTypes.js';
 import { getAttributesAsObject } from './utils/attributeUtils.js';
 import { ShortCircuitDialog } from './dialogs/ShortCircuitDialog.js';
 import ENV from './config/environment.js';
+import { getIncompatibleElements } from './utils/engineCompatibility.js';
 
 // Make the shortCircuit function available globally
 window.shortCircuitPandaPower = function(a, b, c) {
@@ -242,6 +243,17 @@ window.shortCircuitPandaPower = function(a, b, c) {
         return cellsToRemove.length;
     };
 
+    // Helper: resolve graph cell from backend id (OpenDSS returns id with '#' or '_')
+    const getResultCellFromMapSC = (cellIdMap, id) => {
+        if (!cellIdMap || id == null) return null;
+        let cell = cellIdMap.get(id);
+        if (!cell && id !== '') {
+            const altId = String(id).indexOf('#') >= 0 ? String(id).replace(/#/g, '_') : String(id).replace(/_/g, '#');
+            cell = cellIdMap.get(altId);
+        }
+        return cell;
+    };
+
     // Helper function to find existing placeholder for a cell (for Short Circuit)
     // This ensures we UPDATE existing placeholders instead of creating new ones
     // Works for both bus placeholders (children of bus) and component placeholders (children of edge)
@@ -309,15 +321,60 @@ window.shortCircuitPandaPower = function(a, b, c) {
         return placeholder;
     };
 
+    // Clear result placeholders that short circuit does NOT update (load flow only).
+    // Resets External Grid, Load, Generator, Line, etc. placeholders so stale load flow data is not shown.
+    const PLACEHOLDER_RESET_TEXT = 'Click Simulate to generate results.';
+    const clearLoadFlowOnlyResultPlaceholders = (grafka, b, dataJson, cellIdMap) => {
+        const model = b.getModel();
+        const cells = model.cells;
+        if (!cells) return;
+
+        const busbarsData = dataJson.busbars || [];
+        const busCellsToUpdate = new Set(
+            busbarsData
+                .map((row) => (cellIdMap ? getResultCellFromMapSC(cellIdMap, row.id) : null) || model.getCell(row.id))
+                .filter(Boolean)
+        );
+
+        for (const cellId in cells) {
+            const cell = cells[cellId];
+            if (!cell) continue;
+            const cellStyle = model.getStyle(cell) || '';
+            const isResult = cellStyle.includes('shapeELXXX=Result');
+            const isResultBus = cellStyle.includes('shapeELXXX=ResultBus');
+            const isResultExternalGrid = cellStyle.includes('shapeELXXX=ResultExternalGrid');
+
+            if (!isResult && !isResultBus && !isResultExternalGrid) continue;
+
+            if (isResultExternalGrid || (isResult && !isResultBus)) {
+                model.setValue(cell, PLACEHOLDER_RESET_TEXT);
+                continue;
+            }
+            if (isResultBus) {
+                const parent = cell.parent;
+                if (!parent || !busCellsToUpdate.has(parent)) {
+                    model.setValue(cell, PLACEHOLDER_RESET_TEXT);
+                }
+            }
+        }
+    };
+
     // Network element processors (FROM BACKEND TO FRONTEND)
     // Updated to FIND AND UPDATE existing placeholders instead of creating new ones
+    // cellIdMap: used for OpenDSS (backend returns id with #); getCell(id) used for Pandapower (numeric id)
     const elementProcessors = {
-        busbars: (data, b, grafka) => {
+        busbars: (data, b, grafka, cellIdMap) => {
             data.forEach(cell => {
-                const resultCell = b.getModel().getCell(cell.id);
+                const resultCell = (cellIdMap ? getResultCellFromMapSC(cellIdMap, cell.id) : null) || b.getModel().getCell(cell.id);
+                if (!resultCell) {
+                    console.warn('Short Circuit: Could not find cell with id:', cell.id);
+                    return;
+                }
                 cell.name = replaceUnderscores(cell.name);
-
-                const resultString = `${resultCell.value.attributes[0].nodeValue}
+                const busLabel = (resultCell.value && resultCell.value.attributes && resultCell.value.attributes[0])
+                    ? resultCell.value.attributes[0].nodeValue
+                    : (cell.name || 'Bus');
+                const resultString = `${busLabel}
                 ikss[kA]: ${formatNumber(cell.ikss_ka)}
                 ip[kA]: ${formatNumber(cell.ip_ka)}
                 ith[kA]: ${formatNumber(cell.ith_ka)}
@@ -380,6 +437,22 @@ window.shortCircuitPandaPower = function(a, b, c) {
                 console.log(`Backward compatibility: Removed ${oldResultsRemoved} old-style result cells`);
             }
 
+            // Build cell ID map for OpenDSS (backend returns id with '#' or string id; getCell expects numeric id)
+            const cellIdMap = new Map();
+            const cells = b.getModel().cells;
+            for (const cellId in cells) {
+                const cell = cells[cellId];
+                if (!cell) continue;
+                const logicalId = cell.mxObjectId != null ? cell.mxObjectId : cell.id;
+                if (logicalId != null && logicalId !== '') {
+                    cellIdMap.set(logicalId, cell);
+                    const backendId = String(logicalId).replace(/_/g, '#');
+                    if (backendId && backendId !== logicalId) {
+                        cellIdMap.set(backendId, cell);
+                    }
+                }
+            }
+
             // PERFORMANCE OPTIMIZATION: Batch all DOM updates
             // This prevents layout thrashing and improves rendering speed
             console.log('Processing short circuit results...');
@@ -387,14 +460,19 @@ window.shortCircuitPandaPower = function(a, b, c) {
             const model = b.getModel();
             model.beginUpdate();
             try {
+                // Clear load-flow-only result placeholders so they don't show stale data
+                clearLoadFlowOnlyResultPlaceholders(grafka, b, dataJson, cellIdMap);
                 // Process each type of network element
                 Object.entries(elementProcessors).forEach(([type, processor]) => {
                     if (dataJson[type]) {
-                        processor(dataJson[type], b, grafka);
+                        processor(dataJson[type], b, grafka, cellIdMap);
                     }
                 });
             } finally {
                 model.endUpdate();
+            }
+            if (grafka.getView && grafka.getView().revalidate) {
+                grafka.getView().revalidate();
             }
             
             const processingTime = performance.now() - processingStart;
@@ -1539,6 +1617,17 @@ window.shortCircuitPandaPower = function(a, b, c) {
             nameCache.clear();
             attributeCache.clear();
             console.log('Caches cleared for next simulation');
+
+            // Warn if diagram contains engine-incompatible elements (they will not be included in the calculation)
+            const engine = values.engine || 'pandapower';
+            const { message: incompatibleMsg } = getIncompatibleElements(array, engine);
+            if (incompatibleMsg) {
+                if (typeof mxUtils !== 'undefined' && mxUtils.alert) {
+                    mxUtils.alert(incompatibleMsg);
+                } else {
+                    alert(incompatibleMsg);
+                }
+            }
 
             // Process network data
             console.log('🌐 Using backend URL:', ENV.backendUrl);

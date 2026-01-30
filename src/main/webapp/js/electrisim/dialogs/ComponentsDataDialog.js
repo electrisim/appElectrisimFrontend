@@ -787,6 +787,13 @@ export class ComponentsDataDialog {
             paginationPageSize: 50,
             suppressColumnVirtualisation: false,
             suppressRowVirtualisation: false,
+            // Single-click to start editing (no double-click needed) - faster row editing
+            singleClickEdit: true,
+            // Stop editing when focus leaves cell so Tab/Enter navigation works
+            stopEditingWhenCellsLoseFocus: true,
+            // Excel-like: Enter moves focus to the cell below (when not editing and after editing)
+            enterNavigatesVertically: true,
+            enterNavigatesVerticallyAfterEdit: true,
             // Handle cell value changes
             onCellValueChanged: (event) => {
                 this.hasChanges = true; // Mark that changes were made
@@ -806,17 +813,32 @@ export class ComponentsDataDialog {
                 
                 // Don't apply changes immediately - only track them
             },
-            // Custom keyboard navigation: Enter moves to cell below
+            // Custom keyboard navigation: Enter moves to cell below, Tab moves to next cell
             navigateToNextCell: (params) => {
                 const suggestedNextCell = params.nextCellPosition;
                 const KEY_ENTER = 'Enter';
+                const rowCount = params.api.getDisplayedRowCount();
                 
                 if (params.key === KEY_ENTER && !params.event.shiftKey) {
-                    // Move down to the next row in the same column
-                    return {
-                        rowIndex: params.previousCellPosition.rowIndex + 1,
-                        column: params.previousCellPosition.column
-                    };
+                    const nextRowIndex = params.previousCellPosition.rowIndex + 1;
+                    // Move down to the next row in the same column (stay in bounds)
+                    if (nextRowIndex < rowCount) {
+                        return {
+                            rowIndex: nextRowIndex,
+                            column: params.previousCellPosition.column,
+                            rowPinned: params.previousCellPosition.rowPinned
+                        };
+                    }
+                }
+                if (params.key === KEY_ENTER && params.event.shiftKey) {
+                    const prevRowIndex = params.previousCellPosition.rowIndex - 1;
+                    if (prevRowIndex >= 0) {
+                        return {
+                            rowIndex: prevRowIndex,
+                            column: params.previousCellPosition.column,
+                            rowPinned: params.previousCellPosition.rowPinned
+                        };
+                    }
                 }
                 
                 return suggestedNextCell;
@@ -839,9 +861,79 @@ export class ComponentsDataDialog {
                     event.node.rowElement.style.backgroundColor = '';
                 }
             },
+            // Excel-like: context menu "Fill down" (shown in Enterprise; toolbar button works in Community)
+            getContextMenuItems: (params) => {
+                const result = params.defaultItems || [];
+                const col = params.column;
+                const node = params.node;
+                if (!col || !node || !params.api) return result;
+                const field = col.getColId ? col.getColId() : col.colId;
+                const readOnlyColumns = ['id', 'name', 'bus', 'from_bus', 'to_bus', 'type'];
+                if (readOnlyColumns.includes(field)) return result;
+                const colDef = col.getColDef ? col.getColDef() : {};
+                if (colDef.editable === false) return result;
+
+                const fillDownAction = () => {
+                    const api = params.api;
+                    const sourceValue = node.data[field];
+                    const rowCount = api.getDisplayedRowCount();
+                    const sourceRowIndex = node.rowIndex;
+                    let fillCount = 0;
+                    for (let r = sourceRowIndex + 1; r < rowCount; r++) {
+                        const rowNode = api.getDisplayedRowAtIndex(r);
+                        if (rowNode && rowNode.data) {
+                            rowNode.setDataValue(field, sourceValue);
+                            fillCount++;
+                            const cellId = rowNode.data.id;
+                            if (cellId) {
+                                if (!this.changedCells.has(cellId)) this.changedCells.set(cellId, new Set());
+                                this.changedCells.get(cellId).add(field);
+                            }
+                        }
+                    }
+                    if (fillCount > 0) {
+                        this.hasChanges = true;
+                        api.refreshCells({ force: true });
+                    }
+                };
+
+                return [
+                    ...(Array.isArray(result) ? result.slice(0, 1) : []),
+                    { name: 'Fill down', action: fillDownAction },
+                    ...(Array.isArray(result) ? result.slice(1) : [])
+                ];
+            },
             onGridReady: (params) => {
                 this.gridInstances[componentType] = params.api;
-                
+
+                // Fallback: ensure Enter moves to row below after edit (for AG-Grid versions that ignore enterNavigatesVerticallyAfterEdit)
+                const onEnterKey = (e) => {
+                    if (e.key !== 'Enter' || e.defaultPrevented) return;
+                    const api = params.api;
+                    const editing = api.getEditingCells && api.getEditingCells();
+                    if (editing && editing.length > 0) {
+                        const cellDef = editing[0];
+                        const rowIndex = cellDef.rowIndex;
+                        const col = cellDef.column;
+                        const colId = col && (col.getColId ? col.getColId() : col.getId && col.getId());
+                        const rowCount = api.getDisplayedRowCount && api.getDisplayedRowCount();
+                        if (rowCount == null) return;
+                        const nextRow = e.shiftKey ? rowIndex - 1 : rowIndex + 1;
+                        if (nextRow >= 0 && nextRow < rowCount && colId) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            api.stopEditing && api.stopEditing();
+                            setTimeout(() => {
+                                api.setFocusedCell && api.setFocusedCell(nextRow, col);
+                                if (api.startEditingCell) {
+                                    api.startEditingCell({ rowIndex: nextRow, colKey: colId });
+                                }
+                            }, 0);
+                        }
+                    }
+                };
+                gridDiv.addEventListener('keydown', onEnterKey, true);
+
                 // Store original data as deep copies for comparison
                 if (!this.originalData[componentType]) {
                     this.originalData[componentType] = components.map(comp => {
@@ -1168,11 +1260,71 @@ export class ComponentsDataDialog {
 
         const editHint = document.createElement('span');
         editHint.style.cssText = 'font-size: 12px; color: #6c757d; font-style: italic;';
-        editHint.innerHTML = '💡 Double-click cells to edit parameters';
+        editHint.innerHTML = '💡 Click to edit • Enter = row below • Fill down = copy value to cells below';
 
         // Actions section
         const actions = document.createElement('div');
         actions.style.cssText = 'display: flex; align-items: center; gap: 8px;';
+
+        // Fill down button (Excel-like: copy cell value to all cells below in same column)
+        const fillDownBtn = document.createElement('button');
+        fillDownBtn.innerHTML = '⬇ Fill down';
+        fillDownBtn.title = 'Copy the selected cell value to all cells below in the same column (Excel-style)';
+        fillDownBtn.style.cssText = `
+            padding: 4px 12px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        `;
+        fillDownBtn.addEventListener('click', () => {
+            const gridApi = this.gridInstances[componentType];
+            if (!gridApi) return;
+            const focused = gridApi.getFocusedCell();
+            if (!focused || focused.column == null) {
+                if (typeof this.ui.showError === 'function') {
+                    this.ui.showError('Select a cell first', 'Click a cell in the grid, then click Fill down to copy its value to all cells below in that column.');
+                } else {
+                    alert('Select a cell first: click a cell, then click Fill down.');
+                }
+                return;
+            }
+            const colId = focused.column.getColId();
+            const readOnlyColumns = ['id', 'name', 'bus', 'from_bus', 'to_bus', 'type'];
+            if (readOnlyColumns.includes(colId)) {
+                if (typeof this.ui.showError === 'function') {
+                    this.ui.showError('Cannot fill', 'This column is read-only. Select an editable cell and try again.');
+                } else {
+                    alert('This column is read-only. Select an editable cell.');
+                }
+                return;
+            }
+            const rowNode = gridApi.getDisplayedRowAtIndex(focused.rowIndex);
+            if (!rowNode || !rowNode.data) return;
+            const sourceValue = rowNode.data[colId];
+            const rowCount = gridApi.getDisplayedRowCount();
+            let fillCount = 0;
+            for (let r = focused.rowIndex + 1; r < rowCount; r++) {
+                const node = gridApi.getDisplayedRowAtIndex(r);
+                if (node && node.data) {
+                    node.setDataValue(colId, sourceValue);
+                    fillCount++;
+                    const cellId = node.data.id;
+                    if (cellId) {
+                        if (!this.changedCells.has(cellId)) this.changedCells.set(cellId, new Set());
+                        this.changedCells.get(cellId).add(colId);
+                    }
+                }
+            }
+            if (fillCount > 0) {
+                this.hasChanges = true;
+                gridApi.refreshCells({ force: true });
+            }
+        });
+        fillDownBtn.addEventListener('mouseenter', () => { fillDownBtn.style.background = '#0056b3'; });
+        fillDownBtn.addEventListener('mouseleave', () => { fillDownBtn.style.background = '#007bff'; });
 
         // Quick filter input
         const searchInput = document.createElement('input');
@@ -1234,6 +1386,7 @@ export class ComponentsDataDialog {
 
         info.appendChild(count);
         info.appendChild(editHint);
+        actions.appendChild(fillDownBtn);
         actions.appendChild(searchInput);
         actions.appendChild(exportBtn);
 
