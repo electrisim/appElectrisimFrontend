@@ -7,6 +7,7 @@
 import { DIALOG_STYLES } from './utils/dialogStyles.js';
 import { LoadFlowDialog } from './dialogs/LoadFlowDialog.js';
 import ENV from './config/environment.js';
+import { getIncompatibleElements } from './utils/engineCompatibility.js';
 
 // Helper function to format bus IDs consistently (replace # with _)
 const formatBusId = (busId) => {
@@ -90,15 +91,20 @@ const downloadOpenDSSResults = (dataJson) => {
         // Buses
         if (dataJson.busbars && dataJson.busbars.length > 0) {
             resultsText += '--- BUSES ---\n';
-            const widths = [20, 12, 14];
-            const headers = ['Name', 'U [pu]', 'U [degree]'];
+            const widths = [20, 12, 14, 12, 12, 10, 10];
+            const headers = ['Name', 'U [pu]', 'U [degree]', 'P [MW]', 'Q [MVAr]', 'PF', 'Q/P'];
             resultsText += createOpenDSSTableRow(headers, widths) + '\n';
             resultsText += createOpenDSSTableSeparator(widths) + '\n';
             dataJson.busbars.forEach(bus => {
+                const fmt = (v) => (v != null && v !== '' && !Number.isNaN(v) ? Number(v).toFixed(3) : 'N/A');
                 const row = [
                     bus.name || 'N/A',
-                    bus.vm_pu ? bus.vm_pu.toFixed(3) : 'N/A',
-                    bus.va_degree ? bus.va_degree.toFixed(3) : 'N/A'
+                    fmt(bus.vm_pu),
+                    fmt(bus.va_degree),
+                    fmt(bus.p_mw),
+                    fmt(bus.q_mvar),
+                    fmt(bus.pf),
+                    fmt(bus.q_p)
                 ];
                 resultsText += createOpenDSSTableRow(row, widths) + '\n';
             });
@@ -667,15 +673,19 @@ const findPlaceholderForCellOpenDSS = (grafka, resultCell, isEdgeBased = true) =
     }
     
     // For Lines - placeholder is a direct child of the line (edge) cell
-    // Use model API for consistency
-    const lineChildCount = model.getChildCount(resultCell);
-    for (let i = 0; i < lineChildCount; i++) {
-        const child = model.getChildAt(resultCell, i);
-        if (!child) continue;
-        const childStyle = model.getStyle(child) || '';
-        if (childStyle && childStyle.includes('shapeELXXX=Result')) {
-            placeholder = child;
-            break;
+    // Only check this if resultCell is actually a Line (edge), not for other components
+    const resultCellStyle = model.getStyle(resultCell) || '';
+    const isLineCell = resultCellStyle.includes('shapeELXXX=Line');
+    if (isLineCell) {
+        const lineChildCount = model.getChildCount(resultCell);
+        for (let i = 0; i < lineChildCount; i++) {
+            const child = model.getChildAt(resultCell, i);
+            if (!child) continue;
+            const childStyle = model.getStyle(child) || '';
+            if (childStyle && childStyle.includes('shapeELXXX=Result')) {
+                placeholder = child;
+                break;
+            }
         }
     }
     
@@ -683,7 +693,11 @@ const findPlaceholderForCellOpenDSS = (grafka, resultCell, isEdgeBased = true) =
     // ALWAYS search among edge children first - don't rely on placeholderId
     // because cloned components have stale placeholderId pointing to original placeholder
     if (!placeholder) {
-        const edges = grafka.getEdges(resultCell);
+        // Try grafka.getEdges() first, then fallback to resultCell.edges
+        let edges = grafka.getEdges(resultCell);
+        if ((!edges || edges.length === 0) && resultCell.edges) {
+            edges = resultCell.edges;
+        }
         if (edges && edges.length > 0) {
             for (let e = 0; e < edges.length; e++) {
                 const edge = edges[e];
@@ -707,6 +721,17 @@ const findPlaceholderForCellOpenDSS = (grafka, resultCell, isEdgeBased = true) =
     return placeholder;
 };
 
+// Helper: resolve graph cell from backend id (OpenDSS returns id with '#' or '_')
+const getResultCellFromMap = (cellIdMap, id) => {
+    if (!cellIdMap || id == null) return null;
+    let cell = cellIdMap.get(id);
+    if (!cell && id !== '') {
+        const altId = String(id).indexOf('#') >= 0 ? String(id).replace(/#/g, '_') : String(id).replace(/_/g, '#');
+        cell = cellIdMap.get(altId);
+    }
+    return cell;
+};
+
 // Element processors for OpenDSS (FROM BACKEND TO FRONTEND)
 // Updated to FIND AND UPDATE existing placeholders instead of creating new ones
 // OPTIMIZED: Uses cellIdMap for O(1) lookups instead of O(n) searches
@@ -719,19 +744,21 @@ const elementProcessors = {
         
         data.forEach(cell => {
             try {
-                // OPTIMIZED: O(1) lookup using cellIdMap instead of O(n) search
-                const resultCell = cellIdMap ? cellIdMap.get(cell.id) : null;
-                
+                const resultCell = getResultCellFromMap(cellIdMap, cell.id);
                 if (!resultCell) {
-                    console.warn(`Could not find cell with mxObjectId: ${cell.id}`);
+                    console.warn(`Could not find cell with id: ${cell.id}`);
                     return;
                 }
                 
                 const cellName = cell.name ? cell.name.replace('_', '#') : 'Unknown';
-                
+                const fmt = (v) => (v != null && v !== '' && !Number.isNaN(v) ? Number(v).toFixed(3) : 'N/A');
                 const resultString = `${cellName}
-        U[pu]: ${cell.vm_pu ? cell.vm_pu.toFixed(3) : 'N/A'}
-        U[degree]: ${cell.va_degree ? cell.va_degree.toFixed(3) : 'N/A'}`;
+U[pu]: ${fmt(cell.vm_pu)}
+U[degree]: ${fmt(cell.va_degree)}
+P[MW]: ${fmt(cell.p_mw)}
+Q[MVAr]: ${fmt(cell.q_mvar)}
+PF: ${fmt(cell.pf)}
+Q/P: ${fmt(cell.q_p)}`;
 
                 // Find existing placeholder and update it, or create new one if not found
                 const placeholder = findPlaceholderForCellOpenDSS(grafka, resultCell, false);
@@ -756,11 +783,9 @@ const elementProcessors = {
         
         data.forEach(cell => {
             try {
-                // OPTIMIZED: O(1) lookup using cellIdMap
-                const resultCell = cellIdMap ? cellIdMap.get(cell.id) : null;
-                
+                const resultCell = getResultCellFromMap(cellIdMap, cell.id);
                 if (!resultCell) {
-                    console.warn(`Could not find cell with mxObjectId: ${cell.id}`);
+                    console.warn(`Could not find cell with id: ${cell.id}`);
                     return;
                 }
                 
@@ -800,32 +825,26 @@ const elementProcessors = {
         
         data.forEach(cell => {
             try {
-                // OPTIMIZED: O(1) lookup using cellIdMap
-                const resultCell = cellIdMap ? cellIdMap.get(cell.id) : null;
-                
+                const resultCell = getResultCellFromMap(cellIdMap, cell.id);
                 if (!resultCell) {
-                    console.warn(`Could not find cell with mxObjectId: ${cell.id}`);
+                    console.warn(`Could not find cell with id: ${cell.id}`);
                     return;
                 }
                 
-                const cellName = cell.name ? cell.name.replace('_', '#') : 'Unknown';
-                
-                const resultString = `${cellName}
-        
-        P[MW]: ${cell.p_mw ? cell.p_mw.toFixed(3) : 'N/A'}
-        Q[MVar]: ${cell.q_mvar ? cell.q_mvar.toFixed(3) : 'N/A'}
-        PF: ${cell.pf ? cell.pf.toFixed(3) : 'N/A'}
-        Q/P: ${cell.q_p ? cell.q_p.toFixed(3) : 'N/A'}`;
+                // Use "External Grid" as label (not the mxCell id) for cleaner display
+                const resultString = `External Grid
+P[MW]: ${cell.p_mw ? cell.p_mw.toFixed(3) : 'N/A'}
+Q[MVar]: ${cell.q_mvar ? cell.q_mvar.toFixed(3) : 'N/A'}
+PF: ${cell.pf ? cell.pf.toFixed(3) : 'N/A'}
+Q/P: ${cell.q_p ? cell.q_p.toFixed(3) : 'N/A'}`;
 
-                // Find existing placeholder and update it, or create new one if not found
+                // Find existing placeholder and update it (should always exist from resultBoxes.js)
                 const placeholder = findPlaceholderForCellOpenDSS(grafka, resultCell, true);
                 if (placeholder) {
+                    // Only update the text content - don't modify geometry or create new boxes
                     grafka.getModel().setValue(placeholder, resultString);
                 } else {
-                    // Create fallback with proper dimensions to ensure correct font size
-                    // Use same dimensions as resultBoxes.js placeholder (60x40)
-                    const labelka = b.insertVertex(resultCell, null, resultString, -0.5, 1, 0, 0, 'shapeELXXX=ResultExternalGrid', true);
-                    processCellStyles(b, labelka);
+                    console.warn(`External Grid ${cell.id}: No placeholder found - this should not happen. Placeholder should be created by resultBoxes.js`);
                 }
             } catch (error) {
                 console.error(`Error processing external grid ${cell.id}:`, error);
@@ -841,11 +860,9 @@ const elementProcessors = {
         
         data.forEach(cell => {
             try {
-                // OPTIMIZED: O(1) lookup using cellIdMap
-                const resultCell = cellIdMap ? cellIdMap.get(cell.id) : null;
-                
+                const resultCell = getResultCellFromMap(cellIdMap, cell.id);
                 if (!resultCell) {
-                    console.warn(`Could not find cell with mxObjectId: ${cell.id}`);
+                    console.warn(`Could not find cell with id: ${cell.id}`);
                     return;
                 }
                 
@@ -879,11 +896,9 @@ const elementProcessors = {
         
         data.forEach(cell => {
             try {
-                // OPTIMIZED: O(1) lookup using cellIdMap
-                const resultCell = cellIdMap ? cellIdMap.get(cell.id) : null;
-                
+                const resultCell = getResultCellFromMap(cellIdMap, cell.id);
                 if (!resultCell) {
-                    console.warn(`Could not find cell with mxObjectId: ${cell.id}`);
+                    console.warn(`Could not find cell with id: ${cell.id}`);
                     return;
                 }
                 
@@ -915,11 +930,9 @@ const elementProcessors = {
         
         data.forEach(cell => {
             try {
-                // OPTIMIZED: O(1) lookup using cellIdMap
-                const resultCell = cellIdMap ? cellIdMap.get(cell.id) : null;
-                
+                const resultCell = getResultCellFromMap(cellIdMap, cell.id);
                 if (!resultCell) {
-                    console.warn(`Could not find cell with mxObjectId: ${cell.id}`);
+                    console.warn(`Could not find cell with id: ${cell.id}`);
                     return;
                 }
                 
@@ -961,11 +974,9 @@ const elementProcessors = {
         
         data.forEach(cell => {
             try {
-                // OPTIMIZED: O(1) lookup using cellIdMap
-                const resultCell = cellIdMap ? cellIdMap.get(cell.id) : null;
-                
+                const resultCell = getResultCellFromMap(cellIdMap, cell.id);
                 if (!resultCell) {
-                    console.warn(`Could not find cell with mxObjectId: ${cell.id}`);
+                    console.warn(`Could not find cell with id: ${cell.id}`);
                     return;
                 }
                 
@@ -998,11 +1009,9 @@ const elementProcessors = {
         
         data.forEach(cell => {
             try {
-                // OPTIMIZED: O(1) lookup using cellIdMap
-                const resultCell = cellIdMap ? cellIdMap.get(cell.id) : null;
-                
+                const resultCell = getResultCellFromMap(cellIdMap, cell.id);
                 if (!resultCell) {
-                    console.warn(`Could not find cell with mxObjectId: ${cell.id}`);
+                    console.warn(`Could not find cell with id: ${cell.id}`);
                     return;
                 }
                 
@@ -1035,11 +1044,9 @@ const elementProcessors = {
         
         data.forEach(cell => {
             try {
-                // OPTIMIZED: O(1) lookup using cellIdMap
-                const resultCell = cellIdMap ? cellIdMap.get(cell.id) : null;
-                
+                const resultCell = getResultCellFromMap(cellIdMap, cell.id);
                 if (!resultCell) {
-                    console.warn(`Could not find cell with mxObjectId: ${cell.id}`);
+                    console.warn(`Could not find cell with id: ${cell.id}`);
                     return;
                 }
                 
@@ -1071,11 +1078,9 @@ const elementProcessors = {
 
         data.forEach(cell => {
             try {
-                // OPTIMIZED: O(1) lookup using cellIdMap
-                const resultCell = cellIdMap ? cellIdMap.get(cell.id) : null;
-
+                const resultCell = getResultCellFromMap(cellIdMap, cell.id);
                 if (!resultCell) {
-                    console.warn(`Could not find cell with mxObjectId: ${cell.id}`);
+                    console.warn(`Could not find cell with id: ${cell.id}`);
                     return;
                 }
 
@@ -1240,13 +1245,20 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
         
         // PERFORMANCE OPTIMIZATION: Create cell ID lookup map once
         // This avoids O(n) cell searches for each of the 207 elements
+        // Index by both mxObjectId and backend-returned id format (OpenDSS returns id with '#' not '_')
         const cellIdMap = new Map();
         const cells = b.getModel().cells;
         const mapBuildStart = performance.now();
         for (const cellId in cells) {
             const cell = cells[cellId];
-            if (cell && cell.mxObjectId) {
-                cellIdMap.set(cell.mxObjectId, cell);
+            if (!cell) continue;
+            const logicalId = cell.mxObjectId != null ? cell.mxObjectId : cell.id;
+            if (logicalId != null && logicalId !== '') {
+                cellIdMap.set(logicalId, cell);
+                const backendId = String(logicalId).replace(/_/g, '#');
+                if (backendId && backendId !== logicalId) {
+                    cellIdMap.set(backendId, cell);
+                }
             }
         }
         const mapBuildTime = performance.now() - mapBuildStart;
@@ -1338,6 +1350,9 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
             }
         } finally {
             model.endUpdate();
+        }
+        if (grafka.getView && grafka.getView().revalidate) {
+            grafka.getView().revalidate();
         }
         
         const processingTime = performance.now() - processingStart;
@@ -1504,6 +1519,16 @@ function executeOpenDSSLoadFlow(parameters, app, graph) {
         console.log('Trying global graph as fallback...');
         networkData = collectNetworkDataStructured(window.App.editor.graph);
         console.log('Global graph network data:', networkData);
+    }
+
+    // Warn if diagram contains Pandapower-only elements (they will not be included in OpenDSS calculation)
+    const { message: incompatibleMsg } = getIncompatibleElements(networkData, 'opendss');
+    if (incompatibleMsg) {
+        if (typeof mxUtils !== 'undefined' && mxUtils.alert) {
+            mxUtils.alert(incompatibleMsg);
+        } else {
+            alert(incompatibleMsg);
+        }
     }
 
     // Combine parameters with network data
@@ -2780,6 +2805,23 @@ function getBusVoltage(cellValue) {
 // Function to execute Pandapower load flow calculation
 function executePandapowerLoadFlow(parameters, app, graph) {
         // Debug logs removed - only backend communication logs shown
+
+    // Collect network data to check for OpenDSS-only elements (they will not be included in Pandapower calculation)
+    let networkData = [];
+    if (graph) {
+        networkData = collectNetworkDataStructured(graph);
+        if (networkData.length === 0 && window.App && window.App.editor && window.App.editor.graph) {
+            networkData = collectNetworkDataStructured(window.App.editor.graph);
+        }
+    }
+    const { message: incompatibleMsg } = getIncompatibleElements(networkData, 'pandapower');
+    if (incompatibleMsg) {
+        if (typeof mxUtils !== 'undefined' && mxUtils.alert) {
+            mxUtils.alert(incompatibleMsg);
+        } else {
+            alert(incompatibleMsg);
+        }
+    }
     
     // Start the spinner
     app.spinner.spin(document.body, "Waiting for Pandapower results...");

@@ -65,8 +65,9 @@ function createBusResultPlaceholder(graph, busCell) {
 
     var placeholderStyle = 'shapeELXXX=ResultBus;' + baseStyle;
 
-    var boxWidth = 60;
-    var boxHeight = 50;
+    // Size fits OpenDSS load flow: U[pu], U[degree], P[MW], Q[MVAr], PF, Q/P (6 lines)
+    var boxWidth = 65;
+    var boxHeight = 72;
 
     graph.model.beginUpdate();
     try {
@@ -594,11 +595,13 @@ function createResultPlaceholder(graph, parentEdge, componentCell, opts) {
         'opacity=70',
         'whiteSpace=wrap',
         'html=1',
+        'overflow=hidden',
         'align=center',
         'verticalAlign=middle',
         'fontSize=6',
         'fontColor=#6C757D',
         'fontStyle=0',
+        'spacing=2',
         'connectedTo=' + externalId
     ].join(';');
 
@@ -760,15 +763,15 @@ mxGraph.prototype.addEdge = function (edge, parent, source, target, index) {
 
                 if (shouldCreatePlaceholder) {
                     // Use a dedicated logical shape for External Grid result boxes
-                    // All other components use 'Result' shape
+                    // External Grid needs a larger box to fit P[MW], Q[MVar], PF, Q/P and long values
                     var logicalShape = (componentShape === 'External Grid')
                         ? 'ResultExternalGrid'
                         : 'Result';
-
+                    var isExternalGrid = (componentShape === 'External Grid');
                     createResultPlaceholder(this, result, componentCell, {
                         logicalShape: logicalShape,
-                        width: 60,
-                        height: 40,
+                        width: isExternalGrid ? 80 : 60,
+                        height: isExternalGrid ? 52 : 40,
                         positionX: -0.3
                     });
                 }
