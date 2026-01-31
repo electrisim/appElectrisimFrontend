@@ -260,14 +260,22 @@
             .catch(e => console.warn('stripe-subscription.js failed to load, using fallback:', e.message));
         
         document.addEventListener('DOMContentLoaded', () => {
+            console.log('=== login.html DOMContentLoaded ===');
+            console.log('login.html version: 2025-01-31-v2'); // Version for cache debugging
+            
             const authContainer = document.getElementById('auth-container');
             const params = new URLSearchParams(window.location.search);
             const redirect = params.get('redirect');
             const registered = params.get('registered');
+            
+            console.log('URL params - redirect:', redirect, 'registered:', registered);
+            
             // When coming from Subscribe CTA, show Register form so new users can sign up
             if (redirect === 'subscribe') {
+                console.log('Showing Register form (redirect=subscribe)');
                 authHandler.createRegisterForm(authContainer);
             } else {
+                console.log('Showing Login form');
                 authHandler.createLoginForm(authContainer);
             }
             

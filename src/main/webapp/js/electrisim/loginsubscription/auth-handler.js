@@ -399,6 +399,9 @@ function createLoginForm(container) {
 
 // Create a simple registration form
 function createRegisterForm(container) {
+    console.log('=== createRegisterForm called ===');
+    console.log('auth-handler.js version: 2025-01-31-v2'); // Version for cache debugging
+    
     const form = document.createElement('form');
     form.className = 'register-form';
     form.innerHTML = `
@@ -518,6 +521,8 @@ function createRegisterForm(container) {
             submitBtn.textContent = 'Register';
         }
     });
+    
+    console.log('Form submit event listener attached');
 
     // Handle Google login
     form.querySelector('.google-btn').addEventListener('click', () => {
