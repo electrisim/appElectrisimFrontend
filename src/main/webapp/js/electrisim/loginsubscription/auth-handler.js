@@ -444,11 +444,30 @@ function createRegisterForm(container) {
                 }
             }));
             
-            // Redirect to login with success message so user sees they're registered and can log in
-            const loginUrl = config.isDevelopment
-                ? '/src/main/webapp/login.html?registered=1'
-                : '/login.html?registered=1';
-            window.location.href = loginUrl;
+            // Check if user came from subscribe CTA - if so, redirect to Stripe checkout
+            const urlParams = new URLSearchParams(window.location.search);
+            const redirectIntent = urlParams.get('redirect');
+            
+            if (redirectIntent === 'subscribe') {
+                // User registered to subscribe - redirect to Stripe checkout
+                console.log('User registered with subscribe intent, redirecting to checkout...');
+                if (typeof window.redirectToStripeCheckout === 'function') {
+                    await window.redirectToStripeCheckout();
+                } else {
+                    // Fallback: redirect to index with a message
+                    console.warn('redirectToStripeCheckout not available, redirecting to index');
+                    const baseUrl = config.isDevelopment
+                        ? '/src/main/webapp/index.html'
+                        : '/index.html';
+                    window.location.href = baseUrl;
+                }
+            } else {
+                // Normal registration - redirect to login with success message
+                const loginUrl = config.isDevelopment
+                    ? '/src/main/webapp/login.html?registered=1'
+                    : '/login.html?registered=1';
+                window.location.href = loginUrl;
+            }
         } catch (error) {
             const errorElement = form.querySelector('#register-error');
             errorElement.textContent = error.message;

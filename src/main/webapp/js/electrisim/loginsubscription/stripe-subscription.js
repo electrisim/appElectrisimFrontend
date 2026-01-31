@@ -865,5 +865,6 @@ async function updateCustomerIdToTest(testCustomerId) {
 
 // Make other necessary functions global
 window.showSubscriptionModal = showSubscriptionModal;
+window.redirectToStripeCheckout = redirectToStripeCheckout;
 window.fixCustomerIdMismatch = fixCustomerIdMismatch;
 window.updateCustomerIdToTest = updateCustomerIdToTest;
