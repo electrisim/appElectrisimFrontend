@@ -202,7 +202,14 @@
         
         document.addEventListener('DOMContentLoaded', () => {
             const authContainer = document.getElementById('auth-container');
-            authHandler.createLoginForm(authContainer);
+            const params = new URLSearchParams(window.location.search);
+            const redirect = params.get('redirect');
+            // When coming from Subscribe CTA, show Register form so new users can sign up
+            if (redirect === 'subscribe') {
+                authHandler.createRegisterForm(authContainer);
+            } else {
+                authHandler.createLoginForm(authContainer);
+            }
             
             // If login successful, redirect to previous page or home
             document.addEventListener('userLoggedIn', (e) => {
@@ -223,7 +230,6 @@
             });
 
             // Handle error parameter
-            const params = new URLSearchParams(window.location.search);
             const error = params.get('error');
             if (error) {
                 const errorMsg = document.createElement('div');
