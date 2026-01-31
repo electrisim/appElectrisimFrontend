@@ -161,15 +161,22 @@ async function login(email, password) {
 
 // Function to handle registration
 async function register(email, password, name) {
+    console.log('=== register() function called ===');
+    console.log('API_BASE_URL:', API_BASE_URL);
+    
     try {
-        const data = await apiCall('/auth/register', {  // Changed from '/routes/register'
+        console.log('Making API call to /auth/register...');
+        const data = await apiCall('/auth/register', {
             method: 'POST',
             body: JSON.stringify({ email, password, name })
         });
+        console.log('API call successful, data:', data);
 
         if (data.token) {
+            console.log('Token received, storing in localStorage...');
             localStorage.setItem('token', data.token);
             localStorage.setItem('user', JSON.stringify(data.user));
+            console.log('Token and user stored successfully');
             
             // Track successful registration
             trackAuthSuccess('email_password', data.user);
@@ -180,11 +187,13 @@ async function register(email, password, name) {
             
             return data;
         } else {
+            console.error('No token in response:', data);
             const error = new Error('Invalid response from server');
             trackAuthError('invalid_response', error, { email: email, name: name });
             throw error;
         }
     } catch (error) {
+        console.error('=== register() error ===', error);
         // Track registration errors
         let errorType = 'server_error';
         if (error.message.includes('email address is already registered')) {
@@ -426,11 +435,15 @@ function createRegisterForm(container) {
     
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
+        console.log('=== REGISTRATION FORM SUBMITTED ===');
+        
         const name = form.querySelector('#name').value;
         const email = form.querySelector('#email').value;
         const password = form.querySelector('#password').value;
         const submitBtn = form.querySelector('button[type="submit"]');
         const errorElement = form.querySelector('#register-error');
+        
+        console.log('Registration attempt for:', email);
         
         // Clear any previous errors and show loading state
         errorElement.textContent = '';
@@ -441,7 +454,9 @@ function createRegisterForm(container) {
             // Track registration attempt
             trackAuthError('registration_attempt', { message: 'User attempting registration' }, { email: email, name: name });
             
+            console.log('Calling register() API...');
             const response = await register(email, password, name);
+            console.log('Registration API response:', response);
             
             // Dispatch auth state change event
             document.dispatchEvent(new CustomEvent('authStateChanged', {
@@ -450,23 +465,31 @@ function createRegisterForm(container) {
                     user: response.user
                 }
             }));
+            console.log('authStateChanged event dispatched');
             
             // Check if user came from subscribe CTA - if so, redirect to Stripe checkout
             const urlParams = new URLSearchParams(window.location.search);
             const redirectIntent = urlParams.get('redirect');
+            console.log('Redirect intent:', redirectIntent);
             
             // Default redirect URL
             const baseUrl = config.isDevelopment
                 ? '/src/main/webapp/index.html'
                 : '/index.html';
+            console.log('Base URL:', baseUrl, 'isDevelopment:', config.isDevelopment);
             
             if (redirectIntent === 'subscribe') {
                 // User registered to subscribe - redirect to Stripe checkout
-                console.log('User registered with subscribe intent, redirecting to checkout...');
+                console.log('=== SUBSCRIBE INTENT DETECTED ===');
                 submitBtn.textContent = 'Redirecting to checkout...';
+                
+                console.log('window.redirectToStripeCheckout available:', typeof window.redirectToStripeCheckout === 'function');
+                
                 try {
                     if (typeof window.redirectToStripeCheckout === 'function') {
+                        console.log('Calling redirectToStripeCheckout...');
                         await window.redirectToStripeCheckout();
+                        console.log('redirectToStripeCheckout completed (should have redirected)');
                     } else {
                         // Fallback: redirect to index
                         console.warn('redirectToStripeCheckout not available, redirecting to index');
@@ -479,14 +502,16 @@ function createRegisterForm(container) {
                 }
             } else {
                 // Normal registration - redirect to login with success message
+                console.log('=== NORMAL REGISTRATION (no subscribe intent) ===');
                 submitBtn.textContent = 'Success! Redirecting...';
                 const loginUrl = config.isDevelopment
                     ? '/src/main/webapp/login.html?registered=1'
                     : '/login.html?registered=1';
+                console.log('Redirecting to:', loginUrl);
                 window.location.href = loginUrl;
             }
         } catch (error) {
-            console.error('Registration error:', error);
+            console.error('=== REGISTRATION ERROR ===', error);
             errorElement.textContent = error.message || 'Registration failed. Please try again.';
             // Re-enable the button so user can try again
             submitBtn.disabled = false;
