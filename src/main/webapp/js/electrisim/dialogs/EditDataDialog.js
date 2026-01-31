@@ -207,7 +207,8 @@ export class EditDataDialog {
             }
             
             // Handle SSC (STATCOM) with new tabbed dialog
-            if (this.elementType === "SSC(STATCOM)") {
+            // Palette uses shapeELXXX=SSC; display name is "SSC(STATCOM)"
+            if (this.elementType === "SSC" || this.elementType === "SSC(STATCOM)") {
                 this.handleSSC();
                 return;
             }
