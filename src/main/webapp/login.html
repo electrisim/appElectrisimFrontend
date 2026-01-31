@@ -200,8 +200,64 @@
         import { authHandler } from './js/electrisim/loginsubscription/auth-handler.js';
         import maintenanceMode from './js/electrisim/loginsubscription/maintenance-mode.js';
         import config from './js/electrisim/config/environment.js';
-        // Import stripe-subscription to make redirectToStripeCheckout available globally
-        import './js/electrisim/loginsubscription/stripe-subscription.js';
+        
+        // Create fallback redirectToStripeCheckout FIRST (before trying to load stripe-subscription)
+        // This ensures the function is always available even if the module fails to load
+        if (typeof window.redirectToStripeCheckout !== 'function') {
+            console.log('Setting up fallback redirectToStripeCheckout function');
+            window.redirectToStripeCheckout = async function() {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    console.error('No token for checkout');
+                    alert('Please log in to continue.');
+                    return;
+                }
+                
+                const isProd = window.location.hostname === 'app.electrisim.com';
+                const apiUrl = isProd 
+                    ? 'https://api.electrisim.com/api' 
+                    : 'http://localhost:5502/api';
+                const priceId = isProd 
+                    ? 'price_1RLjivAd4ULYw2Nb6oGrb9P1' 
+                    : 'price_1RMDAEAd4ULYw2Nb9nhh8Wf2';
+                
+                console.log('Fallback checkout: Creating session...', { apiUrl, priceId, isProd });
+                
+                try {
+                    const response = await fetch(`${apiUrl}/stripe/create-checkout-session`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ priceId })
+                    });
+                    
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error('Checkout API error:', response.status, errorText);
+                        throw new Error(`Checkout failed: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    console.log('Checkout session created:', data);
+                    
+                    if (data.url) {
+                        window.location.href = data.url;
+                    } else {
+                        throw new Error('No checkout URL received');
+                    }
+                } catch (error) {
+                    console.error('Fallback checkout error:', error);
+                    alert('Failed to start checkout. Please try again or contact support.');
+                }
+            };
+        }
+        
+        // Try to load stripe-subscription module (it may override our fallback with a better version)
+        import('./js/electrisim/loginsubscription/stripe-subscription.js')
+            .then(() => console.log('stripe-subscription.js loaded'))
+            .catch(e => console.warn('stripe-subscription.js failed to load, using fallback:', e.message));
         
         document.addEventListener('DOMContentLoaded', () => {
             const authContainer = document.getElementById('auth-container');
