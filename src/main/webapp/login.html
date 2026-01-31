@@ -200,6 +200,8 @@
         import { authHandler } from './js/electrisim/loginsubscription/auth-handler.js';
         import maintenanceMode from './js/electrisim/loginsubscription/maintenance-mode.js';
         import config from './js/electrisim/config/environment.js';
+        // Import stripe-subscription to make redirectToStripeCheckout available globally
+        import './js/electrisim/loginsubscription/stripe-subscription.js';
         
         document.addEventListener('DOMContentLoaded', () => {
             const authContainer = document.getElementById('auth-container');
@@ -234,19 +236,40 @@
             }
             
             // If login successful, redirect to previous page or home
-            document.addEventListener('userLoggedIn', (e) => {
+            document.addEventListener('userLoggedIn', async (e) => {
                 // Show success message
                 const successMsg = document.createElement('div');
                 successMsg.className = 'success-message';
-                successMsg.textContent = 'Login successful! Redirecting...';
                 authContainer.appendChild(successMsg);
                 
-                // Get redirect URL from query parameters
+                // Get redirect intent from query parameters
                 const params = new URLSearchParams(window.location.search);
+                const redirectIntent = params.get('redirect');
+                
+                // Handle special 'subscribe' intent - redirect to Stripe checkout
+                if (redirectIntent === 'subscribe') {
+                    successMsg.textContent = 'Login successful! Redirecting to checkout...';
+                    setTimeout(async () => {
+                        if (typeof window.redirectToStripeCheckout === 'function') {
+                            await window.redirectToStripeCheckout();
+                        } else {
+                            // Fallback: redirect to index
+                            console.warn('redirectToStripeCheckout not available');
+                            const baseUrl = config.isDevelopment 
+                                ? '/src/main/webapp/index.html' 
+                                : '/index.html';
+                            window.location.href = baseUrl;
+                        }
+                    }, 1000);
+                    return;
+                }
+                
+                // Normal redirect - use the redirect parameter as URL or default to index
+                successMsg.textContent = 'Login successful! Redirecting...';
                 const defaultRedirect = config.isDevelopment 
                     ? '/src/main/webapp/index.html' 
                     : '/index.html';
-                const redirectUrl = params.get('redirect') || defaultRedirect;
+                const redirectUrl = redirectIntent || defaultRedirect;
                 
                 // Redirect after a short delay
                 setTimeout(() => {
