@@ -199,16 +199,38 @@
     <script type="module">
         import { authHandler } from './js/electrisim/loginsubscription/auth-handler.js';
         import maintenanceMode from './js/electrisim/loginsubscription/maintenance-mode.js';
+        import config from './js/electrisim/config/environment.js';
         
         document.addEventListener('DOMContentLoaded', () => {
             const authContainer = document.getElementById('auth-container');
             const params = new URLSearchParams(window.location.search);
             const redirect = params.get('redirect');
+            const registered = params.get('registered');
             // When coming from Subscribe CTA, show Register form so new users can sign up
             if (redirect === 'subscribe') {
                 authHandler.createRegisterForm(authContainer);
             } else {
                 authHandler.createLoginForm(authContainer);
+            }
+            
+            // Show success message when user was just registered and redirected to login
+            if (registered === '1' || registered === 'true') {
+                const successMsg = document.createElement('div');
+                successMsg.className = 'success-message';
+                successMsg.style.marginBottom = '15px';
+                // If user already has token (auto-logged in from registration), redirect to app
+                if (localStorage.getItem('token')) {
+                    successMsg.textContent = 'You have successfully registered! Redirecting...';
+                    setTimeout(() => {
+                        const baseUrl = config.isDevelopment
+                            ? '/src/main/webapp/index.html'
+                            : '/index.html';
+                        window.location.href = baseUrl;
+                    }, 1500);
+                } else {
+                    successMsg.textContent = 'You have successfully registered. You can now log in.';
+                }
+                authContainer.insertBefore(successMsg, authContainer.firstChild);
             }
             
             // If login successful, redirect to previous page or home
