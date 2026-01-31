@@ -174,9 +174,9 @@ async function register(email, password, name) {
             // Track successful registration
             trackAuthSuccess('email_password', data.user);
             
-            document.dispatchEvent(new CustomEvent('userLoggedIn', { 
-                detail: { user: data.user } 
-            }));
+            // Note: We don't dispatch userLoggedIn here for registration
+            // because createRegisterForm handles the post-registration redirect
+            // Dispatching it would cause a race condition with duplicate redirects
             
             return data;
         } else {
@@ -429,6 +429,13 @@ function createRegisterForm(container) {
         const name = form.querySelector('#name').value;
         const email = form.querySelector('#email').value;
         const password = form.querySelector('#password').value;
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const errorElement = form.querySelector('#register-error');
+        
+        // Clear any previous errors and show loading state
+        errorElement.textContent = '';
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Registering...';
         
         try {
             // Track registration attempt
@@ -448,29 +455,42 @@ function createRegisterForm(container) {
             const urlParams = new URLSearchParams(window.location.search);
             const redirectIntent = urlParams.get('redirect');
             
+            // Default redirect URL
+            const baseUrl = config.isDevelopment
+                ? '/src/main/webapp/index.html'
+                : '/index.html';
+            
             if (redirectIntent === 'subscribe') {
                 // User registered to subscribe - redirect to Stripe checkout
                 console.log('User registered with subscribe intent, redirecting to checkout...');
-                if (typeof window.redirectToStripeCheckout === 'function') {
-                    await window.redirectToStripeCheckout();
-                } else {
-                    // Fallback: redirect to index with a message
-                    console.warn('redirectToStripeCheckout not available, redirecting to index');
-                    const baseUrl = config.isDevelopment
-                        ? '/src/main/webapp/index.html'
-                        : '/index.html';
+                submitBtn.textContent = 'Redirecting to checkout...';
+                try {
+                    if (typeof window.redirectToStripeCheckout === 'function') {
+                        await window.redirectToStripeCheckout();
+                    } else {
+                        // Fallback: redirect to index
+                        console.warn('redirectToStripeCheckout not available, redirecting to index');
+                        window.location.href = baseUrl;
+                    }
+                } catch (checkoutError) {
+                    // If checkout redirect fails, still redirect to index so user doesn't get stuck
+                    console.error('Checkout redirect failed:', checkoutError);
                     window.location.href = baseUrl;
                 }
             } else {
                 // Normal registration - redirect to login with success message
+                submitBtn.textContent = 'Success! Redirecting...';
                 const loginUrl = config.isDevelopment
                     ? '/src/main/webapp/login.html?registered=1'
                     : '/login.html?registered=1';
                 window.location.href = loginUrl;
             }
         } catch (error) {
-            const errorElement = form.querySelector('#register-error');
-            errorElement.textContent = error.message;
+            console.error('Registration error:', error);
+            errorElement.textContent = error.message || 'Registration failed. Please try again.';
+            // Re-enable the button so user can try again
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Register';
         }
     });
 
