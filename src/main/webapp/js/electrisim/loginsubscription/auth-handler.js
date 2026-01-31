@@ -444,7 +444,11 @@ function createRegisterForm(container) {
                 }
             }));
             
-            window.location.reload(); // Reload page after successful registration
+            // Redirect to login with success message so user sees they're registered and can log in
+            const loginUrl = config.isDevelopment
+                ? '/src/main/webapp/login.html?registered=1'
+                : '/login.html?registered=1';
+            window.location.href = loginUrl;
         } catch (error) {
             const errorElement = form.querySelector('#register-error');
             errorElement.textContent = error.message;
