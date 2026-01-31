@@ -243,7 +243,10 @@
                 
                 // Get redirect URL from query parameters
                 const params = new URLSearchParams(window.location.search);
-                const redirectUrl = params.get('redirect') || '/src/main/webapp/index.html';
+                const defaultRedirect = config.isDevelopment 
+                    ? '/src/main/webapp/index.html' 
+                    : '/index.html';
+                const redirectUrl = params.get('redirect') || defaultRedirect;
                 
                 // Redirect after a short delay
                 setTimeout(() => {
