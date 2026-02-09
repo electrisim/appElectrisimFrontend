@@ -559,7 +559,11 @@
 										loadAuthScripts(index + 1);
 									};
 									script.onerror = function() {
-										// Continue loading even if one fails
+										// Stripe script (index 0) often fails due to ad blockers, CSP, or network
+										if (index === 0) {
+											console.warn('Stripe SDK script failed to load (e.g. ad blocker or network). Subscription/checkout will use redirect flow.');
+											window._stripeScriptFailed = true;
+										}
 										loadAuthScripts(index + 1);
 									};
 									document.head.appendChild(script);

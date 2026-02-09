@@ -1137,10 +1137,12 @@ function loadFlowPandaPower(a, b, c) {
     const model = modelCache;
     let cellsArray = model.getDescendants();   
        
+    const STYLE_KEY_MAP = { strokeColor: mxConstants.STYLE_STROKECOLOR };
     function setCellStyle(cell, styles) {
         let currentStyle = modelCache.getStyle(cell);
         let newStyle = Object.entries(styles).reduce((style, [key, value]) => {
-            return mxUtils.setStyle(style, `mxConstants.STYLE_${key.toUpperCase()}`, value);
+            const styleKey = STYLE_KEY_MAP[key] || key;
+            return mxUtils.setStyle(style, styleKey, value);
         }, currentStyle);
         b.setCellStyle(newStyle, [cell]);
     }
