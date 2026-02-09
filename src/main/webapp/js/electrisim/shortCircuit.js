@@ -1543,10 +1543,11 @@ window.shortCircuitPandaPower = function(a, b, c) {
                             // Validate bus connections
                             try {
                                 validateBusConnections(cell);
-                                //setCellStyle(cell, { strokeColor: 'black' });
                             } catch (error) {
                                 console.error(error.message);
-                                //setCellStyle(cell, { strokeColor: 'red' });
+                                const style = b.getModel().getStyle(cell);
+                                const newStyle = mxUtils.setStyle(style, mxConstants.STYLE_STROKECOLOR, 'red');
+                                b.setCellStyle(newStyle, [cell]);
                                 alert('The line is not connected to the bus. Please check the line highlighted in red and connect it to the appropriate bus.');
                             }
 
