@@ -359,6 +359,33 @@ window.shortCircuitPandaPower = function(a, b, c) {
         }
     };
 
+    // Helper: build a generic multiline result string from an object
+    // Skips metadata fields like name/id and prints all other key-value pairs.
+    const buildResultStringFromObject = (label, obj) => {
+        if (!obj || typeof obj !== 'object') {
+            return label;
+        }
+
+        const lines = [];
+        for (const [key, value] of Object.entries(obj)) {
+            if (key === 'name' || key === 'id') continue;
+            const formattedValue =
+                typeof value === 'number'
+                    ? formatNumber(value)
+                    : (value === null || value === undefined || value === 'NaN'
+                        ? 'N/A'
+                        : String(value));
+            lines.push(`${key}: ${formattedValue}`);
+        }
+
+        if (lines.length === 0) {
+            return label;
+        }
+
+        return `${label}
+${lines.join('\n')}`;
+    };
+
     // Network element processors (FROM BACKEND TO FRONTEND)
     // Updated to FIND AND UPDATE existing placeholders instead of creating new ones
     // cellIdMap: used for OpenDSS (backend returns id with #); getCell(id) used for Pandapower (numeric id)
@@ -367,7 +394,7 @@ window.shortCircuitPandaPower = function(a, b, c) {
             data.forEach(cell => {
                 const resultCell = (cellIdMap ? getResultCellFromMapSC(cellIdMap, cell.id) : null) || b.getModel().getCell(cell.id);
                 if (!resultCell) {
-                    console.warn('Short Circuit: Could not find cell with id:', cell.id);
+                    console.warn('Short Circuit: Could not find bus cell with id:', cell.id);
                     return;
                 }
                 cell.name = replaceUnderscores(cell.name);
@@ -375,11 +402,11 @@ window.shortCircuitPandaPower = function(a, b, c) {
                     ? resultCell.value.attributes[0].nodeValue
                     : (cell.name || 'Bus');
                 const resultString = `${busLabel}
-                ikss[kA]: ${formatNumber(cell.ikss_ka)}
-                ip[kA]: ${formatNumber(cell.ip_ka)}
-                ith[kA]: ${formatNumber(cell.ith_ka)}
-                rk[ohm]: ${formatNumber(cell.rk_ohm)}
-                xk[ohm]: ${formatNumber(cell.xk_ohm)}`;
+ikss[kA]: ${formatNumber(cell.ikss_ka)}
+ip[kA]: ${formatNumber(cell.ip_ka)}
+ith[kA]: ${formatNumber(cell.ith_ka)}
+rk[ohm]: ${formatNumber(cell.rk_ohm)}
+xk[ohm]: ${formatNumber(cell.xk_ohm)}`;
 
                 // Find existing placeholder and update it, or create new one if not found
                 // Buses are not edge-based, so pass false
@@ -393,6 +420,104 @@ window.shortCircuitPandaPower = function(a, b, c) {
             });
         },
 
+        // NEW: line short-circuit results (from backend "lines_sc")
+        // NOTE: backend sends line.name matching the pandapower line name,
+        // which is derived from the mxObjectId of the line cell. We therefore
+        // resolve the graph cell primarily by name (via cellIdMap), and only
+        // fall back to numeric id if present.
+        lines_sc: (data, b, grafka, cellIdMap) => {
+            console.log(`Short Circuit: Processing ${data.length} line SC results`);
+            data.forEach(line => {
+                console.log('Short Circuit: Looking for line with name:', line.name, 'id:', line.id);
+                const resultCell =
+                    (cellIdMap ? getResultCellFromMapSC(cellIdMap, line.name) : null) ||
+                    (line.id != null ? b.getModel().getCell(line.id) : null);
+                if (!resultCell) {
+                    console.warn('Short Circuit: Could not find line cell with name:', line.name, 'id:', line.id);
+                    console.log('Available cellIdMap keys (first 10):', Array.from(cellIdMap.keys()).slice(0, 10));
+                    return;
+                }
+                console.log('Short Circuit: Found line cell:', resultCell.id, 'for line:', line.name);
+
+                const lineLabel = (resultCell.value && resultCell.value.attributes && resultCell.value.attributes[0])
+                    ? resultCell.value.attributes[0].nodeValue
+                    : (line.name || 'Line');
+
+                const resultString = buildResultStringFromObject(lineLabel, line);
+                console.log('Short Circuit: Line result string:', resultString.substring(0, 100) + '...');
+
+                // Lines are edge-based elements
+                const placeholder = findPlaceholderForCellSC(grafka, resultCell, true);
+                console.log('Short Circuit: Found line placeholder:', placeholder ? 'YES (id=' + placeholder.id + ')' : 'NO - will create new');
+                if (placeholder) {
+                    grafka.getModel().setValue(placeholder, resultString);
+                    console.log('Short Circuit: Updated existing line placeholder');
+                } else {
+                    const labelka = b.insertVertex(resultCell, null, resultString, 0.5, 0.5, 0, 0, 'shapeELXXX=Result', true);
+                    processCellStyles(b, labelka, true);
+                    console.log('Short Circuit: Created new line placeholder');
+                }
+            });
+        },
+
+        // NEW: two-winding transformer short-circuit results (from backend "trafos_sc")
+        // Similar to lines, we resolve transformers primarily by their name.
+        trafos_sc: (data, b, grafka, cellIdMap) => {
+            console.log(`Short Circuit: Processing ${data.length} transformer SC results`);
+            data.forEach(trafo => {
+                console.log('Short Circuit: Looking for transformer with name:', trafo.name, 'id:', trafo.id);
+                const resultCell =
+                    (cellIdMap ? getResultCellFromMapSC(cellIdMap, trafo.name) : null) ||
+                    (trafo.id != null ? b.getModel().getCell(trafo.id) : null);
+                if (!resultCell) {
+                    console.warn('Short Circuit: Could not find transformer cell with name:', trafo.name, 'id:', trafo.id);
+                    return;
+                }
+                console.log('Short Circuit: Found transformer cell:', resultCell.id, 'for trafo:', trafo.name);
+
+                const trafoLabel = (resultCell.value && resultCell.value.attributes && resultCell.value.attributes[0])
+                    ? resultCell.value.attributes[0].nodeValue
+                    : (trafo.name || 'Transformer');
+
+                const resultString = buildResultStringFromObject(trafoLabel, trafo);
+
+                // Transformers are edge-based components (place label on connected edge)
+                const placeholder = findPlaceholderForCellSC(grafka, resultCell, true);
+                if (placeholder) {
+                    grafka.getModel().setValue(placeholder, resultString);
+                } else {
+                    const labelka = b.insertVertex(resultCell, null, resultString, 0.5, 1.2, 0, 0, 'shapeELXXX=Result', true);
+                    processCellStyles(b, labelka, true);
+                }
+            });
+        },
+
+        // NEW: three-winding transformer short-circuit results (from backend "trafos3w_sc")
+        trafos3w_sc: (data, b, grafka, cellIdMap) => {
+            data.forEach(trafo => {
+                const resultCell =
+                    (cellIdMap ? getResultCellFromMapSC(cellIdMap, trafo.name) : null) ||
+                    (trafo.id != null ? b.getModel().getCell(trafo.id) : null);
+                if (!resultCell) {
+                    console.warn('Short Circuit: Could not find three-winding transformer cell with id:', trafo.id);
+                    return;
+                }
+
+                const trafoLabel = (resultCell.value && resultCell.value.attributes && resultCell.value.attributes[0])
+                    ? resultCell.value.attributes[0].nodeValue
+                    : (trafo.name || 'Three-winding transformer');
+
+                const resultString = buildResultStringFromObject(trafoLabel, trafo);
+
+                const placeholder = findPlaceholderForCellSC(grafka, resultCell, true);
+                if (placeholder) {
+                    grafka.getModel().setValue(placeholder, resultString);
+                } else {
+                    const labelka = b.insertVertex(resultCell, null, resultString, 0.5, 1.2, 0, 0, 'shapeELXXX=Result', true);
+                    processCellStyles(b, labelka, true);
+                }
+            });
+        },
     };
 
     // Main processing function (FROM BACKEND TO FRONTEND)
@@ -425,6 +550,10 @@ window.shortCircuitPandaPower = function(a, b, c) {
             const requestTime = performance.now() - requestStart;
             // Log what is received from backend
             console.log('📥 RECEIVED FROM BACKEND:', JSON.stringify(dataJson, null, 2));
+            console.log('📥 Backend response keys:', Object.keys(dataJson));
+            console.log('📥 Has lines_sc:', !!dataJson.lines_sc, 'count:', dataJson.lines_sc?.length || 0);
+            console.log('📥 Has trafos_sc:', !!dataJson.trafos_sc, 'count:', dataJson.trafos_sc?.length || 0);
+            console.log('📥 Has trafos3w_sc:', !!dataJson.trafos3w_sc, 'count:', dataJson.trafos3w_sc?.length || 0);
 
             // Handle errors first
             if (handleNetworkErrors(dataJson)) {
