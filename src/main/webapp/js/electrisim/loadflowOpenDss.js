@@ -6,6 +6,7 @@
 // Import helper functions from loadFlow.js
 import { DIALOG_STYLES } from './utils/dialogStyles.js';
 import { LoadFlowDialog } from './dialogs/LoadFlowDialog.js';
+import { HarmonicAnalysisDialog } from './dialogs/HarmonicAnalysisDialog.js';
 import ENV from './config/environment.js';
 import { getIncompatibleElements } from './utils/engineCompatibility.js';
 
@@ -574,6 +575,27 @@ function loadFlowOpenDss(a, b, c) {
     }
 }
 
+/**
+ * Standalone entry point for OpenDSS harmonic analysis.
+ * This uses the dedicated HarmonicAnalysisDialog and passes its values
+ * directly into the existing OpenDSS execution pipeline.
+ */
+function harmonicAnalysisOpenDss(a, b, c) {
+    // a - App, b - Graph, c - Editor
+    let apka = a;
+    let grafka = b;
+
+    if (!(b && b.isEnabled && b.isEnabled() && !b.isCellLocked(b.getDefaultParent()))) {
+        return;
+    }
+
+    const dialog = new HarmonicAnalysisDialog(a);
+    dialog.show(function (values) {
+        // values already include: engine='opendss', analysisType='harmonic'
+        executeOpenDSSLoadFlow(values, apka, grafka);
+    });
+}
+
 // Helper function to remove old-style result cells (for backward compatibility)
 // Removes ONLY standalone result cells (not children of components)
 // KEEPS proper child placeholders (they will be updated, not removed)
@@ -752,20 +774,52 @@ const elementProcessors = {
                 
                 const cellName = cell.name ? cell.name.replace('_', '#') : 'Unknown';
                 const fmt = (v) => (v != null && v !== '' && !Number.isNaN(v) ? Number(v).toFixed(3) : 'N/A');
-                const resultString = `${cellName}
-U[pu]: ${fmt(cell.vm_pu)}
-U[degree]: ${fmt(cell.va_degree)}
-P[MW]: ${fmt(cell.p_mw)}
-Q[MVAr]: ${fmt(cell.q_mvar)}
-PF: ${fmt(cell.pf)}
-Q/P: ${fmt(cell.q_p)}`;
+
+                // Build base result lines
+                let lines = [
+                    cellName,
+                    `U[pu]: ${fmt(cell.vm_pu)}`,
+                    `U[degree]: ${fmt(cell.va_degree)}`,
+                    `P[MW]: ${fmt(cell.p_mw)}`,
+                    `Q[MVAr]: ${fmt(cell.q_mvar)}`,
+                    `PF: ${fmt(cell.pf)}`,
+                    `Q/P: ${fmt(cell.q_p)}`
+                ];
+
+                // Append harmonic results when present (from harmonic_analysis)
+                if (cell.vthd_percent != null) {
+                    lines.push(`VTHD: ${fmt(cell.vthd_percent)}%`);
+                }
+                if (cell.harmonic_voltages_kv) {
+                    const hOrders = Object.keys(cell.harmonic_voltages_kv)
+                        .map(Number).sort((a, b) => a - b);
+                    hOrders.forEach(h => {
+                        const vkv = cell.harmonic_voltages_kv[String(h)];
+                        lines.push(`V_h${h}[kV]: ${fmt(vkv)}`);
+                    });
+                }
+
+                const resultString = lines.join('\n');
 
                 // Find existing placeholder and update it, or create new one if not found
                 const placeholder = findPlaceholderForCellOpenDSS(grafka, resultCell, false);
                 if (placeholder) {
                     grafka.getModel().setValue(placeholder, resultString);
+                    // Resize placeholder if harmonic data makes it taller
+                    if (cell.vthd_percent != null) {
+                        try {
+                            const geo = grafka.getModel().getGeometry(placeholder);
+                            if (geo) {
+                                const newGeo = geo.clone();
+                                const extraLines = 1 + (cell.harmonic_voltages_kv ? Object.keys(cell.harmonic_voltages_kv).length : 0);
+                                newGeo.height = Math.max(72, 72 + extraLines * 9);
+                                grafka.getModel().setGeometry(placeholder, newGeo);
+                            }
+                        } catch (_) { /* ignore resize errors */ }
+                    }
                 } else {
-                    const labelka = b.insertVertex(resultCell, null, resultString, 0, 2.7, 0, 0, 'shapeELXXX=ResultBus', true);
+                    const boxH = cell.vthd_percent != null ? 120 : 0;
+                    const labelka = b.insertVertex(resultCell, null, resultString, 0, 2.7, 0, boxH, 'shapeELXXX=ResultBus', true);
                     processCellStyles(b, labelka);
                 }
                 processVoltageColor(grafka, resultCell, cell.vm_pu);
@@ -790,22 +844,52 @@ Q/P: ${fmt(cell.q_p)}`;
                 }
                 
                 const cellName = cell.name ? cell.name.replace('_', '#') : 'Unknown';
+                const fmt = (v) => (v != null && !Number.isNaN(v) ? Number(v).toFixed(3) : 'N/A');
 
-                const resultString = `${cellName}
-        P_from[MW]: ${cell.p_from_mw ? cell.p_from_mw.toFixed(3) : 'N/A'}
-        Q_from[MVar]: ${cell.q_from_mvar ? cell.q_from_mvar.toFixed(3) : 'N/A'}
-        i_from[kA]: ${cell.i_from_ka ? cell.i_from_ka.toFixed(3) : 'N/A'}
+                let lines = [
+                    cellName,
+                    `        P_from[MW]: ${cell.p_from_mw ? cell.p_from_mw.toFixed(3) : 'N/A'}`,
+                    `        Q_from[MVar]: ${cell.q_from_mvar ? cell.q_from_mvar.toFixed(3) : 'N/A'}`,
+                    `        i_from[kA]: ${cell.i_from_ka ? cell.i_from_ka.toFixed(3) : 'N/A'}`,
+                    ``,
+                    `        Loading[%]: ${cell.loading_percent ? cell.loading_percent.toFixed(1) : 'N/A'}`,
+                    ``,
+                    `        P_to[MW]: ${cell.p_to_mw ? cell.p_to_mw.toFixed(3) : 'N/A'}`,
+                    `        Q_to[MVar]: ${cell.q_to_mvar ? cell.q_to_mvar.toFixed(3) : 'N/A'}`,
+                    `        i_to[kA]: ${cell.i_to_ka ? cell.i_to_ka.toFixed(3) : 'N/A'}`
+                ];
 
-        Loading[%]: ${cell.loading_percent ? cell.loading_percent.toFixed(1) : 'N/A'}
+                // Append harmonic results when present
+                if (cell.ithd_percent != null) {
+                    lines.push(`        ITHD: ${fmt(cell.ithd_percent)}%`);
+                }
+                if (cell.harmonic_currents_a) {
+                    const hOrders = Object.keys(cell.harmonic_currents_a)
+                        .map(Number).sort((a, b) => a - b);
+                    hOrders.forEach(h => {
+                        const iA = cell.harmonic_currents_a[String(h)];
+                        lines.push(`        I_h${h}[A]: ${fmt(iA)}`);
+                    });
+                }
 
-        P_to[MW]: ${cell.p_to_mw ? cell.p_to_mw.toFixed(3) : 'N/A'}
-        Q_to[MVar]: ${cell.q_to_mvar ? cell.q_to_mvar.toFixed(3) : 'N/A'}
-        i_to[kA]: ${cell.i_to_ka ? cell.i_to_ka.toFixed(3) : 'N/A'}`;
+                const resultString = lines.join('\n');
 
                 // Find existing placeholder and update it, or create new one if not found
                 const placeholder = findPlaceholderForCellOpenDSS(grafka, resultCell, true);
                 if (placeholder) {
                     grafka.getModel().setValue(placeholder, resultString);
+                    // Resize if harmonic data present
+                    if (cell.ithd_percent != null) {
+                        try {
+                            const geo = grafka.getModel().getGeometry(placeholder);
+                            if (geo) {
+                                const newGeo = geo.clone();
+                                const extraLines = 1 + (cell.harmonic_currents_a ? Object.keys(cell.harmonic_currents_a).length : 0);
+                                newGeo.height = Math.max(80, 80 + extraLines * 9);
+                                grafka.getModel().setGeometry(placeholder, newGeo);
+                            }
+                        } catch (_) { /* ignore resize errors */ }
+                    }
                 } else {
                     const labelka = b.insertVertex(resultCell, null, resultString, 0, 0, 0, 0, 'shapeELXXX=Result', true);
                     processCellStyles(b, labelka, true);
@@ -1384,6 +1468,11 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
                 downloadOpenDSSResults(dataJson);
             }
 
+        // Show harmonic analysis summary dialog when harmonic results are present
+        if (dataJson.harmonic_analysis && dataJson.harmonic_analysis.executed) {
+            showHarmonicSummaryDialog(dataJson);
+        }
+
     } catch (err) {
         if (err.message === "server") {
             // Still stop spinner on server error
@@ -1433,6 +1522,106 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
     }
 }
 
+// Harmonic analysis summary dialog
+// Shows a modal with VTHD per bus and ITHD per line after a harmonic run
+function showHarmonicSummaryDialog(dataJson) {
+    const ha = dataJson.harmonic_analysis;
+    const orders = (ha.harmonic_orders || []).join(', ');
+
+    // Build HTML
+    let html = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:2px solid #6f42c1;padding-bottom:8px;">
+            <h2 style="margin:0;color:#6f42c1;font-size:18px;">Harmonic Analysis Results</h2>
+            <button id="closeHarmonicDialog" style="background:none;border:none;font-size:24px;cursor:pointer;color:#666;">&times;</button>
+        </div>
+        <div style="font-size:12px;color:#555;margin-bottom:12px;">
+            Base frequency: <strong>${ha.frequency_hz} Hz</strong> &nbsp;|&nbsp;
+            Harmonic orders: <strong>${orders}</strong> &nbsp;|&nbsp;
+            NeglectLoadY: <strong>${ha.neglectLoadY ? 'Yes' : 'No'}</strong>
+        </div>`;
+
+    // Bus VTHD table
+    if (dataJson.busbars && dataJson.busbars.length > 0) {
+        const busbarsWithHarmonics = dataJson.busbars.filter(b => b.vthd_percent != null);
+        if (busbarsWithHarmonics.length > 0) {
+            const hOrders = ha.harmonic_orders || [];
+            html += `<h3 style="margin:8px 0 4px;font-size:14px;color:#333;">Bus Voltage THD</h3>`;
+            html += `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">`;
+            html += `<tr style="background:#f5f5f5;">
+                <th style="padding:4px 8px;border:1px solid #ddd;text-align:left;">Bus</th>
+                <th style="padding:4px 8px;border:1px solid #ddd;">VTHD [%]</th>`;
+            hOrders.forEach(h => {
+                html += `<th style="padding:4px 8px;border:1px solid #ddd;">V_h${h} [kV]</th>`;
+            });
+            html += `</tr>`;
+            busbarsWithHarmonics.forEach(bus => {
+                const name = (bus.name || bus.id || '').replace('_', '#');
+                const thdColor = bus.vthd_percent > 5 ? '#f44336' : bus.vthd_percent > 3 ? '#ff9800' : '#4CAF50';
+                html += `<tr>
+                    <td style="padding:4px 8px;border:1px solid #ddd;">${name}</td>
+                    <td style="padding:4px 8px;border:1px solid #ddd;text-align:center;font-weight:bold;color:${thdColor};">${bus.vthd_percent.toFixed(2)}</td>`;
+                hOrders.forEach(h => {
+                    const v = bus.harmonic_voltages_kv ? bus.harmonic_voltages_kv[String(h)] : null;
+                    html += `<td style="padding:4px 8px;border:1px solid #ddd;text-align:center;">${v != null ? Number(v).toFixed(3) : '-'}</td>`;
+                });
+                html += `</tr>`;
+            });
+            html += `</table></div>`;
+        }
+    }
+
+    // Line ITHD table
+    if (dataJson.lines && dataJson.lines.length > 0) {
+        const linesWithHarmonics = dataJson.lines.filter(l => l.ithd_percent != null);
+        if (linesWithHarmonics.length > 0) {
+            const hOrders = ha.harmonic_orders || [];
+            html += `<h3 style="margin:12px 0 4px;font-size:14px;color:#333;">Line Current THD</h3>`;
+            html += `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">`;
+            html += `<tr style="background:#f5f5f5;">
+                <th style="padding:4px 8px;border:1px solid #ddd;text-align:left;">Line</th>
+                <th style="padding:4px 8px;border:1px solid #ddd;">ITHD [%]</th>`;
+            hOrders.forEach(h => {
+                html += `<th style="padding:4px 8px;border:1px solid #ddd;">I_h${h} [A]</th>`;
+            });
+            html += `</tr>`;
+            linesWithHarmonics.forEach(line => {
+                const name = (line.name || line.id || '').replace('_', '#');
+                const thdColor = line.ithd_percent > 10 ? '#f44336' : line.ithd_percent > 5 ? '#ff9800' : '#4CAF50';
+                html += `<tr>
+                    <td style="padding:4px 8px;border:1px solid #ddd;">${name}</td>
+                    <td style="padding:4px 8px;border:1px solid #ddd;text-align:center;font-weight:bold;color:${thdColor};">${line.ithd_percent.toFixed(2)}</td>`;
+                hOrders.forEach(h => {
+                    const i = line.harmonic_currents_a ? line.harmonic_currents_a[String(h)] : null;
+                    html += `<td style="padding:4px 8px;border:1px solid #ddd;text-align:center;">${i != null ? Number(i).toFixed(3) : '-'}</td>`;
+                });
+                html += `</tr>`;
+            });
+            html += `</table></div>`;
+        }
+    }
+
+    html += `<div style="text-align:right;margin-top:16px;">
+        <button id="closeHarmonicDialogBtn" style="background-color:#6f42c1;color:white;border:none;padding:10px 25px;border-radius:4px;cursor:pointer;font-size:14px;font-weight:500;">OK</button>
+    </div>`;
+
+    // Create modal
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:10000;display:flex;justify-content:center;align-items:center;';
+    const modal = document.createElement('div');
+    modal.style.cssText = 'background:white;border-radius:8px;padding:20px;max-width:900px;width:90vw;max-height:80vh;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,0.3);font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;';
+    modal.innerHTML = html;
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    const closeDialog = () => document.body.removeChild(overlay);
+    document.getElementById('closeHarmonicDialog').addEventListener('click', closeDialog);
+    document.getElementById('closeHarmonicDialogBtn').addEventListener('click', closeDialog);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeDialog(); });
+    document.addEventListener('keydown', function esc(e) {
+        if (e.key === 'Escape') { closeDialog(); document.removeEventListener('keydown', esc); }
+    });
+}
+
 // Error handler for OpenDSS
 function handleNetworkErrors(dataJson) {
     if (dataJson.error) {
@@ -1441,6 +1630,13 @@ function handleNetworkErrors(dataJson) {
             'If the problem persists, please contact electrisim@electrisim.com for support.'
         );
         return true;
+    }
+    // Display parameter validation warnings if any (e.g., vm_pu auto-correction)
+    if (dataJson.warnings && dataJson.warnings.length > 0) {
+        console.log('OpenDSS Backend warnings:', dataJson.warnings);
+        const warningMessage = 'PARAMETER VALIDATION WARNINGS:\n\n' + 
+            dataJson.warnings.map((w, i) => `${i + 1}. ${w}`).join('\n\n');
+        alert(warningMessage);
     }
     return false;
 }
@@ -1458,7 +1654,7 @@ function executeOpenDSSLoadFlow(parameters, app, graph) {
         // Array format: [frequency, mode, algorithm, loadmodel, maxIterations, tolerance, controlmode, exportCommands]
         opendssParams = parameters;
     } else {
-        // New format: object with named properties
+        // New format: object with named properties (from LoadFlowDialog OpenDSS tab)
         opendssParams = [
             parameters.frequency || '50',
             parameters.mode || 'Snapshot',
@@ -1497,9 +1693,12 @@ function executeOpenDSSLoadFlow(parameters, app, graph) {
     const opendssData = {
         typ: "PowerFlowOpenDss Parameters",
         frequency: opendssParams[0],           // Base frequency (50 or 60 Hz)
+        analysisType: parameters.analysisType || 'loadflow', // 'loadflow' or 'harmonic'
         mode: opendssParams[1],                // Solution mode (Snapshot, Daily, Dutycycle, etc.)
         algorithm: opendssParams[2],           // Solution algorithm (Normal, Newton)
         loadmodel: opendssParams[3],           // Load model (Powerflow or Admittance)
+        harmonics: parameters.harmonics || '3,5,7,11,13',    // Harmonic orders to compute
+        neglectLoadY: parameters.neglectLoadY === true,      // NeglectLoadY option for harmonics
         maxIterations: opendssParams[4],       // Maximum iterations
         tolerance: opendssParams[5],           // Convergence tolerance
         controlmode: opendssParams[6],         // Control mode (Static, Event, Time)
@@ -1743,7 +1942,9 @@ function collectNetworkDataStructured(graph) {
                         tap_step_degree: 'tap_step_degree',
                         tap_pos: 'tap_pos',
                         tap_phase_shifter: 'tap_phase_shifter',
-                        in_service: { name: 'in_service', optional: true }
+                        in_service: { name: 'in_service', optional: true },
+                        // Harmonic analysis parameters
+                        XRConst: { name: 'XRConst', optional: true }
                     });
                     
                     // Convert in_service from string to boolean
@@ -1775,7 +1976,9 @@ function collectNetworkDataStructured(graph) {
                         tap_step_degree: transParams.tap_step_degree || 0.0,
                         tap_pos: transParams.tap_pos || 0,  // Default to 0 (neutral position)
                         tap_phase_shifter: transParams.tap_phase_shifter || false,
-                        in_service: transInService
+                        in_service: transInService,
+                        // Harmonic analysis parameters
+                        XRConst: transParams.XRConst || 'No'
                     };
                     
                     // Validate bus connections
@@ -1805,7 +2008,11 @@ function collectNetworkDataStructured(graph) {
                         min_p_mw: 'min_p_mw',
                         max_q_mvar: 'max_q_mvar',
                         min_q_mvar: 'min_q_mvar',
-                        in_service: { name: 'in_service', optional: true }
+                        in_service: { name: 'in_service', optional: true },
+                        // Harmonic analysis parameters
+                        spectrum: { name: 'spectrum', optional: true },
+                        Xdpp: { name: 'Xdpp', optional: true },
+                        XRdp: { name: 'XRdp', optional: true }
                     });
                     
                     const genInService = genParams.in_service !== undefined 
@@ -1835,7 +2042,11 @@ function collectNetworkDataStructured(graph) {
                         min_p_mw: genParams.min_p_mw || 0.0,
                         max_q_mvar: genParams.max_q_mvar || 5.0,
                         min_q_mvar: genParams.min_q_mvar || -5.0,
-                        in_service: genInService
+                        in_service: genInService,
+                        // Harmonic analysis parameters
+                        spectrum: genParams.spectrum || 'defaultgen',
+                        Xdpp: genParams.Xdpp || '0.20',
+                        XRdp: genParams.XRdp || '20'
                     };
                     
                     // Validate bus connection
@@ -1864,7 +2075,12 @@ function collectNetworkDataStructured(graph) {
                         const_s_percent_abs_degree: 'const_s_percent_abs_degree',
                         const_s_percent_abs_degree_abs: 'const_s_percent_abs_degree_abs',
                         const_s_percent_abs_degree_abs_degree: 'const_s_percent_abs_degree_abs_degree',
-                        in_service: { name: 'in_service', optional: true }
+                        in_service: { name: 'in_service', optional: true },
+                        // Harmonic analysis parameters
+                        spectrum: { name: 'spectrum', optional: true },
+                        pctSeriesRL: { name: 'pctSeriesRL', optional: true },
+                        puXharm: { name: 'puXharm', optional: true },
+                        XRharm: { name: 'XRharm', optional: true }
                     });
                     
                     const loadInService = loadParams.in_service !== undefined 
@@ -1893,7 +2109,12 @@ function collectNetworkDataStructured(graph) {
                         const_s_percent_abs: loadParams.const_s_percent_abs || 100.0,
                         const_s_percent_abs_degree: loadParams.const_s_percent_abs_degree || 0.0,
                         const_s_percent_abs_degree_abs: loadParams.const_s_percent_abs_degree_abs || 100.0,
-                        const_s_percent_abs_degree_abs_degree: loadParams.const_s_percent_abs_degree_abs_degree || 0.0
+                        const_s_percent_abs_degree_abs_degree: loadParams.const_s_percent_abs_degree_abs_degree || 0.0,
+                        // Harmonic analysis parameters
+                        spectrum: loadParams.spectrum || 'defaultload',
+                        pctSeriesRL: loadParams.pctSeriesRL || '50',
+                        puXharm: loadParams.puXharm || '0.0',
+                        XRharm: loadParams.XRharm || '6.0'
                     };
                     
                     // Validate bus connection
@@ -2021,7 +2242,9 @@ function collectNetworkDataStructured(graph) {
                         min_q_mvar: 'min_q_mvar',
                         soc_percent: 'soc_percent',
                         min_e_mwh: 'min_e_mwh',
-                        in_service: { name: 'in_service', optional: true }
+                        in_service: { name: 'in_service', optional: true },
+                        // Harmonic analysis parameters
+                        spectrum: { name: 'spectrum', optional: true }
                     });
 
                     const storageInService = storageParams.in_service !== undefined
@@ -2049,7 +2272,9 @@ function collectNetworkDataStructured(graph) {
                         min_q_mvar: storageParams.min_q_mvar || -1.0,
                         soc_percent: storageParams.soc_percent || 50.0,
                         min_e_mwh: storageParams.min_e_mwh || 0.0,
-                        in_service: storageInService
+                        in_service: storageInService,
+                        // Harmonic analysis parameters
+                        spectrum: storageParams.spectrum || 'default'
                     };
                     
                     // Validate bus connection
@@ -2194,7 +2419,9 @@ function collectNetworkDataStructured(graph) {
                         rx_min: 'rx_min',
                         r0x0_max: 'r0x0_max',
                         x0x_max: 'x0x_max',
-                        in_service: { name: 'in_service', optional: true }
+                        in_service: { name: 'in_service', optional: true },
+                        // Harmonic analysis parameters
+                        spectrum: { name: 'spectrum', optional: true }
                     });
 
                     const extGridInService = extGridParams.in_service !== undefined
@@ -2218,7 +2445,9 @@ function collectNetworkDataStructured(graph) {
                         rx_min: extGridParams.rx_min || 0.1,
                         r0x0_max: extGridParams.r0x0_max || 0.1,
                         x0x_max: extGridParams.x0x_max || 1.0,
-                        in_service: extGridInService
+                        in_service: extGridInService,
+                        // Harmonic analysis parameters
+                        spectrum: extGridParams.spectrum || 'defaultvsource'
                     };
                     
                     // Validate bus connection
@@ -2620,7 +2849,11 @@ function collectNetworkDataStructured(graph) {
                         max_ik_ka: 'max_ik_ka',
                         kappa: 'kappa',
                         current_source: 'current_source',
-                        in_service: { name: 'in_service', optional: true }
+                        in_service: { name: 'in_service', optional: true },
+                        // Harmonic analysis parameters
+                        spectrum: { name: 'spectrum', optional: true },
+                        Xdpp: { name: 'Xdpp', optional: true },
+                        XRdp: { name: 'XRdp', optional: true }
                     });
 
                     const staticGenInService = staticGenParams.in_service !== undefined
@@ -2654,7 +2887,11 @@ function collectNetworkDataStructured(graph) {
                         max_ik_ka: staticGenParams.max_ik_ka || 1.0,
                         kappa: staticGenParams.kappa || 1.0,
                         current_source: staticGenParams.current_source || false,
-                        in_service: staticGenInService
+                        in_service: staticGenInService,
+                        // Harmonic analysis parameters
+                        spectrum: staticGenParams.spectrum || 'defaultgen',
+                        Xdpp: staticGenParams.Xdpp || '0.20',
+                        XRdp: staticGenParams.XRdp || '20'
                     };
                     
                     // Validate bus connection
@@ -2963,9 +3200,12 @@ async function processPandapowerBackend(obj, graph) {
     }
 }
 
-// Make the function available globally
+// Make the functions available globally
 window.loadFlowOpenDss = loadFlowOpenDss;
 globalThis.loadFlowOpenDss = loadFlowOpenDss;
 
+window.harmonicAnalysisOpenDss = harmonicAnalysisOpenDss;
+globalThis.harmonicAnalysisOpenDss = harmonicAnalysisOpenDss;
+
 // Export for module usage
-export { loadFlowOpenDss };
+export { loadFlowOpenDss, harmonicAnalysisOpenDss };

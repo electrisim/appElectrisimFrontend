@@ -15,7 +15,13 @@ export const defaultLoadData = {
     min_p_mw: 0.0,
     max_q_mvar: 0.0,
     min_q_mvar: 0.0,
-    in_service: true
+    in_service: true,
+    // Harmonic analysis parameters (OpenDSS)
+    // Reference: https://opendss.epri.com/HarmonicsLoadModeling.html
+    spectrum: 'defaultload',
+    pctSeriesRL: 50,
+    puXharm: 0.0,
+    XRharm: 6.0
 };
 
 export class LoadDialog extends Dialog {
@@ -178,6 +184,57 @@ export class LoadDialog extends Dialog {
                 step: '1'
             }
         ];
+
+        // Harmonic analysis parameters (OpenDSS)
+        // Reference: https://opendss.epri.com/HarmonicsLoadModeling.html
+        this.harmonicParameters = [
+            {
+                id: 'spectrum',
+                label: 'Harmonic Spectrum',
+                description: 'Name of the harmonic spectrum for this load element. ' +
+                    '"defaultload" is the built-in spectrum (has 1st, 3rd, 5th, 7th harmonics). ' +
+                    'The spectrum defines the magnitude and angle of harmonic current injections ' +
+                    'relative to the fundamental.',
+                type: 'select',
+                value: this.data.spectrum || 'defaultload',
+                options: ['defaultload', 'defaultgen', 'defaultvsource', 'none']
+            },
+            {
+                id: 'pctSeriesRL',
+                label: '%SeriesRL (percent series R-L)',
+                description: 'Percent of load that is series R-L for harmonic studies. ' +
+                    'Default is 50%. Set to 0 for a pure parallel (Y) model. Set to 100 for a pure series model. ' +
+                    'This controls how load impedance behaves at harmonic frequencies.',
+                type: 'number',
+                value: (this.data.pctSeriesRL || 50).toString(),
+                step: '1',
+                min: '0',
+                max: '100'
+            },
+            {
+                id: 'puXharm',
+                label: 'puXharm (per-unit reactance for harmonics)',
+                description: 'Special reactance, per-unit (based on kVA, kV properties), for the series impedance branch ' +
+                    'in the load model for HARMONICS analysis. Generally used to represent motor load blocked rotor reactance. ' +
+                    'Default is 0.0. If set to 0 (default), the series branch is computed from %SeriesRL. ' +
+                    'If specified (>0), it overrides the %SeriesRL calculation. Typical value: ~0.20 pu.',
+                type: 'number',
+                value: (this.data.puXharm || 0.0).toString(),
+                step: '0.01',
+                min: '0'
+            },
+            {
+                id: 'XRharm',
+                label: 'XRharm (X/R ratio for harmonics)',
+                description: 'X/R ratio of the special harmonics mode reactance specified by puXharm at fundamental frequency. ' +
+                    'Default is 6.0. Used when puXharm > 0 to define the series R-L branch for motor loads. ' +
+                    'Typical range for conventional motors: 3-6. High efficiency motors can have values > 10.',
+                type: 'number',
+                value: (this.data.XRharm || 6.0).toString(),
+                step: '0.1',
+                min: '0'
+            }
+        ];
     }
     
     getDescription() {
@@ -238,10 +295,12 @@ export class LoadDialog extends Dialog {
         const loadFlowTab = this.createTab('Load Flow', 'loadflow', this.currentTab === 'loadflow');
         const shortCircuitTab = this.createTab('Short Circuit', 'shortcircuit', this.currentTab === 'shortcircuit');
         const opfTab = this.createTab('OPF', 'opf', this.currentTab === 'opf');
+        const harmonicTab = this.createTab('Harmonic', 'harmonic', this.currentTab === 'harmonic');
         
         tabContainer.appendChild(loadFlowTab);
         tabContainer.appendChild(shortCircuitTab);
         tabContainer.appendChild(opfTab);
+        tabContainer.appendChild(harmonicTab);
         container.appendChild(tabContainer);
 
         // Create content area
@@ -260,10 +319,12 @@ export class LoadDialog extends Dialog {
         const loadFlowContent = this.createTabContent('loadflow', this.loadFlowParameters);
         const shortCircuitContent = this.createTabContent('shortcircuit', this.shortCircuitParameters);
         const opfContent = this.createTabContent('opf', this.opfParameters);
+        const harmonicContent = this.createTabContent('harmonic', this.harmonicParameters);
         
         contentArea.appendChild(loadFlowContent);
         contentArea.appendChild(shortCircuitContent);
         contentArea.appendChild(opfContent);
+        contentArea.appendChild(harmonicContent);
         container.appendChild(contentArea);
 
         // Add button container
@@ -310,9 +371,12 @@ export class LoadDialog extends Dialog {
         this.container = container;
         
         // Tab click handlers
-        loadFlowTab.onclick = () => this.switchTab('loadflow', loadFlowTab, [shortCircuitTab, opfTab], loadFlowContent, [shortCircuitContent, opfContent]);
-        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [loadFlowTab, opfTab], shortCircuitContent, [loadFlowContent, opfContent]);
-        opfTab.onclick = () => this.switchTab('opf', opfTab, [loadFlowTab, shortCircuitTab], opfContent, [loadFlowContent, shortCircuitContent]);
+        const allTabs = [loadFlowTab, shortCircuitTab, opfTab, harmonicTab];
+        const allContents = [loadFlowContent, shortCircuitContent, opfContent, harmonicContent];
+        loadFlowTab.onclick = () => this.switchTab('loadflow', loadFlowTab, allTabs.filter(t => t !== loadFlowTab), loadFlowContent, allContents.filter(c => c !== loadFlowContent));
+        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, allTabs.filter(t => t !== shortCircuitTab), shortCircuitContent, allContents.filter(c => c !== shortCircuitContent));
+        opfTab.onclick = () => this.switchTab('opf', opfTab, allTabs.filter(t => t !== opfTab), opfContent, allContents.filter(c => c !== opfContent));
+        harmonicTab.onclick = () => this.switchTab('harmonic', harmonicTab, allTabs.filter(t => t !== harmonicTab), harmonicContent, allContents.filter(c => c !== harmonicContent));
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
@@ -599,7 +663,7 @@ export class LoadDialog extends Dialog {
         const values = {};
         
         // Collect all parameter values from all tabs
-        [...this.loadFlowParameters, ...this.shortCircuitParameters, ...this.opfParameters].forEach(param => {
+        [...this.loadFlowParameters, ...this.shortCircuitParameters, ...this.opfParameters, ...this.harmonicParameters].forEach(param => {
             const input = this.inputs.get(param.id);
             if (input) {
                 if (param.type === 'number') {
@@ -678,7 +742,16 @@ export class LoadDialog extends Dialog {
                     console.log(`  Updated opf ${attributeName}: ${oldValue} → ${opfParam.value}`);
                 }
                 
-                if (!loadFlowParam && !shortCircuitParam && !opfParam) {
+                const harmonicParam = this.harmonicParameters.find(p => p.id === attributeName);
+                if (harmonicParam) {
+                    if (harmonicParam.type === 'checkbox') {
+                        harmonicParam.value = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        harmonicParam.value = attributeValue;
+                    }
+                }
+                
+                if (!loadFlowParam && !shortCircuitParam && !opfParam && !harmonicParam) {
                     console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
             }

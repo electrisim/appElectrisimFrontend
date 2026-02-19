@@ -36,7 +36,9 @@ export const defaultTransformerData = {
     mag0_percent: 0.0,
     mag0_rx: 0.0,      // Zero sequence magnetizing r/x ratio
     si0_hv_partial: 0.0,
-    parallel: 1
+    parallel: 1,
+    // Harmonic analysis parameters (OpenDSS)
+    XRConst: 'No'
 };
 
 export class TransformerDialog extends Dialog {
@@ -356,6 +358,22 @@ export class TransformerDialog extends Dialog {
             }
         ];
         
+        // Harmonic analysis parameters (OpenDSS)
+        // Reference: https://opendss.epri.com/Properties.html (Transformer properties)
+        this.harmonicParameters = [
+            {
+                id: 'XRConst',
+                label: 'X/R Constant Across Frequencies',
+                symbol: 'XRConst',
+                description: 'When Yes, the X/R ratio is constant for all frequencies (series RL model). ' +
+                    'When No (default), X/R varies with frequency. This affects how transformer impedance ' +
+                    'behaves at harmonic frequencies.',
+                type: 'select',
+                value: this.data.XRConst || 'No',
+                options: ['No', 'Yes']
+            }
+        ];
+        
     }
     
     getDescription() {
@@ -415,9 +433,11 @@ export class TransformerDialog extends Dialog {
         // Create tabs
         const loadFlowTab = this.createTab('Load Flow', 'loadflow', this.currentTab === 'loadflow');
         const shortCircuitTab = this.createTab('Short Circuit', 'shortcircuit', this.currentTab === 'shortcircuit');
+        const harmonicTab = this.createTab('Harmonic', 'harmonic', this.currentTab === 'harmonic');
         
         tabContainer.appendChild(loadFlowTab);
         tabContainer.appendChild(shortCircuitTab);
+        tabContainer.appendChild(harmonicTab);
         container.appendChild(tabContainer);
 
         // Create content area
@@ -435,9 +455,11 @@ export class TransformerDialog extends Dialog {
         // Create tab content containers
         const loadFlowContent = this.createTabContent('loadflow', this.loadFlowParameters);
         const shortCircuitContent = this.createTabContent('shortcircuit', this.shortCircuitParameters);
+        const harmonicContent = this.createTabContent('harmonic', this.harmonicParameters);
         
         contentArea.appendChild(loadFlowContent);
         contentArea.appendChild(shortCircuitContent);
+        contentArea.appendChild(harmonicContent);
         container.appendChild(contentArea);
 
         // Add button container
@@ -508,8 +530,11 @@ export class TransformerDialog extends Dialog {
         this.container = container;
         
         // Tab click handlers
-        loadFlowTab.onclick = () => this.switchTab('loadflow', loadFlowTab, [shortCircuitTab], loadFlowContent, [shortCircuitContent]);
-        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [loadFlowTab], shortCircuitContent, [loadFlowContent]);
+        const allTabs = [loadFlowTab, shortCircuitTab, harmonicTab];
+        const allContents = [loadFlowContent, shortCircuitContent, harmonicContent];
+        loadFlowTab.onclick = () => this.switchTab('loadflow', loadFlowTab, allTabs.filter(t => t !== loadFlowTab), loadFlowContent, allContents.filter(c => c !== loadFlowContent));
+        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, allTabs.filter(t => t !== shortCircuitTab), shortCircuitContent, allContents.filter(c => c !== shortCircuitContent));
+        harmonicTab.onclick = () => this.switchTab('harmonic', harmonicTab, allTabs.filter(t => t !== harmonicTab), harmonicContent, allContents.filter(c => c !== harmonicContent));
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
@@ -787,8 +812,8 @@ export class TransformerDialog extends Dialog {
     getFormValues() {
         const values = {};
         
-        // Collect all parameter values from all tabs
-        [...this.loadFlowParameters, ...this.shortCircuitParameters].forEach(param => {
+        // Collect all parameter values from all tabs (including harmonic)
+        [...this.loadFlowParameters, ...this.shortCircuitParameters, ...this.harmonicParameters].forEach(param => {
             const input = this.inputs.get(param.id);
             if (input) {
                 if (param.type === 'number') {
@@ -945,6 +970,15 @@ export class TransformerDialog extends Dialog {
                         shortCircuitParam.value = attributeValue === 'true' || attributeValue === true;
                     } else {
                         shortCircuitParam.value = attributeValue;
+                    }
+                }
+                
+                const harmonicParam = this.harmonicParameters.find(p => p.id === attributeName);
+                if (harmonicParam) {
+                    if (harmonicParam.type === 'checkbox') {
+                        harmonicParam.value = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        harmonicParam.value = attributeValue;
                     }
                 }
                 

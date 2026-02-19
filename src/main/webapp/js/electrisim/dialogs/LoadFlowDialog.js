@@ -85,6 +85,7 @@ export class LoadFlowDialog extends Dialog {
         ];
 
         // OpenDSS specific parameters based on OpenDSS documentation
+        // This dialog remains focused on fundamental load flow only.
         // Reference: https://opendss.epri.com/PowerFlow.html
         this.opendssParameters = [
             {

@@ -19,7 +19,10 @@ export const defaultGeneratorData = {
     min_p_mw: 0.0,
     max_q_mvar: 0.0,
     min_q_mvar: 0.0,
-    in_service: true
+    in_service: true,
+    spectrum: 'defaultgen',
+    Xdpp: 0.20,
+    XRdp: 20
 };
 
 export class GeneratorDialog extends Dialog {
@@ -221,6 +224,42 @@ export class GeneratorDialog extends Dialog {
                 step: '1'
             }
         ];
+
+        // Harmonic analysis parameters (OpenDSS)
+        // Reference: https://opendss.epri.com/Properties9.html (Generator properties)
+        this.harmonicParameters = [
+            {
+                id: 'spectrum',
+                label: 'Harmonic Spectrum',
+                description: 'Name of the harmonic voltage or current spectrum for this generator. ' +
+                    '"defaultgen" is the default spectrum. The spectrum defines the magnitude and angle ' +
+                    'of harmonic injections relative to the fundamental. Voltage behind Xd\'\' for machine.',
+                type: 'select',
+                value: this.data.spectrum || 'defaultgen',
+                options: ['defaultgen', 'defaultload', 'defaultvsource', 'none']
+            },
+            {
+                id: 'Xdpp',
+                label: 'Sub-transient Reactance Xd\'\' (p.u.)',
+                description: 'Per unit sub-transient reactance of the machine. Used for Harmonics. ' +
+                    'Default is 0.20. This defines the impedance behind which the generator ' +
+                    'voltage source is placed during the harmonic solution.',
+                type: 'number',
+                value: (this.data.Xdpp || 0.20).toString(),
+                step: '0.01',
+                min: '0'
+            },
+            {
+                id: 'XRdp',
+                label: 'X/R Ratio for Xd\' (XRdp)',
+                description: 'X/R ratio for the transient reactance Xdp property. Default is 20. ' +
+                    'Used for Fault Study and Dynamic / Harmonic modes.',
+                type: 'number',
+                value: (this.data.XRdp || 20).toString(),
+                step: '1',
+                min: '0'
+            }
+        ];
     }
     
     getDescription() {
@@ -281,10 +320,12 @@ export class GeneratorDialog extends Dialog {
         const loadFlowTab = this.createTab('Load Flow', 'loadflow', this.currentTab === 'loadflow');
         const shortCircuitTab = this.createTab('Short Circuit', 'shortcircuit', this.currentTab === 'shortcircuit');
         const opfTab = this.createTab('OPF', 'opf', this.currentTab === 'opf');
+        const harmonicTab = this.createTab('Harmonic', 'harmonic', this.currentTab === 'harmonic');
         
         tabContainer.appendChild(loadFlowTab);
         tabContainer.appendChild(shortCircuitTab);
         tabContainer.appendChild(opfTab);
+        tabContainer.appendChild(harmonicTab);
         container.appendChild(tabContainer);
 
         // Create content area
@@ -303,10 +344,12 @@ export class GeneratorDialog extends Dialog {
         const loadFlowContent = this.createTabContent('loadflow', this.loadFlowParameters);
         const shortCircuitContent = this.createTabContent('shortcircuit', this.shortCircuitParameters);
         const opfContent = this.createTabContent('opf', this.opfParameters);
+        const harmonicContent = this.createTabContent('harmonic', this.harmonicParameters);
         
         contentArea.appendChild(loadFlowContent);
         contentArea.appendChild(shortCircuitContent);
         contentArea.appendChild(opfContent);
+        contentArea.appendChild(harmonicContent);
         container.appendChild(contentArea);
 
         // Add button container
@@ -336,6 +379,41 @@ export class GeneratorDialog extends Dialog {
             const values = this.getFormValues();
             console.log('Generator values:', values);
             
+            // Validate vm_pu - warn user if it looks like they entered kV instead of per unit
+            if (values.vm_pu !== undefined) {
+                const vmPu = parseFloat(values.vm_pu);
+                if (vmPu > 1.5) {
+                    const proceed = confirm(
+                        `WARNING: Voltage Set Point (vm_pu) is set to ${vmPu}.\n\n` +
+                        `This value is in PER UNIT (p.u.), not in kV!\n` +
+                        `A value of ${vmPu} p.u. means the generator tries to regulate voltage ` +
+                        `to ${vmPu} times the nominal bus voltage.\n\n` +
+                        `For normal operation, vm_pu should be close to 1.0 (e.g., 0.95 to 1.05).\n\n` +
+                        `Click OK to apply ${vmPu} anyway, or Cancel to go back and correct it.`
+                    );
+                    if (!proceed) return;
+                } else if (vmPu > 0 && vmPu < 0.5) {
+                    const proceed = confirm(
+                        `WARNING: Voltage Set Point (vm_pu) is set to ${vmPu}.\n\n` +
+                        `This is an unusually low value. vm_pu is in per unit (p.u.) and should ` +
+                        `be close to 1.0 for normal operation.\n` +
+                        `A value of ${vmPu} means the generator will try to regulate the bus voltage ` +
+                        `to ${(vmPu * 100).toFixed(1)}% of nominal, which will cause extreme reactive ` +
+                        `power flows and unrealistic results.\n\n` +
+                        `Click OK to apply ${vmPu} anyway, or Cancel to go back and correct it.`
+                    );
+                    if (!proceed) return;
+                } else if (vmPu === 0) {
+                    const proceed = confirm(
+                        `WARNING: Voltage Set Point (vm_pu) is set to 0.\n\n` +
+                        `This would set the generator voltage setpoint to 0, which is not physical.\n` +
+                        `For normal operation, vm_pu should be close to 1.0.\n\n` +
+                        `Click OK to apply 0 anyway, or Cancel to go back and correct it.`
+                    );
+                    if (!proceed) return;
+                }
+            }
+            
             if (this.callback) {
                 this.callback(values);
             }
@@ -353,9 +431,12 @@ export class GeneratorDialog extends Dialog {
         this.container = container;
         
         // Tab click handlers
-        loadFlowTab.onclick = () => this.switchTab('loadflow', loadFlowTab, [shortCircuitTab, opfTab], loadFlowContent, [shortCircuitContent, opfContent]);
-        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [loadFlowTab, opfTab], shortCircuitContent, [loadFlowContent, opfContent]);
-        opfTab.onclick = () => this.switchTab('opf', opfTab, [loadFlowTab, shortCircuitTab], opfContent, [loadFlowContent, shortCircuitContent]);
+        const allTabs = [loadFlowTab, shortCircuitTab, opfTab, harmonicTab];
+        const allContents = [loadFlowContent, shortCircuitContent, opfContent, harmonicContent];
+        loadFlowTab.onclick = () => this.switchTab('loadflow', loadFlowTab, allTabs.filter(t => t !== loadFlowTab), loadFlowContent, allContents.filter(c => c !== loadFlowContent));
+        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, allTabs.filter(t => t !== shortCircuitTab), shortCircuitContent, allContents.filter(c => c !== shortCircuitContent));
+        opfTab.onclick = () => this.switchTab('opf', opfTab, allTabs.filter(t => t !== opfTab), opfContent, allContents.filter(c => c !== opfContent));
+        harmonicTab.onclick = () => this.switchTab('harmonic', harmonicTab, allTabs.filter(t => t !== harmonicTab), harmonicContent, allContents.filter(c => c !== harmonicContent));
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
@@ -493,6 +574,30 @@ export class GeneratorDialog extends Dialog {
                     cursor: 'pointer',
                     margin: '0'
                 });
+            } else if (param.type === 'select') {
+                input = document.createElement('select');
+                param.options.forEach(option => {
+                    const optionElement = document.createElement('option');
+                    optionElement.value = option;
+                    optionElement.textContent = option.charAt(0).toUpperCase() + option.slice(1);
+                    if (option === param.value) {
+                        optionElement.selected = true;
+                    }
+                    input.appendChild(optionElement);
+                });
+                Object.assign(input.style, {
+                    width: '180px',
+                    padding: '10px 14px',
+                    border: '2px solid #ced4da',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                    backgroundColor: '#ffffff',
+                    boxSizing: 'border-box',
+                    transition: 'all 0.2s ease',
+                    outline: 'none',
+                    cursor: 'pointer'
+                });
             } else {
                 input = document.createElement('input');
                 input.type = param.type;
@@ -618,7 +723,7 @@ export class GeneratorDialog extends Dialog {
         const values = {};
         
         // Collect all parameter values from all tabs
-        [...this.loadFlowParameters, ...this.shortCircuitParameters, ...this.opfParameters].forEach(param => {
+        [...this.loadFlowParameters, ...this.shortCircuitParameters, ...this.opfParameters, ...this.harmonicParameters].forEach(param => {
             const input = this.inputs.get(param.id);
             if (input) {
                 if (param.type === 'number') {
@@ -695,7 +800,16 @@ export class GeneratorDialog extends Dialog {
                     console.log(`  Updated opf ${attributeName}: ${oldValue} → ${opfParam.value}`);
                 }
                 
-                if (!loadFlowParam && !shortCircuitParam && !opfParam) {
+                const harmonicParam = this.harmonicParameters.find(p => p.id === attributeName);
+                if (harmonicParam) {
+                    if (harmonicParam.type === 'checkbox') {
+                        harmonicParam.value = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        harmonicParam.value = attributeValue;
+                    }
+                }
+                
+                if (!loadFlowParam && !shortCircuitParam && !opfParam && !harmonicParam) {
                     console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
             }

@@ -11,7 +11,9 @@ export const defaultStorageData = {
     min_e_mwh: 0.0,
     scaling: 1.0,
     type: 0.0,
-    in_service: true
+    in_service: true,
+    // Harmonic analysis parameters (OpenDSS)
+    spectrum: 'default'
 };
 
 export class StorageDialog extends Dialog {
@@ -119,6 +121,22 @@ export class StorageDialog extends Dialog {
                 value: this.data.in_service
             }
         ];
+        
+        // Harmonic analysis parameters (OpenDSS)
+        // Reference: https://opendss.epri.com/Storage.html
+        this.harmonicParameters = [
+            {
+                id: 'spectrum',
+                label: 'Harmonic Spectrum',
+                description: 'Name of the harmonic current spectrum for this storage element. ' +
+                    '"default" is the built-in spectrum. Storage elements connected through inverters ' +
+                    'may inject harmonics into the system. The spectrum defines the magnitude and angle ' +
+                    'of harmonic current injections relative to the fundamental.',
+                type: 'select',
+                value: this.data.spectrum || 'default',
+                options: ['default', 'defaultgen', 'defaultload', 'pwm6', 'none']
+            }
+        ];
     }
     
     getDescription() {
@@ -179,10 +197,12 @@ export class StorageDialog extends Dialog {
         const powerTab = this.createTab('Power', 'power', this.currentTab === 'power');
         const energyTab = this.createTab('Energy', 'energy', this.currentTab === 'energy');
         const configTab = this.createTab('Configuration', 'config', this.currentTab === 'config');
+        const harmonicTab = this.createTab('Harmonic', 'harmonic', this.currentTab === 'harmonic');
         
         tabContainer.appendChild(powerTab);
         tabContainer.appendChild(energyTab);
         tabContainer.appendChild(configTab);
+        tabContainer.appendChild(harmonicTab);
         container.appendChild(tabContainer);
 
         // Create content area
@@ -201,10 +221,12 @@ export class StorageDialog extends Dialog {
         const powerContent = this.createTabContent('power', this.powerParameters);
         const energyContent = this.createTabContent('energy', this.energyParameters);
         const configContent = this.createTabContent('config', this.configParameters);
+        const harmonicContent = this.createTabContent('harmonic', this.harmonicParameters);
         
         contentArea.appendChild(powerContent);
         contentArea.appendChild(energyContent);
         contentArea.appendChild(configContent);
+        contentArea.appendChild(harmonicContent);
         container.appendChild(contentArea);
 
         // Add button container
@@ -251,9 +273,12 @@ export class StorageDialog extends Dialog {
         this.container = container;
         
         // Tab click handlers
-        powerTab.onclick = () => this.switchTab('power', powerTab, [energyTab, configTab], powerContent, [energyContent, configContent]);
-        energyTab.onclick = () => this.switchTab('energy', energyTab, [powerTab, configTab], energyContent, [powerContent, configContent]);
-        configTab.onclick = () => this.switchTab('config', configTab, [powerTab, energyTab], configContent, [powerContent, energyContent]);
+        const allTabs = [powerTab, energyTab, configTab, harmonicTab];
+        const allContents = [powerContent, energyContent, configContent, harmonicContent];
+        powerTab.onclick = () => this.switchTab('power', powerTab, allTabs.filter(t => t !== powerTab), powerContent, allContents.filter(c => c !== powerContent));
+        energyTab.onclick = () => this.switchTab('energy', energyTab, allTabs.filter(t => t !== energyTab), energyContent, allContents.filter(c => c !== energyContent));
+        configTab.onclick = () => this.switchTab('config', configTab, allTabs.filter(t => t !== configTab), configContent, allContents.filter(c => c !== configContent));
+        harmonicTab.onclick = () => this.switchTab('harmonic', harmonicTab, allTabs.filter(t => t !== harmonicTab), harmonicContent, allContents.filter(c => c !== harmonicContent));
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
@@ -383,6 +408,42 @@ export class StorageDialog extends Dialog {
                     cursor: 'pointer',
                     margin: '0'
                 });
+            } else if (param.type === 'select') {
+                input = document.createElement('select');
+                if (param.options && Array.isArray(param.options)) {
+                    param.options.forEach(option => {
+                        const optionElement = document.createElement('option');
+                        optionElement.value = option;
+                        optionElement.textContent = option;
+                        if (option === param.value) {
+                            optionElement.selected = true;
+                        }
+                        input.appendChild(optionElement);
+                    });
+                }
+                Object.assign(input.style, {
+                    width: '180px',
+                    padding: '10px 14px',
+                    border: '2px solid #ced4da',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                    backgroundColor: '#ffffff',
+                    boxSizing: 'border-box',
+                    transition: 'all 0.2s ease',
+                    outline: 'none',
+                    cursor: 'pointer'
+                });
+                
+                input.addEventListener('focus', () => {
+                    input.style.borderColor = '#007bff';
+                    input.style.boxShadow = '0 0 0 3px rgba(0, 123, 255, 0.15)';
+                });
+                
+                input.addEventListener('blur', () => {
+                    input.style.borderColor = '#ced4da';
+                    input.style.boxShadow = 'none';
+                });
             } else {
                 input = document.createElement('input');
                 input.type = param.type;
@@ -507,14 +568,16 @@ export class StorageDialog extends Dialog {
     getFormValues() {
         const values = {};
         
-        // Collect all parameter values from all tabs
-        [...this.powerParameters, ...this.energyParameters, ...this.configParameters].forEach(param => {
+        // Collect all parameter values from all tabs (including harmonic)
+        [...this.powerParameters, ...this.energyParameters, ...this.configParameters, ...this.harmonicParameters].forEach(param => {
             const input = this.inputs.get(param.id);
             if (input) {
                 if (param.type === 'number') {
                     values[param.id] = parseFloat(input.value) || 0;
                 } else if (param.type === 'checkbox') {
                     values[param.id] = input.checked;
+                } else if (param.type === 'select') {
+                    values[param.id] = input.value;
                 } else {
                     values[param.id] = input.value;
                 }
@@ -542,7 +605,7 @@ export class StorageDialog extends Dialog {
         
         // Log initial parameter values
         console.log('Initial parameter values:');
-        [...this.powerParameters, ...this.energyParameters, ...this.configParameters].forEach(param => {
+        [...this.powerParameters, ...this.energyParameters, ...this.configParameters, ...this.harmonicParameters].forEach(param => {
             console.log(`  ${param.id}: ${param.value} (${param.type})`);
         });
         
@@ -591,7 +654,18 @@ export class StorageDialog extends Dialog {
                     console.log(`  Updated config ${attributeName}: ${oldValue} → ${configParam.value}`);
                 }
                 
-                if (!powerParam && !energyParam && !configParam) {
+                const harmonicParam = this.harmonicParameters.find(p => p.id === attributeName);
+                if (harmonicParam) {
+                    const oldValue = harmonicParam.value;
+                    if (harmonicParam.type === 'checkbox') {
+                        harmonicParam.value = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        harmonicParam.value = attributeValue;
+                    }
+                    console.log(`  Updated harmonic ${attributeName}: ${oldValue} → ${harmonicParam.value}`);
+                }
+                
+                if (!powerParam && !energyParam && !configParam && !harmonicParam) {
                     console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
             }
@@ -601,7 +675,7 @@ export class StorageDialog extends Dialog {
         
         // Log final parameter values
         console.log('Final parameter values:');
-        [...this.powerParameters, ...this.energyParameters, ...this.configParameters].forEach(param => {
+        [...this.powerParameters, ...this.energyParameters, ...this.configParameters, ...this.harmonicParameters].forEach(param => {
             console.log(`  ${param.id}: ${param.value} (${param.type})`);
         });
         

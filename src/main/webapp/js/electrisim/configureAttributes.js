@@ -7,7 +7,7 @@ export function configureExternalGridAttributes(grafka, vertex, options = {}) {
     
     g.setAttribute("name", "External Grid");
     g.setAttribute("Load_flow_parameters", "");
-    g.setAttribute("vm_pu", options.vm_pu || "0");
+    g.setAttribute("vm_pu", options.vm_pu || "1");
     g.setAttribute("va_degree", options.va_degree || "0");
     //g.setAttribute("in_service", true);
 
@@ -20,16 +20,9 @@ export function configureExternalGridAttributes(grafka, vertex, options = {}) {
     g.setAttribute("r0x0_max", "0");
     g.setAttribute("x0x_max", "0");
 
-
-    //Optimal Power Flow
-    /*
-    g.setAttribute("Optimal_power_flow_parameters", "");
-    g.setAttribute("max_p_mw", "0");
-    g.setAttribute("min_p_mw", "0");
-    g.setAttribute("max_q_mvar", "0");
-    g.setAttribute("min_q_mvar", "0");              
-    g.setAttribute("slack_weight", "0");
-    g.setAttribute("controllable", true);*/
+    // Harmonic analysis parameters (OpenDSS Vsource)
+    g.setAttribute("Harmonic_parameters", "");
+    g.setAttribute("spectrum", options.spectrum || "defaultvsource");
 
     // Set the new value for the vertex
     grafka.getModel().setValue(vertex, g);
@@ -47,7 +40,7 @@ export function configureGeneratorAttributes(grafka, vertex, options = {}) {
     g.setAttribute("name", "Generator");                
     g.setAttribute("Load_flow_parameters", "");
     g.setAttribute("p_mw", options.p_mw || "0");
-    g.setAttribute("vm_pu", options.vm_pu || "0");
+    g.setAttribute("vm_pu", options.vm_pu || "1");
     g.setAttribute("sn_mva", options.sn_mva || "0");
     g.setAttribute("scaling", options.scaling || "1");
     // g.setAttribute("in_service", true);                
@@ -74,6 +67,13 @@ export function configureGeneratorAttributes(grafka, vertex, options = {}) {
 
     //distributed power flow
     //g.setAttribute("slack_weight", "0"); 
+
+    // Harmonic analysis parameters (OpenDSS)
+    // Reference: https://opendss.epri.com/Properties9.html
+    g.setAttribute("Harmonic_parameters", "");
+    g.setAttribute("spectrum", options.spectrum || "defaultgen");
+    g.setAttribute("Xdpp", options.Xdpp || "0.20");
+    g.setAttribute("XRdp", options.XRdp || "20");
 
     grafka.getModel().setValue(vertex, g)
 
@@ -111,6 +111,13 @@ export function configureStaticGeneratorAttributes(grafka, vertex, options = {})
     g.setAttribute("min_q_mvar", "0");
     g.setAttribute("controllable", true);
     g.setAttribute("q_mvar", "0");*/
+
+    // Harmonic analysis parameters (OpenDSS)
+    // Reference: https://opendss.epri.com/Properties9.html
+    g.setAttribute("Harmonic_parameters", "");
+    g.setAttribute("spectrum", options.spectrum || "defaultgen");
+    g.setAttribute("Xdpp", options.Xdpp || "0.20");
+    g.setAttribute("XRdp", options.XRdp || "20");
 
     grafka.getModel().setValue(vertex, g)
 
@@ -205,17 +212,10 @@ export function configureTransformerAttributes(grafka, vertex, options = {}) {
     g.setAttribute("tap_step_degree", options.tap_step_degree ||"0");
     g.setAttribute("tap_phase_shifter", false);
     g.setAttribute("tap_changer_type", options.tap_changer_type || "Ratio"); // pandapower 3.0+: "Ratio", "Symmetrical", or "Ideal"
-    
-    //optimal power flow
-    /*
-    g.setAttribute("max_loading_percent", "0");
 
-    g.setAttribute("df", "0"); */
-
-    //short-circuit
-    /*
-    g.setAttribute("oltc", "False");
-    g.setAttribute("xn_ohm", "0");  */
+    // Harmonic analysis parameters (OpenDSS Transformer)
+    g.setAttribute("Harmonic_parameters", "");
+    g.setAttribute("XRConst", options.XRConst || "No");
 
     grafka.getModel().setValue(vertex, g)
 
@@ -348,13 +348,13 @@ export function configureLoadAttributes(grafka, vertex, options = {}) {
     g.setAttribute("type", options.type || "Wye");
     //g.setAttribute("in_service", "True"); //in_service nie działa
 
-    //Optimal power flow
-    /*
-    g.setAttribute("max_p_mw", "0");
-    g.setAttribute("min_p_mw", "0");
-    g.setAttribute("max_q_mvar", "0");
-    g.setAttribute("min_q_mvar", "0");
-    g.setAttribute("controllable", "True");*/
+    // Harmonic analysis parameters (OpenDSS)
+    // Reference: https://opendss.epri.com/HarmonicsLoadModeling.html
+    g.setAttribute("Harmonic_parameters", "");
+    g.setAttribute("spectrum", options.spectrum || "defaultload");
+    g.setAttribute("pctSeriesRL", options.pctSeriesRL || "50");
+    g.setAttribute("puXharm", options.puXharm || "0.0");
+    g.setAttribute("XRharm", options.XRharm || "6.0");
 
     grafka.getModel().setValue(vertex, g)
     
@@ -494,6 +494,11 @@ export function configureStorageAttributes(grafka, vertex, options = {}) {
     g.setAttribute("scaling", options.scaling || "1");
     g.setAttribute("type", options.type ||"0");
     // g.setAttribute("in_service", "True");
+
+    // Harmonic analysis parameters (OpenDSS)
+    // Reference: https://opendss.epri.com/Storage.html
+    g.setAttribute("Harmonic_parameters", "");
+    g.setAttribute("spectrum", options.spectrum || "default");
 
     //Optimal Power Flow
     /*
