@@ -702,15 +702,41 @@ mxGraph.prototype.addEdge = function (edge, parent, source, target, index) {
             var targetShape = getShapeElxxx(targetStyle);
             var edgeShape = getShapeElxxx(edgeStyle);
 
-            // 1) Placeholders for ALL components connected to a Bus via edges
+            // 1) Placeholders for Line elements (Bus-to-Bus edges with shapeELXXX=Line)
+            // Lines created via import use insertEdge, so they go through addEdge but not the connect handler.
+            var sourceIsBus = isBusStyle(sourceStyle);
+            var targetIsBus = isBusStyle(targetStyle);
+            var edgeIsLine = (edgeShape === 'Line');
+
+            if (sourceIsBus && targetIsBus && edgeIsLine) {
+                var lineHasPlaceholder = false;
+                if (result) {
+                    var lineChildCount = this.model.getChildCount(result);
+                    for (var li = 0; li < lineChildCount; li++) {
+                        var lineChild = this.model.getChildAt(result, li);
+                        if (!lineChild) continue;
+                        var lineChildStyle = this.model.getStyle(lineChild) || '';
+                        if (isResultPlaceholderStyle(lineChildStyle)) {
+                            lineHasPlaceholder = true;
+                            break;
+                        }
+                    }
+                }
+                if (!lineHasPlaceholder) {
+                    createResultPlaceholder(this, result, result, {
+                        logicalShape: 'Result',
+                        width: 70,
+                        height: 80,
+                        positionX: 0.2
+                    });
+                }
+            }
+            // 2) Placeholders for ALL components connected to a Bus via edges
             // This includes: External Grid, Generator, Load, Motor, Transformer, Shunt Reactor,
             // Capacitor, Static Generator, Asymmetric Static Generator, Asymmetric Load,
             // Impedance, Ward, Extended Ward, Storage, SVC, TCSC, SSC, DC Line,
             // DC Bus, Load DC, Source DC, Switch, VSC, B2B VSC, etc.
-            var sourceIsBus = isBusStyle(sourceStyle);
-            var targetIsBus = isBusStyle(targetStyle);
-
-            if ((sourceIsBus && !targetIsBus && targetShape) ||
+            else if ((sourceIsBus && !targetIsBus && targetShape) ||
                 (targetIsBus && !sourceIsBus && sourceShape)) {
 
                 var componentCell = sourceIsBus ? target : source;

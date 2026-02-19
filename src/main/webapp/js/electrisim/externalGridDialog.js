@@ -17,7 +17,8 @@ export const defaultExternalGridData = {
     max_q_mvar: 0.0,
     min_q_mvar: 0.0,
     controllable: false,
-    slack_weight: 1.0
+    slack_weight: 1.0,
+    spectrum: 'defaultvsource'
 };
 
 export class ExternalGridDialog extends Dialog {
@@ -177,6 +178,20 @@ export class ExternalGridDialog extends Dialog {
                 min: '0'
             }
         ];
+
+        // Harmonic analysis parameters (OpenDSS Vsource)
+        this.harmonicParameters = [
+            {
+                id: 'spectrum',
+                label: 'Harmonic Spectrum',
+                description: 'Name of the harmonic voltage spectrum for the external grid (Vsource). ' +
+                    '"defaultvsource" is the built-in spectrum (only fundamental). ' +
+                    'Change this to inject harmonic voltages from the grid source.',
+                type: 'select',
+                value: this.data.spectrum || 'defaultvsource',
+                options: ['defaultvsource', 'defaultgen', 'defaultload', 'none']
+            }
+        ];
     }
     
     getDescription() {
@@ -237,10 +252,12 @@ export class ExternalGridDialog extends Dialog {
         const loadFlowTab = this.createTab('Load Flow', 'loadflow', this.currentTab === 'loadflow');
         const shortCircuitTab = this.createTab('Short Circuit', 'shortcircuit', this.currentTab === 'shortcircuit');
         const opfTab = this.createTab('OPF', 'opf', this.currentTab === 'opf');
+        const harmonicTab = this.createTab('Harmonic', 'harmonic', this.currentTab === 'harmonic');
         
         tabContainer.appendChild(loadFlowTab);
         tabContainer.appendChild(shortCircuitTab);
         tabContainer.appendChild(opfTab);
+        tabContainer.appendChild(harmonicTab);
         container.appendChild(tabContainer);
 
         // Create content area
@@ -259,10 +276,12 @@ export class ExternalGridDialog extends Dialog {
         const loadFlowContent = this.createTabContent('loadflow', this.loadFlowParameters);
         const shortCircuitContent = this.createTabContent('shortcircuit', this.shortCircuitParameters);
         const opfContent = this.createTabContent('opf', this.opfParameters);
+        const harmonicContent = this.createTabContent('harmonic', this.harmonicParameters);
         
         contentArea.appendChild(loadFlowContent);
         contentArea.appendChild(shortCircuitContent);
         contentArea.appendChild(opfContent);
+        contentArea.appendChild(harmonicContent);
         container.appendChild(contentArea);
 
         // Add button container
@@ -292,6 +311,30 @@ export class ExternalGridDialog extends Dialog {
             const values = this.getFormValues();
             console.log('External Grid values:', values);
             
+            // Validate vm_pu - warn user if it looks like they entered kV instead of per unit
+            if (values.vm_pu !== undefined) {
+                const vmPu = parseFloat(values.vm_pu);
+                if (vmPu > 1.5) {
+                    const proceed = confirm(
+                        `WARNING: Voltage Magnitude (vm_pu) is set to ${vmPu}.\n\n` +
+                        `This value is in PER UNIT (p.u.), not in kV!\n` +
+                        `A value of ${vmPu} p.u. means the voltage is ${vmPu} times the nominal bus voltage.\n\n` +
+                        `For normal operation, vm_pu should be close to 1.0 (e.g., 0.95 to 1.05).\n\n` +
+                        `Did you perhaps mean to enter 1.0 p.u.?\n\n` +
+                        `Click OK to apply ${vmPu} anyway, or Cancel to go back and correct it.`
+                    );
+                    if (!proceed) return;
+                } else if (vmPu === 0) {
+                    const proceed = confirm(
+                        `WARNING: Voltage Magnitude (vm_pu) is set to 0.\n\n` +
+                        `This would set the grid voltage to 0, which is not physical.\n` +
+                        `For normal operation, vm_pu should be close to 1.0.\n\n` +
+                        `Click OK to apply 0 anyway, or Cancel to go back and correct it.`
+                    );
+                    if (!proceed) return;
+                }
+            }
+            
             if (this.callback) {
                 this.callback(values);
             }
@@ -309,9 +352,12 @@ export class ExternalGridDialog extends Dialog {
         this.container = container;
         
         // Tab click handlers
-        loadFlowTab.onclick = () => this.switchTab('loadflow', loadFlowTab, [shortCircuitTab, opfTab], loadFlowContent, [shortCircuitContent, opfContent]);
-        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [loadFlowTab, opfTab], shortCircuitContent, [loadFlowContent, opfContent]);
-        opfTab.onclick = () => this.switchTab('opf', opfTab, [loadFlowTab, shortCircuitTab], opfContent, [loadFlowContent, shortCircuitContent]);
+        const allTabs = [loadFlowTab, shortCircuitTab, opfTab, harmonicTab];
+        const allContents = [loadFlowContent, shortCircuitContent, opfContent, harmonicContent];
+        loadFlowTab.onclick = () => this.switchTab('loadflow', loadFlowTab, allTabs.filter(t => t !== loadFlowTab), loadFlowContent, allContents.filter(c => c !== loadFlowContent));
+        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, allTabs.filter(t => t !== shortCircuitTab), shortCircuitContent, allContents.filter(c => c !== shortCircuitContent));
+        opfTab.onclick = () => this.switchTab('opf', opfTab, allTabs.filter(t => t !== opfTab), opfContent, allContents.filter(c => c !== opfContent));
+        harmonicTab.onclick = () => this.switchTab('harmonic', harmonicTab, allTabs.filter(t => t !== harmonicTab), harmonicContent, allContents.filter(c => c !== harmonicContent));
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
@@ -427,12 +473,10 @@ export class ExternalGridDialog extends Dialog {
                 width: '200px'
             });
             
-            const input = document.createElement('input');
-            input.type = param.type;
-            input.id = param.id;
-            
-            // Handle different input types
+            let input;
             if (param.type === 'checkbox') {
+                input = document.createElement('input');
+                input.type = 'checkbox';
                 input.checked = param.value;
                 Object.assign(input.style, {
                     width: '24px',
@@ -441,7 +485,33 @@ export class ExternalGridDialog extends Dialog {
                     cursor: 'pointer',
                     margin: '0'
                 });
+            } else if (param.type === 'select') {
+                input = document.createElement('select');
+                param.options.forEach(option => {
+                    const optionElement = document.createElement('option');
+                    optionElement.value = option;
+                    optionElement.textContent = option.charAt(0).toUpperCase() + option.slice(1);
+                    if (option === param.value) {
+                        optionElement.selected = true;
+                    }
+                    input.appendChild(optionElement);
+                });
+                Object.assign(input.style, {
+                    width: '180px',
+                    padding: '10px 14px',
+                    border: '2px solid #ced4da',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                    backgroundColor: '#ffffff',
+                    boxSizing: 'border-box',
+                    transition: 'all 0.2s ease',
+                    outline: 'none',
+                    cursor: 'pointer'
+                });
             } else {
+                input = document.createElement('input');
+                input.type = param.type;
                 input.value = param.value;
                 Object.assign(input.style, {
                     width: '180px',
@@ -483,6 +553,8 @@ export class ExternalGridDialog extends Dialog {
                     }
                 });
             }
+            
+            input.id = param.id;
             
             // Set additional attributes
             if (param.step) input.step = param.step;
@@ -561,7 +633,7 @@ export class ExternalGridDialog extends Dialog {
         const values = {};
         
         // Collect all parameter values from all tabs
-        [...this.loadFlowParameters, ...this.shortCircuitParameters, ...this.opfParameters].forEach(param => {
+        [...this.loadFlowParameters, ...this.shortCircuitParameters, ...this.opfParameters, ...this.harmonicParameters].forEach(param => {
             const input = this.inputs.get(param.id);
             if (input) {
                 if (param.type === 'number') {

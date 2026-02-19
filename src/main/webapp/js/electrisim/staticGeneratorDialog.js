@@ -15,7 +15,11 @@ export const defaultStaticGeneratorData = {
     max_ik_ka: 0.0,
     kappa: 0.0,
     current_source: true,
-    in_service: true
+    in_service: true,
+    // Harmonic analysis parameters (OpenDSS)
+    spectrum: 'defaultgen',
+    Xdpp: 0.20,
+    XRdp: 20
 };
 
 export class StaticGeneratorDialog extends Dialog {
@@ -158,6 +162,44 @@ export class StaticGeneratorDialog extends Dialog {
                 value: this.data.in_service
             }
         ];
+        
+        // Harmonic analysis parameters (OpenDSS)
+        // Reference: https://opendss.epri.com/Properties9.html
+        // Reference: https://opendss.epri.com/HarmonicsLoadModeling.html
+        this.harmonicParameters = [
+            {
+                id: 'spectrum',
+                label: 'Harmonic Spectrum',
+                description: 'Name of the harmonic voltage or current spectrum for this generator. ' +
+                    '"defaultgen" is the default spectrum defined when OpenDSS starts. ' +
+                    'You can also type a custom spectrum name. The spectrum defines the magnitude and angle ' +
+                    'of harmonic injections relative to the fundamental.',
+                type: 'select',
+                value: this.data.spectrum,
+                options: ['defaultgen', 'defaultload', 'defaultvsource', 'none']
+            },
+            {
+                id: 'Xdpp',
+                label: 'Sub-transient Reactance Xd\'\' (p.u.)',
+                description: 'Per unit sub-transient reactance of the machine. Used for Harmonics. ' +
+                    'Default is 0.20. This defines the impedance behind which the generator ' +
+                    'voltage source is placed during the harmonic solution.',
+                type: 'number',
+                value: this.data.Xdpp.toString(),
+                step: '0.01',
+                min: '0'
+            },
+            {
+                id: 'XRdp',
+                label: 'X/R Ratio for Xd\' (XRdp)',
+                description: 'X/R ratio for the transient reactance Xdp property. Default is 20. ' +
+                    'Used for Fault Study and Dynamic / Harmonic modes.',
+                type: 'number',
+                value: this.data.XRdp.toString(),
+                step: '1',
+                min: '0'
+            }
+        ];
     }
     
     getDescription() {
@@ -219,11 +261,13 @@ export class StaticGeneratorDialog extends Dialog {
         const ratingTab = this.createTab('Rating', 'rating', this.currentTab === 'rating');
         const shortCircuitTab = this.createTab('Short Circuit', 'shortcircuit', this.currentTab === 'shortcircuit');
         const advancedTab = this.createTab('Advanced', 'advanced', this.currentTab === 'advanced');
+        const harmonicTab = this.createTab('Harmonic', 'harmonic', this.currentTab === 'harmonic');
         
         tabContainer.appendChild(powerTab);
         tabContainer.appendChild(ratingTab);
         tabContainer.appendChild(shortCircuitTab);
         tabContainer.appendChild(advancedTab);
+        tabContainer.appendChild(harmonicTab);
         container.appendChild(tabContainer);
 
         // Create content area
@@ -243,11 +287,13 @@ export class StaticGeneratorDialog extends Dialog {
         const ratingContent = this.createTabContent('rating', this.ratingParameters);
         const shortCircuitContent = this.createTabContent('shortcircuit', this.shortCircuitParameters);
         const advancedContent = this.createTabContent('advanced', this.advancedParameters);
+        const harmonicContent = this.createTabContent('harmonic', this.harmonicParameters);
         
         contentArea.appendChild(powerContent);
         contentArea.appendChild(ratingContent);
         contentArea.appendChild(shortCircuitContent);
         contentArea.appendChild(advancedContent);
+        contentArea.appendChild(harmonicContent);
         container.appendChild(contentArea);
 
         // Add button container
@@ -294,10 +340,13 @@ export class StaticGeneratorDialog extends Dialog {
         this.container = container;
         
         // Tab click handlers
-        powerTab.onclick = () => this.switchTab('power', powerTab, [ratingTab, shortCircuitTab, advancedTab], powerContent, [ratingContent, shortCircuitContent, advancedContent]);
-        ratingTab.onclick = () => this.switchTab('rating', ratingTab, [powerTab, shortCircuitTab, advancedTab], ratingContent, [powerContent, shortCircuitContent, advancedContent]);
-        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [powerTab, ratingTab, advancedTab], shortCircuitContent, [powerContent, ratingContent, advancedContent]);
-        advancedTab.onclick = () => this.switchTab('advanced', advancedTab, [powerTab, ratingTab, shortCircuitTab], advancedContent, [powerContent, ratingContent, shortCircuitContent]);
+        const allTabs = [powerTab, ratingTab, shortCircuitTab, advancedTab, harmonicTab];
+        const allContents = [powerContent, ratingContent, shortCircuitContent, advancedContent, harmonicContent];
+        powerTab.onclick = () => this.switchTab('power', powerTab, allTabs.filter(t => t !== powerTab), powerContent, allContents.filter(c => c !== powerContent));
+        ratingTab.onclick = () => this.switchTab('rating', ratingTab, allTabs.filter(t => t !== ratingTab), ratingContent, allContents.filter(c => c !== ratingContent));
+        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, allTabs.filter(t => t !== shortCircuitTab), shortCircuitContent, allContents.filter(c => c !== shortCircuitContent));
+        advancedTab.onclick = () => this.switchTab('advanced', advancedTab, allTabs.filter(t => t !== advancedTab), advancedContent, allContents.filter(c => c !== advancedContent));
+        harmonicTab.onclick = () => this.switchTab('harmonic', harmonicTab, allTabs.filter(t => t !== harmonicTab), harmonicContent, allContents.filter(c => c !== harmonicContent));
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
@@ -575,8 +624,8 @@ export class StaticGeneratorDialog extends Dialog {
     getFormValues() {
         const values = {};
         
-        // Collect all parameter values from all tabs
-        [...this.powerParameters, ...this.ratingParameters, ...this.shortCircuitParameters, ...this.advancedParameters].forEach(param => {
+        // Collect all parameter values from all tabs (including harmonic)
+        [...this.powerParameters, ...this.ratingParameters, ...this.shortCircuitParameters, ...this.advancedParameters, ...this.harmonicParameters].forEach(param => {
             const input = this.inputs.get(param.id);
             if (input) {
                 if (param.type === 'number') {
@@ -612,7 +661,7 @@ export class StaticGeneratorDialog extends Dialog {
         
         // Log initial parameter values
         console.log('Initial parameter values:');
-        [...this.powerParameters, ...this.ratingParameters, ...this.shortCircuitParameters, ...this.advancedParameters].forEach(param => {
+        [...this.powerParameters, ...this.ratingParameters, ...this.shortCircuitParameters, ...this.advancedParameters, ...this.harmonicParameters].forEach(param => {
             console.log(`  ${param.id}: ${param.value} (${param.type})`);
         });
         
@@ -672,7 +721,18 @@ export class StaticGeneratorDialog extends Dialog {
                     console.log(`  Updated advanced ${attributeName}: ${oldValue} → ${advancedParam.value}`);
                 }
                 
-                if (!powerParam && !ratingParam && !shortCircuitParam && !advancedParam) {
+                const harmonicParam = this.harmonicParameters.find(p => p.id === attributeName);
+                if (harmonicParam) {
+                    const oldValue = harmonicParam.value;
+                    if (harmonicParam.type === 'checkbox') {
+                        harmonicParam.value = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        harmonicParam.value = attributeValue;
+                    }
+                    console.log(`  Updated harmonic ${attributeName}: ${oldValue} → ${harmonicParam.value}`);
+                }
+                
+                if (!powerParam && !ratingParam && !shortCircuitParam && !advancedParam && !harmonicParam) {
                     console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
             }
@@ -682,7 +742,7 @@ export class StaticGeneratorDialog extends Dialog {
         
         // Log final parameter values
         console.log('Final parameter values:');
-        [...this.powerParameters, ...this.ratingParameters, ...this.shortCircuitParameters, ...this.advancedParameters].forEach(param => {
+        [...this.powerParameters, ...this.ratingParameters, ...this.shortCircuitParameters, ...this.advancedParameters, ...this.harmonicParameters].forEach(param => {
             console.log(`  ${param.id}: ${param.value} (${param.type})`);
         });
         

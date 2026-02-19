@@ -2204,6 +2204,14 @@ function loadFlowPandaPower(a, b, c) {
                 console.log('❌ No tap_control_results found or array is empty');
             }
 
+            // Display parameter validation warnings if any (e.g., vm_pu auto-correction)
+            if (dataJson.warnings && dataJson.warnings.length > 0) {
+                console.log('⚠️ Backend warnings:', dataJson.warnings);
+                const warningMessage = 'PARAMETER VALIDATION WARNINGS:\n\n' + 
+                    dataJson.warnings.map((w, i) => `${i + 1}. ${w}`).join('\n\n');
+                alert(warningMessage);
+            }
+
             // Optimize result processing with enhanced performance monitoring
             const resultProcessingStart = performance.now();
             console.log('Starting result visualization...');
