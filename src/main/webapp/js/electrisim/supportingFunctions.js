@@ -115,6 +115,64 @@ window.findVertexByBusId = findVertexByBusId;
 // Make the low-level inserter available globally so app.min.js can call it directly
 window.insertComponentsForData = insertComponentsForData;
 
+/**
+ * Resolves overlapping non-bus component vertices by iteratively pushing them apart.
+ * Buses (horizontal bar shapes) and transformers (between buses) are left untouched.
+ * Only repositions components (loads, generators, shunts, etc.) that overlap each other.
+ * @param {mxGraph} grafka - The mxGraph instance
+ * @param {mxCell} parent - The parent cell containing vertices to process
+ * @param {Object} options - { margin: number, maxIterations: number }
+ */
+function resolveOverlapsInGraph(grafka, parent, options) {
+    const margin = (options && options.margin) || 10;
+    const maxIterations = (options && options.maxIterations) || 40;
+
+    var childCells = grafka.getChildCells(parent, true, false);
+    var components = [];
+    for (var ci = 0; ci < childCells.length; ci++) {
+        var cell = childCells[ci];
+        if (!grafka.getModel().isVertex(cell) || !cell.geometry) continue;
+        var style = cell.style || '';
+        if (style.indexOf('shapeELXXX=Bus') !== -1) continue;
+        if (style.indexOf('shapeELXXX=Transformer') !== -1) continue;
+        if (style.indexOf('shapeELXXX=Three Winding Transformer') !== -1) continue;
+        if (style.indexOf('shapeELXXX=NotEditableLine') !== -1) continue;
+        components.push(cell);
+    }
+
+    if (components.length < 2) return;
+
+    var model = grafka.getModel();
+    for (var iter = 0; iter < maxIterations; iter++) {
+        var moved = false;
+        for (var i = 0; i < components.length; i++) {
+            for (var j = i + 1; j < components.length; j++) {
+                var gA = components[i].geometry;
+                var gB = components[j].geometry;
+                if (!gA || !gB) continue;
+
+                var ox = Math.min(gA.x + gA.width, gB.x + gB.width) - Math.max(gA.x, gB.x) + margin;
+                var oy = Math.min(gA.y + gA.height, gB.y + gB.height) - Math.max(gA.y, gB.y) + margin;
+
+                if (ox > 0 && oy > 0) {
+                    moved = true;
+                    var cax = gA.x + gA.width / 2;
+                    var cbx = gB.x + gB.width / 2;
+                    var shiftX = ox / 2 + 2;
+                    if (cax <= cbx) {
+                        var nA = gA.clone(); nA.x -= shiftX; model.setGeometry(components[i], nA);
+                        var nB = gB.clone(); nB.x += shiftX; model.setGeometry(components[j], nB);
+                    } else {
+                        var nA2 = gA.clone(); nA2.x += shiftX; model.setGeometry(components[i], nA2);
+                        var nB2 = gB.clone(); nB2.x -= shiftX; model.setGeometry(components[j], nB2);
+                    }
+                }
+            }
+        }
+        if (!moved) break;
+    }
+}
+
 // Helper to build a diagram from a Pandapower/OpenDSS JSON string
 window.buildDiagramFromModelJson = function (grafka, dataJson) {
     try {
@@ -300,6 +358,7 @@ async function insertComponentsForData(grafka, a, target, point, data) {
     var y = point.y / scale - tr.y;
 
     var parent = grafka.getDefaultParent();
+
     grafka.getModel().beginUpdate();
 
     try {
@@ -408,10 +467,34 @@ async function insertComponentsForData(grafka, a, target, point, data) {
 
         console.log(`Filter buses detected: ${filterBusSet.size}, Filter chains: ${Object.keys(filterChainsMap).length} roots`);
 
+        // === Pre-calculate component counts per bus ===
+        const busComponentCounts = new Array(busCount).fill(0);
+        const countBusComponents = function (dataArr, busField) {
+            dataArr.forEach(function (row) { 
+                const idx = row[busField];
+                if (idx >= 0 && idx < busCount) busComponentCounts[idx]++;
+            });
+        };
+        // External grids are placed above the bus, not in the component grid
+        countBusComponents(generatorData.data, 1);
+        countBusComponents(staticGeneratorData.data, 1);
+        countBusComponents(asymmetricStaticGeneratorData.data, 1);
+        countBusComponents(shuntReactorData.data, 0);
+        countBusComponents(loadData.data, 1);
+        countBusComponents(asymmetricLoadData.data, 1);
+        countBusComponents(wardData.data, 1);
+        countBusComponents(extendedWardData.data, 1);
+        countBusComponents(motorData.data, 1);
+        countBusComponents(storageData.data, 1);
+        countBusComponents(svcData.data, 1);
+
         // === Placement parameters ===
-        const busSpacing = 200;
-        const startX = x + 300;
-        const startY = y + 100;
+        // Result boxes: bus=65x72, component=60x40, line=70x80
+        // Each component needs enough room for its symbol + result box side by side
+        const componentCellWidth = 140;
+        const componentsPerRow = 3;
+        const startX = x + 500;
+        const startY = y + 120;
 
         // Group buses by voltage level, EXCLUDING filter buses
         const voltageGroups = {};
@@ -500,6 +583,16 @@ async function insertComponentsForData(grafka, a, target, point, data) {
 
             const levelY = currentY;
 
+            // Dynamic bus spacing: based on max component count at this level
+            let maxCompsAtLevel = 0;
+            orderedBuses.forEach(function (busInfo) {
+                if (busComponentCounts[busInfo.index] > maxCompsAtLevel)
+                    maxCompsAtLevel = busComponentCounts[busInfo.index];
+            });
+            const cols = Math.min(maxCompsAtLevel, componentsPerRow);
+            const neededWidth = cols * componentCellWidth + 100;
+            const busSpacing = Math.max(380, neededWidth + 80);
+
             const totalWidth = (orderedBuses.length - 1) * busSpacing;
             const levelStartX = startX - (totalWidth / 2);
 
@@ -510,11 +603,12 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 };
             });
 
-            // Dynamic spacing: account for filter chain depth + components at this level
+            // Dynamic vertical spacing: account for component rows + filter chains
+            const maxRows = Math.ceil(maxCompsAtLevel / componentsPerRow);
             const filterDepth = voltageFilterDepth[voltage] || 0;
             const chainSpace = filterDepth * 170;
-            const componentSpace = 140;
-            currentY += Math.max(300, chainSpace + componentSpace + 100);
+            const componentSpace = 180 + maxRows * 100;
+            currentY += Math.max(550, chainSpace + componentSpace + 150);
         });
 
         // Transformer alignment: move LV bus under HV bus (don't touch HV position)
@@ -529,12 +623,18 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                     const lvVoltage = parseFloat(busData.data[lv_bus_no][1]);
                     if (hvVoltage !== lvVoltage) {
                         let targetX = busPositions[hv_bus_no].x;
-                        // Check if another LV bus already occupies this X at the same Y
-                        for (const prevBus of lvBusRepositioned) {
-                            if (prevBus !== lv_bus_no &&
-                                Math.abs(busPositions[prevBus].x - targetX) < 100 &&
-                                Math.abs(busPositions[prevBus].y - busPositions[lv_bus_no].y) < 20) {
-                                targetX += 120;
+                        // Shift if another LV bus already occupies this X at the same Y
+                        let collision = true;
+                        while (collision) {
+                            collision = false;
+                            for (const prevBus of lvBusRepositioned) {
+                                if (prevBus !== lv_bus_no &&
+                                    Math.abs(busPositions[prevBus].x - targetX) < 280 &&
+                                    Math.abs(busPositions[prevBus].y - busPositions[lv_bus_no].y) < 50) {
+                                    targetX += 320;
+                                    collision = true;
+                                    break;
+                                }
                             }
                         }
                         busPositions[lv_bus_no].x = targetX;
@@ -545,8 +645,8 @@ async function insertComponentsForData(grafka, a, target, point, data) {
         });
 
         // Position filter chain buses as vertical branches below their root bus
-        const chainYSpacing = 160;
-        const chainXSpacing = 230;
+        const chainYSpacing = 250;
+        const chainXSpacing = 350;
 
         for (const rootBusStr of Object.keys(filterChainsMap)) {
             const rootBus = parseInt(rootBusStr);
@@ -567,11 +667,24 @@ async function insertComponentsForData(grafka, a, target, point, data) {
             });
         }
 
-        // Per-bus component slot tracker to avoid overlapping components
+        // Per-bus component slot tracker – returns {x, y} in a grid centered under the bus
         const busComponentSlots = {};
         function getNextComponentSlot(busNo) {
             if (busComponentSlots[busNo] === undefined) busComponentSlots[busNo] = 0;
             return busComponentSlots[busNo]++;
+        }
+        function getComponentPosition(busVertex, busNo) {
+            const slot = getNextComponentSlot(busNo);
+            const totalComps = busComponentCounts[busNo] || 1;
+            const cols = Math.min(totalComps, componentsPerRow);
+            const col = slot % cols;
+            const row = Math.floor(slot / cols);
+            const busCenter = busVertex.geometry.x + busVertex.geometry.width / 2;
+            const gridStartX = busCenter - (cols - 1) * componentCellWidth / 2;
+            return {
+                x: gridStartX + col * componentCellWidth,
+                y: busVertex.geometry.y + 160 + row * 100
+            };
         }
 
         // Per-bus connection point tracker — distributes edges across the bus bar
@@ -597,15 +710,20 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 // Bus style definition with 20 connection points
                 const busStyle = "line;strokeWidth=2;html=1;shapeELXXX=Bus;points=[[0,0.5],[0.05,0.5,0],[0.1,0.5,0],[0.15,0.5,0],[0.2,0.5,0],[0.25,0.5,0],[0.3,0.5,0],[0.35,0.5,0],[0.4,0.5,0],[0.45,0.5,0],[0.5,0.5,0],[0.55,0.5,0],[0.6,0.5,0],[0.65,0.5,0],[0.7,0.5,0],[0.75,0.5,0],[0.8,0.5,0],[0.85,0.5,0],[0.9,0.5,0],[0.95,0.5,0]]";
 
+                // Widen bus bar to cover the component grid beneath it
+                const nComps = busComponentCounts[index] || 0;
+                const busCols = Math.min(nComps, componentsPerRow);
+                const busWidth = Math.max(200, busCols * componentCellWidth + 60);
+
                 const vertex = grafka.insertVertex(
                     parent,
                     null,
                     ``,
                     vertexX,
                     vertexY,
-                    160,   // width 
-                    10,    // height
-                    busStyle  // style parameter
+                    busWidth,
+                    10,
+                    busStyle
                 );
 
                 configureBusAttributes(grafka, vertex, {
@@ -613,6 +731,10 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                     vn_kv: `${vn_kv}`
                 });
             });
+
+            // Track placed transformer positions to avoid overlap
+            const placedTrafoPositions = [];
+            const trafoSpacing = 60;
 
             // Now place transformers based on the positions of connected buses
             transformerData.data.forEach((trafo, index) => {
@@ -645,9 +767,20 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                     const lvX = lvBusVertex.geometry.x;
                     const lvY = lvBusVertex.geometry.y;
 
-                    // Place transformer exactly between the HV and LV buses
-                    const vertexX = (hvX + lvX) / 2;
+                    // Place transformer between the HV and LV buses, offset if overlapping
+                    let vertexX = (hvX + lvX) / 2;
                     const vertexY = (hvY + lvY) / 2;
+
+                    // Shift horizontally if another transformer already occupies this position
+                    let shiftCount = 0;
+                    for (var pi = 0; pi < placedTrafoPositions.length; pi++) {
+                        var prev = placedTrafoPositions[pi];
+                        if (Math.abs(prev.x - vertexX) < trafoSpacing && Math.abs(prev.y - vertexY) < 40) {
+                            shiftCount++;
+                        }
+                    }
+                    vertexX += shiftCount * trafoSpacing;
+                    placedTrafoPositions.push({ x: vertexX, y: vertexY });
 
                     // Use transformer symbol style
                     const trafoStyle = "shapeELXXX=Transformer; verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;strokeWidth=1;shape=mxgraph.electrical.signal_sources.current_source;";
@@ -708,6 +841,11 @@ async function insertComponentsForData(grafka, a, target, point, data) {
             });
 
             
+            // Channel counter per Y-level band to stagger line routing heights
+            const levelLineChannels = {};
+            const lineChannelSpacing = 30;
+            const lineBaseOffset = 35;
+
             lineData.data.forEach((line, index) => {
                 const [name, std_type, from_bus, to_bus, length_km, r_ohm_per_km,
                     x_ohm_per_km, c_nf_per_km, g_us_per_km, max_i_ka, df,
@@ -727,10 +865,19 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 if (fromBusVertex && toBusVertex) {
                     const fromConnX = getNextBusConnX(from_bus);
                     const toConnX = getNextBusConnX(to_bus);
-                    let lineStyle;
 
-                    lineStyle = `edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=${fromConnX};exitY=0;exitDx=0;exitDy=0;exitPerimeter=0;entryX=${toConnX};entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=Line`;
+                    // Assign a unique channel to stagger same-level lines vertically
+                    const minBusY = Math.min(fromBusVertex.geometry.y, toBusVertex.geometry.y);
+                    const levelKey = Math.round(minBusY / 50) * 50;
+                    if (levelLineChannels[levelKey] === undefined) levelLineChannels[levelKey] = 0;
+                    const channel = levelLineChannels[levelKey]++;
+                    const routeY = minBusY - lineBaseOffset - channel * lineChannelSpacing;
 
+                    // Absolute X positions of connection points on bus bars
+                    const fromAbsX = fromBusVertex.geometry.x + fromBusVertex.geometry.width * parseFloat(fromConnX);
+                    const toAbsX = toBusVertex.geometry.x + toBusVertex.geometry.width * parseFloat(toConnX);
+
+                    let lineStyle = `edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=${fromConnX};exitY=0;exitDx=0;exitDy=0;exitPerimeter=0;entryX=${toConnX};entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=Line`;
 
                     // Insert the edge for the line
                     const edge = grafka.insertEdge(
@@ -741,6 +888,17 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                         toBusVertex,
                         lineStyle
                     );
+
+                    // Add waypoints to route through staggered channel above the buses
+                    var edgeGeo = grafka.getCellGeometry(edge);
+                    if (edgeGeo) {
+                        edgeGeo = edgeGeo.clone();
+                        edgeGeo.points = [
+                            new mxPoint(fromAbsX, routeY),
+                            new mxPoint(toAbsX, routeY)
+                        ];
+                        grafka.getModel().setGeometry(edge, edgeGeo);
+                    }
 
                     // Configure line attributes
                     configureLineAttributes(grafka, edge, {
@@ -779,7 +937,7 @@ async function insertComponentsForData(grafka, a, target, point, data) {
 
                 // Position external grid above the bus
                 const vertexX = busVertex.geometry.x;
-                const vertexY = busVertex.geometry.y - 80;
+                const vertexY = busVertex.geometry.y - 120;
 
                 const styleExternalGrid = "verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=externalGrid;shapeELXXX=External Grid"
 
@@ -816,9 +974,9 @@ async function insertComponentsForData(grafka, a, target, point, data) {
 
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
 
-                const slot = getNextComponentSlot(bus_no);
-                const vertexX = busVertex.geometry.x + slot * 45;
-                const vertexY = busVertex.geometry.y + 80;
+                const pos = getComponentPosition(busVertex, bus_no);
+                const vertexX = pos.x;
+                const vertexY = pos.y;
 
                 const styleGenerator = "pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.signal_sources.ac_source;shapeELXXX=Generator"
 
@@ -862,9 +1020,9 @@ async function insertComponentsForData(grafka, a, target, point, data) {
 
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
 
-                const slot = getNextComponentSlot(bus_no);
-                const vertexX = busVertex.geometry.x + slot * 45;
-                const vertexY = busVertex.geometry.y + 80;
+                const pos = getComponentPosition(busVertex, bus_no);
+                const vertexX = pos.x;
+                const vertexY = pos.y;
 
                 const styleStaticGenerator = "verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.rot_mech.synchro;shapeELXXX=Static Generator"
 
@@ -904,9 +1062,9 @@ async function insertComponentsForData(grafka, a, target, point, data) {
 
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
 
-                const slot = getNextComponentSlot(bus_no);
-                const vertexX = busVertex.geometry.x + slot * 45;
-                const vertexY = busVertex.geometry.y + 80;
+                const pos = getComponentPosition(busVertex, bus_no);
+                const vertexX = pos.x;
+                const vertexY = pos.y;
 
                 const styleAsymmetricStaticGenerator = "verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.rot_mech.asymmetric;shapeELXXX=Asymmetric Static Generator"
 
@@ -1115,9 +1273,9 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 let bus = busData.data[bus_no];
                 let bus_name = bus[0];
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
-                const slot = getNextComponentSlot(bus_no);
-                const vertexX = busVertex.geometry.x + slot * 45;
-                const vertexY = busVertex.geometry.y + 70;
+                const pos = getComponentPosition(busVertex, bus_no);
+                const vertexX = pos.x;
+                const vertexY = pos.y;
                 const styleShuntReactor = "pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.signal_sources.signal_ground;shapeELXXX=Shunt Reactor"
                 const vertex = grafka.insertVertex(
                     parent,
@@ -1185,9 +1343,9 @@ async function insertComponentsForData(grafka, a, target, point, data) {
 
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
 
-                const slot = getNextComponentSlot(bus_no);
-                const vertexX = busVertex.geometry.x + slot * 45;
-                const vertexY = busVertex.geometry.y + 70;
+                const pos = getComponentPosition(busVertex, bus_no);
+                const vertexX = pos.x;
+                const vertexY = pos.y;
 
                 const loadStyle = "pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.signal_sources.signal_ground;shapeELXXX=Load"
 
@@ -1226,9 +1384,9 @@ async function insertComponentsForData(grafka, a, target, point, data) {
 
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
 
-                const slot = getNextComponentSlot(bus_no);
-                const vertexX = busVertex.geometry.x + slot * 45;
-                const vertexY = busVertex.geometry.y + 70;
+                const pos = getComponentPosition(busVertex, bus_no);
+                const vertexX = pos.x;
+                const vertexY = pos.y;
 
                 const asymmetricloadStyle = "pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.signal_sources.signal_ground;shapeELXXX=Asymmetric Load"
 
@@ -1329,9 +1487,9 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 let bus = busData.data[bus_no];
                 let bus_name = bus[0];
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
-                const slot = getNextComponentSlot(bus_no);
-                const vertexX = busVertex.geometry.x + slot * 45;
-                const vertexY = busVertex.geometry.y + 70;
+                const pos = getComponentPosition(busVertex, bus_no);
+                const vertexX = pos.x;
+                const vertexY = pos.y;
                 const styleWard = "pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.signal_sources.signal_ground;shapeELXXX=Ward"
                 const vertex = grafka.insertVertex(
                     parent,
@@ -1362,9 +1520,9 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 let bus = busData.data[bus_no];
                 let bus_name = bus[0];
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
-                const slot = getNextComponentSlot(bus_no);
-                const vertexX = busVertex.geometry.x + slot * 45;
-                const vertexY = busVertex.geometry.y + 70;
+                const pos = getComponentPosition(busVertex, bus_no);
+                const vertexX = pos.x;
+                const vertexY = pos.y;
                 const styleExtendedWard = "pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.miscellaneous.extended_ward;shapeELXXX=Extended Ward"
                 const vertex = grafka.insertVertex(
                     parent,
@@ -1399,9 +1557,9 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 let bus = busData.data[bus_no];
                 let bus_name = bus[0];
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
-                const slot = getNextComponentSlot(bus_no);
-                const vertexX = busVertex.geometry.x + slot * 45;
-                const vertexY = busVertex.geometry.y + 70;
+                const pos = getComponentPosition(busVertex, bus_no);
+                const vertexX = pos.x;
+                const vertexY = pos.y;
                 const styleMotor = "shapeELXXX=Motor;verticalLabelPosition=middle;shadow=0;dashed=0;align=center;html=1;verticalAlign=middle;strokeWidth=1;shape=ellipse;fontSize=32;perimeter=ellipsePerimeter;"
                 const vertex = grafka.insertVertex(
                     parent,
@@ -1440,9 +1598,9 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 let bus = busData.data[bus_no];
                 let bus_name = bus[0];
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
-                const slot = getNextComponentSlot(bus_no);
-                const vertexX = busVertex.geometry.x + slot * 45;
-                const vertexY = busVertex.geometry.y + 70;
+                const pos = getComponentPosition(busVertex, bus_no);
+                const vertexX = pos.x;
+                const vertexY = pos.y;
                 const styleStorage = "pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.miscellaneous.multicell_battery;shapeELXXX=Storage"
                 const vertex = grafka.insertVertex(
                     parent,
@@ -1479,9 +1637,9 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 let bus = busData.data[bus_no];
                 let bus_name = bus[0];
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
-                const slot = getNextComponentSlot(bus_no);
-                const vertexX = busVertex.geometry.x + slot * 45;
-                const vertexY = busVertex.geometry.y + 70;
+                const pos = getComponentPosition(busVertex, bus_no);
+                const vertexX = pos.x;
+                const vertexY = pos.y;
                 const styleSVC = "pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.miscellaneous.svc;shapeELXXX=SVC"
                 const vertex = grafka.insertVertex(
                     parent,
@@ -1628,13 +1786,25 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 }
             });
 
+            // Post-processing: resolve overlapping vertices
+            resolveOverlapsInGraph(grafka, parent, { margin: 20, maxIterations: 60 });
+
         } catch (error) {
             console.error('Error during vertex insertion:', error);
         } finally {
             grafka.getModel().endUpdate();
-        }
 
-        //this.drop(grafka, a, target, x, y);
+            // Ensure every bus has a result placeholder
+            if (typeof window.createBusResultPlaceholder === 'function') {
+                var allCells = grafka.getChildCells(parent, true, false);
+                for (var ri = 0; ri < allCells.length; ri++) {
+                    var rc = allCells[ri];
+                    if (rc.style && rc.style.indexOf('shapeELXXX=Bus') !== -1) {
+                        window.createBusResultPlaceholder(grafka, rc);
+                    }
+                }
+            }
+        }
 
     }
 

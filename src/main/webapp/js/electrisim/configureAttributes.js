@@ -634,9 +634,9 @@ export function configureLineAttributes(grafka, vertex, options = {}) {
     g.setAttribute("type", options.type || "cs");
 
     //Short circuit parameters
-    g.setAttribute("r0_ohm_per_km", "0");
-    g.setAttribute("x0_ohm_per_km", "0");
-    g.setAttribute("c0_nf_per_km", "0");
+    g.setAttribute("r0_ohm_per_km", options.r0_ohm_per_km || "0.1");
+    g.setAttribute("x0_ohm_per_km", options.x0_ohm_per_km || "0.1");
+    g.setAttribute("c0_nf_per_km", options.c0_nf_per_km || "0.1");
     g.setAttribute("endtemp_degree", "0");  
 
 
