@@ -19,7 +19,9 @@ export const defaultLoadData = {
     // Harmonic analysis parameters (OpenDSS)
     // Reference: https://opendss.epri.com/HarmonicsLoadModeling.html
     spectrum: 'defaultload',
-    pctSeriesRL: 50,
+    spectrum_csv: '',
+    pctSeriesRL: 100,
+    conn: 'wye',
     puXharm: 0.0,
     XRharm: 6.0
 };
@@ -193,20 +195,43 @@ export class LoadDialog extends Dialog {
                 label: 'Harmonic Spectrum',
                 description: 'Name of the harmonic spectrum for this load element. ' +
                     '"defaultload" is the built-in spectrum (has 1st, 3rd, 5th, 7th harmonics). ' +
+                    '"Linear" is purely sinusoidal (fundamental only, no harmonic distortion). ' +
+                    '"TCR_PU" and "HVDC_PU" are IEEE benchmark spectra (thyristor-controlled reactor and HVDC). ' +
+                    '"custom" uses the CSV data below (harmonic,magnitude,angle per line). ' +
                     'The spectrum defines the magnitude and angle of harmonic current injections ' +
                     'relative to the fundamental.',
                 type: 'select',
                 value: this.data.spectrum || 'defaultload',
-                options: ['defaultload', 'defaultgen', 'defaultvsource', 'none']
+                options: ['defaultload', 'defaultgen', 'defaultvsource', 'Linear', 'TCR_PU', 'HVDC_PU', 'custom', 'none']
+            },
+            {
+                id: 'spectrum_csv',
+                label: 'Custom Spectrum CSV',
+                description: 'Paste or upload CSV in format: harmonic,magnitude,angle (one line per harmonic). ' +
+                    'Used when spectrum is "custom". Units: harmonic = order (integer, 1=fundamental, 5=5th, 7=7th); ' +
+                    'magnitude = % of fundamental (100 for 1st harmonic); angle = phase in degrees (°). ' +
+                    'Example: 1,100,46.9  5,7.01,-124.4  7,2.5,-29.9',
+                type: 'textarea',
+                value: this.data.spectrum_csv || ''
+            },
+            {
+                id: 'conn',
+                label: 'Connection (wye/delta)',
+                description: 'Load connection type for harmonic studies. ' +
+                    'TCR_PU: delta (IEEE benchmark). HVDC_PU: wye (harmonics cancelling). ' +
+                    'Other loads: wye or delta as set.',
+                type: 'select',
+                value: (this.data.conn || 'wye').toLowerCase(),
+                options: ['wye', 'delta']
             },
             {
                 id: 'pctSeriesRL',
                 label: '%SeriesRL (percent series R-L)',
                 description: 'Percent of load that is series R-L for harmonic studies. ' +
-                    'Default is 50%. Set to 0 for a pure parallel (Y) model. Set to 100 for a pure series model. ' +
+                    'Default is 100% (IEEE benchmark). Set to 0 for a pure parallel (Y) model. Set to 100 for a pure series model. ' +
                     'This controls how load impedance behaves at harmonic frequencies.',
                 type: 'number',
-                value: (this.data.pctSeriesRL || 50).toString(),
+                value: (this.data.pctSeriesRL ?? 100).toString(),
                 step: '1',
                 min: '0',
                 max: '100'
@@ -327,6 +352,19 @@ export class LoadDialog extends Dialog {
         contentArea.appendChild(harmonicContent);
         container.appendChild(contentArea);
 
+        // Toggle spectrum_csv visibility when spectrum is 'custom'
+        const spectrumSelect = this.inputs.get('spectrum');
+        const spectrumCsvInput = this.inputs.get('spectrum_csv');
+        if (spectrumSelect && spectrumCsvInput) {
+            const spectrumCsvRow = harmonicContent.querySelector('[data-spectrum-csv-row]');
+            const updateSpectrumCsvVisibility = () => {
+                const show = spectrumSelect.value === 'custom';
+                if (spectrumCsvRow) spectrumCsvRow.style.display = show ? 'grid' : 'none';
+            };
+            updateSpectrumCsvVisibility();
+            spectrumSelect.addEventListener('change', updateSpectrumCsvVisibility);
+        }
+
         // Add button container
         const buttonContainer = document.createElement('div');
         Object.assign(buttonContainer.style, {
@@ -381,7 +419,11 @@ export class LoadDialog extends Dialog {
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
             const screenHeight = window.innerHeight - 80;
-            this.ui.showDialog(container, 1000, screenHeight, true, false);
+            // Pass onDialogClose so destroy() runs when closed via ESC (ensures cleanupCallback runs)
+            this.ui.showDialog(container, 1000, screenHeight, true, false, () => {
+                this.destroy();
+                return 1; // Allow DrawIO to proceed with DOM removal
+            });
         } else {
             this.showModalFallback(container);
         }
@@ -437,6 +479,7 @@ export class LoadDialog extends Dialog {
 
         parameters.forEach(param => {
             const parameterRow = document.createElement('div');
+            if (param.id === 'spectrum_csv') parameterRow.dataset.spectrumCsvRow = '1';
             Object.assign(parameterRow.style, {
                 display: 'grid',
                 gridTemplateColumns: '1fr 200px',
@@ -514,6 +557,60 @@ export class LoadDialog extends Dialog {
                     cursor: 'pointer',
                     margin: '0'
                 });
+            } else if (param.type === 'textarea') {
+                input = document.createElement('textarea');
+                input.value = param.value;
+                input.rows = 6;
+                input.placeholder = '1,100,46.9\n5,7.01,-124.4\n7,2.5,-29.9';
+                Object.assign(input.style, {
+                    width: '100%',
+                    minWidth: '180px',
+                    padding: '10px 14px',
+                    border: '2px solid #ced4da',
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    fontFamily: 'monospace',
+                    backgroundColor: '#ffffff',
+                    boxSizing: 'border-box',
+                    resize: 'vertical',
+                    outline: 'none'
+                });
+                // Add file upload for spectrum_csv
+                if (param.id === 'spectrum_csv') {
+                    const wrapper = document.createElement('div');
+                    Object.assign(wrapper.style, { display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', minWidth: '180px' });
+                    const fileInput = document.createElement('input');
+                    fileInput.type = 'file';
+                    fileInput.accept = '.csv,text/csv,text/plain';
+                    fileInput.style.display = 'none';
+                    const uploadBtn = document.createElement('button');
+                    uploadBtn.textContent = 'Upload CSV file';
+                    Object.assign(uploadBtn.style, {
+                        padding: '8px 12px',
+                        fontSize: '13px',
+                        backgroundColor: '#e9ecef',
+                        border: '1px solid #ced4da',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        alignSelf: 'flex-start'
+                    });
+                    uploadBtn.onclick = () => fileInput.click();
+                    uploadBtn.type = 'button';
+                    fileInput.onchange = () => {
+                        const f = fileInput.files?.[0];
+                        if (f) {
+                            const r = new FileReader();
+                            r.onload = () => { input.value = r.result || ''; };
+                            r.readAsText(f);
+                        }
+                        fileInput.value = '';
+                    };
+                    wrapper.appendChild(input);
+                    wrapper.appendChild(uploadBtn);
+                    rightColumn.appendChild(wrapper);
+                } else {
+                    rightColumn.appendChild(input);
+                }
             } else if (param.type === 'select') {
                 input = document.createElement('select');
                 param.options.forEach(option => {
@@ -592,7 +689,9 @@ export class LoadDialog extends Dialog {
 
             input.id = param.id;
             this.inputs.set(param.id, input);
-            rightColumn.appendChild(input);
+            if (!(param.type === 'textarea' && param.id === 'spectrum_csv')) {
+                rightColumn.appendChild(input);
+            }
 
             parameterRow.appendChild(leftColumn);
             parameterRow.appendChild(rightColumn);

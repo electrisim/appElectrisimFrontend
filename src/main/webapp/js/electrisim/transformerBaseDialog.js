@@ -109,7 +109,7 @@ export class TransformerDialog extends Dialog {
                 description: 'Vector group of the transformer (e.g., Dyn, Yd, Yy)',
                 type: 'select',
                 value: this.data.vector_group,
-                options: ['Dyn', 'Yd', 'Yy', 'Dd', 'Yz', 'Dz', 'YNd']
+                options: ['Dyn', 'Dyn11', 'Dyn1', 'Yd', 'Yy', 'YNyn0', 'YNd', 'YNd1', 'YNd11', 'Dd', 'Dd0', 'Dd6', 'Yz', 'Dz']
             },
             {
                 id: 'shift_degree',

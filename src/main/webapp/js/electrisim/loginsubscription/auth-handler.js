@@ -272,7 +272,7 @@ function createLoginForm(container) {
             Sign in with LinkedIn
         </button>
         <button type="button" class="microsoft-btn">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_logo.svg" alt="Microsoft" />
+            <img src="images/microsoft-logo.svg" alt="Microsoft" />
             Sign in with Microsoft
         </button>
         <p>Don't have an account? <a href="#" id="register-link">Register</a></p>
@@ -429,7 +429,7 @@ function createRegisterForm(container) {
             Sign up with LinkedIn
         </button>
         <button type="button" class="microsoft-btn">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_logo.svg" alt="Microsoft" />
+            <img src="images/microsoft-logo.svg" alt="Microsoft" />
             Sign up with Microsoft
         </button>
         <p>Already have an account? <a href="#" id="login-link">Login</a></p>

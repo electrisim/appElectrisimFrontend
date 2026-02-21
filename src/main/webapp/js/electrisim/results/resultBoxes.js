@@ -789,7 +789,7 @@ mxGraph.prototype.addEdge = function (edge, parent, source, target, index) {
 
                 if (shouldCreatePlaceholder) {
                     // Use a dedicated logical shape for External Grid result boxes
-                    // External Grid needs a larger box to fit P[MW], Q[MVar], PF, Q/P and long values
+                    // External Grid needs a larger box to fit load flow (P, Q, PF, Q/P) and short-circuit (ikss, ip, ith, rk, xk) results
                     var logicalShape = (componentShape === 'External Grid')
                         ? 'ResultExternalGrid'
                         : 'Result';
@@ -797,7 +797,7 @@ mxGraph.prototype.addEdge = function (edge, parent, source, target, index) {
                     createResultPlaceholder(this, result, componentCell, {
                         logicalShape: logicalShape,
                         width: isExternalGrid ? 80 : 60,
-                        height: isExternalGrid ? 52 : 40,
+                        height: isExternalGrid ? 72 : 40,
                         positionX: -0.3
                     });
                 }
