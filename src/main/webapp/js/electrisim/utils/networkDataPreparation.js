@@ -618,6 +618,12 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         sn_mva: 'sn_mva',
                         scaling: 'scaling',
                         type: 'type',
+                        spectrum: { name: 'spectrum', optional: true },
+                        spectrum_csv: { name: 'spectrum_csv', optional: true },
+                        pctSeriesRL: { name: 'pctSeriesRL', optional: true },
+                        conn: { name: 'conn', optional: true },
+                        puXharm: { name: 'puXharm', optional: true },
+                        XRharm: { name: 'XRharm', optional: true },
                         in_service: { name: 'in_service', optional: true }
                     })
                 };
@@ -674,8 +680,8 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         })(),
                         ...getImpedanceConnections(cell),
                         ...getAttributesAsObject(cell, {
-                            rft_pu: 'rft_pu',
-                            xft_pu: 'xft_pu',
+                            rft_pu: 'r_pu',   // cell stores r_pu, export as rft_pu
+                            xft_pu: 'x_pu',   // cell stores x_pu, export as xft_pu
                             sn_mva: 'sn_mva',
                             in_service: { name: 'in_service', optional: true }
                         })

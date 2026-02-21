@@ -742,6 +742,7 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                     vk_percent, vkr_percent, pfe_kw, i0_percent, shift_degree,
                     tap_side, tap_neutral, tap_min, tap_max, tap_step_percent,
                     tap_step_degree, tap_pos, tap_phase_shifter, parallel, df, in_service] = trafo;
+                const vector_group = trafo.length > 24 ? trafo[24] : undefined;
 
                 // Verify indices are valid before proceeding
                 if (hv_bus_no >= busData.data.length || hv_bus_no < 0 ||
@@ -798,7 +799,7 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                     );
 
                     // Configure transformer attributes
-                    configureTransformerAttributes(grafka, vertex, {
+                    const trafoAttrs = {
                         name: `${name}`,
                         std_type: `${std_type}`,
                         sn_mva: `${sn_mva}`,
@@ -820,7 +821,11 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                         parallel: `${parallel}`,
                         df: `${df}`,
                         in_service: `${in_service}`
-                    });
+                    };
+                    if (vector_group != null) {
+                        trafoAttrs.vector_group = vector_group;
+                    }
+                    configureTransformerAttributes(grafka, vertex, trafoAttrs);
 
                     // Create edges connecting transformer to buses
                     const hvConnX = getNextBusConnX(hv_bus_no);
@@ -1337,6 +1342,7 @@ async function insertComponentsForData(grafka, a, target, point, data) {
             });      */
             loadData.data.forEach((load, index) => {
                 const [name, bus_no, p_mw, q_mvar, const_z_percent, const_i_percent, sn_mva, scaling, type] = load;
+                const spectrum = load[9], spectrum_csv = load[10], pctSeriesRL = load[11], puXharm = load[12], XRharm = load[13], conn = load[14];
 
                 let bus = busData.data[bus_no];
                 let bus_name = bus[0];
@@ -1359,7 +1365,7 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                     20,   // height
                     loadStyle
                 );
-                configureLoadAttributes(grafka, vertex, {
+                const loadOpts = {
                     name: `${name}`,
                     p_mw: `${p_mw}`,
                     q_mvar: `${q_mvar}`,
@@ -1368,7 +1374,14 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                     sn_mva: `${sn_mva}`,
                     scaling: `${scaling}`,
                     type: `${type}`
-                })
+                };
+                if (spectrum != null) loadOpts.spectrum = `${spectrum}`;
+                if (spectrum_csv != null) loadOpts.spectrum_csv = `${spectrum_csv}`;
+                if (pctSeriesRL != null) loadOpts.pctSeriesRL = `${pctSeriesRL}`;
+                if (conn != null) loadOpts.conn = `${conn}`;
+                if (puXharm != null) loadOpts.puXharm = `${puXharm}`;
+                if (XRharm != null) loadOpts.XRharm = `${XRharm}`;
+                configureLoadAttributes(grafka, vertex, loadOpts)
 
                 if (busVertex) {
                     const connX = getNextBusConnX(bus_no);

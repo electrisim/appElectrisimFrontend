@@ -236,7 +236,11 @@ export class Dialog {
         // Use DrawIO's dialog system like externalGridDialog does
         if (this.ui && typeof this.ui.showDialog === 'function') {
             // The true, false parameters tell DrawIO not to create its own buttons
-            this.ui.showDialog(container, 680, 600, true, false);
+            // Pass onDialogClose so destroy() runs when closed via ESC (ensures cleanupCallback runs)
+            this.ui.showDialog(container, 680, 600, true, false, () => {
+                this.destroy();
+                return 1; // Allow DrawIO to proceed with DOM removal
+            });
         } else {
             this.showModalFallback(container);
         }
@@ -498,9 +502,9 @@ export class Dialog {
             }
         }
         
-        // Clean up modal overlay if using fallback
-        if (this.modalOverlay && this.modalOverlay.parentNode) {
-            document.body.removeChild(this.modalOverlay);
+        // Clean up modal overlay if using fallback (guard against double-removal/ESC race)
+        if (this.modalOverlay && document.body.contains(this.modalOverlay)) {
+            try { document.body.removeChild(this.modalOverlay); } catch (e) { /* ignore */ }
         }
         
         // Clean up any references

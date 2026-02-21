@@ -518,6 +518,41 @@ xk[ohm]: ${formatNumber(cell.xk_ohm)}`;
                 }
             });
         },
+
+        // External Grid: show short-circuit results from the bus it's connected to
+        external_grid_sc: (busbarsData, b, grafka, cellIdMap) => {
+            if (!busbarsData || busbarsData.length === 0) return;
+            const model = b.getModel();
+            const cells = model.cells;
+            for (const cellId in cells) {
+                const cell = cells[cellId];
+                if (!cell) continue;
+                const cellStyle = model.getStyle(cell) || '';
+                if (!cellStyle.includes('shapeELXXX=External Grid')) continue;
+
+                const connectedBusId = getConnectedBusId(cell);
+                if (!connectedBusId) continue;
+
+                const busbar = busbarsData.find(bb =>
+                    bb.name === connectedBusId || bb.id === connectedBusId ||
+                    (bb.name && String(bb.name).replace(/#/g, '_') === connectedBusId) ||
+                    (bb.id && String(bb.id).replace(/#/g, '_') === connectedBusId)
+                );
+                if (!busbar) continue;
+
+                const resultString = `External Grid
+ikss[kA]: ${formatNumber(busbar.ikss_ka)}
+ip[kA]: ${formatNumber(busbar.ip_ka)}
+ith[kA]: ${formatNumber(busbar.ith_ka)}
+rk[ohm]: ${formatNumber(busbar.rk_ohm)}
+xk[ohm]: ${formatNumber(busbar.xk_ohm)}`;
+
+                const placeholder = findPlaceholderForCellSC(grafka, cell, true);
+                if (placeholder) {
+                    model.setValue(placeholder, resultString);
+                }
+            }
+        },
     };
 
     // Main processing function (FROM BACKEND TO FRONTEND)
@@ -591,6 +626,10 @@ xk[ohm]: ${formatNumber(cell.xk_ohm)}`;
             try {
                 // Clear load-flow-only result placeholders so they don't show stale data
                 clearLoadFlowOnlyResultPlaceholders(grafka, b, dataJson, cellIdMap);
+                // Wire busbars data for External Grid SC (External Grid shows its connected bus's SC results)
+                if (dataJson.busbars) {
+                    dataJson.external_grid_sc = dataJson.busbars;
+                }
                 // Process each type of network element
                 Object.entries(elementProcessors).forEach(([type, processor]) => {
                     if (dataJson[type]) {
@@ -1366,9 +1405,9 @@ xk[ohm]: ${formatNumber(cell.xk_ohm)}`;
                                 id: cell.id,
                                 ...getImpedanceConnections(cell),
                                 ...getAttributesAsObject(cell, {
-                                    // Load flow parameters
-                                    rft_pu: 'rft_pu',
-                                    xft_pu: 'xft_pu',
+                                    // Load flow parameters (cell stores r_pu/x_pu)
+                                    rft_pu: 'r_pu',
+                                    xft_pu: 'x_pu',
                                     sn_mva: 'sn_mva'
                                 })
                             };

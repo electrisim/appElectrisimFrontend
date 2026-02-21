@@ -378,7 +378,13 @@ export class ComponentsDataDialog {
                             max_p_mw: 'max_p_mw',
                             min_p_mw: 'min_p_mw',
                             max_q_mvar: 'max_q_mvar',
-                            min_q_mvar: 'min_q_mvar'
+                            min_q_mvar: 'min_q_mvar',
+                            spectrum: { name: 'spectrum', optional: true },
+                            spectrum_csv: { name: 'spectrum_csv', optional: true },
+                            pctSeriesRL: { name: 'pctSeriesRL', optional: true },
+                            conn: { name: 'conn', optional: true },
+                            puXharm: { name: 'puXharm', optional: true },
+                            XRharm: { name: 'XRharm', optional: true }
                         })
                     });
                     break;
@@ -536,8 +542,8 @@ export class ComponentsDataDialog {
                         ...baseData,
                         type: `Impedance ${counters.impedance++}`,
                         ...this.getAttributesAsObject(cell, {
-                            rft_pu: 'rft_pu',
-                            xft_pu: 'xft_pu',
+                            rft_pu: 'r_pu',   // cell stores r_pu, export as rft_pu
+                            xft_pu: 'x_pu',   // cell stores x_pu, export as xft_pu
                             sn_mva: 'sn_mva',
                             in_service: { name: 'in_service', optional: true, defaultValue: 'true' }
                         })
@@ -794,6 +800,13 @@ export class ComponentsDataDialog {
             // Excel-like: Enter moves focus to the cell below (when not editing and after editing)
             enterNavigatesVertically: true,
             enterNavigatesVerticallyAfterEdit: true,
+            // Double-click row to locate element on canvas
+            onRowDoubleClicked: (event) => {
+                const cellId = event.data?.id;
+                if (cellId) {
+                    this.locateElementOnCanvas(cellId);
+                }
+            },
             // Handle cell value changes
             onCellValueChanged: (event) => {
                 this.hasChanges = true; // Mark that changes were made
@@ -897,8 +910,16 @@ export class ComponentsDataDialog {
                     }
                 };
 
+                const locateAction = () => {
+                    const cellId = node.data?.id;
+                    if (cellId) {
+                        this.locateElementOnCanvas(cellId);
+                    }
+                };
+
                 return [
                     ...(Array.isArray(result) ? result.slice(0, 1) : []),
+                    { name: 'Locate on canvas', action: locateAction },
                     { name: 'Fill down', action: fillDownAction },
                     ...(Array.isArray(result) ? result.slice(1) : [])
                 ];
@@ -1104,6 +1125,52 @@ export class ComponentsDataDialog {
         return searchCell(root);
     }
 
+    /**
+     * Locate an element on the canvas: close dialog, select the cell, scroll it into view,
+     * and briefly highlight it so the user can easily find it.
+     * @param {string} cellId - The mxCell id from the component data
+     */
+    locateElementOnCanvas(cellId) {
+        const cell = this.findCellById(cellId);
+        if (!cell) {
+            if (typeof this.ui.showError === 'function') {
+                this.ui.showError('Element not found', `Could not find element with id ${cellId} on the canvas.`);
+            } else {
+                alert(`Could not find element with id ${cellId} on the canvas.`);
+            }
+            return;
+        }
+
+        // Close dialog first so user can see the canvas
+        this.close(false);
+
+        // Use requestAnimationFrame to ensure dialog is closed before we manipulate the graph
+        requestAnimationFrame(() => {
+            try {
+                // Select the cell (shows selection handles)
+                this.graph.setSelectionCell(cell);
+                // Scroll the cell into view
+                this.graph.scrollCellToVisible(cell);
+
+                // Add a brief highlight for extra visibility (mxCellHighlight if available)
+                if (typeof mxCellHighlight !== 'undefined') {
+                    const highlight = new mxCellHighlight(this.graph, '#ff6600', 4);
+                    const state = this.graph.view.getState(cell);
+                    if (state) {
+                        highlight.highlight(state);
+                        // Remove highlight after 2 seconds
+                        setTimeout(() => {
+                            highlight.hide();
+                            highlight.destroy();
+                        }, 2000);
+                    }
+                }
+            } catch (err) {
+                console.warn('Error locating element on canvas:', err);
+            }
+        });
+    }
+
     // Update mxCell attribute
     updateCellAttribute(cell, attributeName, newValue) {
         try {
@@ -1260,11 +1327,51 @@ export class ComponentsDataDialog {
 
         const editHint = document.createElement('span');
         editHint.style.cssText = 'font-size: 12px; color: #6c757d; font-style: italic;';
-        editHint.innerHTML = '💡 Click to edit • Enter = row below • Fill down = copy value to cells below';
+        editHint.innerHTML = '💡 Click to edit • Double-click row = locate on canvas • Enter = row below';
 
         // Actions section
         const actions = document.createElement('div');
         actions.style.cssText = 'display: flex; align-items: center; gap: 8px;';
+
+        // Locate on canvas button - shows selected element on the diagram
+        const locateBtn = document.createElement('button');
+        locateBtn.innerHTML = '📍 Locate on canvas';
+        locateBtn.title = 'Close dialog and show the selected element on the diagram (or double-click a row)';
+        locateBtn.style.cssText = `
+            padding: 4px 12px;
+            background: #6f42c1;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        `;
+        locateBtn.addEventListener('click', () => {
+            const gridApi = this.gridInstances[componentType];
+            if (!gridApi) return;
+            const focused = gridApi.getFocusedCell();
+            const selectedRows = gridApi.getSelectedRows();
+            let cellId = null;
+            if (selectedRows && selectedRows.length > 0) {
+                cellId = selectedRows[0].id;
+            } else if (focused && focused.rowIndex >= 0) {
+                const rowNode = gridApi.getDisplayedRowAtIndex(focused.rowIndex);
+                if (rowNode && rowNode.data) {
+                    cellId = rowNode.data.id;
+                }
+            }
+            if (cellId) {
+                this.locateElementOnCanvas(cellId);
+            } else {
+                if (typeof this.ui.showError === 'function') {
+                    this.ui.showError('Select a row first', 'Click or select a row, then click "Locate on canvas" to find it on the diagram.');
+                } else {
+                    alert('Select a row first, then click "Locate on canvas".');
+                }
+            }
+        });
+        locateBtn.addEventListener('mouseenter', () => { locateBtn.style.background = '#5a32a3'; });
+        locateBtn.addEventListener('mouseleave', () => { locateBtn.style.background = '#6f42c1'; });
 
         // Fill down button (Excel-like: copy cell value to all cells below in same column)
         const fillDownBtn = document.createElement('button');
@@ -1386,6 +1493,7 @@ export class ComponentsDataDialog {
 
         info.appendChild(count);
         info.appendChild(editHint);
+        actions.appendChild(locateBtn);
         actions.appendChild(fillDownBtn);
         actions.appendChild(searchInput);
         actions.appendChild(exportBtn);

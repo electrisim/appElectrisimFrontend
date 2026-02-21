@@ -772,7 +772,7 @@ const elementProcessors = {
                     return;
                 }
                 
-                const cellName = cell.name ? cell.name.replace('_', '#') : 'Unknown';
+                const cellName = cell.name || 'Unknown';
                 const fmt = (v) => (v != null && v !== '' && !Number.isNaN(v) ? Number(v).toFixed(3) : 'N/A');
 
                 // Build base result lines
@@ -843,7 +843,7 @@ const elementProcessors = {
                     return;
                 }
                 
-                const cellName = cell.name ? cell.name.replace('_', '#') : 'Unknown';
+                const cellName = cell.name || 'Unknown';
                 const fmt = (v) => (v != null && !Number.isNaN(v) ? Number(v).toFixed(3) : 'N/A');
 
                 let lines = [
@@ -950,7 +950,7 @@ Q/P: ${cell.q_p ? cell.q_p.toFixed(3) : 'N/A'}`;
                     return;
                 }
                 
-                const cellName = cell.name ? cell.name.replace('_', '#') : 'Unknown';
+                const cellName = cell.name || 'Unknown';
                 
                 const resultString = `${cellName}
         P[MW]: ${cell.p_mw ? cell.p_mw.toFixed(3) : 'N/A'}
@@ -986,7 +986,7 @@ Q/P: ${cell.q_p ? cell.q_p.toFixed(3) : 'N/A'}`;
                     return;
                 }
                 
-                const cellName = cell.name ? cell.name.replace('_', '#') : 'Unknown';
+                const cellName = cell.name || 'Unknown';
                 
                 const resultString = `${cellName}
         P[MW]: ${cell.p_mw ? cell.p_mw.toFixed(3) : 'N/A'}
@@ -1020,7 +1020,7 @@ Q/P: ${cell.q_p ? cell.q_p.toFixed(3) : 'N/A'}`;
                     return;
                 }
                 
-                const cellName = cell.name ? cell.name.replace('_', '#') : 'Unknown';
+                const cellName = cell.name || 'Unknown';
                 
                 const resultString = `${cellName}
         P_HV[MW]: ${cell.p_hv_mw !== undefined ? cell.p_hv_mw.toFixed(3) : 'N/A'}
@@ -1064,7 +1064,7 @@ Q/P: ${cell.q_p ? cell.q_p.toFixed(3) : 'N/A'}`;
                     return;
                 }
                 
-                const cellName = cell.name ? cell.name.replace('_', '#') : 'Unknown';
+                const cellName = cell.name || 'Unknown';
                 
                 const resultString = `${cellName}
         P[MW]: ${(cell.p_mw !== undefined && cell.p_mw !== null) ? cell.p_mw.toFixed(3) : 'N/A'}
@@ -1099,7 +1099,7 @@ Q/P: ${cell.q_p ? cell.q_p.toFixed(3) : 'N/A'}`;
                     return;
                 }
                 
-                const cellName = cell.name ? cell.name.replace('_', '#') : 'Unknown';
+                const cellName = cell.name || 'Unknown';
                 
                 const resultString = `${cellName}
         P[MW]: ${cell.p_mw ? cell.p_mw.toFixed(3) : 'N/A'}
@@ -1134,7 +1134,7 @@ Q/P: ${cell.q_p ? cell.q_p.toFixed(3) : 'N/A'}`;
                     return;
                 }
                 
-                const cellName = cell.name ? cell.name.replace('_', '#') : 'Unknown';
+                const cellName = cell.name || 'Unknown';
                 
                 const resultString = `${cellName}
         P[MW]: ${cell.p_mw ? cell.p_mw.toFixed(3) : 'N/A'}
@@ -1168,7 +1168,7 @@ Q/P: ${cell.q_p ? cell.q_p.toFixed(3) : 'N/A'}`;
                     return;
                 }
 
-                const cellName = cell.name ? cell.name.replace('_', '#') : 'Unknown';
+                const cellName = cell.name || 'Unknown';
 
                 const resultString = `${cellName}
         P[MW]: ${cell.p_mw ? cell.p_mw.toFixed(3) : 'N/A'}
@@ -1530,8 +1530,8 @@ function showHarmonicSummaryDialog(dataJson) {
 
     // Build HTML
     let html = `
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:2px solid #6f42c1;padding-bottom:8px;">
-            <h2 style="margin:0;color:#6f42c1;font-size:18px;">Harmonic Analysis Results</h2>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:2px solid #333;padding-bottom:8px;">
+            <h2 style="margin:0;color:#333;font-size:18px;">Harmonic Analysis Results</h2>
             <button id="closeHarmonicDialog" style="background:none;border:none;font-size:24px;cursor:pointer;color:#666;">&times;</button>
         </div>
         <div style="font-size:12px;color:#555;margin-bottom:12px;">
@@ -1539,6 +1539,32 @@ function showHarmonicSummaryDialog(dataJson) {
             Harmonic orders: <strong>${orders}</strong> &nbsp;|&nbsp;
             NeglectLoadY: <strong>${ha.neglectLoadY ? 'Yes' : 'No'}</strong>
         </div>`;
+
+    // Spectrum chart section (before tables)
+    const busbarsWithHarmonics = (dataJson.busbars || []).filter(b => b.harmonic_voltages_kv);
+    const linesWithHarmonicsData = (dataJson.lines || []).filter(l => l.harmonic_currents_a);
+    if (busbarsWithHarmonics.length > 0 || linesWithHarmonicsData.length > 0) {
+        html += `<h3 style="margin:16px 0 8px;font-size:14px;color:#333;">Spectrum</h3>`;
+        html += `<div style="margin-bottom:12px;">
+            <label style="font-size:12px;color:#555;margin-right:8px;">Show spectrum for:</label>
+            <select id="harmonicSpectrumSelect" style="padding:6px 10px;border:1px solid #ced4da;border-radius:4px;font-size:13px;min-width:180px;">
+                <option value="">-- Select bus or line --</option>`;
+        busbarsWithHarmonics.forEach((bus, idx) => {
+            const name = bus.name || bus.id || '';
+            html += `<option value="bus:${idx}">Bus: ${name}</option>`;
+        });
+        linesWithHarmonicsData.forEach((line, idx) => {
+            const name = line.name || line.id || '';
+            html += `<option value="line:${idx}">Line: ${name}</option>`;
+        });
+        html += `</select></div>`;
+        html += `<div style="background:#e9ecef;border-radius:4px;padding:12px;position:relative;margin-bottom:16px;">
+            <canvas id="harmonicSpectrumCanvas" width="560" height="280" style="display:block;max-width:100%;"></canvas>
+            <div id="harmonicSpectrumLegend" style="position:absolute;top:12px;right:12px;font-size:12px;color:#333;">
+                <span style="display:inline-block;width:12px;height:12px;background:#2563eb;margin-right:4px;vertical-align:middle;"></span>Spectrum
+            </div>
+        </div>`;
+    }
 
     // Bus VTHD table
     if (dataJson.busbars && dataJson.busbars.length > 0) {
@@ -1555,7 +1581,7 @@ function showHarmonicSummaryDialog(dataJson) {
             });
             html += `</tr>`;
             busbarsWithHarmonics.forEach(bus => {
-                const name = (bus.name || bus.id || '').replace('_', '#');
+                const name = bus.name || bus.id || '';
                 const thdColor = bus.vthd_percent > 5 ? '#f44336' : bus.vthd_percent > 3 ? '#ff9800' : '#4CAF50';
                 html += `<tr>
                     <td style="padding:4px 8px;border:1px solid #ddd;">${name}</td>
@@ -1585,7 +1611,7 @@ function showHarmonicSummaryDialog(dataJson) {
             });
             html += `</tr>`;
             linesWithHarmonics.forEach(line => {
-                const name = (line.name || line.id || '').replace('_', '#');
+                const name = line.name || line.id || '';
                 const thdColor = line.ithd_percent > 10 ? '#f44336' : line.ithd_percent > 5 ? '#ff9800' : '#4CAF50';
                 html += `<tr>
                     <td style="padding:4px 8px;border:1px solid #ddd;">${name}</td>
@@ -1601,7 +1627,7 @@ function showHarmonicSummaryDialog(dataJson) {
     }
 
     html += `<div style="text-align:right;margin-top:16px;">
-        <button id="closeHarmonicDialogBtn" style="background-color:#6f42c1;color:white;border:none;padding:10px 25px;border-radius:4px;cursor:pointer;font-size:14px;font-weight:500;">OK</button>
+        <button id="closeHarmonicDialogBtn" style="background-color:#007bff;color:white;border:none;padding:10px 25px;border-radius:4px;cursor:pointer;font-size:14px;font-weight:500;">OK</button>
     </div>`;
 
     // Create modal
@@ -1620,6 +1646,123 @@ function showHarmonicSummaryDialog(dataJson) {
     document.addEventListener('keydown', function esc(e) {
         if (e.key === 'Escape') { closeDialog(); document.removeEventListener('keydown', esc); }
     });
+
+    // Spectrum chart: draw when selection changes
+    const drawHarmonicSpectrum = () => {
+        const selectEl = document.getElementById('harmonicSpectrumSelect');
+        const canvas = document.getElementById('harmonicSpectrumCanvas');
+        if (!selectEl || !canvas) return;
+        const val = selectEl.value;
+        if (!val) {
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#e9ecef';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#6c757d';
+            ctx.font = '14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Select a bus or line to view spectrum', canvas.width / 2, canvas.height / 2);
+            return;
+        }
+        const [type, idxStr] = val.split(':');
+        const idx = parseInt(idxStr, 10);
+        const busbarsWithH = (dataJson.busbars || []).filter(b => b.harmonic_voltages_kv);
+        const linesWithH = (dataJson.lines || []).filter(l => l.harmonic_currents_a);
+        const item = type === 'bus' ? busbarsWithH[idx] : linesWithH[idx];
+        if (!item) return;
+        const hData = type === 'bus' ? item.harmonic_voltages_kv : item.harmonic_currents_a;
+        if (!hData) return;
+
+        // Build spectrum: harmonics 2..15 only (exclude 0 and 1 for better visibility of distortion)
+        const mag = [];
+        const fund = type === 'bus' ? (item.fundamental_voltage_kv || 0) : (item.fundamental_current_a || 0);
+        if (fund > 0) {
+            for (let h = 2; h <= 15; h++) {
+                const v = hData[String(h)];
+                mag.push(v != null && v > 0 ? 100 * (Number(v) / fund) : 0);
+            }
+        } else {
+            const rawVals = [];
+            for (let h = 2; h <= 15; h++) {
+                const v = hData[String(h)];
+                rawVals.push(v != null ? Number(v) : 0);
+            }
+            const maxH = Math.max(...rawVals, 0.001);
+            for (let h = 2; h <= 15; h++) {
+                const v = hData[String(h)];
+                mag.push(v > 0 ? 100 * (Number(v) / maxH) : 0);
+            }
+        }
+        const maxMag = Math.max(1, (Math.max(...mag) || 0) * 1.1);
+
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width;
+        const h = canvas.height;
+        const pad = { top: 20, right: 50, bottom: 35, left: 45 };
+        const chartW = w - pad.left - pad.right;
+        const chartH = h - pad.top - pad.bottom;
+        const barCount = 14;
+        const barGap = 2;
+        const barWidth = Math.max(4, (chartW - (barCount - 1) * barGap) / barCount - barGap);
+
+        ctx.fillStyle = '#e9ecef';
+        ctx.fillRect(0, 0, w, h);
+
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 14; i++) {
+            const y = pad.top + (chartH * (1 - i / 14));
+            ctx.beginPath();
+            ctx.moveTo(pad.left, y);
+            ctx.lineTo(w - pad.right, y);
+            ctx.stroke();
+        }
+        for (let i = 0; i <= 14; i++) {
+            const x = pad.left + (chartW * i / 14);
+            ctx.beginPath();
+            ctx.moveTo(x, pad.top);
+            ctx.lineTo(x, h - pad.bottom);
+            ctx.stroke();
+        }
+
+        ctx.fillStyle = '#333';
+        ctx.font = '12px sans-serif';
+        ctx.textAlign = 'center';
+        for (let i = 0; i < 14; i++) {
+            ctx.fillText(String(i + 2), pad.left + (chartW * (i + 0.5) / 14), h - pad.bottom + 8);
+        }
+        ctx.textAlign = 'right';
+        const yLabelCount = 6;
+        const fmt = (v) => maxMag < 10 ? Number(v).toFixed(1) : String(Math.round(v));
+        for (let i = 0; i <= yLabelCount; i++) {
+            const pct = maxMag * (1 - i / yLabelCount);
+            const y = pad.top + (chartH * i / yLabelCount) + 4;
+            ctx.fillText(fmt(pct), pad.left - 6, y);
+        }
+        ctx.save();
+        ctx.translate(12, pad.top + chartH / 2);
+        ctx.rotate(-Math.PI / 2);
+        ctx.textAlign = 'center';
+        ctx.fillText('Magnitude (% of fundamental)', 0, 0);
+        ctx.restore();
+        ctx.textAlign = 'center';
+        ctx.fillText('Harmonic', pad.left + chartW / 2, h - 8);
+
+        ctx.fillStyle = '#2563eb';
+        for (let i = 0; i < 14; i++) {
+            const x = pad.left + (chartW * i / 14) + barGap / 2;
+            const barH = (mag[i] / maxMag) * chartH;
+            const y = pad.top + chartH - barH;
+            if (barH > 0) ctx.fillRect(x, y, barWidth, barH);
+        }
+    };
+
+    const spectrumSelect = document.getElementById('harmonicSpectrumSelect');
+    if (spectrumSelect) {
+        const opts = spectrumSelect.querySelectorAll('option[value^="bus:"], option[value^="line:"]');
+        if (opts.length > 0) spectrumSelect.value = opts[0].value;
+        spectrumSelect.addEventListener('change', drawHarmonicSpectrum);
+        drawHarmonicSpectrum();
+    }
 }
 
 // Error handler for OpenDSS
@@ -1828,6 +1971,28 @@ function collectNetworkDataStructured(graph) {
     }
     
     console.log(`Found ${validCells.length} valid cells to process`);
+
+    // First pass: build busIdToName and lineIdToName maps (cell ID -> configured Name from dialogs)
+    const busIdToName = {};
+    const lineIdToName = {};
+    for (const { cellId, cell } of validCells) {
+        const style = cell.getStyle();
+        if (style) {
+            const styleObj = parseCellStyle(style);
+            if (styleObj && styleObj.shapeELXXX === 'Bus') {
+                const busId = formatBusId(cell.mxObjectId || cell.id) || `mxCell_${cellId}`;
+                const busAttrs = getAttributesAsObject(cell, { name: { name: 'name', optional: true } });
+                const configuredName = (busAttrs.name && String(busAttrs.name).trim()) || busId;
+                busIdToName[busId] = configuredName;
+            } else if (styleObj && styleObj.shapeELXXX === 'Line') {
+                const lineId = formatBusId(cell.mxObjectId || cell.id) || `mxCell_${cellId}`;
+                const lineAttrs = getAttributesAsObject(cell, { name: { name: 'name', optional: true } });
+                const configuredName = (lineAttrs.name && String(lineAttrs.name).trim()) || lineId;
+                lineIdToName[lineId] = configuredName;
+            }
+        }
+    }
+    const resolveBusName = (busId) => (busId && (busIdToName[busId] || busIdToName[formatBusId(busId)])) || busId;
     
     // Process valid cells with optimized approach
     const componentProcessingStart = performance.now();
@@ -1842,17 +2007,21 @@ function collectNetworkDataStructured(graph) {
         if (style) {
             const styleObj = parseCellStyle(style);
             if (styleObj && styleObj.shapeELXXX === 'Bus') {
-                    // This is a bus element - collect it properly
+                    // This is a bus element - use configured Name from bus dialog (e.g. "1_bus1")
+                    const busId = formatBusId(cell.mxObjectId || cell.id) || `mxCell_${cellId}`;
+                    const busName = busIdToName[busId] || busId;
                     cellData = {
                         typ: `Bus${index - 1}`, // Start from Bus0
-                        name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
+                        name: busName,
                         id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
                         vn_kv: getBusVoltage(cellValue),
-                        userFriendlyName: "Bus"
+                        userFriendlyName: busName
                     };
                     index++;
                 } else if (styleObj && styleObj.shapeELXXX === 'Line') {
-                    // This is a line element - collect all necessary parameters like loadFlow.js
+                    // This is a line element - use configured Name from line dialog (e.g. "1_5_1_1")
+                    const lineId = formatBusId(cell.mxObjectId || cell.id) || `mxCell_${cellId}`;
+                    const lineName = lineIdToName[lineId] || lineId;
                     const connections = getConnectedBusId(cell, true);
                     
                     // Get line parameters from attributes
@@ -1891,10 +2060,10 @@ function collectNetworkDataStructured(graph) {
                     
                     cellData = {
                         typ: 'Line',
-                        name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
+                        name: lineName,
                         id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
-                        busFrom: connections?.busFrom,
-                        busTo: connections?.busTo,
+                        busFrom: resolveBusName(connections?.busFrom),
+                        busTo: resolveBusName(connections?.busTo),
                         // Use extracted parameters or defaults for critical values
                         r_ohm_per_km: lineParams.r_ohm_per_km || 0.122,  // Default resistance
                         x_ohm_per_km: lineParams.x_ohm_per_km || 0.112,  // Default reactance
@@ -1956,8 +2125,8 @@ function collectNetworkDataStructured(graph) {
                         typ: 'Transformer',
                         name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
                         id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
-                        busFrom: connections?.busFrom,
-                        busTo: connections?.busTo,
+                        busFrom: resolveBusName(connections?.busFrom),
+                        busTo: resolveBusName(connections?.busTo),
                         // Use extracted parameters or defaults for critical values
                         sn_mva: transParams.sn_mva || 1.0,        // Default power rating
                         vk_percent: transParams.vk_percent || 7.0, // Default impedance
@@ -2023,7 +2192,7 @@ function collectNetworkDataStructured(graph) {
                         typ: 'Generator',
                         name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
                         id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
-                        bus: getConnectedBusId(cell),
+                        bus: resolveBusName(getConnectedBusId(cell)),
                         // Use extracted parameters or defaults for critical values
                         p_mw: genParams.p_mw || 10.0,      // Default power
                         q_mvar: genParams.q_mvar || 0.0,   // Default reactive power
@@ -2078,6 +2247,7 @@ function collectNetworkDataStructured(graph) {
                         in_service: { name: 'in_service', optional: true },
                         // Harmonic analysis parameters
                         spectrum: { name: 'spectrum', optional: true },
+                        spectrum_csv: { name: 'spectrum_csv', optional: true },
                         pctSeriesRL: { name: 'pctSeriesRL', optional: true },
                         puXharm: { name: 'puXharm', optional: true },
                         XRharm: { name: 'XRharm', optional: true }
@@ -2091,7 +2261,7 @@ function collectNetworkDataStructured(graph) {
                         typ: 'Load',
                         name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
                         id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
-                        bus: getConnectedBusId(cell),
+                        bus: resolveBusName(getConnectedBusId(cell)),
                         // Use extracted parameters or defaults for critical values
                         p_mw: loadParams.p_mw || 1.0,      // Default power
                         q_mvar: loadParams.q_mvar || 0.0,   // Default reactive power
@@ -2112,6 +2282,7 @@ function collectNetworkDataStructured(graph) {
                         const_s_percent_abs_degree_abs_degree: loadParams.const_s_percent_abs_degree_abs_degree || 0.0,
                         // Harmonic analysis parameters
                         spectrum: loadParams.spectrum || 'defaultload',
+                        spectrum_csv: loadParams.spectrum_csv || '',
                         pctSeriesRL: loadParams.pctSeriesRL || '50',
                         puXharm: loadParams.puXharm || '0.0',
                         XRharm: loadParams.XRharm || '6.0'
@@ -2152,7 +2323,7 @@ function collectNetworkDataStructured(graph) {
                         typ: 'Shunt Reactor',
                         name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
                         id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
-                        bus: getConnectedBusId(cell),
+                        bus: resolveBusName(getConnectedBusId(cell)),
                         // Use extracted parameters or defaults for critical values
                         p_mw: shuntParams.p_mw || 0.0,          // Default active power
                         q_mvar: shuntParams.q_mvar || 1.0,      // Default reactive power
@@ -2203,7 +2374,7 @@ function collectNetworkDataStructured(graph) {
                         typ: 'Capacitor',
                         name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
                         id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
-                        bus: getConnectedBusId(cell),
+                        bus: resolveBusName(getConnectedBusId(cell)),
                         // Use extracted parameters or defaults for critical values
                         q_mvar: capParams.q_mvar || 1.0,      // Default reactive power
                         // Other parameters
@@ -2257,7 +2428,7 @@ function collectNetworkDataStructured(graph) {
                         typ: 'Storage',
                         name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
                         id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
-                        bus: getConnectedBusId(cell),
+                        bus: resolveBusName(getConnectedBusId(cell)),
                         // Use extracted parameters or defaults for critical values
                         p_mw: storageParams.p_mw || 0.0,      // Default power
                         q_mvar: storageParams.q_mvar || 0.0,  // Default reactive power
@@ -2350,7 +2521,7 @@ function collectNetworkDataStructured(graph) {
                         typ: 'PVSystem',
                         name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
                         id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
-                        bus: getConnectedBusId(cell),
+                        bus: resolveBusName(getConnectedBusId(cell)),
                         // Use extracted parameters or defaults for critical values
                         irradiance: pvParams.irradiance || 1.0,
                         pmpp: pvParams.pmpp || 100.0,
@@ -2434,7 +2605,7 @@ function collectNetworkDataStructured(graph) {
                         typ: 'External Grid',
                         name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
                         id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
-                        bus: getConnectedBusId(cell),
+                        bus: resolveBusName(getConnectedBusId(cell)),
                         // Use extracted parameters or defaults for critical values
                         vm_pu: extGridParams.vm_pu || 1.0,      // Default voltage
                         va_degree: extGridParams.va_degree || 0.0, // Default angle
@@ -2464,8 +2635,8 @@ function collectNetworkDataStructured(graph) {
                         typ: 'Three Winding Transformer',
                         name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
                         id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
-                        busFrom: connections?.busFrom,
-                        busTo: connections?.busTo,
+                        busFrom: resolveBusName(connections?.busFrom),
+                        busTo: resolveBusName(connections?.busTo),
                         // Add three winding transformer parameters
                         ...getAttributesAsObject(cell, {
                             sn_hv_mva: 'sn_hv_mva',
@@ -2496,7 +2667,15 @@ function collectNetworkDataStructured(graph) {
                         console.warn(`Three Winding Transformer ${cellData.name} missing bus connections: busFrom=${cellData.busFrom}, busTo=${cellData.busTo}`);
                     }
                 } else if (styleObj && styleObj.shapeELXXX === 'Impedance') {
-                    // This is an impedance element
+                    // This is an impedance element (two-bus, like Line)
+                    const connections = (cell.edges && cell.edges.length >= 2)
+                        ? {
+                            busFrom: resolveBusName((cell.edges[0].target?.mxObjectId !== cell.mxObjectId
+                                ? cell.edges[0].target?.mxObjectId : cell.edges[0].source?.mxObjectId)),
+                            busTo: resolveBusName((cell.edges[1].target?.mxObjectId !== cell.mxObjectId
+                                ? cell.edges[1].target?.mxObjectId : cell.edges[1].source?.mxObjectId))
+                        }
+                        : { busFrom: null, busTo: null };
                     const impedanceParams = getAttributesAsObject(cell, {
                         r_ohm: 'r_ohm',
                         x_ohm: 'x_ohm',
@@ -2516,7 +2695,8 @@ function collectNetworkDataStructured(graph) {
                         typ: 'Impedance',
                         name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
                         id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
-                        bus: getConnectedBusId(cell),
+                        busFrom: connections.busFrom,
+                        busTo: connections.busTo,
                         r_ohm: impedanceParams.r_ohm || 0.0,
                         x_ohm: impedanceParams.x_ohm || 0.0,
                         sn_mva: impedanceParams.sn_mva || 1.0,
@@ -2525,11 +2705,10 @@ function collectNetworkDataStructured(graph) {
                         in_service: impedanceInService
                     };
                     
-                    // Validate bus connection
-                    if (cellData.bus) {
-                        console.log(`Impedance ${cellData.name}: bus=${cellData.bus}, R=${cellData.r_ohm}Ω, X=${cellData.x_ohm}Ω`);
+                    if (cellData.busFrom && cellData.busTo) {
+                        console.log(`Impedance ${cellData.name}: busFrom=${cellData.busFrom}, busTo=${cellData.busTo}, R=${cellData.r_ohm}Ω, X=${cellData.x_ohm}Ω`);
                     } else {
-                        console.warn(`Impedance ${cellData.name} missing bus connection`);
+                        console.warn(`Impedance ${cellData.name} missing bus connections: busFrom=${cellData.busFrom}, busTo=${cellData.busTo}`);
                     }
                 } else if (styleObj && styleObj.shapeELXXX === 'Ward') {
                     // This is a ward element
@@ -2554,7 +2733,7 @@ function collectNetworkDataStructured(graph) {
                         typ: 'Ward',
                         name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
                         id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
-                        bus: getConnectedBusId(cell),
+                        bus: resolveBusName(getConnectedBusId(cell)),
                         pz_mw: wardParams.pz_mw || 0.0,
                         qz_mvar: wardParams.qz_mvar || 0.0,
                         ps_mw: wardParams.ps_mw || 0.0,
@@ -2596,7 +2775,7 @@ function collectNetworkDataStructured(graph) {
                         typ: 'Extended Ward',
                         name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
                         id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
-                        bus: getConnectedBusId(cell),
+                        bus: resolveBusName(getConnectedBusId(cell)),
                         pz_mw: extWardParams.pz_mw || 0.0,
                         qz_mvar: extWardParams.qz_mvar || 0.0,
                         ps_mw: extWardParams.ps_mw || 0.0,
@@ -2640,7 +2819,7 @@ function collectNetworkDataStructured(graph) {
                         typ: 'Motor',
                         name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
                         id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
-                        bus: getConnectedBusId(cell),
+                        bus: resolveBusName(getConnectedBusId(cell)),
                         // Use extracted parameters or defaults for critical values
                         pn_mw: motorParams.pn_mw || 1.0,      // Default power
                         cos_phi_n: motorParams.cos_phi_n || 0.9, // Default power factor
@@ -2684,7 +2863,7 @@ function collectNetworkDataStructured(graph) {
                         typ: 'SVC',
                         name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
                         id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
-                        bus: getConnectedBusId(cell),
+                        bus: resolveBusName(getConnectedBusId(cell)),
                         // Use extracted parameters or defaults for critical values
                         q_mvar: svcParams.q_mvar || 1.0,      // Default reactive power
                         vm_set_pu: svcParams.vm_set_pu || 1.0, // Default voltage setpoint
@@ -2725,7 +2904,7 @@ function collectNetworkDataStructured(graph) {
                         typ: 'TCSC',
                         name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
                         id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
-                        bus: getConnectedBusId(cell),
+                        bus: resolveBusName(getConnectedBusId(cell)),
                         x_l_ohm: tcscParams.x_l_ohm || 0.0,
                         x_c_ohm: tcscParams.x_c_ohm || 0.0,
                         x_par_ohm: tcscParams.x_par_ohm || 0.0,
@@ -2762,7 +2941,7 @@ function collectNetworkDataStructured(graph) {
                         typ: 'SSC',
                         name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
                         id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
-                        bus: getConnectedBusId(cell),
+                        bus: resolveBusName(getConnectedBusId(cell)),
                         p_mw: sscParams.p_mw || 0.0,
                         q_mvar: sscParams.q_mvar || 0.0,
                         sn_mva: sscParams.sn_mva || 1.0,
@@ -2866,7 +3045,7 @@ function collectNetworkDataStructured(graph) {
                         typ: 'Static Generator',
                         name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
                         id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
-                        bus: getConnectedBusId(cell),
+                        bus: resolveBusName(getConnectedBusId(cell)),
                         // Use extracted parameters or defaults for critical values
                         p_mw: staticGenParams.p_mw || 1.0,      // Default power
                         q_mvar: staticGenParams.q_mvar || 0.0,  // Default reactive power
@@ -2940,7 +3119,7 @@ function collectNetworkDataStructured(graph) {
                         typ: 'Asymmetric Static Generator',
                         name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
                         id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
-                        bus: getConnectedBusId(cell),
+                        bus: resolveBusName(getConnectedBusId(cell)),
                         // Use extracted parameters or defaults for critical values
                         p_a_mw: asymStaticGenParams.p_a_mw || 1.0,      // Default power phase A
                         p_b_mw: asymStaticGenParams.p_b_mw || 1.0,      // Default power phase B

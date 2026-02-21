@@ -352,7 +352,9 @@ export function configureLoadAttributes(grafka, vertex, options = {}) {
     // Reference: https://opendss.epri.com/HarmonicsLoadModeling.html
     g.setAttribute("Harmonic_parameters", "");
     g.setAttribute("spectrum", options.spectrum || "defaultload");
-    g.setAttribute("pctSeriesRL", options.pctSeriesRL || "50");
+    g.setAttribute("spectrum_csv", options.spectrum_csv || "");
+    g.setAttribute("pctSeriesRL", options.pctSeriesRL ?? "100");
+    g.setAttribute("conn", (options.conn || "wye").toLowerCase());
     g.setAttribute("puXharm", options.puXharm || "0.0");
     g.setAttribute("XRharm", options.XRharm || "6.0");
 
@@ -390,12 +392,12 @@ export function configureAsymmetricLoadAttributes(grafka, vertex, options = {}) 
 export function configureImpedanceAttributes(grafka, vertex, options = {}) {
 
     var g = mxUtils.createXmlDocument().createElement("object");
-    g.setAttribute("name", "Impedance");
+    g.setAttribute("name", options.name || "Impedance");
 
     //INPUT
     g.setAttribute("Load_flow_parameters", "");
-    g.setAttribute("r_pu", options.r_pu || "0");
-    g.setAttribute("x_pu", options.x_pu || "0");
+    g.setAttribute("r_pu", options.r_pu ?? options.rft_pu ?? "0");
+    g.setAttribute("x_pu", options.x_pu ?? options.xft_pu ?? "0");
     g.setAttribute("sn_mva", options.sn_mva || "0");
 
     grafka.getModel().setValue(vertex, g)
