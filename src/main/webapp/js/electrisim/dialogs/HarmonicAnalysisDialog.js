@@ -1,4 +1,5 @@
 import { Dialog } from '../Dialog.js';
+import { ensureSubscriptionFunctions } from '../ensureSubscriptionFunctions.js';
 
 /**
  * HarmonicAnalysisDialog
@@ -358,15 +359,53 @@ export class HarmonicAnalysisDialog extends Dialog {
             }
         };
 
-        applyButton.onclick = (e) => {
+        applyButton.onclick = async (e) => {
             e.preventDefault();
-            const values = this.getFormValues();
-            if (callback) {
-                callback(values);
-            }
-            this.destroy();
-            if (this.ui && typeof this.ui.hideDialog === 'function') {
-                this.ui.hideDialog();
+
+            // Check subscription status before proceeding
+            try {
+                const hasSubscription = await this.checkSubscriptionStatus();
+
+                if (!hasSubscription) {
+                    // Close the dialog first
+                    if (this.modalOverlay && this.modalOverlay.parentNode) {
+                        document.body.removeChild(this.modalOverlay);
+                    }
+
+                    // Show subscription modal if no active subscription
+                    if (window.showSubscriptionModal) {
+                        window.showSubscriptionModal();
+                    } else {
+                        alert('A subscription is required to use the Harmonic Analysis feature.');
+                    }
+                    return;
+                }
+
+                const values = this.getFormValues();
+                if (callback) {
+                    callback(values);
+                }
+                this.destroy();
+                if (this.ui && typeof this.ui.hideDialog === 'function') {
+                    this.ui.hideDialog();
+                }
+            } catch (error) {
+                console.error('HarmonicAnalysisDialog: Error checking subscription status:', error);
+                if (error.message && error.message.includes('Token expired')) {
+                    alert('Your session has expired. Please log in again.');
+                    if (window.location.href.includes('app.electrisim.com')) {
+                        window.location.href = '/login.html';
+                    }
+                } else if (error.message && error.message.includes('NetworkError')) {
+                    alert('Network connection error. Please check your internet connection and try again.');
+                } else if (error.message && error.message.includes('Failed to fetch')) {
+                    alert(
+                        'Unable to connect to the server.\n\n' +
+                        'This often happens when using a corporate VPN (SSL/certificate is not trusted). Try disconnecting from VPN, using another network, or ask IT to add your organisation\'s root certificate. Contact electrisim@electrisim.com if it persists.'
+                    );
+                } else {
+                    alert('Unable to verify subscription status. Please try again. If the issue persists, contact support.');
+                }
             }
         };
 
@@ -477,6 +516,26 @@ export class HarmonicAnalysisDialog extends Dialog {
         });
 
         return button;
+    }
+
+    async checkSubscriptionStatus() {
+        try {
+            await ensureSubscriptionFunctions();
+
+            if (window.checkSubscriptionStatus) {
+                return await window.checkSubscriptionStatus();
+            }
+
+            if (window.SubscriptionManager && window.SubscriptionManager.checkSubscriptionStatus) {
+                return await window.SubscriptionManager.checkSubscriptionStatus();
+            }
+
+            console.warn('HarmonicAnalysisDialog: No subscription check function available');
+            return false;
+        } catch (error) {
+            console.error('HarmonicAnalysisDialog: Error in checkSubscriptionStatus:', error);
+            throw error;
+        }
     }
 }
 
