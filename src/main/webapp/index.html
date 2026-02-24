@@ -2,7 +2,34 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <link rel="stylesheet" type="text/css" href="mxgraph/css/common.css"> 
+    <link rel="stylesheet" type="text/css" href="mxgraph/css/common.css">
+    <!-- Leaflet for Map Editor -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <link rel="stylesheet" href="https://ppete2.github.io/Leaflet.PolylineMeasure/Leaflet.PolylineMeasure.css"/>
+    <script src="https://ppete2.github.io/Leaflet.PolylineMeasure/Leaflet.PolylineMeasure.js"></script>
+    <script type="text/javascript">
+        window.showMapEditorDialog = window.showMapEditorDialog || function(retryCount) {
+            retryCount = retryCount || 0;
+            var ui = (window.App && (window.App._editorUi || window.App._instance)) ||
+                (window.App && window.App._instance && window.App._instance.editor && window.App._instance.editor.editorUi) ||
+                (window.App && window.App.main && typeof window.App.main === 'object' && window.App.main.editor && window.App.main.editor.editorUi);
+            if (!ui) {
+                if (retryCount < 3) {
+                    setTimeout(function() { window.showMapEditorDialog(retryCount + 1); }, 500);
+                    return;
+                }
+                alert('Please wait for the diagram to load, then try again.');
+                return;
+            }
+            import('./js/electrisim/dialogs/MapEditorDialog.js').then(function(m) {
+                new m.MapEditorDialog(ui).show();
+            }).catch(function(e) {
+                console.error('Map Editor load error:', e);
+                alert('Map Editor failed to load. Check the browser console for details.');
+            });
+        };
+    </script>
     
     <script type="text/javascript">
         window.mxBasePath = 'mxgraph';
@@ -266,7 +293,13 @@
                     }
                     
                     if (typeof App !== 'undefined' && App.main) {
-                        App.main();
+                        App.main(function(app) {
+                            window.App._instance = app;
+                            window.App._editorUi = app;
+                            if (app && app.editor) {
+                                window.App.main.editor = app.editor;
+                            }
+                        });
                     }
                 } catch (e) {
                     console.error('Error in checkAllLoaded:', e);
@@ -551,6 +584,8 @@
 								'js/electrisim/TCSCDialog.js',
 								'js/electrisim/dcLineDialog.js',
 								'js/electrisim/configureAttributes.js',
+								'js/electrisim/dialogs/MapEditorDialog.js',
+								'js/electrisim/map/mapInitializer.js',
 								'js/electrisim/supportingFunctions.js',
 								'js/electrisim/loadFlow.js',
 								'js/electrisim/loadflowOpenDss.js',
