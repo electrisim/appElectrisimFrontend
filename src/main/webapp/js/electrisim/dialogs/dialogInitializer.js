@@ -14,10 +14,9 @@ window.OpenDSSLoadFlowDialog = OpenDSSLoadFlowDialog;
 
         // Wait for all dependencies to be ready
         function waitForApp(callback) {
-            if (typeof EditorUi === 'undefined' || 
-                !window.App || 
-                !window.App.main || 
-                !window.App.main.editor) {
+            const hasEditor = (window.App && window.App.main && window.App.main.editor) ||
+                (window.App && window.App._instance && window.App._instance.editor);
+            if (typeof EditorUi === 'undefined' || !window.App || !hasEditor) {
                 setTimeout(() => waitForApp(callback), 100);
                 return;
             }

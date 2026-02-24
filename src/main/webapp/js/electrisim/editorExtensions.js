@@ -3,10 +3,9 @@ import { LoadFlowDialog } from './dialogs/LoadFlowDialog.js';
 
 // Wait for EditorUi to be ready
 function waitForEditor(callback) {
-    if (typeof EditorUi === 'undefined' || 
-        !window.App || 
-        !window.App.main || 
-        !window.App.main.editor) {
+    const hasEditor = (window.App && window.App.main && window.App.main.editor) ||
+        (window.App && window.App._instance && window.App._instance.editor);
+    if (typeof EditorUi === 'undefined' || !window.App || !hasEditor) {
         setTimeout(() => waitForEditor(callback), 100);
         return;
     }
