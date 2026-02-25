@@ -441,7 +441,10 @@ export class GeneratorDialog extends Dialog {
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
             const screenHeight = window.innerHeight - 80;
-            this.ui.showDialog(container, 1000, screenHeight, true, false);
+            this.ui.showDialog(container, 1000, screenHeight, true, false, () => {
+                this.destroy();
+                return 1;
+            });
         } else {
             this.showModalFallback(container);
         }

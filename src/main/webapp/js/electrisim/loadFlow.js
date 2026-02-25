@@ -1222,7 +1222,8 @@ function loadFlowPandaPower(a, b, c) {
     }
 
     function processLoadingColor(grafka, cell, loadingPercent) {
-        const loading = parseFloat(loadingPercent.toFixed(1));
+        if (loadingPercent == null || loadingPercent === undefined || Number.isNaN(loadingPercent)) return;
+        const loading = parseFloat(Number(loadingPercent).toFixed(1));
         let color = null;
 
         if (loading > 100) color = COLOR_STATES.DANGER;
@@ -2518,6 +2519,7 @@ function loadFlowPandaPower(a, b, c) {
                                 vm_pu: 'vm_pu',
                                 sn_mva: 'sn_mva',
                                 scaling: 'scaling',
+                                slack: { name: 'slack', optional: true },
                                 vn_kv: 'vn_kv',
                                 xdss_pu: 'xdss_pu',
                                 rdss_ohm: 'rdss_ohm',

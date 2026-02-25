@@ -1,5 +1,11 @@
 // Export all configure functions and make them globally available
 
+/** Default scaling for load/gen/sgen etc.: use "1" when value is "0", null, undefined, or empty */
+function defaultScaling(value) {
+    if (value == null || value === "" || value === "0") return "1";
+    return String(value);
+}
+
 export function configureExternalGridAttributes(grafka, vertex, options = {}) {
     
     // Create XML document
@@ -42,7 +48,8 @@ export function configureGeneratorAttributes(grafka, vertex, options = {}) {
     g.setAttribute("p_mw", options.p_mw || "0");
     g.setAttribute("vm_pu", options.vm_pu || "1");
     g.setAttribute("sn_mva", options.sn_mva || "0");
-    g.setAttribute("scaling", options.scaling || "1");
+    g.setAttribute("scaling", defaultScaling(options.scaling));
+    g.setAttribute("slack", (options.slack === true || options.slack === 'true') ? "true" : "false");
     // g.setAttribute("in_service", true);                
 
     //short-circuit
@@ -89,7 +96,7 @@ export function configureStaticGeneratorAttributes(grafka, vertex, options = {})
     g.setAttribute("p_mw", options.p_mw || "0");
     g.setAttribute("q_mvar", options.q_mvar ||  "0");
     g.setAttribute("sn_mva", options.sn_mva ||  "0");
-    g.setAttribute("scaling", options.scaling ||  "1");
+    g.setAttribute("scaling", defaultScaling(options.scaling));
     g.setAttribute("type",  options.type || "Wye");
     //g.setAttribute("in_service", true);
 
@@ -138,7 +145,7 @@ export function configureAsymmetricStaticGeneratorAttributes(grafka, vertex, opt
     g.setAttribute("q_b_mvar", options.q_b_mvar || "0");
     g.setAttribute("q_c_mvar", options.q_c_mvar || "0");
     g.setAttribute("sn_mva", options.sn_mva || "0");
-    g.setAttribute("scaling", options.scaling || "1");
+    g.setAttribute("scaling", defaultScaling(options.scaling));
     g.setAttribute("type", options.type || "Wye");
     // g.setAttribute("in_service", true); //in_service nie działa
 
@@ -344,7 +351,7 @@ export function configureLoadAttributes(grafka, vertex, options = {}) {
     g.setAttribute("const_z_percent", options.const_z_percent ||"0");
     g.setAttribute("const_i_percent", options.const_i_percent ||"0");
     g.setAttribute("sn_mva", options.sn_mva ||"0");
-    g.setAttribute("scaling", options.scaling ||"1");
+    g.setAttribute("scaling", defaultScaling(options.scaling));
     g.setAttribute("type", options.type || "Wye");
     //g.setAttribute("in_service", "True"); //in_service nie działa
 
@@ -380,7 +387,7 @@ export function configureAsymmetricLoadAttributes(grafka, vertex, options = {}) 
     g.setAttribute("q_c_mvar", options.q_c_mvar || "0");
 
     g.setAttribute("sn_mva", options.sn_mva || "0");
-    g.setAttribute("scaling", options.scaling || "1");
+    g.setAttribute("scaling", defaultScaling(options.scaling));
     g.setAttribute("type", options.type || "Wye");
     // g.setAttribute("in_service", "True"); //in_service nie działa
 
@@ -469,7 +476,7 @@ export function configureMotorAttributes(grafka, vertex, options = {}) {
     g.setAttribute("Optional_parameters", "");
     g.setAttribute("efficiency_percent", options.efficiency_percent ||"0");
     g.setAttribute("loading_percent", options.loading_percent || "0");
-    g.setAttribute("scaling", options.scaling ||"1");
+    g.setAttribute("scaling", defaultScaling(options.scaling));
     // g.setAttribute("in_service", "True");  //in_service nie działa                
 
     grafka.getModel().setValue(vertex, g)
@@ -493,7 +500,7 @@ export function configureStorageAttributes(grafka, vertex, options = {}) {
     g.setAttribute("sn_mva", options.sn_mva || "0");
     g.setAttribute("soc_percent", options.soc_percent ||  "0");
     g.setAttribute("min_e_mwh", options.min_e_mwh || "0");
-    g.setAttribute("scaling", options.scaling || "1");
+    g.setAttribute("scaling", defaultScaling(options.scaling));
     g.setAttribute("type", options.type ||"0");
     // g.setAttribute("in_service", "True");
 

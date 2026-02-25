@@ -70,22 +70,15 @@ function initializeDialogs() {
                     cell = this.editor.graph.getModel().getRoot();
                 }
                 
-                // Check if there's already a dialog showing for this cell
+                // Force-clear any stuck flags before proceeding.
+                // The actual duplicate-dialog prevention is handled inside
+                // EditDataDialog / ComponentsDataDialog constructors.
                 if (cell._dialogShowing) {
-                    console.log('Dialog already showing for this cell, ignoring duplicate call');
-                    return;
+                    delete cell._dialogShowing;
                 }
-                
-                // Check if there's already a dialog showing globally
                 if (window._globalDialogShowing) {
-                    console.log('Global dialog already showing, ignoring duplicate call');
-                    return;
+                    delete window._globalDialogShowing;
                 }
-                
-                // NOTE: Do NOT set cell._dialogShowing or window._globalDialogShowing here!
-                // These flags are managed by EditDataDialog and ComponentsDataDialog internally.
-                // Setting them here causes issues because if the dialog creation fails or
-                // the user clicks quickly, the flags can get stuck.
                 
                 // Check if this is the root cell or a request for all components overview
                 const model = this.editor.graph.getModel();
