@@ -1,4 +1,5 @@
-window.EXPORT_URL = 'REPLACE_WITH_YOUR_IMAGE_SERVER';
+// exp.draw.io is deprecated (DNS_PROBE_FINISHED_NXDOMAIN). PDF export uses browser print dialog (printPdfExport in index.html).
+// For PNG/SVG export, self-host jgraph/export-server and use ?export=https://your-server/export
 window.PLANT_URL = 'REPLACE_WITH_YOUR_PLANTUML_SERVER';
 // Set the base URL explicitly for your domain
 window.DRAWIO_BASE_URL = window.location.protocol + '//' + window.location.hostname;

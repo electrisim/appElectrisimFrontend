@@ -48,9 +48,9 @@
         <ellipse h="40" w="40" x="0" y="20"/>
     </background>
     <foreground>
-      <!-- ELXXX dodane oznaczenia uzwojeń-->
-        <text str="HV" valign="bottom" x="0" y="0"/>
-        <text str="MV" valign="bottom" x="0" y="73"/>
+      <!-- ELXXX dodane oznaczenia uzwojeń - align-shape="0" keeps labels upright when shape is rotated -->
+        <text str="HV" valign="bottom" x="0" y="0" align-shape="0"/>
+        <text str="MV" valign="bottom" x="0" y="73" align-shape="0"/>
         
 
         <fillstroke/>

@@ -3044,7 +3044,15 @@ function loadFlowPandaPower(a, b, c) {
                                 min_e_mwh: 'min_e_mwh',
                                 scaling: 'scaling',
                                 type: 'type',
-                                in_service: { name: 'in_service', optional: true }
+                                in_service: { name: 'in_service', optional: true },
+                                spectrum: { name: 'spectrum', optional: true },
+                                // OpenDSS-specific parameters
+                                pct_charge: { name: 'pct_charge', optional: true },
+                                pct_discharge: { name: 'pct_discharge', optional: true },
+                                pct_eff_charge: { name: 'pct_eff_charge', optional: true },
+                                pct_eff_discharge: { name: 'pct_eff_discharge', optional: true },
+                                state: { name: 'state', optional: true },
+                                disp_mode: { name: 'disp_mode', optional: true }
                             })
                         };
                         componentArrays.storage.push(storage);

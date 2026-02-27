@@ -2415,7 +2415,14 @@ function collectNetworkDataStructured(graph) {
                         min_e_mwh: 'min_e_mwh',
                         in_service: { name: 'in_service', optional: true },
                         // Harmonic analysis parameters
-                        spectrum: { name: 'spectrum', optional: true }
+                        spectrum: { name: 'spectrum', optional: true },
+                        // OpenDSS-specific parameters (https://opendss.epri.com/Properties5.html)
+                        pct_charge: { name: 'pct_charge', optional: true },
+                        pct_discharge: { name: 'pct_discharge', optional: true },
+                        pct_eff_charge: { name: 'pct_eff_charge', optional: true },
+                        pct_eff_discharge: { name: 'pct_eff_discharge', optional: true },
+                        state: { name: 'state', optional: true },
+                        disp_mode: { name: 'disp_mode', optional: true }
                     });
 
                     const storageInService = storageParams.in_service !== undefined
@@ -2445,7 +2452,14 @@ function collectNetworkDataStructured(graph) {
                         min_e_mwh: storageParams.min_e_mwh || 0.0,
                         in_service: storageInService,
                         // Harmonic analysis parameters
-                        spectrum: storageParams.spectrum || 'default'
+                        spectrum: storageParams.spectrum || 'default',
+                        // OpenDSS-specific parameters
+                        pct_charge: storageParams.pct_charge ?? 100,
+                        pct_discharge: storageParams.pct_discharge ?? 100,
+                        pct_eff_charge: storageParams.pct_eff_charge ?? 90,
+                        pct_eff_discharge: storageParams.pct_eff_discharge ?? 90,
+                        state: storageParams.state || 'IDLING',
+                        disp_mode: storageParams.disp_mode || 'DEFAULT'
                     };
                     
                     // Validate bus connection

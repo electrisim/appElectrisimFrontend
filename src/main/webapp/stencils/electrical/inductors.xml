@@ -709,9 +709,9 @@
     </connections>
     <foreground>
         <!-- ELXXX dodane oznaczenia uzwojeń-->
-        <text str="HV" valign="bottom" x="35" y="25"/>
-        <text str="MV" valign="bottom" x="0" y="250"/>
-        <text str="LV" valign="bottom" x="130" y="250"/>
+        <text str="HV" valign="bottom" x="35" y="25" align-shape="0"/>
+        <text str="MV" valign="bottom" x="0" y="250" align-shape="0"/>
+        <text str="LV" valign="bottom" x="130" y="250" align-shape="0"/>
         
         <path>
             <move x="87.5" y="0"/>
