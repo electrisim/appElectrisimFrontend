@@ -520,6 +520,10 @@
 							appScript.async = false; // Maintain execution order but don't block parsing
 							appScript.defer = true;
 							appScript.onload = function() {
+							// Use browser print dialog for PDF export (exp.draw.io is deprecated; no external server needed)
+							if (typeof EditorUi !== 'undefined') {
+								EditorUi.prototype.printPdfExport = true;
+							}
 							console.log('✅ app.min.js loaded, starting to load Electrisim scripts');
 							
 							// Load Electrisim custom scripts after app.min.js

@@ -1637,7 +1637,6 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                     scaling: `${scaling}`,
                     in_service: `${in_service}`,
                     type: `${type}`
-
                 })
                 if (busVertex) {
                     const connX = getNextBusConnX(bus_no);

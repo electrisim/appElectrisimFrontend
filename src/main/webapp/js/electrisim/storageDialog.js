@@ -1,6 +1,6 @@
 import { Dialog } from './Dialog.js';
 
-// Default values for storage parameters (based on pandapower documentation)
+// Default values for storage parameters (based on pandapower and OpenDSS documentation)
 export const defaultStorageData = {
     name: "Storage",
     p_mw: 0.0,
@@ -13,7 +13,14 @@ export const defaultStorageData = {
     type: 0.0,
     in_service: true,
     // Harmonic analysis parameters (OpenDSS)
-    spectrum: 'default'
+    spectrum: 'default',
+    // OpenDSS-specific parameters (https://opendss.epri.com/Properties5.html)
+    pct_charge: 100,
+    pct_discharge: 100,
+    pct_eff_charge: 90,
+    pct_eff_discharge: 90,
+    state: 'IDLING',
+    disp_mode: 'DEFAULT'
 };
 
 export class StorageDialog extends Dialog {
@@ -137,6 +144,66 @@ export class StorageDialog extends Dialog {
                 options: ['default', 'defaultgen', 'defaultload', 'pwm6', 'none']
             }
         ];
+
+        // OpenDSS-specific parameters (https://opendss.epri.com/Properties5.html)
+        this.opendssParameters = [
+            {
+                id: 'pct_charge',
+                label: '% Charge',
+                description: 'Charging rate (input power) in percent of rated kW. Default = 100.',
+                type: 'number',
+                value: String(this.data.pct_charge ?? 100),
+                step: '1',
+                min: '0',
+                max: '200'
+            },
+            {
+                id: 'pct_discharge',
+                label: '% Discharge',
+                description: 'Discharge rate (output power) in percent of rated kW. Default = 100.',
+                type: 'number',
+                value: String(this.data.pct_discharge ?? 100),
+                step: '1',
+                min: '0',
+                max: '200'
+            },
+            {
+                id: 'pct_eff_charge',
+                label: '% Eff Charge',
+                description: 'Percent efficiency for CHARGING the storage element. Default = 90.',
+                type: 'number',
+                value: String(this.data.pct_eff_charge ?? 90),
+                step: '1',
+                min: '0',
+                max: '100'
+            },
+            {
+                id: 'pct_eff_discharge',
+                label: '% Eff Discharge',
+                description: 'Percent efficiency for DISCHARGING the storage element. Default = 90.',
+                type: 'number',
+                value: String(this.data.pct_eff_discharge ?? 90),
+                step: '1',
+                min: '0',
+                max: '100'
+            },
+            {
+                id: 'state',
+                label: 'State',
+                description: 'Operational state: IDLING, CHARGING, or DISCHARGING.',
+                type: 'select',
+                value: this.data.state || 'IDLING',
+                options: ['IDLING', 'CHARGING', 'DISCHARGING']
+            },
+            {
+                id: 'disp_mode',
+                label: 'Dispatch Mode',
+                description: 'DispMode: DEFAULT, FOLLOW, EXTERNAL, LOADLEVEL, or PRICE.',
+                type: 'select',
+                value: this.data.disp_mode || 'DEFAULT',
+                options: ['DEFAULT', 'FOLLOW', 'EXTERNAL', 'LOADLEVEL', 'PRICE']
+            }
+        ];
     }
     
     getDescription() {
@@ -198,11 +265,13 @@ export class StorageDialog extends Dialog {
         const energyTab = this.createTab('Energy', 'energy', this.currentTab === 'energy');
         const configTab = this.createTab('Configuration', 'config', this.currentTab === 'config');
         const harmonicTab = this.createTab('Harmonic', 'harmonic', this.currentTab === 'harmonic');
+        const opendssTab = this.createTab('Additional parameters for OpenDSS model', 'opendss', this.currentTab === 'opendss');
         
         tabContainer.appendChild(powerTab);
         tabContainer.appendChild(energyTab);
         tabContainer.appendChild(configTab);
         tabContainer.appendChild(harmonicTab);
+        tabContainer.appendChild(opendssTab);
         container.appendChild(tabContainer);
 
         // Create content area
@@ -222,11 +291,13 @@ export class StorageDialog extends Dialog {
         const energyContent = this.createTabContent('energy', this.energyParameters);
         const configContent = this.createTabContent('config', this.configParameters);
         const harmonicContent = this.createTabContent('harmonic', this.harmonicParameters);
+        const opendssContent = this.createTabContent('opendss', this.opendssParameters);
         
         contentArea.appendChild(powerContent);
         contentArea.appendChild(energyContent);
         contentArea.appendChild(configContent);
         contentArea.appendChild(harmonicContent);
+        contentArea.appendChild(opendssContent);
         container.appendChild(contentArea);
 
         // Add button container
@@ -273,12 +344,13 @@ export class StorageDialog extends Dialog {
         this.container = container;
         
         // Tab click handlers
-        const allTabs = [powerTab, energyTab, configTab, harmonicTab];
-        const allContents = [powerContent, energyContent, configContent, harmonicContent];
+        const allTabs = [powerTab, energyTab, configTab, harmonicTab, opendssTab];
+        const allContents = [powerContent, energyContent, configContent, harmonicContent, opendssContent];
         powerTab.onclick = () => this.switchTab('power', powerTab, allTabs.filter(t => t !== powerTab), powerContent, allContents.filter(c => c !== powerContent));
         energyTab.onclick = () => this.switchTab('energy', energyTab, allTabs.filter(t => t !== energyTab), energyContent, allContents.filter(c => c !== energyContent));
         configTab.onclick = () => this.switchTab('config', configTab, allTabs.filter(t => t !== configTab), configContent, allContents.filter(c => c !== configContent));
         harmonicTab.onclick = () => this.switchTab('harmonic', harmonicTab, allTabs.filter(t => t !== harmonicTab), harmonicContent, allContents.filter(c => c !== harmonicContent));
+        opendssTab.onclick = () => this.switchTab('opendss', opendssTab, allTabs.filter(t => t !== opendssTab), opendssContent, allContents.filter(c => c !== opendssContent));
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
@@ -568,8 +640,8 @@ export class StorageDialog extends Dialog {
     getFormValues() {
         const values = {};
         
-        // Collect all parameter values from all tabs (including harmonic)
-        [...this.powerParameters, ...this.energyParameters, ...this.configParameters, ...this.harmonicParameters].forEach(param => {
+        // Collect all parameter values from all tabs (including harmonic and OpenDSS)
+        [...this.powerParameters, ...this.energyParameters, ...this.configParameters, ...this.harmonicParameters, ...this.opendssParameters].forEach(param => {
             const input = this.inputs.get(param.id);
             if (input) {
                 if (param.type === 'number') {
@@ -605,7 +677,7 @@ export class StorageDialog extends Dialog {
         
         // Log initial parameter values
         console.log('Initial parameter values:');
-        [...this.powerParameters, ...this.energyParameters, ...this.configParameters, ...this.harmonicParameters].forEach(param => {
+        [...this.powerParameters, ...this.energyParameters, ...this.configParameters, ...this.harmonicParameters, ...this.opendssParameters].forEach(param => {
             console.log(`  ${param.id}: ${param.value} (${param.type})`);
         });
         
@@ -665,7 +737,18 @@ export class StorageDialog extends Dialog {
                     console.log(`  Updated harmonic ${attributeName}: ${oldValue} → ${harmonicParam.value}`);
                 }
                 
-                if (!powerParam && !energyParam && !configParam && !harmonicParam) {
+                const opendssParam = this.opendssParameters.find(p => p.id === attributeName);
+                if (opendssParam) {
+                    const oldValue = opendssParam.value;
+                    if (opendssParam.type === 'checkbox') {
+                        opendssParam.value = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        opendssParam.value = attributeValue;
+                    }
+                    console.log(`  Updated OpenDSS ${attributeName}: ${oldValue} → ${opendssParam.value}`);
+                }
+                
+                if (!powerParam && !energyParam && !configParam && !harmonicParam && !opendssParam) {
                     console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
             }
@@ -675,7 +758,7 @@ export class StorageDialog extends Dialog {
         
         // Log final parameter values
         console.log('Final parameter values:');
-        [...this.powerParameters, ...this.energyParameters, ...this.configParameters, ...this.harmonicParameters].forEach(param => {
+        [...this.powerParameters, ...this.energyParameters, ...this.configParameters, ...this.harmonicParameters, ...this.opendssParameters].forEach(param => {
             console.log(`  ${param.id}: ${param.value} (${param.type})`);
         });
         

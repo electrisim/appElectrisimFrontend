@@ -509,6 +509,15 @@ export function configureStorageAttributes(grafka, vertex, options = {}) {
     g.setAttribute("Harmonic_parameters", "");
     g.setAttribute("spectrum", options.spectrum || "default");
 
+    // OpenDSS-specific parameters (https://opendss.epri.com/Properties5.html)
+    g.setAttribute("OpenDSS_parameters", "");
+    g.setAttribute("pct_charge", String(options.pct_charge ?? 100));
+    g.setAttribute("pct_discharge", String(options.pct_discharge ?? 100));
+    g.setAttribute("pct_eff_charge", String(options.pct_eff_charge ?? 90));
+    g.setAttribute("pct_eff_discharge", String(options.pct_eff_discharge ?? 90));
+    g.setAttribute("state", options.state || "IDLING");
+    g.setAttribute("disp_mode", options.disp_mode || "DEFAULT");
+
     //Optimal Power Flow
     /*
     g.setAttribute("max_p_mw", "0");

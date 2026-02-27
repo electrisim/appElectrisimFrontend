@@ -3,11 +3,15 @@
  * Uses Leaflet with OpenStreetMap
  */
 
-import { haversineDistanceKm, polylineLengthKm, generateMapId } from './mapUtils.js';
+import { haversineDistanceKm, polylineLengthKm, generateMapId, placeTurbinesInPolygon, computeOffshoreCableRouting } from './mapUtils.js';
+
+const MIN_SUBSTATION_DISTANCE_KM = 0.3;
 
 export const NODE_TYPES = {
     // Sources (backward compatible)
     WIND_TURBINE: 'wind_turbine',
+    /** Offshore wind turbine: expands to Static Gen + LV Bus (0.69 kV) + Transformer (0.69/66 kV) + HV Bus (66 kV) */
+    OFFSHORE_WIND_TURBINE: 'offshore_wind_turbine',
     OFFSHORE_SUBSTATION: 'offshore_substation',
     ONSHORE_GRID: 'onshore_grid',
     BUS: 'bus',
@@ -39,6 +43,7 @@ export const NODE_TYPES = {
 
 const NODE_ICONS = {
     [NODE_TYPES.WIND_TURBINE]: '🔄',
+    [NODE_TYPES.OFFSHORE_WIND_TURBINE]: '🌀',
     [NODE_TYPES.OFFSHORE_SUBSTATION]: '⚡',
     [NODE_TYPES.ONSHORE_GRID]: '🔌',
     [NODE_TYPES.BUS]: '▣',
@@ -69,6 +74,7 @@ const NODE_ICONS = {
 
 const NODE_COLORS = {
     [NODE_TYPES.WIND_TURBINE]: '#3388ff',
+    [NODE_TYPES.OFFSHORE_WIND_TURBINE]: '#1e88e5',
     [NODE_TYPES.OFFSHORE_SUBSTATION]: '#2ecc71',
     [NODE_TYPES.ONSHORE_GRID]: '#e74c3c',
     [NODE_TYPES.BUS]: '#95a5a6',
@@ -100,7 +106,8 @@ const NODE_COLORS = {
 /** Display names matching the Electrisim palette */
 const NODE_DISPLAY_NAMES = {
     [NODE_TYPES.WIND_TURBINE]: 'Generator',
-    [NODE_TYPES.OFFSHORE_SUBSTATION]: 'Transformer',
+    [NODE_TYPES.OFFSHORE_WIND_TURBINE]: 'Wind Turbine',
+    [NODE_TYPES.OFFSHORE_SUBSTATION]: 'Offshore Substation',
     [NODE_TYPES.ONSHORE_GRID]: 'External Grid',
     [NODE_TYPES.BUS]: 'Bus',
     [NODE_TYPES.STATIC_GENERATOR]: 'Static Gen',
@@ -139,17 +146,24 @@ export class MapEditor {
         this.map = null;
         this.nodes = new Map(); // id -> { id, type, lat, lng, name, vn_kv, p_mw, ... }
         this.cables = new Map(); // id -> { id, from, to, coords, length_km, voltage_kv, r_ohm_per_km, x_ohm_per_km }
+        this.areas = new Map(); // id -> { id, coords, turbineCount, minDistanceKm }
         this.markers = new Map(); // id -> L.Marker
         this.polylines = new Map(); // id -> L.Polyline
+        this.areaPolygons = new Map(); // id -> L.Polygon
         this.measureControl = null;
-        this.mode = 'select'; // 'select' | 'add_node' | 'draw_cable'
+        this.mode = 'select'; // 'select' | 'add_node' | 'draw_cable' | 'draw_area'
         this.cableDrawFrom = null;
         this.cableDrawPoints = [];
         this.tempLine = null;
         this.tempLinePreview = null;
+        this.areaDrawPoints = [];
+        this.tempAreaPoly = null;
+        this.tempAreaFirstMarker = null;
         this.selectedNodes = new Set();
         this.selectedCables = new Set();
-        this._listeners = { change: [], cableDrawStart: [], cableDrawEnd: [], cableDrawUpdate: [], selectionChange: [] };
+        this.selectedAreas = new Set();
+        this.arrayCableIds = new Set();
+        this._listeners = { change: [], cableDrawStart: [], cableDrawEnd: [], cableDrawUpdate: [], selectionChange: [], areaDrawn: [], nodeAdded: [] };
     }
 
     init() {
@@ -186,6 +200,8 @@ export class MapEditor {
         this.map.on('click', (e) => {
             if (this.mode === 'add_node') {
                 this._addNodeAt(e.latlng);
+            } else if (this.mode === 'draw_area') {
+                this._handleAreaDrawClick(e.latlng);
             } else if (this.mode === 'draw_cable') {
                 const node = this._getNodeAt(e.latlng);
                 if (node) {
@@ -259,6 +275,167 @@ export class MapEditor {
         }
     }
 
+    _handleAreaDrawClick(latlng) {
+        const pts = this.areaDrawPoints;
+        if (pts.length >= 3) {
+            const first = pts[0];
+            const d = haversineDistanceKm(latlng.lat, latlng.lng, first[0], first[1]);
+            if (d < 0.08) {
+                this._finishAreaDraw();
+                return;
+            }
+        }
+        pts.push([latlng.lat, latlng.lng]);
+        this._updateTempAreaPoly();
+    }
+
+    _updateTempAreaPoly() {
+        const pts = this.areaDrawPoints;
+        if (pts.length >= 1) {
+            const first = pts[0];
+            if (!this.tempAreaFirstMarker) {
+                this.tempAreaFirstMarker = L.circleMarker([first[0], first[1]], {
+                    radius: 14,
+                    fillColor: '#4caf50',
+                    color: '#2e7d32',
+                    weight: 3,
+                    fillOpacity: 0.9
+                }).addTo(this.map).bindTooltip('Click here to close area', {
+                    permanent: true,
+                    direction: 'top',
+                    className: 'area-first-point-tooltip'
+                });
+            } else {
+                this.tempAreaFirstMarker.setLatLng([first[0], first[1]]);
+            }
+        }
+        if (pts.length < 2) return;
+        if (this.tempAreaPoly) {
+            this.tempAreaPoly.setLatLngs(pts);
+        } else {
+            this.tempAreaPoly = L.polygon(pts, {
+                color: '#1e88e5',
+                fillColor: '#1e88e5',
+                fillOpacity: 0.2,
+                weight: 3,
+                dashArray: '5, 10'
+            }).addTo(this.map);
+        }
+    }
+
+    _cancelAreaDraw() {
+        this.areaDrawPoints = [];
+        if (this.tempAreaFirstMarker) {
+            this.map.removeLayer(this.tempAreaFirstMarker);
+            this.tempAreaFirstMarker = null;
+        }
+        if (this.tempAreaPoly) {
+            this.map.removeLayer(this.tempAreaPoly);
+            this.tempAreaPoly = null;
+        }
+    }
+
+    _finishAreaDraw() {
+        const pts = this.areaDrawPoints;
+        if (pts.length < 3) {
+            this._cancelAreaDraw();
+            return;
+        }
+        const id = generateMapId('area', this.areas.keys());
+        this.addArea({ id, coords: [...pts], turbineCount: 0, minDistanceKm: 1 });
+        this._cancelAreaDraw();
+        this.setMode('select');
+        this._listeners.areaDrawn.forEach(f => f(this.areas.get(id)));
+    }
+
+    addArea(area) {
+        const { id, coords } = area;
+        const a = {
+            id: id || generateMapId('area', this.areas.keys()),
+            coords: coords || [],
+            turbineCount: area.turbineCount ?? 0,
+            minDistanceKm: area.minDistanceKm ?? 1,
+            ...area
+        };
+        this.areas.set(a.id, a);
+        const poly = L.polygon(a.coords, {
+            color: '#1e88e5',
+            fillColor: '#1e88e5',
+            fillOpacity: 0.15,
+            weight: 2
+        }).addTo(this.map).bindPopup(`<b>${a.id}</b><br>Wind farm area<br>Click to configure turbines`);
+        poly.on('click', (e) => {
+            if (e.originalEvent) L.DomEvent.stopPropagation(e.originalEvent);
+            if (this.mode === 'add_node') {
+                this._addNodeAt(e.latlng);
+                return;
+            }
+            if (this.mode === 'select') {
+                const addTo = !!(e.originalEvent && (e.originalEvent.ctrlKey || e.originalEvent.shiftKey || e.originalEvent.metaKey));
+                if (addTo) {
+                    if (this.selectedAreas.has(a.id)) this.selectedAreas.delete(a.id);
+                    else this.selectedAreas.add(a.id);
+                } else {
+                    this.selectedAreas.clear();
+                    this.selectedAreas.add(a.id);
+                    this.selectedNodes.clear();
+                    this.selectedCables.clear();
+                }
+                this._updateAreaSelectionStyle();
+                this._listeners.selectionChange.forEach(f => f());
+            }
+        });
+        this.areaPolygons.set(a.id, poly);
+        this._notifyChange();
+        return a.id;
+    }
+
+    removeArea(areaId) {
+        this.areaPolygons.get(areaId)?.remove();
+        this.areaPolygons.delete(areaId);
+        this.areas.delete(areaId);
+        this.selectedAreas.delete(areaId);
+        this._notifyChange();
+    }
+
+    _updateAreaSelectionStyle() {
+        for (const [id, poly] of this.areaPolygons) {
+            const area = this.areas.get(id);
+            if (!area) continue;
+            const selected = this.selectedAreas.has(id);
+            poly.setStyle({
+                color: selected ? '#ff9800' : '#1e88e5',
+                fillColor: selected ? '#ff9800' : '#1e88e5',
+                fillOpacity: selected ? 0.3 : 0.15,
+                weight: selected ? 4 : 2
+            });
+        }
+    }
+
+    placeTurbinesInArea(areaId, count, minDistKm = 1) {
+        const area = this.areas.get(areaId);
+        if (!area) return [];
+        const positions = placeTurbinesInPolygon(area.coords, count, minDistKm);
+        const nodeType = this.options.defaultNodeType || NODE_TYPES.OFFSHORE_WIND_TURBINE;
+        const added = [];
+        for (const pos of positions) {
+            const node = {
+                lat: pos.lat,
+                lng: pos.lng,
+                type: nodeType,
+                name: null,
+                vn_kv: 66,
+                p_mw: 15
+            };
+            const nid = this.addNode(node);
+            added.push(nid);
+        }
+        area.turbineCount = count;
+        area.minDistanceKm = minDistKm;
+        this._notifyChange();
+        return added;
+    }
+
     cancelCableDraw() {
         if (this.mode === 'draw_cable' && this.cableDrawFrom) {
             this._cancelCableDraw();
@@ -267,10 +444,20 @@ export class MapEditor {
         return false;
     }
 
+    cancelAreaDraw() {
+        if (this.mode === 'draw_area' && this.areaDrawPoints.length > 0) {
+            this._cancelAreaDraw();
+            return true;
+        }
+        return false;
+    }
+
     _clearSelection() {
         this.selectedNodes.clear();
         this.selectedCables.clear();
+        this.selectedAreas.clear();
         this._updateSelectionStyle();
+        this._updateAreaSelectionStyle();
         (this._listeners.selectionChange || []).forEach(f => f());
     }
 
@@ -330,11 +517,15 @@ export class MapEditor {
     deleteSelected() {
         const nodesToRemove = [...this.selectedNodes];
         const cablesToRemove = [...this.selectedCables];
+        const areasToRemove = [...this.selectedAreas];
         this.selectedNodes.clear();
         this.selectedCables.clear();
+        this.selectedAreas.clear();
         cablesToRemove.forEach(id => this.removeCable(id));
         nodesToRemove.forEach(id => this.removeNode(id));
+        areasToRemove.forEach(id => this.removeArea(id));
         this._updateSelectionStyle();
+        this._updateAreaSelectionStyle();
     }
 
     _getNodeAt(latlng, toleranceKm = 0.3) {
@@ -351,15 +542,27 @@ export class MapEditor {
     }
 
     _addNodeAt(latlng) {
+        const nodeType = this.options.defaultNodeType || NODE_TYPES.BUS;
+        if (nodeType === NODE_TYPES.OFFSHORE_SUBSTATION) {
+            for (const n of this.nodes.values()) {
+                if (n.type === NODE_TYPES.OFFSHORE_WIND_TURBINE) {
+                    const d = haversineDistanceKm(latlng.lat, latlng.lng, n.lat, n.lng);
+                    if (d < MIN_SUBSTATION_DISTANCE_KM) {
+                        alert(`Please place the offshore substation at least ${MIN_SUBSTATION_DISTANCE_KM} km away from wind turbines.`);
+                        return;
+                    }
+                }
+            }
+        }
         const id = generateMapId('node', this.nodes.keys());
         const node = {
             id,
-            type: this.options.defaultNodeType || NODE_TYPES.BUS,
+            type: nodeType,
             lat: latlng.lat,
             lng: latlng.lng,
             name: id,
-            vn_kv: this.options.defaultNodeType === NODE_TYPES.WIND_TURBINE ? 66 : 110,
-            p_mw: this.options.defaultNodeType === NODE_TYPES.WIND_TURBINE ? 15 : 0
+            vn_kv: nodeType === NODE_TYPES.WIND_TURBINE ? 66 : 110,
+            p_mw: nodeType === NODE_TYPES.WIND_TURBINE ? 15 : 0
         };
         this.addNode(node);
         this._notifyChange();
@@ -425,6 +628,7 @@ export class MapEditor {
             this._notifyChange();
         });
         this.markers.set(n.id, marker);
+        this._listeners.nodeAdded.forEach(f => f(n));
         return n.id;
     }
 
@@ -457,14 +661,15 @@ export class MapEditor {
         this._notifyChange();
     }
 
-    addCable(fromNodeId, toNodeId, coords = null) {
+    addCable(fromNodeId, toNodeId, coords = null, opts = {}) {
         const from = this.nodes.get(fromNodeId);
         const to = this.nodes.get(toNodeId);
         if (!from || !to) return null;
 
         const pts = coords || [[from.lat, from.lng], [to.lat, to.lng]];
         const length_km = polylineLengthKm(pts);
-        const id = generateMapId('cable', this.cables.keys());
+        const id = opts.id || generateMapId('cable', this.cables.keys());
+        const voltage_kv = opts.voltage_kv ?? Math.min(from.vn_kv || 110, to.vn_kv || 110);
 
         const cable = {
             id,
@@ -472,7 +677,7 @@ export class MapEditor {
             to: toNodeId,
             coords: pts,
             length_km,
-            voltage_kv: Math.min(from.vn_kv || 110, to.vn_kv || 110),
+            voltage_kv,
             r_ohm_per_km: 0.122,
             x_ohm_per_km: 0.112,
             max_i_ka: 0.5
@@ -492,8 +697,25 @@ export class MapEditor {
             }
         });
         this.polylines.set(id, polyline);
+        if (opts.isArrayCable) this.arrayCableIds.add(id);
         this._notifyChange();
         return id;
+    }
+
+    runAutoCableRouting() {
+        this.arrayCableIds.forEach(id => this.removeCable(id));
+        this.arrayCableIds.clear();
+        const nodes = Array.from(this.nodes.values());
+        const cablesToAdd = computeOffshoreCableRouting(nodes, 5);
+        const existingIds = new Set(this.cables.keys());
+        for (let i = 0; i < cablesToAdd.length; i++) {
+            const c = cablesToAdd[i];
+            let cableId = `array_${c.from}_${c.to}`;
+            if (existingIds.has(cableId)) cableId = generateMapId('array', existingIds);
+            existingIds.add(cableId);
+            this.addCable(c.from, c.to, c.coords, { id: cableId, voltage_kv: 66, isArrayCable: true });
+        }
+        this._listeners.change.forEach(f => f(this.getData()));
     }
 
     _finishCableDraw(fromId, toNode, coords) {
@@ -513,6 +735,7 @@ export class MapEditor {
     setMode(mode) {
         this.mode = mode;
         this._cancelCableDraw();
+        this._cancelAreaDraw();
         if (mode !== 'select') this._clearSelection();
     }
 
@@ -524,7 +747,8 @@ export class MapEditor {
     getData() {
         return {
             nodes: Array.from(this.nodes.values()),
-            cables: Array.from(this.cables.values())
+            cables: Array.from(this.cables.values()),
+            areas: Array.from(this.areas.values())
         };
     }
 
@@ -532,6 +756,7 @@ export class MapEditor {
         this.clear();
         (data.nodes || []).forEach(n => this.addNode(n));
         (data.cables || []).forEach(c => this._addCableFromData(c));
+        (data.areas || []).forEach(a => this.addArea(a));
     }
 
     _addCableFromData(c) {
@@ -566,6 +791,7 @@ export class MapEditor {
             }
         });
         this.polylines.set(id, polyline);
+        if (id.startsWith('array_')) this.arrayCableIds.add(id);
         this._notifyChange();
         return id;
     }
@@ -573,10 +799,15 @@ export class MapEditor {
     clear() {
         for (const m of this.markers.values()) m.remove();
         for (const p of this.polylines.values()) p.remove();
+        for (const a of this.areaPolygons.values()) a.remove();
         this.markers.clear();
         this.polylines.clear();
+        this.areaPolygons.clear();
         this.nodes.clear();
         this.cables.clear();
+        this.areas.clear();
+        this.arrayCableIds.clear();
+        this.selectedAreas.clear();
         this._notifyChange();
     }
 

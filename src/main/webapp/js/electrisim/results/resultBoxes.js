@@ -727,7 +727,7 @@ mxGraph.prototype.addEdge = function (edge, parent, source, target, index) {
                         logicalShape: 'Result',
                         width: 70,
                         height: 80,
-                        positionX: 0.2
+                        positionX: 0
                     });
                 }
             }
@@ -959,7 +959,7 @@ mxConnectionHandler.prototype.connect = function (a, b, c, d) {
                         logicalShape: 'Result',
                         width: 70,
                         height: 80,
-                        positionX: 0.2 // middle of the line
+                        positionX: 0.5 // middle of the line
                     });
                 }
             } catch (err) {

@@ -65,6 +65,7 @@ export class MapEditorDialog extends Dialog {
         };
 
         addGroup('Sources', [
+            [NODE_TYPES.OFFSHORE_WIND_TURBINE, 'Wind Turbine'],
             [NODE_TYPES.WIND_TURBINE, 'Generator'],
             [NODE_TYPES.ONSHORE_GRID, 'External Grid'],
             [NODE_TYPES.STATIC_GENERATOR, 'Static Gen'],
@@ -72,7 +73,7 @@ export class MapEditorDialog extends Dialog {
         ]);
         addGroup('Bus', [[NODE_TYPES.BUS, 'Bus']]);
         addGroup('Transformers', [
-            [NODE_TYPES.OFFSHORE_SUBSTATION, 'Transformer'],
+            [NODE_TYPES.OFFSHORE_SUBSTATION, 'Offshore Substation'],
             [NODE_TYPES.TRANSFORMER_3W, '3W Transformer']
         ]);
         addGroup('Compensation', [
@@ -115,8 +116,68 @@ export class MapEditorDialog extends Dialog {
             this.mapEditor.cableDrawFrom = null;
             toolbar.querySelectorAll('button').forEach(b => b.style.background = '#fff');
             drawCableBtn.style.background = '#ffccbc';
+            areaPanel.style.display = 'none';
         };
         toolbar.appendChild(drawCableBtn);
+
+        const drawAreaBtn = document.createElement('button');
+        drawAreaBtn.textContent = 'Draw Wind Farm Area';
+        drawAreaBtn.title = 'Draw polygon: click to add vertices, click first point again to close. Then select area and configure turbines.';
+        drawAreaBtn.style.cssText = 'padding:6px 12px;cursor:pointer;border:1px solid #1e88e5;border-radius:4px;background:#e3f2fd;color:#1565c0;';
+        drawAreaBtn.onclick = () => {
+            this.mapEditor?.setDefaultNodeType(NODE_TYPES.OFFSHORE_WIND_TURBINE);
+            this.mapEditor?.setMode('draw_area');
+            this.mapEditor.areaDrawPoints = [];
+            toolbar.querySelectorAll('button').forEach(b => b.style.background = '#fff');
+            drawAreaBtn.style.background = '#bbdefb';
+            areaPanel.style.display = 'none';
+            const statusEl = document.getElementById('map-editor-status');
+            if (statusEl) statusEl.textContent = 'Draw wind farm area: click to add vertices, click first point again to close. Esc to cancel.';
+        };
+        toolbar.appendChild(drawAreaBtn);
+
+        const areaPanel = document.createElement('div');
+        areaPanel.style.cssText = 'display:none;padding:8px 12px;background:#e3f2fd;border-radius:4px;border:1px solid #90caf9;flex-wrap:wrap;align-items:center;gap:8px;';
+        areaPanel.innerHTML = '<span style="font-weight:600;color:#1565c0;">Area selected</span>';
+        const turbineCountInput = document.createElement('input');
+        turbineCountInput.type = 'number';
+        turbineCountInput.min = '1';
+        turbineCountInput.max = '500';
+        turbineCountInput.value = '66';
+        turbineCountInput.style.cssText = 'width:60px;padding:4px;';
+        turbineCountInput.title = 'Number of wind turbines';
+        const minDistInput = document.createElement('input');
+        minDistInput.type = 'number';
+        minDistInput.min = '0.2';
+        minDistInput.step = '0.1';
+        minDistInput.value = '1';
+        minDistInput.style.cssText = 'width:70px;padding:4px;';
+        minDistInput.title = 'Minimum distance between turbines (km)';
+        const placeTurbinesBtn = document.createElement('button');
+        placeTurbinesBtn.textContent = 'Place Turbines';
+        placeTurbinesBtn.style.cssText = 'padding:4px 12px;cursor:pointer;border:1px solid #2e7d32;border-radius:4px;background:#c8e6c9;color:#1b5e20;';
+        placeTurbinesBtn.onclick = () => {
+            const areas = this.mapEditor?.selectedAreas;
+            if (!areas || areas.size === 0) return;
+            const count = Math.max(1, parseInt(turbineCountInput.value, 10) || 66);
+            const minDist = Math.max(0.2, parseFloat(minDistInput.value) || 1);
+            for (const areaId of areas) {
+                const added = this.mapEditor.placeTurbinesInArea(areaId, count, minDist);
+                if (added.length < count) {
+                    alert(`Placed ${added.length} of ${count} turbines. Area may be too small for ${count} turbines with ${minDist} km spacing.`);
+                }
+            }
+            this.mapEditor?.setMode('select');
+            this.mapEditor?._clearSelection();
+            areaPanel.style.display = 'none';
+            drawAreaBtn.style.background = '#fff';
+        };
+        areaPanel.appendChild(turbineCountInput);
+        areaPanel.appendChild(document.createTextNode(' turbines, min dist '));
+        areaPanel.appendChild(minDistInput);
+        areaPanel.appendChild(document.createTextNode(' km '));
+        areaPanel.appendChild(placeTurbinesBtn);
+        toolbar.appendChild(areaPanel);
 
         const selectBtn = document.createElement('button');
         selectBtn.textContent = 'Select / Pan';
@@ -125,12 +186,13 @@ export class MapEditorDialog extends Dialog {
             this.mapEditor?.setMode('select');
             toolbar.querySelectorAll('button').forEach(b => b.style.background = '#fff');
             selectBtn.style.background = '#c8e6c9';
+            areaPanel.style.display = 'none';
         };
         toolbar.appendChild(selectBtn);
 
         const deleteBtn = document.createElement('button');
         deleteBtn.textContent = 'Delete selected';
-        deleteBtn.title = 'Delete selected nodes/cables. Hold Ctrl or Shift and click to select multiple. Press Delete/Backspace to remove.';
+        deleteBtn.title = 'Delete selected nodes/cables/areas. Hold Ctrl or Shift and click to select multiple. Press Delete/Backspace to remove.';
         deleteBtn.style.cssText = 'padding:6px 12px;cursor:pointer;border:1px solid #d32f2f;border-radius:4px;background:#ffebee;color:#c62828;';
         deleteBtn.onclick = () => this._deleteSelected();
         toolbar.appendChild(deleteBtn);
@@ -180,7 +242,7 @@ export class MapEditorDialog extends Dialog {
 
         const status = document.createElement('div');
         status.id = 'map-editor-status';
-        status.style.cssText = 'font-size:12px;color:#666;padding:2px 4px;flex-shrink:0;';
+        status.style.cssText = 'font-size:15px;color:#333;padding:6px 8px;flex-shrink:0;';
         status.textContent = 'Nodes: 0 | Cables: 0';
         container.appendChild(status);
 
@@ -202,7 +264,7 @@ export class MapEditorDialog extends Dialog {
 
         this._keyHandler = (e) => {
             if (e.key === 'Escape') {
-                if (this.mapEditor?.cancelCableDraw()) {
+                if (this.mapEditor?.cancelCableDraw() || this.mapEditor?.cancelAreaDraw()) {
                     e.preventDefault();
                 }
             } else if ((e.key === 'Delete' || e.key === 'Backspace') && !e.target.matches('input, textarea')) {
@@ -224,15 +286,17 @@ export class MapEditorDialog extends Dialog {
                     defaultZoom: 8
                 }).init();
                 this.mapEditor.on('change', (data) => {
-                    updateStatus(`Nodes: ${data.nodes.length} | Cables: ${data.cables.length}`);
+                    updateStatus(`Nodes: ${data.nodes.length} | Cables: ${data.cables.length} | Areas: ${data.areas?.length ?? 0}`);
                 });
                 this.mapEditor.on('selectionChange', () => {
                     const n = this.mapEditor?.selectedNodes?.size ?? 0;
                     const c = this.mapEditor?.selectedCables?.size ?? 0;
+                    const a = this.mapEditor?.selectedAreas?.size ?? 0;
                     const data = this.mapEditor?.getData();
-                    const base = data ? `Nodes: ${data.nodes.length} | Cables: ${data.cables.length}` : '';
-                    const sel = (n + c) > 0 ? ` | Selected: ${n} node(s), ${c} cable(s)` : '';
+                    const base = data ? `Nodes: ${data.nodes.length} | Cables: ${data.cables.length} | Areas: ${data.areas?.length ?? 0}` : '';
+                    const sel = (n + c + a) > 0 ? ` | Selected: ${n} node(s), ${c} cable(s), ${a} area(s)` : '';
                     updateStatus(base + sel);
+                    areaPanel.style.display = a > 0 ? 'flex' : 'none';
                 });
                 this.mapEditor.on('cableDrawStart', (node) => {
                     updateStatus(`Cable from ${node.name}: Length 0.00 km — Click map for intermediate points, or click end node to finish. Esc to cancel.`);
@@ -245,8 +309,24 @@ export class MapEditorDialog extends Dialog {
                 });
                 this.mapEditor.on('cableDrawEnd', () => {
                     const data = this.mapEditor.getData();
-                    updateStatus(`Nodes: ${data.nodes.length} | Cables: ${data.cables.length}`);
+                    updateStatus(`Nodes: ${data.nodes.length} | Cables: ${data.cables.length} | Areas: ${data.areas?.length ?? 0}`);
                     drawCableBtn.style.background = '#fff';
+                });
+                this.mapEditor.on('areaDrawn', (area) => {
+                    drawAreaBtn.style.background = '#fff';
+                    const data = this.mapEditor.getData();
+                    updateStatus(`Nodes: ${data.nodes.length} | Cables: ${data.cables.length} | Areas: ${data.areas?.length ?? 0}`);
+                    this._showPlaceTurbinesDialog(area, updateStatus);
+                });
+                this.mapEditor.on('nodeAdded', (node) => {
+                    if (node.type === NODE_TYPES.OFFSHORE_SUBSTATION) {
+                        const turbines = this.mapEditor.getData().nodes.filter(n => n.type === NODE_TYPES.OFFSHORE_WIND_TURBINE);
+                        if (turbines.length > 0) {
+                            this.mapEditor.runAutoCableRouting();
+                            const data = this.mapEditor.getData();
+                            updateStatus(`Nodes: ${data.nodes.length} | Cables: ${data.cables.length} | Areas: ${data.areas?.length ?? 0} — 66 kV cable routing applied.`);
+                        }
+                    }
                 });
             } catch (err) {
                 console.error('MapEditor init error:', err);
@@ -297,11 +377,12 @@ export class MapEditorDialog extends Dialog {
                 const data = JSON.parse(ev.target?.result || '{}');
                 const nodes = data.nodes || [];
                 const cables = data.cables || [];
-                if (nodes.length === 0 && cables.length === 0) {
+                const areas = data.areas || [];
+                if (nodes.length === 0 && cables.length === 0 && areas.length === 0) {
                     alert('File contains no map data.');
                     return;
                 }
-                this.mapEditor?.loadData({ nodes, cables });
+                this.mapEditor?.loadData({ nodes, cables, areas });
             } catch (err) {
                 console.error('Load map error:', err);
                 alert('Invalid map file: ' + (err.message || 'parse error'));
@@ -340,11 +421,12 @@ export class MapEditorDialog extends Dialog {
             const data = JSON.parse(json);
             const nodes = data.nodes || [];
             const cables = data.cables || [];
-            if (nodes.length === 0 && cables.length === 0) {
+            const areas = data.areas || [];
+            if (nodes.length === 0 && cables.length === 0 && areas.length === 0) {
                 alert('Saved map is empty.');
                 return;
             }
-            this.mapEditor?.loadData({ nodes, cables });
+            this.mapEditor?.loadData({ nodes, cables, areas });
         } catch (err) {
             console.error('Load from local error:', err);
             alert('Failed to load: ' + (err.message || 'parse error'));
@@ -381,6 +463,66 @@ export class MapEditorDialog extends Dialog {
     _deleteSelected() {
         if (!this.mapEditor) return;
         this.mapEditor.deleteSelected();
+    }
+
+    _showPlaceTurbinesDialog(area, updateStatus) {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:10001;';
+        const box = document.createElement('div');
+        box.style.cssText = 'background:#fff;border-radius:8px;padding:16px;min-width:280px;box-shadow:0 4px 20px rgba(0,0,0,0.2);';
+        box.innerHTML = `<div style="font-weight:600;margin-bottom:12px;color:#1565c0;">Place wind turbines in ${area.id}</div>`;
+        const countLabel = document.createElement('label');
+        countLabel.style.cssText = 'display:block;margin-bottom:4px;font-size:12px;';
+        countLabel.textContent = 'Number of turbines:';
+        const countInput = document.createElement('input');
+        countInput.type = 'number';
+        countInput.min = '1';
+        countInput.max = '500';
+        countInput.value = '66';
+        countInput.style.cssText = 'width:80px;padding:6px;margin-bottom:12px;';
+        const distLabel = document.createElement('label');
+        distLabel.style.cssText = 'display:block;margin-bottom:4px;font-size:12px;';
+        distLabel.textContent = 'Minimum distance (km):';
+        const distInput = document.createElement('input');
+        distInput.type = 'number';
+        distInput.min = '0.2';
+        distInput.step = '0.1';
+        distInput.value = '1';
+        distInput.style.cssText = 'width:80px;padding:6px;margin-bottom:16px;';
+        const btnRow = document.createElement('div');
+        btnRow.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;';
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Skip';
+        cancelBtn.style.cssText = 'padding:6px 14px;cursor:pointer;border:1px solid #ccc;border-radius:4px;background:#fff;';
+        cancelBtn.onclick = () => {
+            document.body.removeChild(overlay);
+        };
+        const placeBtn = document.createElement('button');
+        placeBtn.textContent = 'Place Turbines';
+        placeBtn.style.cssText = 'padding:6px 14px;cursor:pointer;border:none;border-radius:4px;background:#4caf50;color:#fff;font-weight:600;';
+        placeBtn.onclick = () => {
+            const count = Math.max(1, parseInt(countInput.value, 10) || 66);
+            const minDist = Math.max(0.2, parseFloat(distInput.value) || 1);
+            const added = this.mapEditor.placeTurbinesInArea(area.id, count, minDist);
+            document.body.removeChild(overlay);
+            if (updateStatus) {
+                updateStatus('Please place one or more offshore substations on the map. Once placed, I will automatically calculate and draw the optimal 66 kV cable routing.');
+            }
+            if (added.length < count) {
+                alert(`Placed ${added.length} of ${count} turbines. The area may be too small for ${count} turbines with ${minDist} km spacing.`);
+            }
+        };
+        box.appendChild(countLabel);
+        box.appendChild(countInput);
+        box.appendChild(distLabel);
+        box.appendChild(distInput);
+        btnRow.appendChild(cancelBtn);
+        btnRow.appendChild(placeBtn);
+        box.appendChild(btnRow);
+        overlay.appendChild(box);
+        overlay.onclick = (e) => { if (e.target === overlay) document.body.removeChild(overlay); };
+        box.onclick = (e) => e.stopPropagation();
+        document.body.appendChild(overlay);
     }
 
     _close() {
