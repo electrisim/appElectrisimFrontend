@@ -3,7 +3,7 @@ import { rowDefsTransformerLibrary, gridOptionsTransformerLibrary, columnDefsTra
 import { LibraryDialogManager } from './LibraryDialogManager.js';
 
 // Default values for transformer parameters (based on pandapower documentation)
-// Updated: Vector Group moved to Load Flow tab
+// Updated: Vector Group, vk_percent, vkr_percent, pfe_kw, i0_percent moved to Load Flow tab (necessary for power flow per pandapower)
 export const defaultTransformerData = {
     name: "Transformer",
     sn_mva: 0.0,
@@ -91,6 +91,50 @@ export class TransformerDialog extends Dialog {
                 description: 'Rated voltage on low voltage side (>0)',
                 type: 'number',
                 value: this.data.vn_lv_kv.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'vk_percent',
+                label: 'Short Circuit Voltage',
+                symbol: 'vk_percent',
+                unit: '%',
+                description: 'Short circuit voltage in percent (>0). Necessary for load flow.',
+                type: 'number',
+                value: this.data.vk_percent.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'vkr_percent',
+                label: 'Real Part of SC Voltage',
+                symbol: 'vkr_percent',
+                unit: '%',
+                description: 'Real part of short circuit voltage in percent (>=0). Necessary for load flow.',
+                type: 'number',
+                value: this.data.vkr_percent.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'pfe_kw',
+                label: 'Iron Losses',
+                symbol: 'pfe_kw',
+                unit: 'kW',
+                description: 'Iron losses in kW (>=0). Necessary for load flow.',
+                type: 'number',
+                value: this.data.pfe_kw.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'i0_percent',
+                label: 'Open Loop Losses',
+                symbol: 'i0_percent',
+                unit: '%',
+                description: 'Open loop losses in percent (>=0). Necessary for load flow.',
+                type: 'number',
+                value: this.data.i0_percent.toString(),
                 step: '0.1',
                 min: '0'
             },
@@ -255,52 +299,8 @@ export class TransformerDialog extends Dialog {
             }
         ];
         
-        // Short Circuit parameters
+        // Short Circuit parameters (zero sequence and short-circuit specific)
         this.shortCircuitParameters = [
-            {
-                id: 'vk_percent',
-                label: 'Short Circuit Voltage',
-                symbol: 'vk_percent',
-                unit: '%',
-                description: 'Short circuit voltage in percent (>0)',
-                type: 'number',
-                value: this.data.vk_percent.toString(),
-                step: '0.1',
-                min: '0'
-            },
-            {
-                id: 'vkr_percent',
-                label: 'Real Part of SC Voltage',
-                symbol: 'vkr_percent',
-                unit: '%',
-                description: 'Real part of short circuit voltage in percent (>=0)',
-                type: 'number',
-                value: this.data.vkr_percent.toString(),
-                step: '0.1',
-                min: '0'
-            },
-            {
-                id: 'pfe_kw',
-                label: 'Iron Losses',
-                symbol: 'pfe_kw',
-                unit: 'kW',
-                description: 'Iron losses in kW (>=0)',
-                type: 'number',
-                value: this.data.pfe_kw.toString(),
-                step: '0.1',
-                min: '0'
-            },
-            {
-                id: 'i0_percent',
-                label: 'Open Loop Losses',
-                symbol: 'i0_percent',
-                unit: '%',
-                description: 'Open loop losses in percent (>=0)',
-                type: 'number',
-                value: this.data.i0_percent.toString(),
-                step: '0.1',
-                min: '0'
-            },
             {
                 id: 'vk0_percent',
                 label: 'Zero Sequence SC Voltage',

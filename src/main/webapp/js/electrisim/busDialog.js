@@ -32,7 +32,7 @@ export class BusDialog extends Dialog {
             },
             {
                 id: 'vn_kv',
-                label: 'Nominal Voltage',
+                label: 'Nominal Voltage (vn_kv) [kV]',
                 symbol: 'vn_kv',
                 unit: 'kV',
                 description: 'The grid voltage level at this bus (>0)',
