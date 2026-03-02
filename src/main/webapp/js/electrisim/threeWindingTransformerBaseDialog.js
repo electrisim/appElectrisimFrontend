@@ -3,6 +3,7 @@ import { rowDefsThreeWindingTransformerLibrary, gridOptionsThreeWindingTransform
 import { LibraryDialogManager } from './LibraryDialogManager.js';
 
 // Default values for three-winding transformer parameters (based on pandapower documentation)
+// vk_*_percent, vkr_*_percent, pfe_kw, i0_percent are in Load Flow tab (necessary for power flow per pandapower trafo3w)
 export const defaultThreeWindingTransformerData = {
     name: "Three Winding Transformer",
     sn_hv_mva: 0.0,
@@ -114,6 +115,78 @@ export class ThreeWindingTransformerDialog extends Dialog {
                 min: '0'
             },
             {
+                id: 'vk_hv_percent',
+                label: 'HV Short Circuit Voltage (vk_hv_percent)',
+                description: 'Short circuit voltage in percent from HV to MV (>0). Necessary for load flow.',
+                type: 'number',
+                value: this.data.vk_hv_percent.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'vk_mv_percent',
+                label: 'MV Short Circuit Voltage (vk_mv_percent)',
+                description: 'Short circuit voltage in percent from MV to LV (>0). Necessary for load flow.',
+                type: 'number',
+                value: this.data.vk_mv_percent.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'vk_lv_percent',
+                label: 'LV Short Circuit Voltage (vk_lv_percent)',
+                description: 'Short circuit voltage in percent from HV to LV (>0). Necessary for load flow.',
+                type: 'number',
+                value: this.data.vk_lv_percent.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'vkr_hv_percent',
+                label: 'HV Real Part SC Voltage (vkr_hv_percent)',
+                description: 'Real part of short circuit voltage HV-MV in percent (>=0). Necessary for load flow.',
+                type: 'number',
+                value: this.data.vkr_hv_percent.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'vkr_mv_percent',
+                label: 'MV Real Part SC Voltage (vkr_mv_percent)',
+                description: 'Real part of short circuit voltage MV-LV in percent (>=0). Necessary for load flow.',
+                type: 'number',
+                value: this.data.vkr_mv_percent.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'vkr_lv_percent',
+                label: 'LV Real Part SC Voltage (vkr_lv_percent)',
+                description: 'Real part of short circuit voltage HV-LV in percent (>=0). Necessary for load flow.',
+                type: 'number',
+                value: this.data.vkr_lv_percent.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'pfe_kw',
+                label: 'Iron Losses (pfe_kw)',
+                description: 'Iron losses in kW (>=0). Necessary for load flow.',
+                type: 'number',
+                value: this.data.pfe_kw.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'i0_percent',
+                label: 'Open Loop Losses (i0_percent)',
+                description: 'Open loop losses in percent (>=0). Necessary for load flow.',
+                type: 'number',
+                value: this.data.i0_percent.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
                 id: 'in_service',
                 label: 'In Service',
                 description: 'Specifies if the transformer is in service (True/False)',
@@ -195,80 +268,8 @@ export class ThreeWindingTransformerDialog extends Dialog {
             }
         ];
         
-        // Short Circuit parameters
+        // Short Circuit parameters (zero sequence and short-circuit specific)
         this.shortCircuitParameters = [
-            {
-                id: 'vk_hv_percent',
-                label: 'HV Short Circuit Voltage (vk_hv_percent)',
-                description: 'Short circuit voltage in percent of high voltage side (>0)',
-                type: 'number',
-                value: this.data.vk_hv_percent.toString(),
-                step: '0.1',
-                min: '0'
-            },
-            {
-                id: 'vk_mv_percent',
-                label: 'MV Short Circuit Voltage (vk_mv_percent)',
-                description: 'Short circuit voltage in percent of medium voltage side (>0)',
-                type: 'number',
-                value: this.data.vk_mv_percent.toString(),
-                step: '0.1',
-                min: '0'
-            },
-            {
-                id: 'vk_lv_percent',
-                label: 'LV Short Circuit Voltage (vk_lv_percent)',
-                description: 'Short circuit voltage in percent of low voltage side (>0)',
-                type: 'number',
-                value: this.data.vk_lv_percent.toString(),
-                step: '0.1',
-                min: '0'
-            },
-            {
-                id: 'vkr_hv_percent',
-                label: 'HV Real Part SC Voltage (vkr_hv_percent)',
-                description: 'Real part of short circuit voltage in percent of high voltage side (>=0)',
-                type: 'number',
-                value: this.data.vkr_hv_percent.toString(),
-                step: '0.1',
-                min: '0'
-            },
-            {
-                id: 'vkr_mv_percent',
-                label: 'MV Real Part SC Voltage (vkr_mv_percent)',
-                description: 'Real part of short circuit voltage in percent of medium voltage side (>=0)',
-                type: 'number',
-                value: this.data.vkr_mv_percent.toString(),
-                step: '0.1',
-                min: '0'
-            },
-            {
-                id: 'vkr_lv_percent',
-                label: 'LV Real Part SC Voltage (vkr_lv_percent)',
-                description: 'Real part of short circuit voltage in percent of low voltage side (>=0)',
-                type: 'number',
-                value: this.data.vkr_lv_percent.toString(),
-                step: '0.1',
-                min: '0'
-            },
-            {
-                id: 'pfe_kw',
-                label: 'Iron Losses (pfe_kw)',
-                description: 'Iron losses in kW (>=0)',
-                type: 'number',
-                value: this.data.pfe_kw.toString(),
-                step: '0.1',
-                min: '0'
-            },
-            {
-                id: 'i0_percent',
-                label: 'Open Loop Losses (i0_percent)',
-                description: 'Open loop losses in percent (>=0)',
-                type: 'number',
-                value: this.data.i0_percent.toString(),
-                step: '0.1',
-                min: '0'
-            },
             {
                 id: 'shift_mv_degree',
                 label: 'MV Angle Shift (shift_mv_degree)',
