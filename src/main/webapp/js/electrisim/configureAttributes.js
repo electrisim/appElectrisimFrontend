@@ -636,7 +636,7 @@ export function configureLineAttributes(grafka, vertex, options = {}) {
     g.setAttribute("from_bus", options.from_bus || "");
     g.setAttribute("to_bus", options.to_bus || "");
     g.setAttribute("length_km", options.length_km || "0");
-    g.setAttribute("parallel", options.parallel || "0");
+    g.setAttribute("parallel", options.parallel || "1");
     g.setAttribute("df", options.df || "1");
     //możliwość wyboru z biblioteki
     g.setAttribute("parameters", true);
