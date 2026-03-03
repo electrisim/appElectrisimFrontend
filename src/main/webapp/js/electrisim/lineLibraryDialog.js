@@ -100,6 +100,11 @@ export const rowDefsLineLibrary = [
   { name: "679-AL1/86-ST1A 380.0", r_ohm_per_km: 0.042, x_ohm_per_km: 0.25, c_nf_per_km: 14.6, g_us_per_km: 0.0, max_i_ka: 1.15, type:"ol", r0_ohm_per_km:0.0, x0_ohm_per_km:0.0, c0_nf_per_km:0.0, endtemp_degree:250.0 }
 ];
 
+/** Offshore 66 kV Aluminium cables for inter-turbine and turbine-substation connections (sorted by max_i_ka ascending) */
+export const OFFSHORE_66KV_AL_CABLES = rowDefsLineLibrary.filter(
+  (r) => r.name && r.name.startsWith("Offshore 66kV") && r.name.includes("RM Al")
+).sort((a, b) => (a.max_i_ka || 0) - (b.max_i_ka || 0));
+
 // Define the column definitions (without action column)
 export const columnDefsLineLibrary = [
     { field: "name", headerName: "Line Name", minWidth: 300, flex: 2 },

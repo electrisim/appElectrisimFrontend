@@ -196,7 +196,7 @@ export function configureTransformerAttributes(grafka, vertex, options = {}) {
 
     g.setAttribute("Short_circuit_parameters", "");
     g.setAttribute("vkr_percent", options.vkr_percent || "0");
-    g.setAttribute("vk_percent", options.vk_percent || "0");
+    g.setAttribute("vk_percent", options.vk_percent || "10");
     g.setAttribute("pfe_kw", options.pfe_kw || "0");
     g.setAttribute("i0_percent", options.i0_percent || "0");
     g.setAttribute("vector_group", options.vector_group || "Dyn");
@@ -648,7 +648,7 @@ export function configureLineAttributes(grafka, vertex, options = {}) {
     g.setAttribute("x_ohm_per_km", options.x_ohm_per_km || "0");
     g.setAttribute("c_nf_per_km", options.c_nf_per_km || "0");
     g.setAttribute("g_us_per_km", options.g_us_per_km || "0");
-    g.setAttribute("max_i_ka", options.max_i_ka || "0");
+    g.setAttribute("max_i_ka", options.max_i_ka || "1");
     g.setAttribute("type", options.type || "cs");
 
     //Short circuit parameters

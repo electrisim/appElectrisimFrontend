@@ -25,9 +25,9 @@ export class MapEditorDialog extends Dialog {
             fontFamily: 'Arial, sans-serif',
             fontSize: '14px',
             width: '98vw',
-            maxWidth: '1600px',
-            height: '92vh',
-            maxHeight: '900px',
+            maxWidth: '2200px',
+            height: '96vh',
+            maxHeight: '1200px',
             display: 'flex',
             flexDirection: 'column',
             gap: '8px',
@@ -237,7 +237,7 @@ export class MapEditorDialog extends Dialog {
 
         const mapContainer = document.createElement('div');
         mapContainer.id = 'electrisim-map-editor-container';
-        mapContainer.style.cssText = 'flex:1;min-height:550px;border:1px solid #ddd;border-radius:4px;overflow:hidden;';
+        mapContainer.style.cssText = 'flex:1;min-height:75vh;border:1px solid #ddd;border-radius:4px;overflow:hidden;';
         container.appendChild(mapContainer);
 
         const status = document.createElement('div');

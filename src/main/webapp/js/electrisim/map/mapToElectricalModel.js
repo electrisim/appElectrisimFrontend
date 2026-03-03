@@ -4,6 +4,7 @@
  */
 
 import { NODE_TYPES } from './MapEditor.js';
+import { OFFSHORE_66KV_AL_CABLES } from '../lineLibraryDialog.js';
 import {
     configureBusAttributes,
     configureExternalGridAttributes,
@@ -97,9 +98,84 @@ const WIND_TURBINE_VN_HV_KV = '66';
 const OFFSHORE_SUBSTATION_VN_LV_KV = '66';
 const OFFSHORE_SUBSTATION_VN_HV_KV = '275';
 
-const TURBINE_COL_SPACING = 320;
-const STRING_ROW_SPACING = 320;
-const SUBSTATION_OFFSET_RIGHT = 180;
+const TURBINE_COL_SPACING = 480;
+const STRING_ROW_SPACING = 420;
+const SUBSTATION_OFFSET_RIGHT = 300;
+
+/** Default turbine power (MW) for load-based cable sizing */
+const DEFAULT_TURBINE_P_MW = 15;
+/** 66 kV, 3-phase, ~0.95 pf: I (kA) ≈ P_MW / (√3 × 66 × 0.95) */
+const I_KA_PER_MW_66KV = 1 / (Math.sqrt(3) * 66 * 0.95);
+
+/**
+ * Compute number of turbines feeding through each cable (for offshore 66 kV sizing).
+ * Removes cable, gets component without substation; count = turbines in that component.
+ */
+function computeTurbineCountPerCable(nodes, cables) {
+    const nodeById = new Map(nodes.map(n => [n.id, n]));
+    const isTurbine = (id) => nodeById.get(id)?.type === NODE_TYPES.OFFSHORE_WIND_TURBINE;
+    const isSubstation = (id) => nodeById.get(id)?.type === NODE_TYPES.OFFSHORE_SUBSTATION;
+    const adj = (excludeFrom, excludeTo) => {
+        const m = new Map();
+        for (const c of cables) {
+            if ((c.from === excludeFrom && c.to === excludeTo) || (c.from === excludeTo && c.to === excludeFrom)) continue;
+            if (!m.has(c.from)) m.set(c.from, []);
+            m.get(c.from).push(c.to);
+            if (!m.has(c.to)) m.set(c.to, []);
+            m.get(c.to).push(c.from);
+        }
+        return m;
+    };
+    const bfsCount = (start, excludeFrom, excludeTo, countTurbines) => {
+        const a = adj(excludeFrom, excludeTo);
+        const visited = new Set();
+        const q = [start];
+        visited.add(start);
+        let count = 0;
+        while (q.length > 0) {
+            const cur = q.shift();
+            if (countTurbines && isTurbine(cur)) count++;
+            for (const nb of (a.get(cur) || [])) {
+                if (!visited.has(nb)) { visited.add(nb); q.push(nb); }
+            }
+        }
+        return count;
+    };
+    const hasSubstation = (start, excludeFrom, excludeTo) => {
+        const a = adj(excludeFrom, excludeTo);
+        const visited = new Set();
+        const q = [start];
+        visited.add(start);
+        while (q.length > 0) {
+            const cur = q.shift();
+            if (isSubstation(cur)) return true;
+            for (const nb of (a.get(cur) || [])) {
+                if (!visited.has(nb)) { visited.add(nb); q.push(nb); }
+            }
+        }
+        return false;
+    };
+    const map = new Map();
+    for (const c of cables) {
+        const fromHasSub = hasSubstation(c.from, c.from, c.to);
+        const toHasSub = hasSubstation(c.to, c.from, c.to);
+        const sourceStart = fromHasSub ? c.to : c.from;
+        const turbineCount = bfsCount(sourceStart, c.from, c.to, true);
+        map.set(`${c.from}-${c.to}`, turbineCount);
+        map.set(`${c.to}-${c.from}`, turbineCount);
+    }
+    return map;
+}
+
+/**
+ * Select Offshore 66kV Al cable by estimated load current. Returns cable def or null.
+ */
+function selectOffshore66kVAlCable(turbineCount, pMwPerTurbine = DEFAULT_TURBINE_P_MW) {
+    const pMw = turbineCount * pMwPerTurbine;
+    const iKa = pMw * I_KA_PER_MW_66KV;
+    const chosen = OFFSHORE_66KV_AL_CABLES.find(c => (c.max_i_ka || 0) >= iKa);
+    return chosen || OFFSHORE_66KV_AL_CABLES[OFFSHORE_66KV_AL_CABLES.length - 1];
+}
 
 /**
  * Topology-aware layout for offshore wind farm: turbines in horizontal strings
@@ -163,6 +239,38 @@ function computeOffshoreWindFarmLayout(nodes, cables) {
             strings.push(ordered);
         }
     }
+
+    const nodeById = new Map();
+    nodes.forEach(n => nodeById.set(n.id, n));
+    const geoDist = (a, b) => {
+        const dx = (a.lat || 0) - (b.lat || 0);
+        const dy = (a.lng || 0) - (b.lng || 0);
+        return Math.sqrt(dx * dx + dy * dy);
+    };
+    const sub0 = substations[0];
+
+    strings.forEach(ordered => {
+        const closestIdx = ordered.reduce((best, id, i) => {
+            const d = geoDist(nodeById.get(id), sub0);
+            return d < best.d ? { d, i } : best;
+        }, { d: Infinity, i: 0 }).i;
+        if (closestIdx < ordered.length / 2) ordered.reverse();
+    });
+
+    strings.sort((a, b) => {
+        const minDistA = Math.min(...a.map(id => geoDist(nodeById.get(id), sub0)));
+        const minDistB = Math.min(...b.map(id => geoDist(nodeById.get(id), sub0)));
+        return minDistA - minDistB;
+    });
+
+    const reordered = new Array(strings.length);
+    const mid = Math.floor(strings.length / 2);
+    for (let i = 0; i < strings.length; i++) {
+        reordered[mid + (i % 2 === 0 ? Math.floor(i / 2) : -Math.ceil(i / 2))] = strings[i];
+    }
+    const validReordered = reordered.filter(Boolean);
+    while (validReordered.length < strings.length) validReordered.push(strings[validReordered.length]);
+    for (let i = 0; i < strings.length; i++) strings[i] = validReordered[i];
 
     const positions = new Array(nodes.length);
     const maxTurbinesInString = Math.max(1, ...strings.map(s => s.length));
@@ -524,6 +632,17 @@ export function mapToElectricalModel(graph, mapData, point = { x: 100, y: 100 })
         };
         const substationCables = cables.filter(c => isSubCable(c));
         const nonSubstationCables = cables.filter(c => !isSubCable(c));
+
+        const isOffshore66kVCable = (c) => {
+            const fe = nodeToVertex.get(c.from), te = nodeToVertex.get(c.to);
+            const fromT = fe?.node?.type === NODE_TYPES.OFFSHORE_WIND_TURBINE;
+            const toT = te?.node?.type === NODE_TYPES.OFFSHORE_WIND_TURBINE;
+            const fromS = fe?.node?.type === NODE_TYPES.OFFSHORE_SUBSTATION;
+            const toS = te?.node?.type === NODE_TYPES.OFFSHORE_SUBSTATION;
+            return (fromT && toT) || (fromT && toS) || (fromS && toT);
+        };
+        const turbineCountMap = computeTurbineCountPerCable(nodes, cables);
+
         substationCables.sort((a, b) => {
             const getTurbineY = (c) => {
                 const fe = nodeToVertex.get(c.from), te = nodeToVertex.get(c.to);
@@ -607,14 +726,28 @@ export function mapToElectricalModel(graph, mapData, point = { x: 100, y: 100 })
             };
             const fromBusName = busLabel(fromEntry, fromBus);
             const toBusName = busLabel(toEntry, toBus);
-            configureLineAttributes(graph, edge, {
+
+            let lineAttrs = {
                 name: cable.id || cable.name,
                 from_bus: fromBusName,
                 to_bus: toBusName,
                 length_km: String(cable.length_km || 1),
                 r_ohm_per_km: String(cable.r_ohm_per_km || 0.122),
                 x_ohm_per_km: String(cable.x_ohm_per_km || 0.112)
-            });
+            };
+            if (isOffshore66kVCable(cable) && OFFSHORE_66KV_AL_CABLES.length > 0) {
+                const turbineCount = turbineCountMap.get(`${cable.from}-${cable.to}`) ?? turbineCountMap.get(`${cable.to}-${cable.from}`) ?? 1;
+                const selected = selectOffshore66kVAlCable(turbineCount);
+                lineAttrs = {
+                    ...lineAttrs,
+                    name: (cable.id || cable.name) + ' (' + selected.name + ')',
+                    r_ohm_per_km: String(selected.r_ohm_per_km ?? 0.122),
+                    x_ohm_per_km: String(selected.x_ohm_per_km ?? 0.112),
+                    max_i_ka: String(selected.max_i_ka ?? 0),
+                    type: selected.type ?? 'cs'
+                };
+            }
+            configureLineAttributes(graph, edge, lineAttrs);
         });
 
         // 4. Add result placeholders to all generated buses (resultBoxes.js)
