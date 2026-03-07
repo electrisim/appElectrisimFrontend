@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80">
+  <g>
+    <line x1="40" y1="0" x2="40" y2="20" stroke="black" stroke-width="2.5" stroke-linecap="round"/>
+    <!-- Main triangle -->
+    <polygon points="40,70 10,20 70,20" fill="none" stroke="black" stroke-width="2.5" stroke-linejoin="round"/>
+    <!-- Inner dashed offset line to show split/unbalance -->
+    <line x1="40" y1="20" x2="28" y2="70" stroke="black" stroke-width="1.5" stroke-dasharray="4,3" stroke-linecap="round"/>
+  </g>
+</svg>

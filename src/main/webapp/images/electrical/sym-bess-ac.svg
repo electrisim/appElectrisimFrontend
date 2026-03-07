@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-50 -30 100 60">
+  <!-- BESS AC block: battery (storage) + transformer + bus -->
+  <!-- Storage symbol (battery bars) on left -->
+  <g transform="translate(-42, 0)">
+    <line x1="-6" y1="-12" x2="-6" y2="12" stroke="#1a1a2e" stroke-width="2"/>
+    <line x1="0" y1="-12" x2="0" y2="12" stroke="#1a1a2e" stroke-width="2"/>
+    <line x1="6" y1="-12" x2="6" y2="12" stroke="#1a1a2e" stroke-width="2"/>
+    <line x1="-8" y1="0" x2="8" y2="0" stroke="#1a1a2e" stroke-width="1.5" stroke-linecap="square"/>
+  </g>
+  <!-- Connector line -->
+  <line x1="-26" y1="0" x2="-18" y2="0" stroke="#1a1a2e" stroke-width="1.5"/>
+  <!-- Transformer (two circles) in center -->
+  <circle cx="-5" cy="0" r="10" fill="none" stroke="#1a1a2e" stroke-width="2"/>
+  <circle cx="15" cy="0" r="10" fill="none" stroke="#1a1a2e" stroke-width="2"/>
+  <line x1="-26" y1="0" x2="-15" y2="0" stroke="#1a1a2e" stroke-width="1.5"/>
+  <line x1="5" y1="0" x2="25" y2="0" stroke="#1a1a2e" stroke-width="1.5"/>
+  <!-- Bus (horizontal bar) on right -->
+  <line x1="32" y1="0" x2="48" y2="0" stroke="#1a1a2e" stroke-width="4" stroke-linecap="round"/>
+  <line x1="48" y1="0" x2="50" y2="0" stroke="#1a1a2e" stroke-width="1.5" stroke-linecap="square"/>
+  <!-- 33kV label -->
+  <text x="0" y="-18" text-anchor="middle" font-family="sans-serif" font-size="8" font-weight="bold" fill="#1a1a2e">33kV</text>
+</svg>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-38 -22 76 40">
+<line x1="-32" y1="0" x2="-16" y2="0" stroke="#1a1a2e" stroke-width="2"/>
+    <circle cx="-16" cy="0" r="3" fill="none" stroke="#1a1a2e" stroke-width="2"/>
+    <line x1="-13" y1="0" x2="13" y2="-16" stroke="#1a1a2e" stroke-width="2"/>
+    <circle cx="16" cy="0" r="3" fill="none" stroke="#1a1a2e" stroke-width="2"/>
+    <line x1="16" y1="0" x2="32" y2="0" stroke="#1a1a2e" stroke-width="2"/>
+    <line x1="-32" y1="0" x2="-38" y2="0" stroke="#1a1a2e" stroke-width="1.5" stroke-linecap="square"/>
+    <line x1="32" y1="0" x2="38" y2="0" stroke="#1a1a2e" stroke-width="1.5" stroke-linecap="square"/>
+</svg>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <!-- Circle outline -->
+  <circle cx="50" cy="50" r="30" fill="white" stroke="#1a1a2e" stroke-width="2.5"/>
+  
+  <!-- Positive plate (thicker, longer) -->
+  <rect x="40" y="40" width="20" height="4" fill="#1a1a2e"/>
+  
+  <!-- Negative plate (thinner, shorter) -->
+  <rect x="42" y="56" width="16" height="2.5" fill="#1a1a2e"/>
+  
+  <!-- Plus symbol -->
+  <g transform="translate(50, 28)">
+    <rect x="-5" y="-1" width="10" height="2" fill="#1a1a2e"/>
+    <rect x="-1" y="-5" width="2" height="10" fill="#1a1a2e"/>
+  </g>
+  
+  <!-- Minus symbol -->
+  <rect x="45" y="71" width="10" height="2" fill="#1a1a2e"/>
+  
+  <!-- Connection points -->
+  <circle cx="50" cy="5" r="3" fill="#1a1a2e"/>
+  <circle cx="50" cy="95" r="3" fill="#1a1a2e"/>
+  
+  <!-- Connection lines -->
+  <line x1="50" y1="5" x2="50" y2="20" stroke="#1a1a2e" stroke-width="2"/>
+  <line x1="50" y1="80" x2="50" y2="95" stroke="#1a1a2e" stroke-width="2"/>
+</svg>

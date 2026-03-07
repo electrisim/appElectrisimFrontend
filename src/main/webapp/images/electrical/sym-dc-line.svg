@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-35 -15 70 48">
+<line x1="-33" y1="-3" x2="33" y2="-3" stroke="#1a1a2e" stroke-width="2"/>
+    <line x1="-33" y1="5" x2="33" y2="5" stroke="#c0392b" stroke-width="1" stroke-dasharray="4,3"/>
+    <circle cx="-33" cy="-3" r="3" fill="#1a1a2e"/>
+    <circle cx="33" cy="-3" r="3" fill="#1a1a2e"/>
+    <text x="0" y="32" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="bold" fill="#1a1a2e">DC line</text>
+</svg>

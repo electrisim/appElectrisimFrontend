@@ -3,24 +3,39 @@ import { Dialog } from './Dialog.js';
 // Default values for storage parameters (based on pandapower and OpenDSS documentation)
 export const defaultStorageData = {
     name: "Storage",
+    // Power
     p_mw: 0.0,
-    max_e_mwh: 0.0,
     q_mvar: 0.0,
-    sn_mva: 0.0,
-    soc_percent: 0.0,
+    // Energy
+    max_e_mwh: 0.0,
     min_e_mwh: 0.0,
+    soc_percent: 0.0,
+    // Configuration
+    sn_mva: 0.0,
     scaling: 1.0,
-    type: 0.0,
+    type: '',
     in_service: true,
-    // Harmonic analysis parameters (OpenDSS)
-    spectrum: 'default',
+    conn: 'wye',
+    phases: 3,
+    // Optimization (pandapower OPF)
+    controllable: false,
+    max_p_mw: 0.0,
+    min_p_mw: 0.0,
+    max_q_mvar: 0.0,
+    min_q_mvar: 0.0,
     // OpenDSS-specific parameters (https://opendss.epri.com/Properties5.html)
+    state: 'IDLING',
+    disp_mode: 'DEFAULT',
     pct_charge: 100,
     pct_discharge: 100,
     pct_eff_charge: 90,
     pct_eff_discharge: 90,
-    state: 'IDLING',
-    disp_mode: 'DEFAULT'
+    pct_idling_kw: 1,
+    pct_idling_kvar: 0,
+    discharge_trigger: 0.0,
+    charge_trigger: 0.0,
+    time_charge_trig: 2.0,
+    spectrum: 'default'
 };
 
 export class StorageDialog extends Dialog {
@@ -36,16 +51,9 @@ export class StorageDialog extends Dialog {
         // Power parameters (necessary for executing a power flow calculation)
         this.powerParameters = [
             {
-                id: 'name',
-                label: 'Storage Name',
-                description: 'Name identifier for the storage element',
-                type: 'text',
-                value: this.data.name
-            },
-            {
                 id: 'p_mw',
                 label: 'Active Power (MW)',
-                description: 'The momentary active power of the storage (positive for charging, negative for discharging)',
+                description: 'Momentary active power. Positive = charging (consuming), negative = discharging (injecting). OpenDSS sign is converted automatically.',
                 type: 'number',
                 value: this.data.p_mw.toString(),
                 step: '0.1'
@@ -53,7 +61,7 @@ export class StorageDialog extends Dialog {
             {
                 id: 'q_mvar',
                 label: 'Reactive Power (MVar)',
-                description: 'The reactive power of the storage',
+                description: 'Reactive power of the storage. Positive = absorbing (inductive), negative = supplying (capacitive).',
                 type: 'number',
                 value: this.data.q_mvar.toString(),
                 step: '0.1'
@@ -65,7 +73,7 @@ export class StorageDialog extends Dialog {
             {
                 id: 'max_e_mwh',
                 label: 'Maximum Energy (MWh)',
-                description: 'The maximum energy content of the storage (maximum charge level)',
+                description: 'Rated storage capacity (maximum charge level). Maps to OpenDSS kWhrated.',
                 type: 'number',
                 value: this.data.max_e_mwh.toString(),
                 step: '0.1',
@@ -74,7 +82,7 @@ export class StorageDialog extends Dialog {
             {
                 id: 'min_e_mwh',
                 label: 'Minimum Energy (MWh)',
-                description: 'The minimum energy content of the storage (minimum charge level)',
+                description: 'Minimum energy / reserve level. Maps to OpenDSS %reserve = (min_e_mwh / max_e_mwh) × 100.',
                 type: 'number',
                 value: this.data.min_e_mwh.toString(),
                 step: '0.1',
@@ -83,7 +91,7 @@ export class StorageDialog extends Dialog {
             {
                 id: 'soc_percent',
                 label: 'State of Charge (%)',
-                description: 'The state of charge of the storage',
+                description: 'Present state of charge (0–100 %). Maps to OpenDSS %stored.',
                 type: 'number',
                 value: this.data.soc_percent.toString(),
                 step: '0.1',
@@ -95,18 +103,43 @@ export class StorageDialog extends Dialog {
         // Configuration parameters
         this.configParameters = [
             {
+                id: 'name',
+                label: 'Storage Name',
+                description: 'Name identifier for the storage element.',
+                type: 'text',
+                value: this.data.name
+            },
+            {
                 id: 'sn_mva',
-                label: 'Nominal Power (MVA)',
-                description: 'Nominal power of the storage',
+                label: 'Nominal / Inverter Rating (MVA)',
+                description: 'Nominal apparent power of the inverter. Maps to OpenDSS kVA. Used as kWRated when p_mw = 0.',
                 type: 'number',
                 value: this.data.sn_mva.toString(),
                 step: '0.1',
                 min: '0'
             },
             {
+                id: 'conn',
+                label: 'Connection',
+                description: 'Winding connection type. Maps to OpenDSS conn property.',
+                type: 'select',
+                value: this.data.conn || 'wye',
+                options: ['wye', 'delta']
+            },
+            {
+                id: 'phases',
+                label: 'Number of Phases',
+                description: 'Number of electrical phases. Power is evenly divided among phases in OpenDSS.',
+                type: 'number',
+                value: this.data.phases.toString(),
+                step: '1',
+                min: '1',
+                max: '3'
+            },
+            {
                 id: 'scaling',
                 label: 'Scaling Factor',
-                description: 'An OPTIONAL scaling factor to be set customly. Multiplies with p_mw and q_mvar.',
+                description: 'Optional scaling factor multiplied with p_mw and q_mvar (pandapower only).',
                 type: 'number',
                 value: this.data.scaling.toString(),
                 step: '0.1',
@@ -115,42 +148,84 @@ export class StorageDialog extends Dialog {
             {
                 id: 'type',
                 label: 'Storage Type',
-                description: 'Type variable to classify the storage',
-                type: 'number',
-                value: this.data.type.toString(),
-                step: '1'
+                description: 'Optional string to classify the storage (e.g. "Li-Ion", "Flow"). Informational only.',
+                type: 'text',
+                value: this.data.type.toString()
             },
             {
                 id: 'in_service',
                 label: 'In Service',
-                description: 'Specifies if the storage is in service (True/False)',
+                description: 'Specifies if the storage is in service.',
                 type: 'checkbox',
                 value: this.data.in_service
             }
         ];
-        
-        // Harmonic analysis parameters (OpenDSS)
-        // Reference: https://opendss.epri.com/Storage.html
-        this.harmonicParameters = [
+
+        // Optimization parameters (pandapower OPF)
+        this.optimizationParameters = [
             {
-                id: 'spectrum',
-                label: 'Harmonic Spectrum',
-                description: 'Name of the harmonic current spectrum for this storage element. ' +
-                    '"default" is the built-in spectrum. Storage elements connected through inverters ' +
-                    'may inject harmonics into the system. The spectrum defines the magnitude and angle ' +
-                    'of harmonic current injections relative to the fundamental.',
-                type: 'select',
-                value: this.data.spectrum || 'default',
-                options: ['default', 'defaultgen', 'defaultload', 'pwm6', 'none']
+                id: 'controllable',
+                label: 'Controllable',
+                description: 'Whether this storage is controllable by the Optimal Power Flow (OPF). Must be true to use OPF limits below.',
+                type: 'checkbox',
+                value: this.data.controllable
+            },
+            {
+                id: 'max_p_mw',
+                label: 'Max Active Power (MW)',
+                description: 'Maximum active power injection for OPF. Required when controllable = true.',
+                type: 'number',
+                value: this.data.max_p_mw.toString(),
+                step: '0.1'
+            },
+            {
+                id: 'min_p_mw',
+                label: 'Min Active Power (MW)',
+                description: 'Minimum active power injection for OPF. Required when controllable = true.',
+                type: 'number',
+                value: this.data.min_p_mw.toString(),
+                step: '0.1'
+            },
+            {
+                id: 'max_q_mvar',
+                label: 'Max Reactive Power (MVar)',
+                description: 'Maximum reactive power injection for OPF. Required when controllable = true.',
+                type: 'number',
+                value: this.data.max_q_mvar.toString(),
+                step: '0.1'
+            },
+            {
+                id: 'min_q_mvar',
+                label: 'Min Reactive Power (MVar)',
+                description: 'Minimum reactive power injection for OPF. Required when controllable = true.',
+                type: 'number',
+                value: this.data.min_q_mvar.toString(),
+                step: '0.1'
             }
         ];
 
         // OpenDSS-specific parameters (https://opendss.epri.com/Properties5.html)
         this.opendssParameters = [
             {
+                id: 'state',
+                label: 'State',
+                description: 'Initial operational state. DISCHARGING = generating (kW positive in OpenDSS). Set automatically from p_mw sign; use IDLING when p_mw = 0.',
+                type: 'select',
+                value: this.data.state || 'IDLING',
+                options: ['IDLING', 'CHARGING', 'DISCHARGING']
+            },
+            {
+                id: 'disp_mode',
+                label: 'Dispatch Mode',
+                description: 'DEFAULT: loadshape triggers. FOLLOW: output follows loadshape multiplier. EXTERNAL: controlled by StorageController. LOADLEVEL / PRICE: global signal.',
+                type: 'select',
+                value: this.data.disp_mode || 'DEFAULT',
+                options: ['DEFAULT', 'FOLLOW', 'EXTERNAL', 'LOADLEVEL', 'PRICE']
+            },
+            {
                 id: 'pct_charge',
-                label: '% Charge',
-                description: 'Charging rate (input power) in percent of rated kW. Default = 100.',
+                label: '% Charge Rate',
+                description: 'Charging rate as a percent of rated kW. Default = 100.',
                 type: 'number',
                 value: String(this.data.pct_charge ?? 100),
                 step: '1',
@@ -159,8 +234,8 @@ export class StorageDialog extends Dialog {
             },
             {
                 id: 'pct_discharge',
-                label: '% Discharge',
-                description: 'Discharge rate (output power) in percent of rated kW. Default = 100.',
+                label: '% Discharge Rate',
+                description: 'Discharge rate as a percent of rated kW. Default = 100.',
                 type: 'number',
                 value: String(this.data.pct_discharge ?? 100),
                 step: '1',
@@ -169,8 +244,8 @@ export class StorageDialog extends Dialog {
             },
             {
                 id: 'pct_eff_charge',
-                label: '% Eff Charge',
-                description: 'Percent efficiency for CHARGING the storage element. Default = 90.',
+                label: '% Charging Efficiency',
+                description: 'Round-trip charging efficiency (%). Default = 90. Combined with discharge efficiency gives round-trip efficiency.',
                 type: 'number',
                 value: String(this.data.pct_eff_charge ?? 90),
                 step: '1',
@@ -179,8 +254,8 @@ export class StorageDialog extends Dialog {
             },
             {
                 id: 'pct_eff_discharge',
-                label: '% Eff Discharge',
-                description: 'Percent efficiency for DISCHARGING the storage element. Default = 90.',
+                label: '% Discharging Efficiency',
+                description: 'Discharging efficiency (%). Default = 90. Default round-trip = 90% × 90% = 81%.',
                 type: 'number',
                 value: String(this.data.pct_eff_discharge ?? 90),
                 step: '1',
@@ -188,26 +263,68 @@ export class StorageDialog extends Dialog {
                 max: '100'
             },
             {
-                id: 'state',
-                label: 'State',
-                description: 'Operational state: IDLING, CHARGING, or DISCHARGING.',
-                type: 'select',
-                value: this.data.state || 'IDLING',
-                options: ['IDLING', 'CHARGING', 'DISCHARGING']
+                id: 'pct_idling_kw',
+                label: '% Idling Losses (kW)',
+                description: 'Percent of rated kW consumed as active power (auxiliary loads, cooling, controls) while idling. Default = 1.',
+                type: 'number',
+                value: String(this.data.pct_idling_kw ?? 1),
+                step: '0.1',
+                min: '0',
+                max: '100'
             },
             {
-                id: 'disp_mode',
-                label: 'Dispatch Mode',
-                description: 'DispMode: DEFAULT, FOLLOW, EXTERNAL, LOADLEVEL, or PRICE.',
+                id: 'pct_idling_kvar',
+                label: '% Idling Losses (kVar)',
+                description: 'Percent of rated kW consumed as reactive power while idling. Default = 0.',
+                type: 'number',
+                value: String(this.data.pct_idling_kvar ?? 0),
+                step: '0.1',
+                min: '0',
+                max: '100'
+            },
+            {
+                id: 'discharge_trigger',
+                label: 'Discharge Trigger',
+                description: 'Loadshape level that triggers DISCHARGING state. 0 = disabled (state controlled externally or by State property).',
+                type: 'number',
+                value: String(this.data.discharge_trigger ?? 0.0),
+                step: '0.01',
+                min: '0',
+                max: '2'
+            },
+            {
+                id: 'charge_trigger',
+                label: 'Charge Trigger',
+                description: 'Loadshape level below which CHARGING is triggered. 0 = disabled.',
+                type: 'number',
+                value: String(this.data.charge_trigger ?? 0.0),
+                step: '0.01',
+                min: '0',
+                max: '2'
+            },
+            {
+                id: 'time_charge_trig',
+                label: 'Time Charge Trigger (h)',
+                description: 'Time of day (fractional hours, e.g. 2.0 = 2 AM) when storage automatically starts charging. Set to -1 to disable. Default = 2.0.',
+                type: 'number',
+                value: String(this.data.time_charge_trig ?? 2.0),
+                step: '0.5',
+                min: '-1',
+                max: '24'
+            },
+            {
+                id: 'spectrum',
+                label: 'Harmonic Spectrum',
+                description: 'Harmonic current injection spectrum for OpenDSS harmonic analysis. "default" is the built-in inverter spectrum.',
                 type: 'select',
-                value: this.data.disp_mode || 'DEFAULT',
-                options: ['DEFAULT', 'FOLLOW', 'EXTERNAL', 'LOADLEVEL', 'PRICE']
+                value: this.data.spectrum || 'default',
+                options: ['default', 'defaultgen', 'defaultload', 'pwm6', 'none']
             }
         ];
     }
     
     getDescription() {
-        return '<strong>Configure Storage Parameters</strong><br>Set parameters for energy storage system with power and energy management capabilities. See the <a href="https://electrisim.com/documentation#storage" target="_blank">Electrisim documentation</a>.';
+        return '<strong>Configure Storage Parameters</strong><br>Set parameters for energy storage (BESS). <b>Power</b> &amp; <b>Energy</b> – shared pandapower/OpenDSS parameters. <b>Configuration</b> – naming, phases, connection. <b>Optimization (OPF)</b> – pandapower optimal power flow limits. <b>OpenDSS Parameters</b> – dispatch, efficiency, idling losses, triggers &amp; harmonics. See the <a href="https://electrisim.com/documentation#storage" target="_blank">Electrisim documentation</a>.';
     }
     
     show(callback) {
@@ -264,13 +381,13 @@ export class StorageDialog extends Dialog {
         const powerTab = this.createTab('Power', 'power', this.currentTab === 'power');
         const energyTab = this.createTab('Energy', 'energy', this.currentTab === 'energy');
         const configTab = this.createTab('Configuration', 'config', this.currentTab === 'config');
-        const harmonicTab = this.createTab('Harmonic', 'harmonic', this.currentTab === 'harmonic');
-        const opendssTab = this.createTab('Additional parameters for OpenDSS model', 'opendss', this.currentTab === 'opendss');
+        const optimizationTab = this.createTab('Optimization (OPF)', 'optimization', this.currentTab === 'optimization');
+        const opendssTab = this.createTab('OpenDSS Parameters', 'opendss', this.currentTab === 'opendss');
         
         tabContainer.appendChild(powerTab);
         tabContainer.appendChild(energyTab);
         tabContainer.appendChild(configTab);
-        tabContainer.appendChild(harmonicTab);
+        tabContainer.appendChild(optimizationTab);
         tabContainer.appendChild(opendssTab);
         container.appendChild(tabContainer);
 
@@ -290,13 +407,13 @@ export class StorageDialog extends Dialog {
         const powerContent = this.createTabContent('power', this.powerParameters);
         const energyContent = this.createTabContent('energy', this.energyParameters);
         const configContent = this.createTabContent('config', this.configParameters);
-        const harmonicContent = this.createTabContent('harmonic', this.harmonicParameters);
+        const optimizationContent = this.createTabContent('optimization', this.optimizationParameters);
         const opendssContent = this.createTabContent('opendss', this.opendssParameters);
         
         contentArea.appendChild(powerContent);
         contentArea.appendChild(energyContent);
         contentArea.appendChild(configContent);
-        contentArea.appendChild(harmonicContent);
+        contentArea.appendChild(optimizationContent);
         contentArea.appendChild(opendssContent);
         container.appendChild(contentArea);
 
@@ -344,12 +461,12 @@ export class StorageDialog extends Dialog {
         this.container = container;
         
         // Tab click handlers
-        const allTabs = [powerTab, energyTab, configTab, harmonicTab, opendssTab];
-        const allContents = [powerContent, energyContent, configContent, harmonicContent, opendssContent];
+        const allTabs = [powerTab, energyTab, configTab, optimizationTab, opendssTab];
+        const allContents = [powerContent, energyContent, configContent, optimizationContent, opendssContent];
         powerTab.onclick = () => this.switchTab('power', powerTab, allTabs.filter(t => t !== powerTab), powerContent, allContents.filter(c => c !== powerContent));
         energyTab.onclick = () => this.switchTab('energy', energyTab, allTabs.filter(t => t !== energyTab), energyContent, allContents.filter(c => c !== energyContent));
         configTab.onclick = () => this.switchTab('config', configTab, allTabs.filter(t => t !== configTab), configContent, allContents.filter(c => c !== configContent));
-        harmonicTab.onclick = () => this.switchTab('harmonic', harmonicTab, allTabs.filter(t => t !== harmonicTab), harmonicContent, allContents.filter(c => c !== harmonicContent));
+        optimizationTab.onclick = () => this.switchTab('optimization', optimizationTab, allTabs.filter(t => t !== optimizationTab), optimizationContent, allContents.filter(c => c !== optimizationContent));
         opendssTab.onclick = () => this.switchTab('opendss', opendssTab, allTabs.filter(t => t !== opendssTab), opendssContent, allContents.filter(c => c !== opendssContent));
 
         // Show dialog using DrawIO's dialog system
@@ -640,8 +757,8 @@ export class StorageDialog extends Dialog {
     getFormValues() {
         const values = {};
         
-        // Collect all parameter values from all tabs (including harmonic and OpenDSS)
-        [...this.powerParameters, ...this.energyParameters, ...this.configParameters, ...this.harmonicParameters, ...this.opendssParameters].forEach(param => {
+        // Collect all parameter values from all tabs
+        [...this.powerParameters, ...this.energyParameters, ...this.configParameters, ...this.optimizationParameters, ...this.opendssParameters].forEach(param => {
             const input = this.inputs.get(param.id);
             if (input) {
                 if (param.type === 'number') {
@@ -677,7 +794,7 @@ export class StorageDialog extends Dialog {
         
         // Log initial parameter values
         console.log('Initial parameter values:');
-        [...this.powerParameters, ...this.energyParameters, ...this.configParameters, ...this.harmonicParameters, ...this.opendssParameters].forEach(param => {
+        [...this.powerParameters, ...this.energyParameters, ...this.configParameters, ...this.optimizationParameters, ...this.opendssParameters].forEach(param => {
             console.log(`  ${param.id}: ${param.value} (${param.type})`);
         });
         
@@ -726,17 +843,17 @@ export class StorageDialog extends Dialog {
                     console.log(`  Updated config ${attributeName}: ${oldValue} → ${configParam.value}`);
                 }
                 
-                const harmonicParam = this.harmonicParameters.find(p => p.id === attributeName);
-                if (harmonicParam) {
-                    const oldValue = harmonicParam.value;
-                    if (harmonicParam.type === 'checkbox') {
-                        harmonicParam.value = attributeValue === 'true' || attributeValue === true;
+                const optimizationParam = this.optimizationParameters.find(p => p.id === attributeName);
+                if (optimizationParam) {
+                    const oldValue = optimizationParam.value;
+                    if (optimizationParam.type === 'checkbox') {
+                        optimizationParam.value = attributeValue === 'true' || attributeValue === true;
                     } else {
-                        harmonicParam.value = attributeValue;
+                        optimizationParam.value = attributeValue;
                     }
-                    console.log(`  Updated harmonic ${attributeName}: ${oldValue} → ${harmonicParam.value}`);
+                    console.log(`  Updated optimization ${attributeName}: ${oldValue} → ${optimizationParam.value}`);
                 }
-                
+
                 const opendssParam = this.opendssParameters.find(p => p.id === attributeName);
                 if (opendssParam) {
                     const oldValue = opendssParam.value;
@@ -748,7 +865,7 @@ export class StorageDialog extends Dialog {
                     console.log(`  Updated OpenDSS ${attributeName}: ${oldValue} → ${opendssParam.value}`);
                 }
                 
-                if (!powerParam && !energyParam && !configParam && !harmonicParam && !opendssParam) {
+                if (!powerParam && !energyParam && !configParam && !optimizationParam && !opendssParam) {
                     console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
             }
@@ -758,7 +875,7 @@ export class StorageDialog extends Dialog {
         
         // Log final parameter values
         console.log('Final parameter values:');
-        [...this.powerParameters, ...this.energyParameters, ...this.configParameters, ...this.harmonicParameters, ...this.opendssParameters].forEach(param => {
+        [...this.powerParameters, ...this.energyParameters, ...this.configParameters, ...this.optimizationParameters, ...this.opendssParameters].forEach(param => {
             console.log(`  ${param.id}: ${param.value} (${param.type})`);
         });
         

@@ -642,20 +642,257 @@
 			<stroke/>
 		</foreground>
 	</shape>
-	<shape aspect="variable" h="58" name="Voltage Regulator" strokewidth="inherit" w="70">
+	<shape aspect="variable" h="58" name="Voltage Regulator" strokewidth="inherit" w="58">
 		<connections>
-			<constraint name="control" perimeter="0" x="0.5" y="1"/>
+			<constraint name="S" perimeter="0" x="0.5" y="1"/>
 		</connections>
 		<background>
-			<rect h="46" w="52" x="9" y="0"/>
+			<rect h="58" w="58" x="0" y="0"/>
 		</background>
 		<foreground>
-			<fillstroke/>
-			<path>
-				<move x="35" y="58"/>
-				<line x="35" y="46"/>
-			</path>
-			<stroke/>
+			<image src="images/electrical/sym-ext-grid.svg" x="0" y="0" w="58" h="58"/>
+		</foreground>
+	</shape>
+	<shape aspect="variable" h="64" name="generator" strokewidth="inherit" w="58">
+		<connections>
+			<constraint name="S" perimeter="0" x="0.5" y="1"/>
+		</connections>
+		<background>
+			<rect h="64" w="58" x="0" y="0"/>
+		</background>
+		<foreground>
+			<image src="images/electrical/sym-generator.svg" x="0" y="0" w="58" h="64"/>
+		</foreground>
+	</shape>
+	<shape aspect="variable" h="64" name="Static Generator" strokewidth="inherit" w="58">
+		<connections>
+			<constraint name="S" perimeter="0" x="0.5" y="1"/>
+		</connections>
+		<background>
+			<rect h="64" w="58" x="0" y="0"/>
+		</background>
+		<foreground>
+			<image src="images/electrical/sym-static-gen.svg" x="0" y="0" w="58" h="64"/>
+		</foreground>
+	</shape>
+	<shape aspect="variable" h="64" name="motor" strokewidth="inherit" w="58">
+		<connections>
+			<constraint name="S" perimeter="0" x="0.5" y="1"/>
+		</connections>
+		<background>
+			<rect h="64" w="58" x="0" y="0"/>
+		</background>
+		<foreground>
+			<image src="images/electrical/sym-motor.svg" x="0" y="0" w="58" h="64"/>
+		</foreground>
+	</shape>
+	<shape aspect="variable" h="64" name="Storage" strokewidth="inherit" w="54">
+		<connections>
+			<constraint name="W" perimeter="0" x="0" y="0.5"/>
+		</connections>
+		<background>
+			<rect h="64" w="54" x="0" y="0"/>
+		</background>
+		<foreground>
+			<image src="images/electrical/sym-storage.svg" x="0" y="0" w="54" h="64"/>
+		</foreground>
+	</shape>
+	<shape aspect="variable" h="62" name="load" strokewidth="inherit" w="46">
+		<connections>
+			<constraint name="N" perimeter="0" x="0.5" y="0"/>
+		</connections>
+		<background>
+			<rect h="62" w="46" x="0" y="0"/>
+		</background>
+		<foreground>
+			<image src="images/electrical/sym-load.svg" x="0" y="0" w="46" h="62"/>
+		</foreground>
+	</shape>
+	<shape aspect="variable" h="66" name="asymmetric_load" strokewidth="inherit" w="52">
+		<connections>
+			<constraint name="N" perimeter="0" x="0.5" y="0"/>
+		</connections>
+		<background>
+			<rect h="66" w="52" x="0" y="0"/>
+		</background>
+		<foreground>
+			<image src="images/electrical/sym-asym-load.svg" x="0" y="0" w="52" h="66"/>
+		</foreground>
+	</shape>
+	<shape aspect="variable" h="62" name="shunt_reactor" strokewidth="inherit" w="38">
+		<connections>
+			<constraint name="N" perimeter="0" x="0.5" y="0"/>
+		</connections>
+		<background>
+			<rect h="62" w="38" x="0" y="0"/>
+		</background>
+		<foreground>
+			<image src="images/electrical/sym-shunt.svg" x="0" y="0" w="38" h="62"/>
+		</foreground>
+	</shape>
+	<shape aspect="variable" h="50" name="Transformer" strokewidth="inherit" w="82">
+		<connections>
+			<!-- Pins at (-41,0) and (41,0) in viewBox -45..45, -30..28 -->
+			<constraint name="W" perimeter="0" x="0.044" y="0.517"/>
+			<constraint name="E" perimeter="0" x="0.956" y="0.517"/>
+		</connections>
+		<background>
+			<rect h="50" w="82" x="0" y="0"/>
+		</background>
+		<foreground>
+			<image src="images/electrical/sym-transformer.svg" x="0" y="0" w="82" h="50"/>
+		</foreground>
+	</shape>
+	<shape aspect="variable" h="80" name="three_winding_transformer" strokewidth="inherit" w="84">
+		<connections>
+			<!-- Order [LV,MV,HV] for getThreeWindingConnections. LV at (0,42), MV at (42,-8), HV at (-42,-8) in viewBox -45..45, -45..50 -->
+			<constraint name="LV" perimeter="0" x="0.5" y="0.916"/>
+			<constraint name="MV" perimeter="0" x="0.967" y="0.389"/>
+			<constraint name="HV" perimeter="0" x="0.033" y="0.389"/>
+		</connections>
+		<background>
+			<rect h="80" w="84" x="0" y="0"/>
+		</background>
+		<foreground>
+			<image src="images/electrical/sym-3w-transformer.svg" x="0" y="0" w="84" h="80"/>
+		</foreground>
+	</shape>
+	<shape aspect="variable" h="30" name="Impedance" strokewidth="inherit" w="82">
+		<connections>
+			<constraint name="W" perimeter="0" x="0" y="0.5"/>
+			<constraint name="E" perimeter="0" x="1" y="0.5"/>
+		</connections>
+		<background>
+			<rect h="30" w="82" x="0" y="0"/>
+		</background>
+		<foreground>
+			<image src="images/electrical/sym-impedance.svg" x="0" y="0" w="82" h="30"/>
+		</foreground>
+	</shape>
+	<shape aspect="variable" h="40" name="ward" strokewidth="inherit" w="82">
+		<connections>
+			<constraint name="N" perimeter="0" x="0.5" y="0"/>
+		</connections>
+		<background>
+			<rect h="40" w="82" x="0" y="0"/>
+		</background>
+		<foreground>
+			<image src="images/electrical/sym-ward.svg" x="0" y="0" w="82" h="40"/>
+		</foreground>
+	</shape>
+	<shape aspect="variable" h="40" name="extended_ward" strokewidth="inherit" w="82">
+		<connections>
+			<constraint name="N" perimeter="0" x="0.5" y="0"/>
+		</connections>
+		<background>
+			<rect h="40" w="82" x="0" y="0"/>
+		</background>
+		<foreground>
+			<image src="images/electrical/sym-ext-ward.svg" x="0" y="0" w="82" h="40"/>
+		</foreground>
+	</shape>
+	<shape aspect="variable" h="62" name="SVC" strokewidth="inherit" w="58">
+		<connections>
+			<constraint name="N" perimeter="0" x="0.5" y="0"/>
+		</connections>
+		<background>
+			<rect h="62" w="58" x="0" y="0"/>
+		</background>
+		<foreground>
+			<image src="images/electrical/sym-svc.svg" x="0" y="0" w="58" h="62"/>
+		</foreground>
+	</shape>
+	<shape aspect="variable" h="62" name="ssc" strokewidth="inherit" w="58">
+		<connections>
+			<constraint name="N" perimeter="0" x="0.5" y="0"/>
+		</connections>
+		<background>
+			<rect h="62" w="58" x="0" y="0"/>
+		</background>
+		<foreground>
+			<image src="images/electrical/sym-ssc.svg" x="0" y="0" w="58" h="62"/>
+		</foreground>
+	</shape>
+	<shape aspect="variable" h="48" name="tcsc" strokewidth="inherit" w="96">
+		<connections>
+			<constraint name="W" perimeter="0" x="0" y="0.5"/>
+			<constraint name="E" perimeter="0" x="1" y="0.5"/>
+		</connections>
+		<background>
+			<rect h="48" w="96" x="0" y="0"/>
+		</background>
+		<foreground>
+			<image src="images/electrical/sym-tcsc.svg" x="0" y="0" w="96" h="48"/>
+		</foreground>
+	</shape>
+	<shape aspect="variable" h="64" name="load_dc" strokewidth="inherit" w="46">
+		<connections>
+			<constraint name="N" perimeter="0" x="0.5" y="0"/>
+		</connections>
+		<background>
+			<rect h="64" w="46" x="0" y="0"/>
+		</background>
+		<foreground>
+			<image src="images/electrical/sym-load-dc.svg" x="0" y="0" w="46" h="64"/>
+		</foreground>
+	</shape>
+	<shape aspect="variable" h="40" name="switch" strokewidth="inherit" w="76">
+		<connections>
+			<constraint name="W" perimeter="0" x="0" y="0.5"/>
+			<constraint name="E" perimeter="0" x="1" y="0.5"/>
+		</connections>
+		<background>
+			<rect h="40" w="76" x="0" y="0"/>
+		</background>
+		<foreground>
+			<image src="images/electrical/sym-switch.svg" x="0" y="0" w="76" h="40"/>
+		</foreground>
+	</shape>
+	<shape aspect="variable" h="52" name="vsc" strokewidth="inherit" w="88">
+		<connections>
+			<constraint name="W" perimeter="0" x="0" y="0.5"/>
+			<constraint name="E" perimeter="0" x="1" y="0.5"/>
+		</connections>
+		<background>
+			<rect h="52" w="88" x="0" y="0"/>
+		</background>
+		<foreground>
+			<image src="images/electrical/sym-vsc.svg" x="0" y="0" w="88" h="52"/>
+		</foreground>
+	</shape>
+	<shape aspect="variable" h="52" name="b2b_vsc" strokewidth="inherit" w="144">
+		<connections>
+			<constraint name="W" perimeter="0" x="0" y="0.5"/>
+			<constraint name="E" perimeter="0" x="1" y="0.5"/>
+		</connections>
+		<background>
+			<rect h="52" w="144" x="0" y="0"/>
+		</background>
+		<foreground>
+			<image src="images/electrical/sym-b2b-vsc.svg" x="0" y="0" w="144" h="52"/>
+		</foreground>
+	</shape>
+	<shape aspect="variable" h="112" name="PV System" strokewidth="inherit" w="68">
+		<connections>
+			<constraint name="S" perimeter="0" x="0.5" y="0.786"/>
+		</connections>
+		<background>
+			<rect h="112" w="68" x="0" y="0"/>
+		</background>
+		<foreground>
+			<image src="images/electrical/sym-pv.svg" x="0" y="0" w="68" h="112"/>
+		</foreground>
+	</shape>
+	<shape aspect="variable" h="52" name="source_dc" strokewidth="inherit" w="64">
+		<connections>
+			<constraint name="N" perimeter="0" x="0.5" y="0.05"/>
+			<constraint name="S" perimeter="0" x="0.5" y="0.95"/>
+		</connections>
+		<background>
+			<rect h="52" w="64" x="0" y="0"/>
+		</background>
+		<foreground>
+			<image src="images/electrical/sym-source-dc.svg" x="0" y="0" w="64" h="52"/>
 		</foreground>
 	</shape>
 </shapes>

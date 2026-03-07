@@ -6940,6 +6940,96 @@ if (typeof mxVertexHandler != 'undefined')
 		{
 			if (terminal != null)
 			{
+				// Electrical components: restrict to proper connection points (no perimeter blue x's)
+				var shapeELXXX = mxUtils.getValue(terminal.style, 'shapeELXXX', null);
+				if (shapeELXXX != null)
+				{
+					var elConstraints = null;
+					// Single pin at bottom center (external grid, motors)
+					if (shapeELXXX === 'External Grid' || shapeELXXX === 'Motor')
+					{
+						elConstraints = [new mxConnectionConstraint(new mxPoint(0.5, 1), false)];
+					}
+					// PVSystem: pin at (0,36) in viewBox -34 -52 68 112
+					else if (shapeELXXX === 'PVSystem')
+					{
+						elConstraints = [new mxConnectionConstraint(new mxPoint(0.5, 88/112), false)];
+					}
+					// Single pin at left center (storage - pin line on left)
+					else if (shapeELXXX === 'Storage')
+					{
+						elConstraints = [new mxConnectionConstraint(new mxPoint(0, 0.5), false)];
+					}
+					// Single pin at top center (loads, shunt devices, generators, ward)
+					else if (shapeELXXX === 'Load' || shapeELXXX === 'Asymmetric Load' || shapeELXXX === 'Shunt Reactor' ||
+						shapeELXXX === 'Capacitor' || shapeELXXX === 'Ground' ||
+						shapeELXXX === 'Generator' || shapeELXXX === 'Static Generator' || shapeELXXX === 'Asymmetric Static Generator' ||
+						shapeELXXX === 'Ward' || shapeELXXX === 'Extended Ward')
+					{
+						elConstraints = [new mxConnectionConstraint(new mxPoint(0.5, 0), false)];
+					}
+					// SVC, SSC: single pin at top - viewBox -30 -38 60 68, pin at (0,-38)
+					else if (shapeELXXX === 'SVC' || shapeELXXX === 'SSC')
+					{
+						elConstraints = [new mxConnectionConstraint(new mxPoint(0.5, 0), false)];
+					}
+					// Load DC: single pin at top - viewBox -25 -44 50 64, pin at (0,-42)
+					else if (shapeELXXX === 'Load DC')
+					{
+						elConstraints = [new mxConnectionConstraint(new mxPoint(0.5, 2/64), false)];
+					}
+					// Two pins: top and bottom (Source DC)
+					else if (shapeELXXX === 'Source DC')
+					{
+						// viewBox 0 0 100 100, pins at (50,5) and (50,95)
+						elConstraints = [
+							new mxConnectionConstraint(new mxPoint(0.5, 0.05), false),
+							new mxConnectionConstraint(new mxPoint(0.5, 0.95), false)
+						];
+					}
+					// Two pins: left and right (transformers, impedance, switches, etc.)
+					else if (shapeELXXX === 'Transformer' || shapeELXXX === 'Impedance' ||
+						shapeELXXX === 'TCSC' || shapeELXXX === 'Switch' || shapeELXXX === 'switch' || shapeELXXX === 'VSC' ||
+						shapeELXXX === 'B2B VSC' || shapeELXXX === 'DC Line')
+					{
+						var leftX, rightX, pinY;
+						if (shapeELXXX === 'Transformer') {
+							leftX = 4/90; rightX = 86/90; pinY = 30/58;
+						} else if (shapeELXXX === 'TCSC') {
+							leftX = 0; rightX = 1; pinY = 28/48;  // viewBox -48 -28 96 48, pins at y=0
+						} else if (shapeELXXX === 'DC Line') {
+							leftX = 2/70; rightX = 68/70; pinY = 12/48;  // pins at (-33,-3) and (33,-3)
+						} else if (shapeELXXX === 'Switch' || shapeELXXX === 'switch') {
+							leftX = 0; rightX = 1; pinY = 22/40;  // viewBox -38 -22 76 40, pins at y=0
+						} else if (shapeELXXX === 'VSC' || shapeELXXX === 'B2B VSC') {
+							leftX = 0; rightX = 1; pinY = 0.5;
+						} else {
+							leftX = 0; rightX = 1; pinY = 0.5;  // Impedance
+						}
+						elConstraints = [
+							new mxConnectionConstraint(new mxPoint(leftX, pinY), false),
+							new mxConnectionConstraint(new mxPoint(rightX, pinY), false)
+						];
+					}
+					// Three pins: order [LV, MV, HV] for getThreeWindingConnections - viewBox -45..45, -45..50
+					else if (shapeELXXX === 'Three Winding Transformer')
+					{
+						// LV at (0,42), MV at (42,-8), HV at (-42,-8)
+						var lvX = 0.5; var lvY = 87/95;
+						var mvX = 87/90; var mvY = 37/95;
+						var hvX = 3/90; var hvY = 37/95;
+						elConstraints = [
+							new mxConnectionConstraint(new mxPoint(lvX, lvY), false),
+							new mxConnectionConstraint(new mxPoint(mvX, mvY), false),
+							new mxConnectionConstraint(new mxPoint(hvX, hvY), false)
+						];
+					}
+					if (elConstraints != null)
+					{
+						return elConstraints;
+					}
+				}
+
 				var constraints = mxUtils.getValue(terminal.style, 'points', null);
 				
 				if (constraints != null)

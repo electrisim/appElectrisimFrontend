@@ -177,8 +177,9 @@ export function configureBusAttributes(grafka, vertex, options = {}) {
 
     // Set the new value for the vertex
     grafka.getModel().setValue(vertex, g);
-    //set label 
-    grafka.insertVertex(vertex, null, options.name || "Bus" , 0, -0.5, 0, 0, null, true);   
+    //set label (labelY: -0.5 = above, 1.1 = below; default above). Label on left (x=0, align=left)
+    var ly = options.labelY != null ? options.labelY : -0.5;
+    grafka.insertVertex(vertex, null, options.name || "Bus" , 0, ly, 0, 0, "align=left", true);   
 }
 
 export function configureTransformerAttributes(grafka, vertex, options = {}) {
@@ -481,51 +482,50 @@ export function configureMotorAttributes(grafka, vertex, options = {}) {
 
     grafka.getModel().setValue(vertex, g)
 
-    grafka.insertVertex(vertex, null, 'M', 0.5, 0.4, 0, 0, 'fontSize=35;', true);
+    grafka.insertVertex(vertex, null, '', 0.5, 0.4, 0, 0, null, true);
 }
 
 export function configureStorageAttributes(grafka, vertex, options = {}) {
 
     var g = mxUtils.createXmlDocument().createElement("object");
-    g.setAttribute("name", "Storage");
+    g.setAttribute("name", options.name || "Storage");
 
-    //INPUT
+    // Load flow parameters (pandapower + OpenDSS shared)
     g.setAttribute("Load_flow_parameters", "");
     g.setAttribute("p_mw", options.p_mw || "0");
-    g.setAttribute("max_e_mwh", "0");
-
-    //OPTIONAL
-    g.setAttribute("Optional_parameters", "");
     g.setAttribute("q_mvar", options.q_mvar || "0");
-    g.setAttribute("sn_mva", options.sn_mva || "0");
-    g.setAttribute("soc_percent", options.soc_percent ||  "0");
+    g.setAttribute("max_e_mwh", options.max_e_mwh || "0");
     g.setAttribute("min_e_mwh", options.min_e_mwh || "0");
+    g.setAttribute("soc_percent", options.soc_percent || "0");
+    g.setAttribute("sn_mva", options.sn_mva || "0");
     g.setAttribute("scaling", defaultScaling(options.scaling));
-    g.setAttribute("type", options.type ||"0");
+    g.setAttribute("type", options.type || "");
+    g.setAttribute("conn", options.conn || "wye");
+    g.setAttribute("phases", String(options.phases ?? 3));
     // g.setAttribute("in_service", "True");
 
-    // Harmonic analysis parameters (OpenDSS)
-    // Reference: https://opendss.epri.com/Storage.html
-    g.setAttribute("Harmonic_parameters", "");
-    g.setAttribute("spectrum", options.spectrum || "default");
+    // Optimal Power Flow parameters (pandapower OPF)
+    g.setAttribute("OPF_parameters", "");
+    g.setAttribute("controllable", String(options.controllable ?? false));
+    g.setAttribute("max_p_mw", String(options.max_p_mw ?? 0));
+    g.setAttribute("min_p_mw", String(options.min_p_mw ?? 0));
+    g.setAttribute("max_q_mvar", String(options.max_q_mvar ?? 0));
+    g.setAttribute("min_q_mvar", String(options.min_q_mvar ?? 0));
 
     // OpenDSS-specific parameters (https://opendss.epri.com/Properties5.html)
     g.setAttribute("OpenDSS_parameters", "");
+    g.setAttribute("state", options.state || "IDLING");
+    g.setAttribute("disp_mode", options.disp_mode || "DEFAULT");
     g.setAttribute("pct_charge", String(options.pct_charge ?? 100));
     g.setAttribute("pct_discharge", String(options.pct_discharge ?? 100));
     g.setAttribute("pct_eff_charge", String(options.pct_eff_charge ?? 90));
     g.setAttribute("pct_eff_discharge", String(options.pct_eff_discharge ?? 90));
-    g.setAttribute("state", options.state || "IDLING");
-    g.setAttribute("disp_mode", options.disp_mode || "DEFAULT");
-
-    //Optimal Power Flow
-    /*
-    g.setAttribute("max_p_mw", "0");
-    g.setAttribute("min_p_mw", "0");
-    g.setAttribute("max_q_mvar", "0");
-    g.setAttribute("min_q_mvar", "0");
-
-    g.setAttribute("controllable", "True");*/
+    g.setAttribute("pct_idling_kw", String(options.pct_idling_kw ?? 1));
+    g.setAttribute("pct_idling_kvar", String(options.pct_idling_kvar ?? 0));
+    g.setAttribute("discharge_trigger", String(options.discharge_trigger ?? 0));
+    g.setAttribute("charge_trigger", String(options.charge_trigger ?? 0));
+    g.setAttribute("time_charge_trig", String(options.time_charge_trig ?? 2.0));
+    g.setAttribute("spectrum", options.spectrum || "default");
 
     grafka.getModel().setValue(vertex, g)
 
@@ -623,7 +623,7 @@ export function configureDCLineAttributes(grafka, vertex, options = {}) {
 
     grafka.getModel().setValue(vertex, g) 
 
-    grafka.insertVertex(vertex, null, 'DC Line', 0.5, 0.5, 0, 0, null, true);
+    grafka.insertVertex(vertex, null, '', 0.5, 0.5, 0, 0, null, true);
 }
 
 
