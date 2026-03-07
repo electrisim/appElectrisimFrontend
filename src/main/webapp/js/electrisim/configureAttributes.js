@@ -694,17 +694,32 @@ export function configureSourceDcAttributes(grafka, vertex, options = {}) {
     grafka.insertVertex(vertex, null, 'Source DC', 0.5, -0.25, 0, 0, null, true);
 }
 
+/** Update Switch cell style to show closed or open symbol based on closed attribute */
+export function updateSwitchCellStyle(grafka, vertex, closed) {
+    if (!grafka || !vertex) return;
+    var style = grafka.getModel().getStyle(vertex) || "";
+    if (typeof style !== "string" || style.indexOf("shapeELXXX=Switch") < 0) return;
+    var imgClosed = "images/electrical/sym-switch-closed.svg";
+    var imgOpen = "images/electrical/sym-switch.svg";
+    var newImg = (closed === true || closed === "true") ? imgClosed : imgOpen;
+    var newStyle = style.replace(/image=images\/electrical\/sym-switch(-closed)?\.svg/g, "image=" + newImg);
+    if (newStyle !== style) grafka.setCellStyle(newStyle, [vertex]);
+}
+
 export function configureSwitchAttributes(grafka, vertex, options = {}) {
     var g = mxUtils.createXmlDocument().createElement("object");
-    g.setAttribute("name", "Switch");
+    g.setAttribute("name", options.name || "Switch");
     
     g.setAttribute("Load_flow_parameters", "");
-    g.setAttribute("et", options.et || "b"); // element type: 'b' for bus, 'l' for line
-    g.setAttribute("type", options.type || "LS"); // switch type: 'LS' load switch, 'CB' circuit breaker, 'LBS' load break switch
-    g.setAttribute("closed", options.closed !== undefined ? options.closed : true);
+    g.setAttribute("et", options.et || "l"); // element type: 'b'=bus-bus, 'l'=line, 't'=trafo, 't3'=trafo3w
+    g.setAttribute("type", options.type || "CB"); // CB, LS, LBS, DS (pandapower)
+    var closed = options.closed !== undefined ? options.closed : true;
+    g.setAttribute("closed", closed);
     g.setAttribute("z_ohm", options.z_ohm || "0.0");
+    g.setAttribute("in_ka", options.in_ka !== undefined ? String(options.in_ka) : "0");
     
     grafka.getModel().setValue(vertex, g);
+    updateSwitchCellStyle(grafka, vertex, closed);
 }
 
 export function configureVscAttributes(grafka, vertex, options = {}) {
@@ -772,6 +787,7 @@ if (typeof window !== 'undefined') {
     window.configureLoadDcAttributes = configureLoadDcAttributes;
     window.configureSourceDcAttributes = configureSourceDcAttributes;
     window.configureSwitchAttributes = configureSwitchAttributes;
+    window.updateSwitchCellStyle = updateSwitchCellStyle;
     window.configureVscAttributes = configureVscAttributes;
     window.configureB2bVscAttributes = configureB2bVscAttributes;
 }

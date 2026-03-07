@@ -9,6 +9,7 @@ import {
     parseCellStyle,
     getAttributesAsObject,
     getTransformerConnections,
+    getSwitchConnections,
     updateTransformerBusConnections,
     updateThreeWindingTransformerConnections,
     getThreeWindingConnections,
@@ -986,27 +987,24 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                 break;
 
             case COMPONENT_TYPES.SWITCH:
+                const switchConnections = getSwitchConnections(cell);
+                const switchAttrs = getAttributesAsObject(cell, {
+                    name: { name: 'name', optional: true },
+                    et: { name: 'et', optional: true },
+                    type: 'type',
+                    closed: 'closed',
+                    z_ohm: 'z_ohm',
+                    in_ka: { name: 'in_ka', optional: true }
+                });
                 const switchElement = {
                     typ: `Switch${counters.switch++}`,
-                    name: cell.mxObjectId.replace('#', '_'),
+                    name: switchAttrs.name || cell.mxObjectId.replace('#', '_'),
                     id: cell.id,
-                    userFriendlyName: (() => {
-                        if (cell.value && cell.value.attributes) {
-                            for (let i = 0; i < cell.value.attributes.length; i++) {
-                                if (cell.value.attributes[i].nodeName === 'name') {
-                                    return cell.value.attributes[i].nodeValue;
-                                }
-                            }
-                        }
-                        return cell.mxObjectId.replace('#', '_');
-                    })(),
-                    ...getAttributesAsObject(cell, {
-                        et: 'et',
-                        type: 'type',
-                        closed: 'closed',
-                        z_ohm: 'z_ohm',
-                        in_service: { name: 'in_service', optional: true }
-                    })
+                    userFriendlyName: switchAttrs.name || cell.mxObjectId.replace('#', '_'),
+                    bus: switchConnections.bus,
+                    element: switchConnections.element,
+                    et: switchAttrs.et || switchConnections.et,
+                    ...switchAttrs
                 };
                 componentArrays.switch.push(switchElement);
                 break;

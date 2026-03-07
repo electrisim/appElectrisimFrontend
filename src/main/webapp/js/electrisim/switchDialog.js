@@ -6,8 +6,7 @@ export const defaultSwitchData = {
     closed: true,
     type: "CB",
     z_ohm: 0.0,
-    in_ka: 0.0,
-    in_service: true
+    in_ka: 0.0
 };
 
 export class SwitchDialog extends Dialog {
@@ -42,7 +41,7 @@ export class SwitchDialog extends Dialog {
                 id: 'type',
                 label: 'Type',
                 symbol: 'type',
-                description: 'Type of switch (CB: Circuit Breaker, LBS: Load Break Switch, DS: Disconnector)',
+                description: 'Type of switch (CB: Circuit Breaker, LS: Load Switch, LBS: Load Break Switch, DS: Disconnecting Switch)',
                 type: 'text',
                 value: this.data.type
             },
@@ -67,14 +66,6 @@ export class SwitchDialog extends Dialog {
                 value: this.data.in_ka.toString(),
                 step: '0.1',
                 min: '0'
-            },
-            {
-                id: 'in_service',
-                label: 'In Service',
-                symbol: 'in_service',
-                description: 'Specifies if the switch is in service (True/False)',
-                type: 'checkbox',
-                value: this.data.in_service
             }
         ];
         

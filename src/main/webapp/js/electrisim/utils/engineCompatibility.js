@@ -7,6 +7,7 @@
 // Order matters: longer names first so "B2B VSC" matches before "VSC"
 const PANDAPOWER_ONLY_TYP_PREFIXES = [
     'B2B VSC',
+    'Three Winding Transformer',
     'DC Line',
     'DC Bus',
     'Load DC',
@@ -20,6 +21,7 @@ const PANDAPOWER_ONLY_TYP_PREFIXES = [
 
 // Display names for UI (match the "Elements supported exclusively" list)
 const PANDAPOWER_ONLY_DISPLAY_NAMES = {
+    'Three Winding Transformer': 'Three Winding Transformer',
     'SVC': 'SVC',
     'TCSC': 'TCSC',
     'SSC': 'SSC',

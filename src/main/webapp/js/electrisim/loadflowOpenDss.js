@@ -1972,7 +1972,8 @@ function collectNetworkDataStructured(graph) {
     
     console.log(`Found ${validCells.length} valid cells to process`);
 
-    // First pass: build busIdToName and lineIdToName maps (cell ID -> configured Name from dialogs)
+    // First pass: build busIdToName and lineIdToName maps
+    // Use unique bus IDs (mxCell_150, etc.) like Pandapower - ensures correct topology in OpenDSS
     const busIdToName = {};
     const lineIdToName = {};
     for (const { cellId, cell } of validCells) {
@@ -1981,9 +1982,7 @@ function collectNetworkDataStructured(graph) {
             const styleObj = parseCellStyle(style);
             if (styleObj && styleObj.shapeELXXX === 'Bus') {
                 const busId = formatBusId(cell.mxObjectId || cell.id) || `mxCell_${cellId}`;
-                const busAttrs = getAttributesAsObject(cell, { name: { name: 'name', optional: true } });
-                const configuredName = (busAttrs.name && String(busAttrs.name).trim()) || busId;
-                busIdToName[busId] = configuredName;
+                busIdToName[busId] = busId;
             } else if (styleObj && styleObj.shapeELXXX === 'Line') {
                 const lineId = formatBusId(cell.mxObjectId || cell.id) || `mxCell_${cellId}`;
                 const lineAttrs = getAttributesAsObject(cell, { name: { name: 'name', optional: true } });
@@ -2007,7 +2006,7 @@ function collectNetworkDataStructured(graph) {
         if (style) {
             const styleObj = parseCellStyle(style);
             if (styleObj && styleObj.shapeELXXX === 'Bus') {
-                    // This is a bus element - use configured Name from bus dialog (e.g. "1_bus1")
+                    // This is a bus element - use unique ID (mxCell_150, etc.) like Pandapower for correct topology
                     const busId = formatBusId(cell.mxObjectId || cell.id) || `mxCell_${cellId}`;
                     const busName = busIdToName[busId] || busId;
                     cellData = {
@@ -2019,9 +2018,10 @@ function collectNetworkDataStructured(graph) {
                     };
                     index++;
                 } else if (styleObj && styleObj.shapeELXXX === 'Line') {
-                    // This is a line element - use configured Name from line dialog (e.g. "1_5_1_1")
+                    // This is a line element - use unique lineId for OpenDSS name (avoids duplicate names overwriting lines)
                     const lineId = formatBusId(cell.mxObjectId || cell.id) || `mxCell_${cellId}`;
-                    const lineName = lineIdToName[lineId] || lineId;
+                    const lineName = lineId;  // OpenDSS requires unique names; userFriendlyName often duplicates
+                    const userFriendlyName = lineIdToName[lineId] || lineId;
                     const connections = getConnectedBusId(cell, true);
                     
                     // Get line parameters from attributes
@@ -2061,6 +2061,7 @@ function collectNetworkDataStructured(graph) {
                     cellData = {
                         typ: 'Line',
                         name: lineName,
+                        userFriendlyName: userFriendlyName,
                         id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
                         busFrom: resolveBusName(connections?.busFrom),
                         busTo: resolveBusName(connections?.busTo),
