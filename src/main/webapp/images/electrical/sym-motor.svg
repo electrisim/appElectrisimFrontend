@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-30 -38 60 64">
+<circle cx="0" cy="0" r="26" fill="none" stroke="#1a1a2e" stroke-width="2"/>
+    <text x="0" y="7" text-anchor="middle" font-family="serif" font-size="18" font-weight="bold" fill="#1a1a2e">M</text>
+    <!-- Pin stub at bottom center -->
+    <line x1="0" y1="26" x2="0" y2="34" stroke="#1a1a2e" stroke-width="1.5" stroke-linecap="square"/>
+</svg>

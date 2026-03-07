@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-45 -30 90 58">
+<circle cx="-10" cy="0" r="14" fill="none" stroke="#1a1a2e" stroke-width="2"/>
+    <circle cx="10" cy="0" r="14" fill="none" stroke="#1a1a2e" stroke-width="2"/>
+    <line x1="-35" y1="0" x2="-24" y2="0" stroke="#1a1a2e" stroke-width="2"/>
+    <line x1="24" y1="0" x2="35" y2="0" stroke="#1a1a2e" stroke-width="2"/>
+    <line x1="-35" y1="0" x2="-45" y2="0" stroke="#1a1a2e" stroke-width="1.5" stroke-linecap="square"/>
+    <line x1="35" y1="0" x2="45" y2="0" stroke="#1a1a2e" stroke-width="1.5" stroke-linecap="square"/>
+    <text x="-36" y="8" text-anchor="middle" font-family="sans-serif" font-size="8" font-weight="bold" fill="#1a1a2e">HV</text>
+    <text x="36" y="8" text-anchor="middle" font-family="sans-serif" font-size="8" font-weight="bold" fill="#1a1a2e">MV</text>
+</svg>

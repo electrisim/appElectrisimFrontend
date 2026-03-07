@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-30 -38 60 68">
+    <circle cx="0" cy="0" r="26" fill="none" stroke="#1a1a2e" stroke-width="2"/>
+    <text x="0" y="-7" text-anchor="middle" font-family="monospace" font-size="9" font-weight="bold" fill="#1a1a2e">SSC</text>
+    <path d="M-12 5 Q-8 -1 -4 5 Q0 11 4 5 Q8 -1 12 5" fill="none" stroke="#1a1a2e" stroke-width="1.8"/>
+    <line x1="0" y1="-26" x2="0" y2="-38" stroke="#1a1a2e" stroke-width="1.5" stroke-linecap="square"/>
+</svg>

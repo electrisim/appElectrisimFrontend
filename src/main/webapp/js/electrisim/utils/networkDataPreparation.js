@@ -799,15 +799,39 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                     })(),
                     bus: getConnectedBusId(cell),
                     ...getAttributesAsObject(cell, {
+                        // pandapower core
                         p_mw: 'p_mw',
-                        max_e_mwh: 'max_e_mwh',
                         q_mvar: 'q_mvar',
-                        sn_mva: 'sn_mva',
-                        soc_percent: 'soc_percent',
+                        max_e_mwh: 'max_e_mwh',
                         min_e_mwh: 'min_e_mwh',
+                        soc_percent: 'soc_percent',
+                        sn_mva: 'sn_mva',
                         scaling: 'scaling',
                         type: 'type',
-                        in_service: { name: 'in_service', optional: true }
+                        in_service: { name: 'in_service', optional: true },
+                        // pandapower OPF
+                        controllable: { name: 'controllable', optional: true },
+                        max_p_mw: { name: 'max_p_mw', optional: true },
+                        min_p_mw: { name: 'min_p_mw', optional: true },
+                        max_q_mvar: { name: 'max_q_mvar', optional: true },
+                        min_q_mvar: { name: 'min_q_mvar', optional: true },
+                        // OpenDSS connection
+                        conn: { name: 'conn', optional: true },
+                        phases: { name: 'phases', optional: true },
+                        // OpenDSS harmonic analysis
+                        spectrum: { name: 'spectrum', optional: true },
+                        // OpenDSS dispatch & efficiency
+                        state: { name: 'state', optional: true },
+                        disp_mode: { name: 'disp_mode', optional: true },
+                        pct_charge: { name: 'pct_charge', optional: true },
+                        pct_discharge: { name: 'pct_discharge', optional: true },
+                        pct_eff_charge: { name: 'pct_eff_charge', optional: true },
+                        pct_eff_discharge: { name: 'pct_eff_discharge', optional: true },
+                        pct_idling_kw: { name: 'pct_idling_kw', optional: true },
+                        pct_idling_kvar: { name: 'pct_idling_kvar', optional: true },
+                        discharge_trigger: { name: 'discharge_trigger', optional: true },
+                        charge_trigger: { name: 'charge_trigger', optional: true },
+                        time_charge_trig: { name: 'time_charge_trig', optional: true }
                     })
                 };
                 componentArrays.storage.push(storage);

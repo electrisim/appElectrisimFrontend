@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-25 -44 50 64">
+    <line x1="0" y1="-36" x2="0" y2="-12" stroke="#1a1a2e" stroke-width="2"/>
+    <polygon points="0,-12 -18,16 18,16" fill="none" stroke="#1a1a2e" stroke-width="2"/>
+    <line x1="-18" y1="20" x2="18" y2="20" stroke="#1a1a2e" stroke-width="2"/>
+    <text x="0" y="12" text-anchor="middle" font-family="monospace" font-size="8" font-weight="bold" fill="#c0392b">DC</text>
+    <line x1="0" y1="-36" x2="0" y2="-42" stroke="#1a1a2e" stroke-width="1.5" stroke-linecap="square"/>
+</svg>

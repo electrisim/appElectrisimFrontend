@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-30 -30 60 64">
+<rect x="-26" y="-26" width="52" height="52" fill="none" stroke="#1a1a2e" stroke-width="2"/>
+    <line x1="-26" y1="0" x2="26" y2="0" stroke="#1a1a2e" stroke-width="1.5"/>
+    <line x1="0" y1="-26" x2="0" y2="26" stroke="#1a1a2e" stroke-width="1.5"/>
+    <line x1="-26" y1="-26" x2="26" y2="26" stroke="#1a1a2e" stroke-width="1.5"/>
+    <line x1="26" y1="-26" x2="-26" y2="26" stroke="#1a1a2e" stroke-width="1.5"/>
+    <!-- Pin stub at bottom center - extends to viewBox edge for seamless connection -->
+    <line x1="0" y1="26" x2="0" y2="34" stroke="#1a1a2e" stroke-width="1.5" stroke-linecap="square"/>
+</svg>

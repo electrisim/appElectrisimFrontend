@@ -5,6 +5,7 @@
 
 import { NODE_TYPES } from './MapEditor.js';
 import { OFFSHORE_66KV_AL_CABLES } from '../lineLibraryDialog.js';
+import { ELECTRICAL_SYMBOLS } from '../electricalSymbols.js';
 import {
     configureBusAttributes,
     configureExternalGridAttributes,
@@ -31,41 +32,43 @@ import {
     configureLineAttributes
 } from '../configureAttributes.js';
 
-// ── Styles exactly matching the frontend palette (app.min.js) ──────────────
+// ── Styles using electrical_symbols.svg from website ────────────────────────
 
-const BUS_STYLE    = 'line;strokeWidth=2;html=1;shapeELXXX=Bus;points=[[0,0.5],[0.05,0.5,0],[0.1,0.5,0],[0.15,0.5,0],[0.2,0.5,0],[0.25,0.5,0],[0.3,0.5,0],[0.35,0.5,0],[0.4,0.5,0],[0.45,0.5,0],[0.5,0.5,0],[0.55,0.5,0],[0.6,0.5,0],[0.65,0.5,0],[0.7,0.5,0],[0.75,0.5,0],[0.8,0.5,0],[0.85,0.5,0],[0.9,0.5,0],[0.95,0.5,0]]';
-const DC_BUS_STYLE = 'line;strokeWidth=2;html=1;shapeELXXX=DC Bus;points=[[0,0.5],[0.2,0.5,0],[0.5,0.5,0],[0.8,0.5,0],[1,0.5,0]]';
+const IMG_BASE = 'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;imageAspect=0;';
 
-const EXTERNAL_GRID_STYLE = 'verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.abstract.voltage_regulator;shapeELXXX=External Grid';
-const GENERATOR_STYLE     = 'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.signal_sources.ac_source;shapeELXXX=Generator';
-const STATIC_GEN_STYLE    = 'verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.rot_mech.synchro;shapeELXXX=Static Generator';
-const SOURCE_DC_STYLE     = 'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.miscellaneous.sourcedc;shapeELXXX=Source DC';
+const BUS_STYLE    = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-bus'].url + ';shapeELXXX=Bus';
+const DC_BUS_STYLE = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-dc-bus'].url + ';shapeELXXX=DC Bus';
 
-const TRANSFORMER_STYLE    = 'shapeELXXX=Transformer;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;strokeWidth=1;shape=mxgraph.electrical.signal_sources.current_source;';
-const TRANSFORMER_3W_STYLE = 'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.inductors.pot_trans_3_windings;shapeELXXX=Three Winding Transformer';
+const EXTERNAL_GRID_STYLE = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-ext-grid'].url + ';shapeELXXX=External Grid';
+const GENERATOR_STYLE     = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-generator'].url + ';shapeELXXX=Generator';
+const STATIC_GEN_STYLE    = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-static-gen'].url + ';shapeELXXX=Static Generator';
+const SOURCE_DC_STYLE     = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-source-dc'].url + ';shapeELXXX=Source DC';
 
-const SHUNT_REACTOR_STYLE = 'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.inductors.choke;shapeELXXX=Shunt Reactor';
-const CAPACITOR_STYLE     = 'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.capacitors.capacitor_4;shapeELXXX=Capacitor';
-const GROUND_STYLE        = 'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.signal_sources.signal_ground;shapeELXXX=Ground';
+const TRANSFORMER_STYLE    = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-transformer'].url + ';shapeELXXX=Transformer';
+const TRANSFORMER_3W_STYLE = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-3w-transformer'].url + ';shapeELXXX=Three Winding Transformer';
 
-const LOAD_STYLE  = 'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.signal_sources.signal_ground;shapeELXXX=Load';
-const ALOAD_STYLE = 'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.miscellaneous.generic_component;shapeELXXX=Asymmetric Load';
-const IMPEDANCE_STYLE = 'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.miscellaneous.impedance;shapeELXXX=Impedance';
-const WARD_STYLE   = 'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.miscellaneous.ward;shapeELXXX=Ward';
-const EXWARD_STYLE = 'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.miscellaneous.extended_ward;shapeELXXX=Extended Ward';
+const SHUNT_REACTOR_STYLE = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-shunt'].url + ';shapeELXXX=Shunt Reactor';
+const CAPACITOR_STYLE     = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-capacitor'].url + ';shapeELXXX=Capacitor';
+const GROUND_STYLE        = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-load'].url + ';shapeELXXX=Ground';
 
-const MOTOR_STYLE   = 'shapeELXXX=Motor;verticalLabelPosition=middle;shadow=0;dashed=0;align=center;html=1;verticalAlign=middle;strokeWidth=1;shape=ellipse;fontSize=32;perimeter=ellipsePerimeter;';
-const STORAGE_STYLE = 'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.miscellaneous.multicell_battery;shapeELXXX=Storage';
+const LOAD_STYLE  = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-load'].url + ';shapeELXXX=Load';
+const ALOAD_STYLE = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-asym-load'].url + ';shapeELXXX=Asymmetric Load';
+const IMPEDANCE_STYLE = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-impedance'].url + ';shapeELXXX=Impedance';
+const WARD_STYLE   = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-ward'].url + ';shapeELXXX=Ward';
+const EXWARD_STYLE = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-ext-ward'].url + ';shapeELXXX=Extended Ward';
 
-const SVC_STYLE  = 'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.miscellaneous.svc;shapeELXXX=SVC';
-const TCSC_STYLE = 'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.miscellaneous.tcsc;shapeELXXX=TCSC';
-const SSC_STYLE  = 'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.miscellaneous.ssc;shapeELXXX=SSC';
+const MOTOR_STYLE   = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-motor'].url + ';shapeELXXX=Motor';
+const STORAGE_STYLE = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-storage'].url + ';shapeELXXX=Storage';
 
-const LOAD_DC_STYLE  = 'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.miscellaneous.dc_load;shapeELXXX=Load DC';
-const SWITCH_STYLE   = 'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.miscellaneous.switch;shapeELXXX=Switch';
-const VSC_STYLE      = 'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.miscellaneous.vsc;shapeELXXX=VSC';
-const B2B_VSC_STYLE  = 'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.miscellaneous.b2b_vsc;shapeELXXX=B2B VSC';
-const PVSYSTEM_STYLE = 'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.miscellaneous.svc;shapeELXXX=PVSystem';
+const SVC_STYLE  = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-svc'].url + ';shapeELXXX=SVC';
+const TCSC_STYLE = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-tcsc'].url + ';shapeELXXX=TCSC';
+const SSC_STYLE  = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-ssc'].url + ';shapeELXXX=SSC';
+
+const LOAD_DC_STYLE  = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-load-dc'].url + ';shapeELXXX=Load DC';
+const SWITCH_STYLE   = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-switch'].url + ';shapeELXXX=Switch';
+const VSC_STYLE      = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-vsc'].url + ';shapeELXXX=VSC';
+const B2B_VSC_STYLE  = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-b2b-vsc'].url + ';shapeELXXX=B2B VSC';
+const PVSYSTEM_STYLE = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-pv'].url + ';shapeELXXX=PVSystem';
 
 const LINE_STYLE_BASE = 'edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=0;html=1;shapeELXXX=Line';
 const NOT_EDITABLE_LINE  = 'edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0.5;shapeELXXX=NotEditableLine';
@@ -534,7 +537,7 @@ export function mapToElectricalModel(graph, mapData, point = { x: 100, y: 100 })
                     insertComp(SHUNT_REACTOR_STYLE, 30, 60, configureShuntReactorAttributes, { q_mvar: String(node.q_mvar || 0), vn_kv: vn });
                     break;
                 case NODE_TYPES.CAPACITOR:
-                    insertComp(CAPACITOR_STYLE, 30, 60, configureCapacitorAttributes, { q_mvar: String(node.q_mvar || 0), vn_kv: vn });
+                    insertComp(CAPACITOR_STYLE, 50, 80, configureCapacitorAttributes, { q_mvar: String(node.q_mvar || 0), vn_kv: vn });
                     break;
                 case NODE_TYPES.GROUND:
                     insertComp(GROUND_STYLE, 30, 20, null);

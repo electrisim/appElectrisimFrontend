@@ -134,6 +134,73 @@ if (typeof window !== 'undefined') {
 }
 
 //=============================================================================
+// COMPOSITE BLOCK SUPPORT
+// Creates result placeholders for component-to-bus edges in composite blocks
+// (e.g. BESS AC block) where edges are imported as a group and don't trigger addEdge
+//=============================================================================
+
+function createResultPlaceholdersForCompositeBlock(graph, cells) {
+    if (!graph || !cells) return;
+    for (var i = 0; i < cells.length; i++) {
+        var edgeCell = cells[i];
+        if (!edgeCell || !edgeCell.edge) continue;
+        var src = edgeCell.source, tgt = edgeCell.target;
+        if (!src || !tgt) continue;
+        var srcStyle = src.style || '', tgtStyle = tgt.style || '';
+        var srcIsBus = isBusStyle(srcStyle);
+        var tgtIsBus = isBusStyle(tgtStyle);
+        if (!(srcIsBus && !tgtIsBus) && !(tgtIsBus && !srcIsBus)) continue;
+
+        var componentCell = srcIsBus ? tgt : src;
+        var componentShape = getShapeElxxx(componentCell.style || '');
+        if (!componentShape || componentShape === 'Line') continue;
+
+        var hasPlaceholder = false;
+        var childCount = graph.model.getChildCount(edgeCell);
+        for (var j = 0; j < childCount; j++) {
+            var child = graph.model.getChildAt(edgeCell, j);
+            if (child && isResultPlaceholderStyle(child.style || '')) {
+                hasPlaceholder = true;
+                break;
+            }
+        }
+        if (hasPlaceholder) continue;
+
+        if (isTransformerShape(componentShape) && componentCell.edges) {
+            for (var e = 0; e < componentCell.edges.length; e++) {
+                var existingEdge = componentCell.edges[e];
+                if (!existingEdge) continue;
+                var ec = graph.model.getChildCount(existingEdge);
+                for (var k = 0; k < ec; k++) {
+                    var ech = graph.model.getChildAt(existingEdge, k);
+                    if (ech && isResultPlaceholderStyle(ech.style || '')) {
+                        hasPlaceholder = true;
+                        break;
+                    }
+                }
+                if (hasPlaceholder) break;
+            }
+            if (hasPlaceholder) continue;
+        }
+
+        var isExtGrid = (componentShape === 'External Grid');
+        var isBessTrafoOrStorage = (componentShape === 'Transformer' || componentShape === 'Storage');
+        createResultPlaceholder(graph, edgeCell, componentCell, {
+            logicalShape: isExtGrid ? 'ResultExternalGrid' : 'Result',
+            width: isExtGrid ? 80 : 60,
+            height: isExtGrid ? 72 : 40,
+            positionX: -0.3,
+            offsetXDelta: isBessTrafoOrStorage ? 10 : 0,
+            offsetYDelta: isBessTrafoOrStorage ? 10 : 0
+        });
+    }
+}
+
+if (typeof window !== 'undefined') {
+    window.createResultPlaceholdersForCompositeBlock = createResultPlaceholdersForCompositeBlock;
+}
+
+//=============================================================================
 // CLONING SUPPORT - Update placeholders when cells are cloned/duplicated
 // Supports: Bus, Line, and all component result placeholders
 // Compatible with: loadFlow.js, loadflowOpenDss.js, shortCircuit.js
@@ -616,7 +683,9 @@ function createResultPlaceholder(graph, parentEdge, componentCell, opts) {
     var boxHeight = (opts && opts.height) || 40;
     var positionX = (opts && typeof opts.positionX === 'number') ? opts.positionX : -0.3;
     // For all positions, ensure consistent relative positioning
-    var positionY = 0;
+    var positionY = (opts && typeof opts.positionY === 'number') ? opts.positionY : 0;
+    var offsetXDelta = (opts && typeof opts.offsetXDelta === 'number') ? opts.offsetXDelta : 0;
+    var offsetYDelta = (opts && typeof opts.offsetYDelta === 'number') ? opts.offsetYDelta : 0;
     // Offset to position box above the line - adjusted for better centering
     // positionX of 0.2 gives the middle of the line for Line/NotEditableLine elements
     var isLineMiddle = (positionX === 0.2 || positionX === 0.5);
@@ -643,7 +712,7 @@ function createResultPlaceholder(graph, parentEdge, componentCell, opts) {
                 geo.x = positionX;
                 geo.y = positionY;
                 if (typeof mxPoint !== 'undefined') {
-                    geo.offset = new mxPoint(-boxWidth / 2, offsetY);
+                    geo.offset = new mxPoint(-boxWidth / 2 + offsetXDelta, offsetY + offsetYDelta);
                 }
                 graph.model.setGeometry(placeholder, geo);
             }

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-72 -26 144 52">
+<rect x="-56" y="-22" width="50" height="44" fill="none" stroke="#1a1a2e" stroke-width="2" rx="3"/>
+    <rect x="6" y="-22" width="50" height="44" fill="none" stroke="#1a1a2e" stroke-width="2" rx="3"/>
+    <text x="-31" y="5" text-anchor="middle" font-family="monospace" font-size="9" font-weight="bold" fill="#1a1a2e">VSC</text>
+    <text x="31" y="5" text-anchor="middle" font-family="monospace" font-size="9" font-weight="bold" fill="#1a1a2e">VSC</text>
+    <line x1="-6" y1="-10" x2="6" y2="-10" stroke="#1a1a2e" stroke-width="2"/>
+    <line x1="-6" y1="10" x2="6" y2="10" stroke="#1a1a2e" stroke-width="1"/>
+    <line x1="-56" y1="0" x2="-66" y2="0" stroke="#1a1a2e" stroke-width="2"/>
+    <line x1="56" y1="0" x2="66" y2="0" stroke="#1a1a2e" stroke-width="2"/>
+    <line x1="-66" y1="0" x2="-72" y2="0" stroke="#1a1a2e" stroke-width="1.5" stroke-linecap="square"/>
+    <line x1="66" y1="0" x2="72" y2="0" stroke="#1a1a2e" stroke-width="1.5" stroke-linecap="square"/>
+</svg>

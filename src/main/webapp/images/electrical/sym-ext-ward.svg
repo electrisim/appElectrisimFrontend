@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-41 -24 82 44">
+    <rect x="-22" y="-14" width="44" height="28" fill="none" stroke="#1a1a2e" stroke-width="2" stroke-dasharray="5,3"/>
+    <text x="0" y="6" text-anchor="middle" font-family="serif" font-size="10" fill="#1a1a2e">EW</text>
+    <line x1="0" y1="-14" x2="0" y2="-22" stroke="#1a1a2e" stroke-width="1.5" stroke-linecap="square"/>
+</svg>

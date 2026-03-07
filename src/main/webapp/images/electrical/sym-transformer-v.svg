@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-30 -45 60 90">
+    <!-- HV winding (top, 33 kV side) -->
+    <circle cx="0" cy="-12" r="14" fill="none" stroke="#1a1a2e" stroke-width="2"/>
+    <!-- LV winding (bottom, 0.69 kV side) -->
+    <circle cx="0" cy="12" r="14" fill="none" stroke="#1a1a2e" stroke-width="2"/>
+    <!-- HV pin stub  thick inner, thin outer reaching top edge of viewBox -->
+    <line x1="0" y1="-26" x2="0" y2="-36" stroke="#1a1a2e" stroke-width="2"/>
+    <line x1="0" y1="-36" x2="0" y2="-45" stroke="#1a1a2e" stroke-width="1.5" stroke-linecap="square"/>
+    <!-- LV pin stub  thick inner, thin outer reaching bottom edge of viewBox -->
+    <line x1="0" y1="26" x2="0" y2="36" stroke="#1a1a2e" stroke-width="2"/>
+    <line x1="0" y1="36" x2="0" y2="45" stroke="#1a1a2e" stroke-width="1.5" stroke-linecap="square"/>
+    <!-- Labels -->
+    <text x="18" y="-9"  text-anchor="start" font-family="sans-serif" font-size="8" font-weight="bold" fill="#1a1a2e">HV</text>
+    <text x="18" y="16"  text-anchor="start" font-family="sans-serif" font-size="8" font-weight="bold" fill="#1a1a2e">LV</text>
+</svg>

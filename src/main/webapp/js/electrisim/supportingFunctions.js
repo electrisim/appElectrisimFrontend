@@ -1,3 +1,7 @@
+// Electrical symbol URLs from website/electrical_symbols.svg
+const EL_SYM = 'images/electrical/';
+const EL_STYLE = 'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;imageAspect=0;shape=image;';
+
 // Use existing globalPandaPowerData if it exists, otherwise create it
 if (typeof globalPandaPowerData === 'undefined') {
     window.globalPandaPowerData = null;
@@ -784,7 +788,7 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                     placedTrafoPositions.push({ x: vertexX, y: vertexY });
 
                     // Use transformer symbol style
-                    const trafoStyle = "shapeELXXX=Transformer; verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;strokeWidth=1;shape=mxgraph.electrical.signal_sources.current_source;";
+                    const trafoStyle = EL_STYLE + "image=" + EL_SYM + "sym-transformer.svg;shapeELXXX=Transformer";
 
                     // Insert the transformer vertex
                     const vertex = grafka.insertVertex(
@@ -944,7 +948,7 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 const vertexX = busVertex.geometry.x;
                 const vertexY = busVertex.geometry.y - 120;
 
-                const styleExternalGrid = "verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=externalGrid;shapeELXXX=External Grid"
+                const styleExternalGrid = EL_STYLE + "image=" + EL_SYM + "sym-ext-grid.svg;shapeELXXX=External Grid"
 
                 const vertex = grafka.insertVertex(
                     parent,
@@ -983,7 +987,7 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 const vertexX = pos.x;
                 const vertexY = pos.y;
 
-                const styleGenerator = "pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.signal_sources.ac_source;shapeELXXX=Generator"
+                const styleGenerator = EL_STYLE + "image=" + EL_SYM + "sym-generator.svg;shapeELXXX=Generator"
 
                 const vertex = grafka.insertVertex(
                     parent,
@@ -1029,7 +1033,7 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 const vertexX = pos.x;
                 const vertexY = pos.y;
 
-                const styleStaticGenerator = "verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.rot_mech.synchro;shapeELXXX=Static Generator"
+                const styleStaticGenerator = EL_STYLE + "image=" + EL_SYM + "sym-static-gen.svg;shapeELXXX=Static Generator"
 
                 const vertex = grafka.insertVertex(
                     parent,
@@ -1071,7 +1075,7 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 const vertexX = pos.x;
                 const vertexY = pos.y;
 
-                const styleAsymmetricStaticGenerator = "verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.rot_mech.asymmetric;shapeELXXX=Asymmetric Static Generator"
+                const styleAsymmetricStaticGenerator = EL_STYLE + "image=" + EL_SYM + "sym-asym-static-gen.svg;shapeELXXX=Asymmetric Static Generator"
 
                 const vertex = grafka.insertVertex(
                     parent,
@@ -1132,7 +1136,7 @@ async function insertComponentsForData(grafka, a, target, point, data) {
 
 
                 // Use transformer symbol style
-                const trafoStyle = "shapeELXXX=Transformer; verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;strokeWidth=1;shape=mxgraph.electrical.signal_sources.current_source;";
+                const trafoStyle = EL_STYLE + "image=" + EL_SYM + "sym-transformer.svg;shapeELXXX=Transformer";
 
                 // Insert the transformer vertex
                 const vertex = grafka.insertVertex(
@@ -1212,7 +1216,7 @@ async function insertComponentsForData(grafka, a, target, point, data) {
 
 
                 // Use transformer symbol style
-                const threewindingtrafoStyle = "pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.inductors.pot_trans_3_windings;shapeELXXX=Three Winding Transformer";
+                const threewindingtrafoStyle = EL_STYLE + "image=" + EL_SYM + "sym-3w-transformer.svg;shapeELXXX=Three Winding Transformer";
 
                 // Insert the transformer vertex
                 const vertex = grafka.insertVertex(
@@ -1281,7 +1285,7 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 const pos = getComponentPosition(busVertex, bus_no);
                 const vertexX = pos.x;
                 const vertexY = pos.y;
-                const styleShuntReactor = "pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.signal_sources.signal_ground;shapeELXXX=Shunt Reactor"
+                const styleShuntReactor = EL_STYLE + "image=" + EL_SYM + "sym-shunt.svg;shapeELXXX=Shunt Reactor"
                 const vertex = grafka.insertVertex(
                     parent,
                     null,
@@ -1315,7 +1319,7 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
                 const vertexX = busVertex.geometry.x + 60  // Position based on bus index
                 const vertexY = busVertex.geometry.y + 60;  // Position below buses
-                const styleCapacitor = "pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.capacitors.capacitor_4;shapeELXXX=Capacitor"
+                const styleCapacitor = EL_STYLE + "image=" + EL_SYM + "sym-capacitor.svg;shapeELXXX=Capacitor"
                 const vertex = grafka.insertVertex(
                     parent,
                     null,
@@ -1353,7 +1357,7 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 const vertexX = pos.x;
                 const vertexY = pos.y;
 
-                const loadStyle = "pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.signal_sources.signal_ground;shapeELXXX=Load"
+                const loadStyle = EL_STYLE + "image=" + EL_SYM + "sym-load.svg;shapeELXXX=Load"
 
                 const vertex = grafka.insertVertex(
                     parent,
@@ -1401,7 +1405,7 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 const vertexX = pos.x;
                 const vertexY = pos.y;
 
-                const asymmetricloadStyle = "pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.signal_sources.signal_ground;shapeELXXX=Asymmetric Load"
+                const asymmetricloadStyle = EL_STYLE + "image=" + EL_SYM + "sym-asym-load.svg;shapeELXXX=Asymmetric Load"
 
                 const vertex = grafka.insertVertex(
                     parent,
@@ -1455,7 +1459,7 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                     const sameLevel = Math.abs(fromBusVertex.geometry.y - toBusVertex.geometry.y) < 30;
                     const midY = (fromBusVertex.geometry.y + toBusVertex.geometry.y) / 2 + (sameLevel ? 50 : 0);
 
-                    let impedanceStyle = "pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.miscellaneous.impedance;shapeELXXX=Impedance";
+                    let impedanceStyle = EL_STYLE + "image=" + EL_SYM + "sym-impedance.svg;shapeELXXX=Impedance";
 
                     const vertex = grafka.insertVertex(
                         parent,
@@ -1503,7 +1507,7 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 const pos = getComponentPosition(busVertex, bus_no);
                 const vertexX = pos.x;
                 const vertexY = pos.y;
-                const styleWard = "pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.signal_sources.signal_ground;shapeELXXX=Ward"
+                const styleWard = EL_STYLE + "image=" + EL_SYM + "sym-ward.svg;shapeELXXX=Ward"
                 const vertex = grafka.insertVertex(
                     parent,
                     null,
@@ -1536,7 +1540,7 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 const pos = getComponentPosition(busVertex, bus_no);
                 const vertexX = pos.x;
                 const vertexY = pos.y;
-                const styleExtendedWard = "pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.miscellaneous.extended_ward;shapeELXXX=Extended Ward"
+                const styleExtendedWard = EL_STYLE + "image=" + EL_SYM + "sym-ext-ward.svg;shapeELXXX=Extended Ward"
                 const vertex = grafka.insertVertex(
                     parent,
                     null,
@@ -1573,7 +1577,7 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 const pos = getComponentPosition(busVertex, bus_no);
                 const vertexX = pos.x;
                 const vertexY = pos.y;
-                const styleMotor = "shapeELXXX=Motor;verticalLabelPosition=middle;shadow=0;dashed=0;align=center;html=1;verticalAlign=middle;strokeWidth=1;shape=ellipse;fontSize=32;perimeter=ellipsePerimeter;"
+                const styleMotor = EL_STYLE + "image=" + EL_SYM + "sym-motor.svg;shapeELXXX=Motor"
                 const vertex = grafka.insertVertex(
                     parent,
                     null,
@@ -1614,7 +1618,7 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 const pos = getComponentPosition(busVertex, bus_no);
                 const vertexX = pos.x;
                 const vertexY = pos.y;
-                const styleStorage = "pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.miscellaneous.multicell_battery;shapeELXXX=Storage"
+                const styleStorage = EL_STYLE + "image=" + EL_SYM + "sym-storage.svg;shapeELXXX=Storage"
                 const vertex = grafka.insertVertex(
                     parent,
                     null,
@@ -1652,7 +1656,7 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 const pos = getComponentPosition(busVertex, bus_no);
                 const vertexX = pos.x;
                 const vertexY = pos.y;
-                const styleSVC = "pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.miscellaneous.svc;shapeELXXX=SVC"
+                const styleSVC = EL_STYLE + "image=" + EL_SYM + "sym-svc.svg;shapeELXXX=SVC"
                 const vertex = grafka.insertVertex(
                     parent,
                     null,
@@ -1698,7 +1702,7 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 const vertexX = hvBusVertex.geometry.x + 60//(lv_bus_no * 150);  // Position based on lv_bus index
                 const vertexY = lvBusVertex.geometry.y - 120;  // Position between buses
 
-                const tcscStyle = "pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.miscellaneous.tcsc;shapeELXXX=TCSC";
+                const tcscStyle = EL_STYLE + "image=" + EL_SYM + "sym-tcsc.svg;shapeELXXX=TCSC";
 
                 const vertex = grafka.insertVertex(
                     parent,

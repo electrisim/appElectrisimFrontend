@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-30 -12 60 24">
+<line x1="-28" y1="-4" x2="28" y2="-4" stroke="#1a1a2e" stroke-width="5" stroke-linecap="round"/>
+    <line x1="-28" y1="5" x2="28" y2="5" stroke="#c0392b" stroke-width="2" stroke-linecap="round"/>
+</svg>
