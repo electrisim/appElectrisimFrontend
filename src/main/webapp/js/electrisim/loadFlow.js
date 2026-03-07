@@ -494,6 +494,47 @@ const getConnectedBusId = (cell, isLine = false, strictValidation = false) => {
     return bus.replace('#', '_');*/
 };
 
+/**
+ * Get Switch connections: bus and element (line/transformer) from graph topology.
+ * Switch connects a bus to a line or transformer. Returns { bus, element, et }.
+ * et: 'l'=line, 't'=transformer, 't3'=trafo3w, 'b'=bus-bus
+ */
+const getSwitchConnections = (cell) => {
+    const isBus = (c) => c && c.style && (c.style.includes('shapeELXXX=Bus') || c.style.includes('shapeELXXX=DC Bus') || c.style.includes('Bus'));
+    const isLineEdge = (e) => e && e.style && e.style.includes('shapeELXXX=Line');
+    const isTransformer = (c) => c && c.style && (c.style.includes('Transformer') || c.style.includes('shapeELXXX=Transformer'));
+    const isTrafo3w = (c) => c && c.style && (c.style.includes('Three Winding') || c.style.includes('shapeELXXX=Three Winding'));
+    
+    let bus = null, element = null, et = 'l';
+    const buses = [];
+    if (!cell.edges || cell.edges.length === 0) return { bus, element, et };
+    
+    for (const edge of cell.edges) {
+        const other = edge.target && edge.target.mxObjectId !== cell.mxObjectId ? edge.target : edge.source;
+        if (!other || !other.mxObjectId) continue;
+        const name = other.mxObjectId.replace('#', '_');
+        if (isBus(other)) {
+            buses.push(name);
+            if (!bus) bus = name;
+        } else if (isLineEdge(edge)) {
+            element = edge.mxObjectId ? edge.mxObjectId.replace('#', '_') : name;
+            et = 'l';
+            if (!bus && other) bus = name;
+        } else if (isTrafo3w(other)) {
+            element = name;
+            et = 't3';
+        } else if (isTransformer(other)) {
+            element = name;
+            et = 't';
+        }
+    }
+    if (buses.length >= 2 && !element) {
+        element = buses[1];
+        et = 'b';
+    }
+    return { bus, element, et };
+};
+
  // Helper function to parse cell style
  const parseCellStyle = (style) => {
     if (!style) return null;
@@ -1829,6 +1870,32 @@ function loadFlowPandaPower(a, b, c) {
             Q_B[MVar]: ${formatNumber(cell.q_b_mvar)}
             P_C[MW]: ${formatNumber(cell.p_c_mw)}
             Q_C[MVar]: ${formatNumber(cell.q_c_mvar)}`;
+
+                const placeholder = findPlaceholderForCell(grafka, resultCell, true);
+                if (placeholder) {
+                    grafka.getModel().setValue(placeholder, resultString);
+                } else {
+                    const labelka = b.insertVertex(resultCell, null, resultString, -0.15, 1.7, 0, 0, 'shapeELXXX=Result', true);
+                    processCellStyles(b, labelka);
+                }
+            });
+        },
+        switches: (data, b, grafka) => {
+            data.forEach(cell => {
+                const resultCell = getCachedCell(cell.id, cell.name);
+                if (!resultCell) {
+                    console.warn('ELXXX: Could not find cell for Switch:', cell.id, cell.name);
+                    return;
+                }
+                const name = getComponentName(resultCell, 'Switch');
+                const resultString = `${name}
+            Closed: ${cell.closed ? 'Yes' : 'No'}
+            i[kA]: ${formatNumber(cell.i_ka)}
+            Loading[%]: ${formatNumber(cell.loading_percent, 1)}
+            P_from[MW]: ${formatNumber(cell.p_from_mw)}
+            Q_from[MVar]: ${formatNumber(cell.q_from_mvar)}
+            P_to[MW]: ${formatNumber(cell.p_to_mw)}
+            Q_to[MVar]: ${formatNumber(cell.q_to_mvar)}`;
 
                 const placeholder = findPlaceholderForCell(grafka, resultCell, true);
                 if (placeholder) {
@@ -3226,27 +3293,24 @@ function loadFlowPandaPower(a, b, c) {
                         break;
 
                     case COMPONENT_TYPES.SWITCH:
+                        const switchConn = getSwitchConnections(cell);
+                        const switchAttrs = getAttributesAsObject(cell, {
+                            name: { name: 'name', optional: true },
+                            et: { name: 'et', optional: true },
+                            type: 'type',
+                            closed: 'closed',
+                            z_ohm: 'z_ohm',
+                            in_ka: { name: 'in_ka', optional: true }
+                        });
                         const switchElement = {
                             typ: `Switch${counters.switch++}`,
-                            name: cell.mxObjectId.replace('#', '_'),
+                            name: switchAttrs.name || cell.mxObjectId.replace('#', '_'),
                             id: cell.id,
-                            userFriendlyName: (() => {
-                                if (cell.value && cell.value.attributes) {
-                                    for (let i = 0; i < cell.value.attributes.length; i++) {
-                                        if (cell.value.attributes[i].nodeName === 'name') {
-                                            return cell.value.attributes[i].nodeValue;
-                                        }
-                                    }
-                                }
-                                return cell.mxObjectId.replace('#', '_');
-                            })(),
-                            ...getAttributesAsObject(cell, {
-                                et: 'et',
-                                type: 'type',
-                                closed: 'closed',
-                                z_ohm: 'z_ohm',
-                                in_service: { name: 'in_service', optional: true }
-                            })
+                            userFriendlyName: switchAttrs.name || cell.mxObjectId.replace('#', '_'),
+                            bus: switchConn.bus,
+                            element: switchConn.element,
+                            et: switchAttrs.et || switchConn.et,
+                            ...switchAttrs
                         };
                         componentArrays.switch.push(switchElement);
                         break;
@@ -3673,6 +3737,7 @@ export {
     parseCellStyle,
     getAttributesAsObject,
     getTransformerConnections,
+    getSwitchConnections,
     updateTransformerBusConnections,
     updateThreeWindingTransformerConnections,
     getThreeWindingConnections,

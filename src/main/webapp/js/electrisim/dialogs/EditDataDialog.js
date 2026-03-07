@@ -22,6 +22,7 @@ import { DcBusDialog } from '../dcBusDialog.js';
 import { LoadDcDialog } from '../loadDcDialog.js';
 import { SourceDcDialog } from '../sourceDcDialog.js';
 import { SwitchDialog } from '../switchDialog.js';
+import { updateSwitchCellStyle } from '../configureAttributes.js';
 import { VscDialog } from '../vscDialog.js';
 import { B2bVscDialog } from '../b2bVscDialog.js';
 import { TransformerDialog } from '../transformerBaseDialog.js';
@@ -4214,6 +4215,10 @@ export class EditDataDialog {
         this.ensureCellValueIsXmlElement();
         for (const [attributeName, attributeValue] of Object.entries(values)) {
             this.cell.value.setAttribute(attributeName, attributeValue);
+        }
+        const graph = this.ui?.editor?.graph;
+        if (graph && values.closed !== undefined) {
+            updateSwitchCellStyle(graph, this.cell, values.closed);
         }
         console.log('Switch values applied to cell');
     }

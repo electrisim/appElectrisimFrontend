@@ -805,6 +805,7 @@ mxGraph.prototype.addEdge = function (edge, parent, source, target, index) {
             // Capacitor, Static Generator, Asymmetric Static Generator, Asymmetric Load,
             // Impedance, Ward, Extended Ward, Storage, SVC, TCSC, SSC, DC Line,
             // DC Bus, Load DC, Source DC, Switch, VSC, B2B VSC, etc.
+            // Switch has results in net.res_switch (p_from_mw, q_from_mvar, i_ka, loading_percent)
             else if ((sourceIsBus && !targetIsBus && targetShape) ||
                 (targetIsBus && !sourceIsBus && sourceShape)) {
 

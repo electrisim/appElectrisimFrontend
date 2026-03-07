@@ -29,6 +29,7 @@ export const ELECTRICAL_SYMBOLS = {
   'sym-dc-line': { url: BASE + 'sym-dc-line.svg', w: 74, h: 48 },
   'sym-load-dc': { url: BASE + 'sym-load-dc.svg', w: 46, h: 60 },
   'sym-switch': { url: BASE + 'sym-switch.svg', w: 74, h: 38 },
+  'sym-switch-closed': { url: BASE + 'sym-switch-closed.svg', w: 74, h: 38 },
   'sym-vsc': { url: BASE + 'sym-vsc.svg', w: 80, h: 52 },
   'sym-b2b-vsc': { url: BASE + 'sym-b2b-vsc.svg', w: 116, h: 52 },
   'sym-pv': { url: BASE + 'sym-pv.svg', w: 68, h: 104 },
