@@ -1272,7 +1272,8 @@ EditorUi.initMinimalTheme = function()
             'border-bottom:1px solid lightgray;background-color:#ffffff;border-top:1px solid lightgray;margin-bottom:-2px;' +
             'visibility:hidden;';
 
-        var previousParent = ui.diagramContainer.parentNode;
+        // Fallback to container when diagramContainer not yet in DOM (e.g. mobile/chromeless init order)
+        var previousParent = ui.diagramContainer.parentNode || ui.container;
 
         var wrapper = document.createElement('div');
         wrapper.style.cssText = 'position:absolute;top:0px;left:0px;right:0px;bottom:0px;overflow:hidden;';

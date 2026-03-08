@@ -3,8 +3,21 @@
  * Draw.io/mxGraph has built-in touch support (pinch-zoom, pan, touch events)
  */
 
-/* Enable smooth touch scrolling */
+/* Critical: ensure full viewport height for layout on all devices */
+html, body {
+    height: 100%;
+    min-height: 100%;
+    margin: 0;
+    padding: 0;
+}
+body.geEditor {
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+}
 .geEditor {
+    height: 100%;
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
     -webkit-overflow-scrolling: touch;
 }
 
@@ -23,5 +36,21 @@
     .geBlock {
         margin: 20px;
         margin-top: 20px;
+    }
+    
+    /* Ensure diagram container has minimum height on mobile */
+    .geDiagramContainer {
+        min-height: 200px;
+    }
+}
+
+/* Small screens: ensure layout doesn't collapse */
+@media (max-width: 768px) {
+    html, body {
+        overflow-x: hidden;
+    }
+    .geEditor {
+        width: 100%;
+        overflow: hidden;
     }
 }
