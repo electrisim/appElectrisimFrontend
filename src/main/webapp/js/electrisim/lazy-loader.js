@@ -16,8 +16,6 @@
         // Core utilities - loaded on demand
         utils: [
             'utils/cellUtils',
-            'utils/zoomOptimizer',
-            'utils/canvasOptimizer',
             'utils/pageVisibilityManager',
             'utils/performanceMonitor',
             'utils/autoInitOptimizers'

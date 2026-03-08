@@ -36,24 +36,9 @@
             console.log('  ✓ Window resize debouncing enabled');
         }
 
-        // 2. SAFE: Optimize hover events (doesn't affect rendering)
-        if (typeof mxGraph !== 'undefined') {
-            const originalMouseMove = mxGraph.prototype.fireMouseEvent || function() {};
-            let lastMouseMoveTime = 0;
-            const MOUSE_MOVE_THROTTLE = 16; // ~60fps
-
-            mxGraph.prototype.fireMouseEvent = function(evtName, me, sender) {
-                if (evtName === mxEvent.MOUSE_MOVE) {
-                    const now = Date.now();
-                    if (now - lastMouseMoveTime < MOUSE_MOVE_THROTTLE) {
-                        return; // Skip this event
-                    }
-                    lastMouseMoveTime = now;
-                }
-                return originalMouseMove.call(this, evtName, me, sender);
-            };
-            console.log('  ✓ Mouse move throttling enabled');
-        }
+        // 2. Mouse move throttling REMOVED: Dropping mousemove events causes panning
+        // to feel laggy. Pan relies on every mousemove to update translate. Draw.io
+        // does not throttle mousemove; keeping full event flow for responsive pan.
 
         // 3. SAFE: Improve model update batching (conservative)
         if (typeof mxGraphModel !== 'undefined') {
@@ -157,40 +142,35 @@
             }
         });
 
-        // 8. SAFE: Log slow operations without changing behavior
+        // 8. SAFE: Log slow operations - OPT-IN only (add ?perfMonitor=1 to URL)
+        // Wrapping validate/refresh adds overhead to every call; disable in production.
         const operations = new Map();
-        const LOG_THRESHOLD = 200; // Log operations taking > 200ms
-
-        function wrapForMonitoring(obj, methodName) {
-            if (!obj || !obj.prototype || !obj.prototype[methodName]) return;
-            
-            const original = obj.prototype[methodName];
-            obj.prototype[methodName] = function(...args) {
-                const start = performance.now();
-                const result = original.apply(this, args);
-                const duration = performance.now() - start;
-                
-                if (duration > LOG_THRESHOLD) {
-                    const key = methodName;
-                    if (!operations.has(key)) {
-                        operations.set(key, { count: 0, totalTime: 0, maxTime: 0 });
+        const urlParams = new URLSearchParams(window.location.search || '');
+        if (urlParams.get('perfMonitor') === '1' && typeof mxGraphView !== 'undefined') {
+            const LOG_THRESHOLD = 200;
+            function wrapForMonitoring(obj, methodName) {
+                if (!obj || !obj.prototype || !obj.prototype[methodName]) return;
+                const original = obj.prototype[methodName];
+                obj.prototype[methodName] = function(...args) {
+                    const start = performance.now();
+                    const result = original.apply(this, args);
+                    const duration = performance.now() - start;
+                    if (duration > LOG_THRESHOLD) {
+                        const key = methodName;
+                        if (!operations.has(key)) operations.set(key, { count: 0, totalTime: 0, maxTime: 0 });
+                        const stats = operations.get(key);
+                        stats.count++;
+                        stats.totalTime += duration;
+                        stats.maxTime = Math.max(stats.maxTime, duration);
+                        console.warn(`⏱️ Slow: ${methodName} ${duration.toFixed(2)}ms`);
                     }
-                    const stats = operations.get(key);
-                    stats.count++;
-                    stats.totalTime += duration;
-                    stats.maxTime = Math.max(stats.maxTime, duration);
-                    
-                    console.warn(`⏱️ Slow operation: ${methodName} took ${duration.toFixed(2)}ms`);
-                }
-                
-                return result;
-            };
+                    return result;
+                };
+            }
+            wrapForMonitoring(mxGraphView, 'validate');
+            wrapForMonitoring(mxGraph, 'refresh');
+            console.log('  ✓ Performance monitoring active (?perfMonitor=1)');
         }
-
-        // Monitor key operations
-        wrapForMonitoring(mxGraphView, 'validate');
-        wrapForMonitoring(mxGraph, 'refresh');
-        console.log('  ✓ Performance monitoring active');
 
         // 9. SAFE: Provide performance stats on demand
         window.showPerformanceStats = function() {
