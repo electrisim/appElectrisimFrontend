@@ -28,8 +28,15 @@ window.showMapEditorDialog = function (retryCount) {
         alert('Map Editor: Application not ready yet.\n\nPlease:\n1. Wait for the diagram to fully load\n2. Click once on the drawing canvas\n3. Try again, or refresh the page');
         return;
     }
-    const dialog = new MapEditorDialog(editorUi);
-    dialog.show();
+    // Load Leaflet on demand (deferred for faster initial page load)
+    const loadLeaflet = window.loadLeafletForMapEditor || (() => Promise.resolve());
+    loadLeaflet().then(() => {
+        const dialog = new MapEditorDialog(editorUi);
+        dialog.show();
+    }).catch((e) => {
+        console.error('Map Editor load error:', e);
+        alert('Map Editor failed to load. Check the browser console for details.');
+    });
 };
 
 function waitForApp(callback) {

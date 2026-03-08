@@ -6994,7 +6994,13 @@ if (typeof mxVertexHandler != 'undefined')
 					{
 						var leftX, rightX, pinY;
 						if (shapeELXXX === 'Transformer') {
-							leftX = 4/90; rightX = 86/90; pinY = 30/58;
+							// viewBox is -45 -30 90 58; pins at y=0 → 30/58 from top, not 0.5
+							// After rotation=90, the vertical (y) axis of the SVG becomes horizontal
+							// pinX in bounding box = 30/58 ≈ 0.517 accounts for asymmetric viewBox
+							elConstraints = [
+								new mxConnectionConstraint(new mxPoint(0, 30/58), false),
+								new mxConnectionConstraint(new mxPoint(1, 30/58), false)
+							];
 						} else if (shapeELXXX === 'TCSC') {
 							leftX = 0; rightX = 1; pinY = 28/48;  // viewBox -48 -28 96 48, pins at y=0
 						} else if (shapeELXXX === 'DC Line') {
@@ -7006,10 +7012,12 @@ if (typeof mxVertexHandler != 'undefined')
 						} else {
 							leftX = 0; rightX = 1; pinY = 0.5;  // Impedance
 						}
-						elConstraints = [
-							new mxConnectionConstraint(new mxPoint(leftX, pinY), false),
-							new mxConnectionConstraint(new mxPoint(rightX, pinY), false)
-						];
+						if (shapeELXXX !== 'Transformer') {
+							elConstraints = [
+								new mxConnectionConstraint(new mxPoint(leftX, pinY), false),
+								new mxConnectionConstraint(new mxPoint(rightX, pinY), false)
+							];
+						}
 					}
 					// Three pins: order [LV, MV, HV] for getThreeWindingConnections - viewBox -45..45, -45..50
 					else if (shapeELXXX === 'Three Winding Transformer')

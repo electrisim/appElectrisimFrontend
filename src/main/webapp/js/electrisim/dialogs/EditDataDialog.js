@@ -3790,6 +3790,14 @@ export class EditDataDialog {
             }, 200);
         };
 
+        // Assemble and append to DOM
+        buttonArea.appendChild(okButton);
+        dialog.appendChild(header);
+        dialog.appendChild(content);
+        dialog.appendChild(buttonArea);
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
         // Close on overlay click
         overlay.onclick = (e) => {
             if (e.target === overlay) {
