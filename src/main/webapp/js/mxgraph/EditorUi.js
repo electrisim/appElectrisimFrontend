@@ -188,6 +188,11 @@ EditorUi = function(editor, container, lightbox)
 	   	// Escape key hides dialogs, adds space+drag panning
 		var spaceKeyPressed = false;
 		
+		// Grid jump fix (draw.io #1440): When Ctrl is released during zoom, delay switching
+		// to scroll mode so the viewport doesn't jump. Keeps zoom mode for wheelZoomDelay ms.
+		var zoomWheelDelayActive = false;
+		var zoomWheelDelayTimeout = null;
+		
 		// Overrides hovericons to disable while space key is pressed
 		var hoverIconsIsResetEvent = this.hoverIcons.isResetEvent;
 		
@@ -222,9 +227,33 @@ EditorUi = function(editor, container, lightbox)
 		{
 			graph.container.style.cursor = '';
 			spaceKeyPressed = false;
+			// Grid jump fix: When Ctrl/Meta (zoom modifier) is released, keep zoom mode
+			// for wheelZoomDelay ms to prevent viewport jump if wheel is still moving
+			if (evt.keyCode == 17 /* Control */ || (mxClient.IS_MAC && (evt.keyCode == 91 || evt.keyCode == 93) /* Meta */))
+			{
+				if (zoomWheelDelayTimeout != null)
+				{
+					window.clearTimeout(zoomWheelDelayTimeout);
+				}
+				zoomWheelDelayActive = true;
+				zoomWheelDelayTimeout = window.setTimeout(function()
+				{
+					zoomWheelDelayActive = false;
+					zoomWheelDelayTimeout = null;
+				}, this.wheelZoomDelay || 400);
+			}
 		});
 	
 		mxEvent.addListener(document, 'keyup', this.keyupHandler);
+		
+		this.destroyFunctions.push(function()
+		{
+			if (zoomWheelDelayTimeout != null)
+			{
+				window.clearTimeout(zoomWheelDelayTimeout);
+				zoomWheelDelayTimeout = null;
+			}
+		});
 	    
 	    // Forces panning for middle and right mouse buttons
 		var panningHandlerIsForcePanningEvent = graph.panningHandler.isForcePanningEvent;
@@ -250,12 +279,12 @@ EditorUi = function(editor, container, lightbox)
 				(mxClient.IS_SF && mxEvent.isShiftDown(evt))));
 		};
 				
-		// Adds space+wheel for zoom
+		// Adds space+wheel for zoom; zoomWheelDelayActive prevents grid jump when Ctrl released (draw.io #1440)
 		var graphIsZoomWheelEvent = graph.isZoomWheelEvent;
 		
 		graph.isZoomWheelEvent = function()
 		{
-			return spaceKeyPressed || graphIsZoomWheelEvent.apply(this, arguments);
+			return spaceKeyPressed || zoomWheelDelayActive || graphIsZoomWheelEvent.apply(this, arguments);
 		};
 		
 		// Switches toolbar for text editing
