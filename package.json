@@ -2,7 +2,7 @@
   "scripts": {
     "prepare-deploy": "node scripts/prepare-deploy.js",
     "deploy:dev": "cross-env NODE_ENV=development npm run prepare-deploy",
-    "deploy:prod": "cross-env NODE_ENV=production npm run prepare-deploy",
+    "deploy:prod": "npm run minify && cross-env NODE_ENV=production npm run prepare-deploy",
     "minify": "node scripts/minify-js.js",
     "minify:restore": "node scripts/minify-js.js --restore",
     "minify:clean": "node scripts/minify-js.js --delete-backups"

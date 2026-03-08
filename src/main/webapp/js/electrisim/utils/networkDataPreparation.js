@@ -19,6 +19,15 @@ import {
     COMPONENT_TYPES
 } from '../loadFlow.js';
 
+// Cache for prepareNetworkData - speeds up repeated analyses when graph unchanged
+const _networkDataCache = new WeakMap();
+
+function _computeGraphHashForData(model) {
+    if (!model || !model.cells) return '0';
+    const keys = Object.keys(model.cells);
+    return keys.length + '_' + keys.slice(0, 30).join(',');
+}
+
 /**
  * Get user email with robust fallback
  */
@@ -69,8 +78,14 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
         removeResultCells = false  // Default to false, loadFlow can override
     } = options;
 
-    const startTime = performance.now();
     const model = graph.getModel();
+    const cacheKey = _computeGraphHashForData(model) + '_' + JSON.stringify(simulationParameters) + '_' + removeResultCells;
+    let cache = _networkDataCache.get(graph);
+    if (cache && cache.key === cacheKey) {
+        return cache.result;
+    }
+
+    const startTime = performance.now();
     
     // Create counters object
     const counters = {
@@ -1207,5 +1222,6 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
     nameCache.clear();
     attributeCache.clear();
     
+    _networkDataCache.set(graph, { key: cacheKey, result: obj });
     return obj;
 }

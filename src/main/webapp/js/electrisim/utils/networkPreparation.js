@@ -1,6 +1,16 @@
 // networkPreparation.js - Shared network preparation logic for simulations
 // Extracted from loadFlowPandaPower to ensure consistency across all simulation types
 
+// Cache for prepareNetworkData - invalidated when graph changes
+const _networkPrepCache = new WeakMap();
+
+function _computeGraphHash(model) {
+    if (!model || !model.cells) return '0';
+    const cells = model.cells;
+    const keys = Object.keys(cells);
+    return keys.length + '_' + keys.slice(0, 20).join(',');
+}
+
 /**
  * Prepares network data from graph model for backend simulation
  * This function extracts all network components and prepares them in the format
@@ -13,6 +23,11 @@
  */
 export function prepareNetworkData(graph, editorUi, additionalParams = {}) {
     const model = graph.getModel();
+    const cacheKey = _computeGraphHash(model) + '_' + JSON.stringify(additionalParams.simulationParameters || []);
+    let cache = _networkPrepCache.get(graph);
+    if (cache && cache.key === cacheKey) {
+        return cache.result;
+    }
     const b = model; // Graph model alias
     
     // Import required functions and constants from loadFlow.js context
@@ -412,5 +427,6 @@ export function prepareNetworkData(graph, editorUi, additionalParams = {}) {
     // Convert to object format expected by backend
     const obj = Object.assign({}, array);
     
+    _networkPrepCache.set(graph, { key: cacheKey, result: obj });
     return obj;
 }

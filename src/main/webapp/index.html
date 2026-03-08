@@ -2,13 +2,50 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <!-- Resource Hints for Performance -->
+    <link rel="preconnect" href="https://js.stripe.com" crossorigin>
+    <link rel="preconnect" href="https://unpkg.com" crossorigin>
+    <link rel="dns-prefetch" href="https://web-sdk.smartlook.com">
+    <link rel="preload" href="js/app.min.js" as="script">
+    <link rel="preload" href="js/ag-grid-community.min.js" as="script">
+    <link rel="preload" href="mxgraph/mxClient.js" as="script">
+
     <link rel="stylesheet" type="text/css" href="mxgraph/css/common.css">
-    <!-- Leaflet for Map Editor -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <link rel="stylesheet" href="https://ppete2.github.io/Leaflet.PolylineMeasure/Leaflet.PolylineMeasure.css"/>
-    <script src="https://ppete2.github.io/Leaflet.PolylineMeasure/Leaflet.PolylineMeasure.js"></script>
+    <!-- Leaflet for Map Editor - loaded on demand when Map Editor opens (see showMapEditorDialog) -->
     <script type="text/javascript">
+        window.loadLeafletForMapEditor = function() {
+            if (window._leafletLoaded) return Promise.resolve();
+            if (window._leafletLoading) return window._leafletLoading;
+            window._leafletLoading = new Promise(function(resolve, reject) {
+                var link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+                link.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';
+                link.crossOrigin = '';
+                link.onload = function() {
+                    var link2 = document.createElement('link');
+                    link2.rel = 'stylesheet';
+                    link2.href = 'https://ppete2.github.io/Leaflet.PolylineMeasure/Leaflet.PolylineMeasure.css';
+                    document.head.appendChild(link2);
+                    var s1 = document.createElement('script');
+                    s1.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+                    s1.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';
+                    s1.crossOrigin = '';
+                    s1.onload = function() {
+                        var s2 = document.createElement('script');
+                        s2.src = 'https://ppete2.github.io/Leaflet.PolylineMeasure/Leaflet.PolylineMeasure.js';
+                        s2.onload = function() { window._leafletLoaded = true; resolve(); };
+                        s2.onerror = reject;
+                        document.head.appendChild(s2);
+                    };
+                    s1.onerror = reject;
+                    document.head.appendChild(s1);
+                };
+                link.onerror = reject;
+                document.head.appendChild(link);
+            });
+            return window._leafletLoading;
+        };
         window.showMapEditorDialog = window.showMapEditorDialog || function(retryCount) {
             retryCount = retryCount || 0;
             var ui = (window.App && (window.App._editorUi || window.App._instance)) ||
@@ -22,7 +59,9 @@
                 alert('Please wait for the diagram to load, then try again.');
                 return;
             }
-            import('./js/electrisim/dialogs/MapEditorDialog.js').then(function(m) {
+            window.loadLeafletForMapEditor().then(function() {
+                return import('./js/electrisim/dialogs/MapEditorDialog.js');
+            }).then(function(m) {
                 new m.MapEditorDialog(ui).show();
             }).catch(function(e) {
                 console.error('Map Editor load error:', e);
@@ -38,28 +77,29 @@
     
 
     <script type="module" src="js/electrisim/config/environment.js"></script>
-    <script type="module" src="js/electrisim/utils/domCache.js"></script>
-    <script type="module" src="js/electrisim/utils/batchDOM.js"></script>
-    <script type="module" src="js/electrisim/utils/performanceTracker.js"></script>
-    <script type="module" src="js/electrisim/performance-optimizer.js"></script>
+    <!-- Removed duplicate scripts (domCache, batchDOM, performanceTracker, performance-optimizer) - loaded once in electrisimScripts -->
 
+    <!-- Defer Smartlook analytics - load after page interactive to improve initial load -->
     <script type='text/javascript'>
-        window.smartlook||(function(d) {
-            var o=smartlook=function(){ o.api.push(arguments)},h=d.getElementsByTagName('head')[0];
-            var c=d.createElement('script');o.api=new Array();c.async=true;c.type='text/javascript';
-            c.charset='utf-8';c.src='https://web-sdk.smartlook.com/recorder.js';h.appendChild(c);
-        })(document);
-        smartlook('init', '31f78a73918844d1c038266ca853b5b9bd7da408', {
-            region: 'eu',
-            interceptors: {
-                error: (data, context) => {
-                    // Filter MetaMask extension errors - injected into every page, not from our app
-                    if (data && data.message && /MetaMask|metamask|Failed to connect to MetaMask/i.test(data.message)) {
-                        return false;
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                window.smartlook||(function(d) {
+                    var o=smartlook=function(){ o.api.push(arguments)},h=d.getElementsByTagName('head')[0];
+                    var c=d.createElement('script');o.api=new Array();c.async=true;c.type='text/javascript';
+                    c.charset='utf-8';c.src='https://web-sdk.smartlook.com/recorder.js';h.appendChild(c);
+                })(document);
+                smartlook('init', '31f78a73918844d1c038266ca853b5b9bd7da408', {
+                    region: 'eu',
+                    interceptors: {
+                        error: (data, context) => {
+                            if (data && data.message && /MetaMask|metamask|Failed to connect to MetaMask/i.test(data.message)) {
+                                return false;
+                            }
+                            return true;
+                        }
                     }
-                    return true;
-                }
-            }
+                });
+            }, 3000);
         });
     </script>
     <script type="text/javascript">
@@ -242,7 +282,7 @@
             { src: 'js/electrisim/dialogs/ComponentsDataDialog.js', type: 'module', async: true },
             { src: 'js/electrisim/utils/cellUtils.js', type: 'module', async: true },
             { src: 'js/electrisim/ensureSubscriptionFunctions.js', type: 'module', async: true },
-            { src: 'js/electrisim/dialogs/LoadFlowDialog.js?v=' + Date.now(), type: 'module', async: true },
+            { src: 'js/electrisim/dialogs/LoadFlowDialog.js?v=1.0', type: 'module', async: true },
             { src: 'js/electrisim/dialogs/BessSizingDialog.js', type: 'module', async: true },
             { src: 'js/electrisim/dialogs/OptimalPowerFlowDialog.js', type: 'module', async: true },
             { src: 'js/electrisim/dialogs/ContingencyDialog.js', type: 'module', async: true },
@@ -499,8 +539,7 @@
 									
 				function loadAppJS()				
 				{
-					// Load XLSX library first
-					mxscript('https://unpkg.com/xlsx-style@0.8.13/dist/xlsx.full.min.js');
+					// XLSX deferred - loaded on demand via requestIdleCallback (see end of loadElectrisimScripts)
 
 					// Load AG Grid library before app.min.js
 					mxscript('js/ag-grid-community.min.js', function()
@@ -532,6 +571,7 @@
                             var electrisimScripts = [
 								// Load SAFE performance optimizer FIRST
 								'js/electrisim/safe-performance-optimizer.js',
+								'js/electrisim/lazy-loader.js',
 								// Then load performance utilities
 								'js/electrisim/utils/domCache.js',
 								'js/electrisim/utils/batchDOM.js',
@@ -550,7 +590,7 @@
 								'js/electrisim/utils/networkPreparation.js',
                                 'js/electrisim/ensureSubscriptionFunctions.js',
                                 'js/electrisim/dialogs/dialogInitializer.js',
-								'js/electrisim/dialogs/LoadFlowDialog.js?v=' + Date.now(),
+								'js/electrisim/dialogs/LoadFlowDialog.js?v=1.0',
 								'js/electrisim/dialogs/BessSizingDialog.js',
 								'js/electrisim/dialogs/DiagnosticReportDialog.js',
 								'js/electrisim/dialogs/OptimalPowerFlowDialog.js',
@@ -600,7 +640,7 @@
 								'js/electrisim/contingencyAnalysis.js'
                             ];
 							
-							// Load auth scripts first
+							// Auth scripts (Stripe, etc.) - deferred until after Electrisim scripts for faster initial load
 							var authScripts = [
 								'https://js.stripe.com/v3/',
 								'js/electrisim/loginsubscription/stripe.js',
@@ -617,7 +657,6 @@
 										loadAuthScripts(index + 1);
 									};
 									script.onerror = function() {
-										// Stripe script (index 0) often fails due to ad blockers, CSP, or network
 										if (index === 0) {
 											console.warn('Stripe SDK script failed to load (e.g. ad blocker or network). Subscription/checkout will use redirect flow.');
 											window._stripeScriptFailed = true;
@@ -626,8 +665,19 @@
 									};
 									document.head.appendChild(script);
 								} else {
-									// Start loading Electrisim scripts
-									loadElectrisimScripts(0);
+									// Defer XLSX - load during idle (Excel import/export)
+									var loadXLSXDeferred = function() {
+										if (window.XLSX) return;
+										var s = document.createElement('script');
+										s.src = 'https://unpkg.com/xlsx-style@0.8.13/dist/xlsx.full.min.js';
+										s.async = true;
+										document.head.appendChild(s);
+									};
+									if (typeof requestIdleCallback !== 'undefined') {
+										requestIdleCallback(function() { loadXLSXDeferred(); }, { timeout: 3000 });
+									} else {
+										setTimeout(loadXLSXDeferred, 3000);
+									}
 								}
 							}
 							
@@ -669,14 +719,15 @@
 										document.head.appendChild(script);
 									});
 								} else {
-									// Don't remove loading screen here - let the core app handle it
+									// Electrisim scripts done - now load deferred auth (Stripe) for faster initial load
+									loadAuthScripts(0);
 									mxScriptsLoaded = true;
 									checkAllLoaded();
 								}
 							}
 							
-							// Start loading auth scripts immediately after app.min.js loads
-							loadAuthScripts(0);
+							// Start loading Electrisim scripts first (Stripe deferred until after)
+							loadElectrisimScripts(0);
 							
 							}; // Close app.min.js onload function
 							
