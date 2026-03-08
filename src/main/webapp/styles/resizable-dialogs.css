@@ -1,0 +1,21 @@
+/* Resizable dialogs - .geDialog and .mxWindow */
+.geDialog.geResizable,
+div.mxWindow.geResizable {
+	resize: both;
+	overflow: auto;
+	min-width: 280px;
+	min-height: 200px;
+}
+/* Resize handle hint for corner */
+.geDialog.geResizable::after,
+div.mxWindow.geResizable::after {
+	content: '';
+	position: absolute;
+	bottom: 0;
+	right: 0;
+	width: 16px;
+	height: 16px;
+	background: linear-gradient(135deg, transparent 50%, rgba(0,0,0,0.1) 50%);
+	cursor: nwse-resize;
+	pointer-events: none;
+}

@@ -1,0 +1,27 @@
+/**
+ * Mobile-friendly styles for Electrisim
+ * Draw.io/mxGraph has built-in touch support (pinch-zoom, pan, touch events)
+ */
+
+/* Enable smooth touch scrolling */
+.geEditor {
+    -webkit-overflow-scrolling: touch;
+}
+
+/* On touch devices: improve touch targets and prevent accidental selection */
+@media (pointer: coarse), (hover: none) {
+    .geEditor {
+        touch-action: manipulation;
+    }
+    
+    .geDiagramContainer,
+    .geDiagramBackdrop {
+        -webkit-tap-highlight-color: transparent;
+    }
+    
+    /* Reduce loading block margin on small screens */
+    .geBlock {
+        margin: 20px;
+        margin-top: 20px;
+    }
+}
