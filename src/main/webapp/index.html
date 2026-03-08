@@ -8,9 +8,9 @@
     <link rel="dns-prefetch" href="https://web-sdk.smartlook.com">
     <link rel="preload" href="js/app.min.js" as="script">
     <link rel="preload" href="js/ag-grid-community.min.js" as="script">
-    <link rel="preload" href="mxgraph/mxClient.js" as="script">
 
     <link rel="stylesheet" type="text/css" href="mxgraph/css/common.css">
+    <link rel="stylesheet" type="text/css" href="styles/resizable-dialogs.css">
     <!-- Leaflet for Map Editor - loaded on demand when Map Editor opens (see showMapEditorDialog) -->
     <script type="text/javascript">
         window.loadLeafletForMapEditor = function() {
@@ -571,6 +571,7 @@
                             var electrisimScripts = [
 								// Load SAFE performance optimizer FIRST
 								'js/electrisim/safe-performance-optimizer.js',
+								'js/electrisim/resizableDialogs.js',
 								'js/electrisim/lazy-loader.js',
 								// Then load performance utilities
 								'js/electrisim/utils/domCache.js',
@@ -791,6 +792,7 @@
     <link rel="stylesheet" type="text/css" href="js/croppie/croppie.min.css">
     <link rel="stylesheet" type="text/css" href="mxgraph/css/common.css">
     <link rel="stylesheet" type="text/css" href="styles/grapheditor.css">
+    <link rel="stylesheet" type="text/css" href="styles/mobile.css">
     <link rel="preconnect" href="https://storage.googleapis.com">
     <link rel="canonical" href="https://app.electrisim.com">
     <link rel="manifest" href="images/manifest.json">
@@ -853,7 +855,7 @@
     <div id="geInfo">
         <div class="geBlock" style="text-align:center;min-width:50%;">
             <h1>Electrisim - open-source app for power system modelling, simulation and analysis</h1>
-            <h2 id="geStatus">Working only in a desktop web browser. <u>Not working on mobile phones.</u></h2>
+            <h2 id="geStatus">Loading...</h2>
             <p>
                 app.electrisim.com is open-source online application for modelling, simulation and analysis of power system.
             </p>
@@ -861,7 +863,7 @@
                 Loading...
             </p>
             <p>
-                Please ensure JavaScript is enabled. Tested on Google Chrome.
+                Please ensure JavaScript is enabled. Works on desktop and mobile browsers.
             </p>
         </div>
     </div>
