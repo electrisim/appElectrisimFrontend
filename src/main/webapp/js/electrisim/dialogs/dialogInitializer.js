@@ -192,7 +192,7 @@ if (document.readyState === 'loading') {
 // Also try to initialize when the window loads (fallback)
 window.addEventListener('load', () => {
     setTimeout(() => {
-        if (!EditorUi.prototype._dialogOverridesInitialized) {
+        if (typeof EditorUi !== 'undefined' && !EditorUi.prototype._dialogOverridesInitialized) {
             console.log('Attempting to initialize dialogs on window load...');
             waitForApp(initializeDialogs);
         }

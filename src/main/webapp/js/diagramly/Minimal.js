@@ -430,6 +430,12 @@ EditorUi.initMinimalTheme = function()
     	if (this.shareButton != null)
 		{
     		var elt = this.shareButton;
+    		// Hide share/Login button on mobile - user has green Login in upper right
+    		var mw = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+    		if (mw <= 768) {
+    			elt.style.display = 'none';
+    			return;
+    		}
     		elt.style.cssText = 'display:inline-block;position:relative;box-sizing:border-box;margin-right:4px;cursor:pointer;';
     		elt.className = 'geToolbarButton';
     		elt.innerHTML = '';

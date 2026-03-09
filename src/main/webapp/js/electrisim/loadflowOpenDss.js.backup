@@ -888,17 +888,18 @@ const elementProcessors = {
 };
 
 // Helper functions for styling and color processing
+// Use string literals instead of mxConstants to avoid ReferenceError when module loads before mxGraph
 const STYLES = {
     label: {
-        [mxConstants.STYLE_FONTSIZE]: '6',
-        [mxConstants.STYLE_ALIGN]: 'ALIGN_LEFT'
+        fontSize: '6',
+        align: 'ALIGN_LEFT'
     },
     line: {
-        [mxConstants.STYLE_FONTSIZE]: '6',
-        [mxConstants.STYLE_STROKE_OPACITY]: '0',
-        [mxConstants.STYLE_STROKECOLOR]: 'white',
-        [mxConstants.STYLE_STROKEWIDTH]: '0',
-        [mxConstants.STYLE_OVERFLOW]: 'hidden'
+        fontSize: '6',
+        strokeOpacity: '0',
+        strokeColor: 'white',
+        strokeWidth: '0',
+        overflow: 'hidden'
     }
 };
 
@@ -947,7 +948,7 @@ function processLoadingColor(grafka, cell, loadingPercent) {
 
 function updateCellColor(grafka, cell, color) {
     const style = grafka.getModel().getStyle(cell);
-    const newStyle = mxUtils.setStyle(style, mxConstants.STYLE_STROKECOLOR, color);
+    const newStyle = mxUtils.setStyle(style, 'strokeColor', color);
     grafka.setCellStyle(newStyle, [cell]);
 }
 
