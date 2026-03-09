@@ -596,10 +596,35 @@ const updateThreeWindingTransformerConnections = (threeWindingTransformerArray, 
 
 // Add helper function for three-winding transformer connections
 const getThreeWindingConnections = (cell) => {
+    if (!cell.edges || cell.edges.length < 3) {
+        throw new Error(
+            `Three Winding Transformer "${cell.id}" must be connected to exactly 3 buses (HV, MV, and LV). ` +
+            `Found ${cell.edges ? cell.edges.length : 0} connection(s). ` +
+            `Please connect all three sides of the transformer to their respective buses.`
+        );
+    }
     const [lvEdge, mvEdge, hvEdge] = cell.edges;
-    const getConnectedBus = (edge) =>
-        (edge.target.mxObjectId !== cell.mxObjectId ?
-            edge.target.mxObjectId : edge.source.mxObjectId).replace('#', '_');
+    const getConnectedBus = (edge) => {
+        if (!edge) {
+            throw new Error(`Three Winding Transformer "${cell.id}" has an undefined edge connection.`);
+        }
+        const target = edge.target;
+        const source = edge.source;
+        if (!target && !source) {
+            throw new Error(
+                `Three Winding Transformer "${cell.id}" has an edge that is not connected on either side. ` +
+                `Please ensure all connections go to a bus.`
+            );
+        }
+        const connectedCell = (target && target.mxObjectId !== cell.mxObjectId) ? target : source;
+        if (!connectedCell || !connectedCell.mxObjectId) {
+            throw new Error(
+                `Three Winding Transformer "${cell.id}" has an edge not properly connected to a bus. ` +
+                `Please check all three connections.`
+            );
+        }
+        return connectedCell.mxObjectId.replace('#', '_');
+    };
 
     return {
         hv_bus: getConnectedBus(hvEdge),
@@ -1988,63 +2013,65 @@ function loadFlowPandaPower(a, b, c) {
                         break;
 
                     case COMPONENT_TYPES.THREE_WINDING_TRANSFORMER:
-                        const connections = getThreeWindingConnections(cell);
-                        const threeWindingTransformer = {
-                            typ: `Three Winding Transformer${counters.threeWindingTransformer++}`,
-                            name: cell.mxObjectId.replace('#', '_'),
-                            id: cell.id,
-                            userFriendlyName: (() => {
-                                // Check if the cell has a name attribute stored
-                                if (cell.value && cell.value.attributes) {
-                                    for (let i = 0; i < cell.value.attributes.length; i++) {
-                                        if (cell.value.attributes[i].nodeName === 'name') {
-                                            return cell.value.attributes[i].nodeValue;
+                        try {
+                            const connections = getThreeWindingConnections(cell);
+                            const threeWindingTransformer = {
+                                typ: `Three Winding Transformer${counters.threeWindingTransformer++}`,
+                                name: cell.mxObjectId.replace('#', '_'),
+                                id: cell.id,
+                                userFriendlyName: (() => {
+                                    if (cell.value && cell.value.attributes) {
+                                        for (let i = 0; i < cell.value.attributes.length; i++) {
+                                            if (cell.value.attributes[i].nodeName === 'name') {
+                                                return cell.value.attributes[i].nodeValue;
+                                            }
                                         }
                                     }
-                                }
-                                return cell.mxObjectId.replace('#', '_');
-                            })(),
-                            ...connections,
-                            ...getAttributesAsObject(cell, {
-                                // Load flow parameters
-                                sn_hv_mva: 'sn_hv_mva',
-                                sn_mv_mva: 'sn_mv_mva',
-                                sn_lv_mva: 'sn_lv_mva',
-                                vn_hv_kv: 'vn_hv_kv',
-                                vn_mv_kv: 'vn_mv_kv',
-                                vn_lv_kv: 'vn_lv_kv',
-                                vk_hv_percent: 'vk_hv_percent',
-                                vk_mv_percent: 'vk_mv_percent',
-                                vk_lv_percent: 'vk_lv_percent',
-
-                                // Short circuit parameters
-                                vkr_hv_percent: 'vkr_hv_percent',
-                                vkr_mv_percent: 'vkr_mv_percent',
-                                vkr_lv_percent: 'vkr_lv_percent',
-                                pfe_kw: 'pfe_kw',
-                                i0_percent: 'i0_percent',
-                                vk0_hv_percent: 'vk0_hv_percent',
-                                vk0_mv_percent: 'vk0_mv_percent',
-                                vk0_lv_percent: 'vk0_lv_percent',
-                                vkr0_hv_percent: 'vkr0_hv_percent',
-                                vkr0_mv_percent: 'vkr0_mv_percent',
-                                vkr0_lv_percent: 'vkr0_lv_percent',
-                                vector_group: 'vector_group',
-
-                                // Optional parameters
-                                shift_mv_degree: { name: 'shift_mv_degree', optional: true },
-                                shift_lv_degree: { name: 'shift_lv_degree', optional: true },
-                                tap_step_percent: { name: 'tap_step_percent', optional: true },
-                                tap_side: { name: 'tap_side', optional: true },
-                                tap_neutral: { name: 'tap_neutral', optional: true },
-                                tap_min: { name: 'tap_min', optional: true },
-                                tap_max: { name: 'tap_max', optional: true },
-                                tap_pos: { name: 'tap_pos', optional: true },
-                                tap_at_star_point: { name: 'tap_at_star_point', optional: true },
-                                in_service: { name: 'in_service', optional: true }
-                            })
-                        };
-                        componentArrays.threeWindingTransformer.push(threeWindingTransformer);
+                                    return cell.mxObjectId.replace('#', '_');
+                                })(),
+                                ...connections,
+                                ...getAttributesAsObject(cell, {
+                                    sn_hv_mva: 'sn_hv_mva',
+                                    sn_mv_mva: 'sn_mv_mva',
+                                    sn_lv_mva: 'sn_lv_mva',
+                                    vn_hv_kv: 'vn_hv_kv',
+                                    vn_mv_kv: 'vn_mv_kv',
+                                    vn_lv_kv: 'vn_lv_kv',
+                                    vk_hv_percent: 'vk_hv_percent',
+                                    vk_mv_percent: 'vk_mv_percent',
+                                    vk_lv_percent: 'vk_lv_percent',
+                                    vkr_hv_percent: 'vkr_hv_percent',
+                                    vkr_mv_percent: 'vkr_mv_percent',
+                                    vkr_lv_percent: 'vkr_lv_percent',
+                                    pfe_kw: 'pfe_kw',
+                                    i0_percent: 'i0_percent',
+                                    vk0_hv_percent: 'vk0_hv_percent',
+                                    vk0_mv_percent: 'vk0_mv_percent',
+                                    vk0_lv_percent: 'vk0_lv_percent',
+                                    vkr0_hv_percent: 'vkr0_hv_percent',
+                                    vkr0_mv_percent: 'vkr0_mv_percent',
+                                    vkr0_lv_percent: 'vkr0_lv_percent',
+                                    vector_group: 'vector_group',
+                                    shift_mv_degree: { name: 'shift_mv_degree', optional: true },
+                                    shift_lv_degree: { name: 'shift_lv_degree', optional: true },
+                                    tap_step_percent: { name: 'tap_step_percent', optional: true },
+                                    tap_side: { name: 'tap_side', optional: true },
+                                    tap_neutral: { name: 'tap_neutral', optional: true },
+                                    tap_min: { name: 'tap_min', optional: true },
+                                    tap_max: { name: 'tap_max', optional: true },
+                                    tap_pos: { name: 'tap_pos', optional: true },
+                                    tap_at_star_point: { name: 'tap_at_star_point', optional: true },
+                                    in_service: { name: 'in_service', optional: true }
+                                })
+                            };
+                            componentArrays.threeWindingTransformer.push(threeWindingTransformer);
+                        } catch (e) {
+                            console.error(e.message);
+                            const tw3CurrentStyle = b.getModel().getStyle(cell);
+                            const tw3NewStyle = mxUtils.setStyle(tw3CurrentStyle, mxConstants.STYLE_STROKECOLOR, 'red');
+                            b.setCellStyle(tw3NewStyle, [cell]);
+                            alert(e.message);
+                        }
                         break;
 
                     case COMPONENT_TYPES.SHUNT_REACTOR:

@@ -4,8 +4,8 @@
 //Hook into edge insertion to create placeholder result boxes for components
 //connected to buses (External Grid, Generator, Load, Motor, SSC, etc.)
 
-// Preserve original implementation (only once)
-var originalGraphAddEdge = mxGraph.prototype.addEdge;
+// Deferred: preserve original and apply override when mxGraph is available
+var originalGraphAddEdge = null;
 
 // Helper to extract custom Electrisim shape
 function getShapeElxxx(style) {
@@ -748,15 +748,18 @@ function createResultPlaceholder(graph, parentEdge, componentCell, opts) {
     }
 }
 
-mxGraph.prototype.addEdge = function (edge, parent, source, target, index) {
-    // Prevent recursive re-entry when our own placeholder creation triggers internal addEdge calls
-    if (this._elxxxInAddEdge) {
-        return originalGraphAddEdge.apply(this, arguments);
-    }
+function applyResultBoxesHook() {
+    if (typeof mxGraph === 'undefined' || typeof mxConnectionHandler === 'undefined' || originalGraphAddEdge !== null) return;
+    originalGraphAddEdge = mxGraph.prototype.addEdge;
+    mxGraph.prototype.addEdge = function (edge, parent, source, target, index) {
+        // Prevent recursive re-entry when our own placeholder creation triggers internal addEdge calls
+        if (this._elxxxInAddEdge) {
+            return originalGraphAddEdge.apply(this, arguments);
+        }
 
-    this._elxxxInAddEdge = true;
-    try {
-        var result = originalGraphAddEdge.apply(this, arguments);
+        this._elxxxInAddEdge = true;
+        try {
+            var result = originalGraphAddEdge.apply(this, arguments);
 
         try {
             if (!result || !source || !target) {
@@ -884,17 +887,17 @@ mxGraph.prototype.addEdge = function (edge, parent, source, target, index) {
     }
 };
 
-//=============================================================================
-// Connection Handler - Line Creation Logic
-//=============================================================================
-// This code extends mxConnectionHandler to set up Line parameters when
-// connecting two Bus objects together
-//=============================================================================
+    //=============================================================================
+    // Connection Handler - Line Creation Logic
+    //=============================================================================
+    // This code extends mxConnectionHandler to set up Line parameters when
+    // connecting two Bus objects together
+    //=============================================================================
 
-//rysowanie linii łączącej obiekty
-//e - mxGraphModel 
-//g - mxCell - finalne połączenie z atrybutami source i target
-mxConnectionHandler.prototype.connect = function (a, b, c, d) {
+    //rysowanie linii łączącej obiekty
+    //e - mxGraphModel 
+    //g - mxCell - finalne połączenie z atrybutami source i target
+    mxConnectionHandler.prototype.connect = function (a, b, c, d) {
 
     //console.log('connect tutaj')
     if (null != b || this.isCreateTarget(c) || this.graph.allowDanglingEdges) {
@@ -1043,3 +1046,18 @@ mxConnectionHandler.prototype.connect = function (a, b, c, d) {
         this.select && this.selectCells(g, f ? b : null)
     }
 };
+}
+
+// Apply hook when mxGraph is available
+function waitForMxGraphAndApply() {
+    if (typeof mxGraph !== 'undefined' && typeof mxConnectionHandler !== 'undefined') {
+        applyResultBoxesHook();
+        return;
+    }
+    setTimeout(waitForMxGraphAndApply, 50);
+}
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', waitForMxGraphAndApply);
+} else {
+    waitForMxGraphAndApply();
+}
