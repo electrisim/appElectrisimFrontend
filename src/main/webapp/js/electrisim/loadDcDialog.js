@@ -1,10 +1,12 @@
 import { Dialog } from './Dialog.js';
+import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
 
 // Default values for Load DC parameters (based on pandapower documentation)
 export const defaultLoadDcData = {
     name: "Load DC",
     p_mw: 0.0,
-    in_service: true
+    in_service: true,
+    cost_per_unit_by_currency: "0"
 };
 
 export class LoadDcDialog extends Dialog {
@@ -50,6 +52,11 @@ export class LoadDcDialog extends Dialog {
         
         this.shortCircuitParameters = [];
         this.opfParameters = [];
+
+        // Economic parameters (for Economic Analysis)
+        this.economicParameters = [
+            { id: 'cost_per_unit_by_currency', label: 'Cost per unit', description: 'Cost per unit for Economic Analysis CAPEX calculation', type: 'text', value: '' }
+        ];
     }
     
     getDescription() {
@@ -102,10 +109,12 @@ export class LoadDcDialog extends Dialog {
         const loadFlowTab = this.createTab('Load Flow', 'loadflow', this.currentTab === 'loadflow');
         const shortCircuitTab = this.createTab('Short Circuit', 'shortcircuit', this.currentTab === 'shortcircuit');
         const opfTab = this.createTab('OPF', 'opf', this.currentTab === 'opf');
+        const economicTab = this.createTab('Economic', 'economic', this.currentTab === 'economic');
         
         tabContainer.appendChild(loadFlowTab);
         tabContainer.appendChild(shortCircuitTab);
         tabContainer.appendChild(opfTab);
+        tabContainer.appendChild(economicTab);
         container.appendChild(tabContainer);
 
         const contentArea = document.createElement('div');
@@ -122,10 +131,12 @@ export class LoadDcDialog extends Dialog {
         const loadFlowContent = this.createTabContent('loadflow', this.loadFlowParameters);
         const shortCircuitContent = this.createTabContent('shortcircuit', this.shortCircuitParameters);
         const opfContent = this.createTabContent('opf', this.opfParameters);
+        const economicContent = this.createTabContent('economic', this.economicParameters);
         
         contentArea.appendChild(loadFlowContent);
         contentArea.appendChild(shortCircuitContent);
         contentArea.appendChild(opfContent);
+        contentArea.appendChild(economicContent);
         container.appendChild(contentArea);
 
         const buttonContainer = document.createElement('div');
@@ -170,9 +181,10 @@ export class LoadDcDialog extends Dialog {
 
         this.container = container;
         
-        loadFlowTab.onclick = () => this.switchTab('loadflow', loadFlowTab, [shortCircuitTab, opfTab], loadFlowContent, [shortCircuitContent, opfContent]);
-        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [loadFlowTab, opfTab], shortCircuitContent, [loadFlowContent, opfContent]);
-        opfTab.onclick = () => this.switchTab('opf', opfTab, [loadFlowTab, shortCircuitTab], opfContent, [loadFlowContent, shortCircuitContent]);
+        loadFlowTab.onclick = () => this.switchTab('loadflow', loadFlowTab, [shortCircuitTab, opfTab, economicTab], loadFlowContent, [shortCircuitContent, opfContent, economicContent]);
+        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [loadFlowTab, opfTab, economicTab], shortCircuitContent, [loadFlowContent, opfContent, economicContent]);
+        opfTab.onclick = () => this.switchTab('opf', opfTab, [loadFlowTab, shortCircuitTab, economicTab], opfContent, [loadFlowContent, shortCircuitContent, economicContent]);
+        economicTab.onclick = () => this.switchTab('economic', economicTab, [loadFlowTab, shortCircuitTab, opfTab], economicContent, [loadFlowContent, shortCircuitContent, opfContent]);
 
         if (this.ui && typeof this.ui.showDialog === 'function') {
             const screenHeight = window.innerHeight - 80;
@@ -217,6 +229,14 @@ export class LoadDcDialog extends Dialog {
     }
     
     createTabContent(tabId, parameters) {
+        if (tabId === 'economic' && parameters && parameters.length > 0 && parameters[0]?.id === 'cost_per_unit_by_currency') {
+            const content = document.createElement('div');
+            content.dataset.tab = tabId;
+            content.style.display = tabId === this.currentTab ? 'block' : 'none';
+            content.appendChild(createEconomicTabContent(buildCostPerUnitByCurrency(this.data), this.inputs, true));
+            return content;
+        }
+
         const content = document.createElement('div');
         content.dataset.tab = tabId;
         Object.assign(content.style, {
@@ -437,10 +457,12 @@ export class LoadDcDialog extends Dialog {
     getFormValues() {
         const values = {};
         
-        [...this.loadFlowParameters, ...this.shortCircuitParameters, ...this.opfParameters].forEach(param => {
+        [...this.loadFlowParameters, ...this.shortCircuitParameters, ...this.opfParameters, ...(this.economicParameters || [])].forEach(param => {
             const input = this.inputs.get(param.id);
             if (input) {
-                if (param.type === 'number') {
+                if (param.id === 'cost_per_unit_by_currency') {
+                    values[param.id] = input.value || '0';
+                } else if (param.type === 'number') {
                     values[param.id] = parseFloat(input.value) || 0;
                 } else if (param.type === 'checkbox') {
                     values[param.id] = input.checked;
@@ -467,6 +489,12 @@ export class LoadDcDialog extends Dialog {
                 const attribute = cellData.attributes[i];
                 const attributeName = attribute.name;
                 const attributeValue = attribute.value;
+                
+                if (attributeName === 'cost_per_unit_by_currency') {
+                    this.data[attributeName] = attributeValue;
+                    const ep = this.economicParameters?.find(p => p.id === attributeName);
+                    if (ep) ep.value = attributeValue.toString();
+                }
                 
                 const loadFlowParam = this.loadFlowParameters.find(p => p.id === attributeName);
                 if (loadFlowParam) {

@@ -4,15 +4,22 @@
         constructor(diagnosticData, errorInfo = null) {
             this.diagnosticData = diagnosticData;
             this.errorInfo = errorInfo; // { message, exception }
-            // Set a more general title
-            this.title = this.detectShortCircuitDiagnostic(diagnosticData)
+            // Set title based on whether this is a short-circuit or power-flow diagnostic
+            this.title = this.detectShortCircuitDiagnostic(diagnosticData, errorInfo)
                 ? 'Short Circuit Diagnostic Report'
                 : 'Power Flow Diagnostic Report';
         }
 
-        detectShortCircuitDiagnostic(data) {
+        detectShortCircuitDiagnostic(data, errorInfo) {
             // Heuristic: if data is a string and contains 'PANDAPOWER DIAGNOSTIC TOOL', treat as short circuit diagnostic
             if (typeof data === 'string' && data.includes('PANDAPOWER DIAGNOSTIC TOOL')) {
+                return true;
+            }
+            // If error message mentions short circuit, treat as short-circuit diagnostic
+            if (errorInfo && errorInfo.message && String(errorInfo.message).toLowerCase().includes('short circuit')) {
+                return true;
+            }
+            if (errorInfo && errorInfo.exception && String(errorInfo.exception).toLowerCase().includes('short circuit')) {
                 return true;
             }
             return false;
@@ -73,6 +80,28 @@
             if (!this.errorInfo || !this.errorInfo.message) {
                 errorHtml += `
                     <p style="margin: 0; color: #c62828;">The calculation could not complete. Please review the diagnostic information below and fix the issues in your network.</p>
+                `;
+            }
+            
+            // Add guidance from backend analysis (invalid_parameters) or generic tip for Ybus/NaN
+            const msg = (this.errorInfo && this.errorInfo.message) ? String(this.errorInfo.message) : '';
+            const exc = (this.errorInfo && this.errorInfo.exception) ? String(this.errorInfo.exception) : '';
+            const combined = (msg + ' ' + exc).toLowerCase();
+            const invalidParams = this.diagnosticData && Array.isArray(this.diagnosticData.invalid_parameters) ? this.diagnosticData.invalid_parameters : [];
+            if (invalidParams.length > 0) {
+                errorHtml += `
+                    <div style="margin-top: 12px; padding: 12px; background: #e3f2fd; border-left: 4px solid #1976d2; color: #0d47a1;">
+                        <strong>What to change:</strong> The following parameters need to be corrected:
+                        <ul style="margin: 8px 0 0 0; padding-left: 20px;">
+                            ${invalidParams.map(r => `<li><strong>${r.element_type}</strong> "${r.name}": parameter <strong>${r.param}</strong> — ${r.message}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            } else if (combined.includes('nan') && (combined.includes('ybus') || combined.includes('calculation parameters'))) {
+                errorHtml += `
+                    <div style="margin-top: 12px; padding: 12px; background: #e3f2fd; border-left: 4px solid #1976d2; color: #0d47a1;">
+                        <strong>What to do:</strong> Invalid short-circuit parameters may cause this error. Check External Grid (s_sc_max_mva) and Static Generators (sn_mva or generator_type). Right-click each element → Edit data.
+                    </div>
                 `;
             }
             

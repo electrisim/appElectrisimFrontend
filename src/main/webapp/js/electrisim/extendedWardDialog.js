@@ -1,4 +1,5 @@
 import { Dialog } from './Dialog.js';
+import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
 
 // Default values for extended ward parameters (based on pandapower documentation)
 export const defaultExtendedWardData = {
@@ -10,7 +11,8 @@ export const defaultExtendedWardData = {
     r_ohm: 0.0,
     x_ohm: 0.0,
     vm_pu: 0.0,
-    in_service: true
+    in_service: true,
+    cost_per_unit_by_currency: "0"
 };
 
 export class ExtendedWardDialog extends Dialog {
@@ -105,6 +107,11 @@ export class ExtendedWardDialog extends Dialog {
                 value: this.data.in_service
             }
         ];
+
+        // Economic parameters (for Economic Analysis)
+        this.economicParameters = [
+            { id: 'cost_per_unit_by_currency', label: 'Cost per unit', description: 'Cost per unit for Economic Analysis CAPEX calculation', type: 'text', value: '' }
+        ];
     }
     
     getDescription() {
@@ -165,10 +172,12 @@ export class ExtendedWardDialog extends Dialog {
         const loadTab = this.createTab('PQ Load', 'load', this.currentTab === 'load');
         const impedanceTab = this.createTab('Impedance Load', 'impedance', this.currentTab === 'impedance');
         const electricalTab = this.createTab('Electrical', 'electrical', this.currentTab === 'electrical');
+        const economicTab = this.createTab('Economic', 'economic', this.currentTab === 'economic');
         
         tabContainer.appendChild(loadTab);
         tabContainer.appendChild(impedanceTab);
         tabContainer.appendChild(electricalTab);
+        tabContainer.appendChild(economicTab);
         container.appendChild(tabContainer);
 
         // Create content area
@@ -187,10 +196,12 @@ export class ExtendedWardDialog extends Dialog {
         const loadContent = this.createTabContent('load', this.loadParameters);
         const impedanceContent = this.createTabContent('impedance', this.impedanceParameters);
         const electricalContent = this.createTabContent('electrical', this.electricalParameters);
+        const economicContent = this.createTabContent('economic', this.economicParameters);
         
         contentArea.appendChild(loadContent);
         contentArea.appendChild(impedanceContent);
         contentArea.appendChild(electricalContent);
+        contentArea.appendChild(economicContent);
         container.appendChild(contentArea);
 
         // Add button container
@@ -237,9 +248,10 @@ export class ExtendedWardDialog extends Dialog {
         this.container = container;
         
         // Tab click handlers
-        loadTab.onclick = () => this.switchTab('load', loadTab, [impedanceTab, electricalTab], loadContent, [impedanceContent, electricalContent]);
-        impedanceTab.onclick = () => this.switchTab('impedance', impedanceTab, [loadTab, electricalTab], impedanceContent, [loadContent, electricalContent]);
-        electricalTab.onclick = () => this.switchTab('electrical', electricalTab, [loadTab, impedanceTab], electricalContent, [loadContent, impedanceContent]);
+        loadTab.onclick = () => this.switchTab('load', loadTab, [impedanceTab, electricalTab, economicTab], loadContent, [impedanceContent, electricalContent, economicContent]);
+        impedanceTab.onclick = () => this.switchTab('impedance', impedanceTab, [loadTab, electricalTab, economicTab], impedanceContent, [loadContent, electricalContent, economicContent]);
+        electricalTab.onclick = () => this.switchTab('electrical', electricalTab, [loadTab, impedanceTab, economicTab], electricalContent, [loadContent, impedanceContent, economicContent]);
+        economicTab.onclick = () => this.switchTab('economic', economicTab, [loadTab, impedanceTab, electricalTab], economicContent, [loadContent, impedanceContent, electricalContent]);
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
@@ -285,6 +297,14 @@ export class ExtendedWardDialog extends Dialog {
     }
     
     createTabContent(tabId, parameters) {
+        if (tabId === 'economic' && parameters.length > 0 && parameters[0]?.id === 'cost_per_unit_by_currency') {
+            const content = document.createElement('div');
+            content.dataset.tab = tabId;
+            content.style.display = tabId === this.currentTab ? 'block' : 'none';
+            content.appendChild(createEconomicTabContent(buildCostPerUnitByCurrency(this.data), this.inputs, true));
+            return content;
+        }
+
         const content = document.createElement('div');
         content.dataset.tab = tabId;
         Object.assign(content.style, {
@@ -494,10 +514,12 @@ export class ExtendedWardDialog extends Dialog {
         const values = {};
         
         // Collect all parameter values from all tabs
-        [...this.loadParameters, ...this.impedanceParameters, ...this.electricalParameters].forEach(param => {
+        [...this.loadParameters, ...this.impedanceParameters, ...this.electricalParameters, ...(this.economicParameters || [])].forEach(param => {
             const input = this.inputs.get(param.id);
             if (input) {
-                if (param.type === 'number') {
+                if (param.id === 'cost_per_unit_by_currency') {
+                    values[param.id] = input.value || '0';
+                } else if (param.type === 'number') {
                     values[param.id] = parseFloat(input.value) || 0;
                 } else if (param.type === 'checkbox') {
                     values[param.id] = input.checked;
@@ -577,7 +599,14 @@ export class ExtendedWardDialog extends Dialog {
                     console.log(`  Updated electrical ${attributeName}: ${oldValue} → ${electricalParam.value}`);
                 }
                 
-                if (!loadParam && !impedanceParam && !electricalParam) {
+                const economicParam = (this.economicParameters || []).find(p => p.id === attributeName);
+                if (economicParam) {
+                    economicParam.value = attributeValue;
+                    this.data[attributeName] = attributeValue;
+                    console.log(`  Updated economic ${attributeName}: → ${attributeValue}`);
+                }
+                
+                if (!loadParam && !impedanceParam && !electricalParam && !economicParam) {
                     console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
             }

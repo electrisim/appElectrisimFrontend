@@ -19,6 +19,41 @@ import {
     COMPONENT_TYPES
 } from '../loadFlow.js';
 
+/**
+ * Check if the model has load and/or generation elements (for Economic Analysis profile options).
+ * @param {Object} graph - The mxGraph instance
+ * @returns {{ hasLoads: boolean, hasGenerators: boolean }}
+ */
+export function getEconomicProfileRelevance(graph) {
+    if (!graph || !graph.getModel) return { hasLoads: false, hasGenerators: false };
+    const model = graph.getModel();
+    const cells = model.getDescendants?.() || [];
+    const loadTypes = new Set([COMPONENT_TYPES.LOAD, COMPONENT_TYPES.ASYMMETRIC_LOAD]);
+    const genTypes = new Set([
+        COMPONENT_TYPES.GENERATOR,
+        COMPONENT_TYPES.STATIC_GENERATOR,
+        COMPONENT_TYPES.ASYMMETRIC_STATIC_GENERATOR,
+        'PV System',
+        'PVSystem'
+    ]);
+    let foundLoads = false;
+    let foundGens = false;
+    for (let i = 0; i < cells.length && (!foundLoads || !foundGens); i++) {
+        const cell = cells[i];
+        const cellStyle = cell.getStyle?.();
+        if (!cellStyle) continue;
+        const style = parseCellStyle(cellStyle);
+        const ct = style?.shapeELXXX;
+        if (ct) {
+            if (loadTypes.has(ct)) foundLoads = true;
+            if (genTypes.has(ct)) foundGens = true;
+        }
+        if (!foundGens && cellStyle.includes('Static Generator')) foundGens = true;
+        if (!foundGens && (cellStyle.includes('PV System') || cellStyle.includes('PVSystem'))) foundGens = true;
+    }
+    return { hasLoads: foundLoads, hasGenerators: foundGens };
+}
+
 // Cache for prepareNetworkData - speeds up repeated analyses when graph unchanged
 const _networkDataCache = new WeakMap();
 
@@ -304,6 +339,16 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
     
     const cellProcessingTime = performance.now() - cellProcessingStart;
 
+    // Ensure edges are populated for vertex cells (cell.edges can be null until view renders; model.getEdges works regardless)
+    validCells.forEach(({ cell, componentType }) => {
+        if (!cell.edges && componentType !== 'Line' && componentType !== 'DC Line') {
+            const edges = model.getEdges(cell);
+            if (edges && edges.length > 0) {
+                cell.edges = edges;
+            }
+        }
+    });
+
     // Process valid cells
     const componentProcessingStart = performance.now();
     let processedComponents = 0;
@@ -348,7 +393,8 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         rx_min: 'rx_min',
                         r0x0_max: 'r0x0_max',
                         x0x_max: 'x0x_max',
-                        in_service: { name: 'in_service', optional: true }
+                        in_service: { name: 'in_service', optional: true },
+                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
                     })
                 };
                 componentArrays.externalGrid.push(externalGrid);
@@ -369,7 +415,8 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         cos_phi: 'cos_phi',
                         pg_percent: 'pg_percent',
                         power_station_trafo: 'power_station_trafo',
-                        in_service: { name: 'in_service', optional: true }
+                        in_service: { name: 'in_service', optional: true },
+                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
                     })
                 };
                 componentArrays.generator.push(generator);
@@ -403,7 +450,8 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         max_ik_ka: 'max_ik_ka',
                         kappa: 'kappa',
                         current_source: 'current_source',
-                        in_service: { name: 'in_service', optional: true }
+                        in_service: { name: 'in_service', optional: true },
+                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
                     })
                 };
                 componentArrays.staticGenerator.push(staticGenerator);
@@ -493,7 +541,8 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         tap_step_degree: { name: 'tap_step_degree', optional: true },
                         tap_phase_shifter: { name: 'tap_phase_shifter', optional: true },
                         tap_changer_type: { name: 'tap_changer_type', optional: true },
-                        in_service: { name: 'in_service', optional: true }
+                        in_service: { name: 'in_service', optional: true },
+                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
                     })
                 };
                 componentArrays.transformer.push(transformer);
@@ -576,7 +625,8 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         vn_kv: 'vn_kv',
                         step: { name: 'step', optional: true },
                         max_step: { name: 'max_step', optional: true },
-                        in_service: { name: 'in_service', optional: true }
+                        in_service: { name: 'in_service', optional: true },
+                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
                     })
                 };
                 componentArrays.shuntReactor.push(shuntReactor);
@@ -604,7 +654,8 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         vn_kv: 'vn_kv',
                         step: { name: 'step', optional: true },
                         max_step: { name: 'max_step', optional: true },
-                        in_service: { name: 'in_service', optional: true }
+                        in_service: { name: 'in_service', optional: true },
+                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
                     })
                 };
                 componentArrays.capacitor.push(capacitor);
@@ -640,7 +691,8 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         conn: { name: 'conn', optional: true },
                         puXharm: { name: 'puXharm', optional: true },
                         XRharm: { name: 'XRharm', optional: true },
-                        in_service: { name: 'in_service', optional: true }
+                        in_service: { name: 'in_service', optional: true },
+                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
                     })
                 };
                 componentArrays.load.push(load);
@@ -672,7 +724,8 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         sn_mva: 'sn_mva',
                         scaling: 'scaling',
                         type: 'type',
-                        in_service: { name: 'in_service', optional: true }
+                        in_service: { name: 'in_service', optional: true },
+                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
                     })
                 };
                 componentArrays.asymmetricLoad.push(asymmetricLoad);
@@ -699,7 +752,8 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                             rft_pu: 'r_pu',   // cell stores r_pu, export as rft_pu
                             xft_pu: 'x_pu',   // cell stores x_pu, export as xft_pu
                             sn_mva: 'sn_mva',
-                            in_service: { name: 'in_service', optional: true }
+                            in_service: { name: 'in_service', optional: true },
+                            cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
                         })
                     };
                     componentArrays.impedance.push(impedance);
@@ -729,7 +783,8 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         qs_mvar: 'qs_mvar',
                         pz_mw: 'pz_mw',
                         qz_mvar: 'qz_mvar',
-                        in_service: { name: 'in_service', optional: true }
+                        in_service: { name: 'in_service', optional: true },
+                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
                     })
                 };
                 componentArrays.ward.push(ward);
@@ -759,7 +814,8 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         r_ohm: 'r_ohm',
                         x_ohm: 'x_ohm',
                         vm_pu: 'vm_pu',
-                        in_service: { name: 'in_service', optional: true }
+                        in_service: { name: 'in_service', optional: true },
+                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
                     })
                 };
                 componentArrays.extendedWard.push(extendedWard);
@@ -792,7 +848,8 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         lrc_pu: 'lrc_pu',
                         rx: 'rx',
                         vn_kv: 'vn_kv',
-                        in_service: { name: 'in_service', optional: true }
+                        in_service: { name: 'in_service', optional: true },
+                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
                     })
                 };
                 componentArrays.motor.push(motor);
@@ -847,7 +904,8 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         pct_idling_kvar: { name: 'pct_idling_kvar', optional: true },
                         discharge_trigger: { name: 'discharge_trigger', optional: true },
                         charge_trigger: { name: 'charge_trigger', optional: true },
-                        time_charge_trig: { name: 'time_charge_trig', optional: true }
+                        time_charge_trig: { name: 'time_charge_trig', optional: true },
+                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
                     })
                 };
                 componentArrays.storage.push(storage);
@@ -877,7 +935,8 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         controllable: 'controllable',
                         min_angle_degree: 'min_angle_degree',
                         max_angle_degree: 'max_angle_degree',
-                        in_service: { name: 'in_service', optional: true }
+                        in_service: { name: 'in_service', optional: true },
+                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
                     })
                 };
                 componentArrays.SVC.push(SVC);
@@ -907,7 +966,8 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         controllable: 'controllable',
                         min_angle_degree: 'min_angle_degree',
                         max_angle_degree: 'max_angle_degree',
-                        in_service: { name: 'in_service', optional: true }
+                        in_service: { name: 'in_service', optional: true },
+                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
                     })
                 };
                 componentArrays.TCSC.push(TCSC);
@@ -936,7 +996,8 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         vm_internal_pu: 'vm_internal_pu',
                         va_internal_degree: 'va_internal_degree',
                         controllable: 'controllable',
-                        in_service: { name: 'in_service', optional: true }
+                        in_service: { name: 'in_service', optional: true },
+                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
                     })
                 };
                 componentArrays.SSC.push(SSC);
@@ -948,7 +1009,10 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                     name: cell.mxObjectId.replace('#', '_'),
                     id: cell.id,
                     vn_kv: cell.value.attributes[2]?.nodeValue || "0",
-                    userFriendlyName: baseData.userFriendlyName
+                    userFriendlyName: baseData.userFriendlyName,
+                    ...getAttributesAsObject(cell, {
+                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
+                    })
                 };
                 componentArrays.dcBus.push(dcBus);
                 break;
@@ -971,7 +1035,8 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                     bus: getConnectedBusId(cell),
                     ...getAttributesAsObject(cell, {
                         p_mw: 'p_mw',
-                        in_service: { name: 'in_service', optional: true }
+                        in_service: { name: 'in_service', optional: true },
+                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
                     })
                 };
                 componentArrays.loadDc.push(loadDc);
@@ -995,7 +1060,8 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                     bus: getConnectedBusId(cell),
                     ...getAttributesAsObject(cell, {
                         vm_pu: 'vm_pu',
-                        in_service: { name: 'in_service', optional: true }
+                        in_service: { name: 'in_service', optional: true },
+                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
                     })
                 };
                 componentArrays.sourceDc.push(sourceDc);
@@ -1046,7 +1112,8 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         sn_mva: 'sn_mva',
                         rx: 'rx',
                         max_ik_ka: 'max_ik_ka',
-                        in_service: { name: 'in_service', optional: true }
+                        in_service: { name: 'in_service', optional: true },
+                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
                     })
                 };
                 componentArrays.VSC.push(vsc);
@@ -1076,7 +1143,8 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         sn_mva: 'sn_mva',
                         rx: 'rx',
                         max_ik_ka: 'max_ik_ka',
-                        in_service: { name: 'in_service', optional: true }
+                        in_service: { name: 'in_service', optional: true },
+                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
                     })
                 };
                 componentArrays.B2BVSC.push(b2bVsc);
@@ -1104,7 +1172,8 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         loss_mw: 'loss_mw',
                         vm_from_pu: 'vm_from_pu',
                         vm_to_pu: 'vm_to_pu',
-                        in_service: { name: 'in_service', optional: true }
+                        in_service: { name: 'in_service', optional: true },
+                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
                     })
                 };
                 componentArrays.dcLine.push(dcLine);
@@ -1141,6 +1210,7 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         x0_ohm_per_km: { name: 'x0_ohm_per_km', optional: true },
                         c0_nf_per_km: { name: 'c0_nf_per_km', optional: true },
                         endtemp_degree: { name: 'endtemp_degree', optional: true },
+                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
                     })
                 };
 

@@ -1,4 +1,5 @@
 import { Dialog } from './Dialog.js';
+import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
 
 // Default values for TCSC parameters (based on pandapower documentation)
 export const defaultTCSCData = {
@@ -10,7 +11,8 @@ export const defaultTCSCData = {
     controllable: true,
     min_angle_degree: 90,
     max_angle_degree: 180,
-    in_service: true
+    in_service: true,
+    cost_per_unit_by_currency: "0"
 };
 
 export class TCSCDialog extends Dialog {
@@ -112,6 +114,11 @@ export class TCSCDialog extends Dialog {
                 value: this.data.in_service
             }
         ];
+
+        // Economic parameters (for Economic Analysis)
+        this.economicParameters = [
+            { id: 'cost_per_unit_by_currency', label: 'Cost per unit', description: 'Cost per unit for Economic Analysis CAPEX calculation', type: 'text', value: '' }
+        ];
     }
     
     getDescription() {
@@ -172,10 +179,12 @@ export class TCSCDialog extends Dialog {
         const electricalTab = this.createTab('Electrical', 'electrical', this.currentTab === 'electrical');
         const controlTab = this.createTab('Control', 'control', this.currentTab === 'control');
         const configTab = this.createTab('Configuration', 'config', this.currentTab === 'config');
+        const economicTab = this.createTab('Economic', 'economic', this.currentTab === 'economic');
         
         tabContainer.appendChild(electricalTab);
         tabContainer.appendChild(controlTab);
         tabContainer.appendChild(configTab);
+        tabContainer.appendChild(economicTab);
         container.appendChild(tabContainer);
 
         // Create content area
@@ -194,10 +203,12 @@ export class TCSCDialog extends Dialog {
         const electricalContent = this.createTabContent('electrical', this.electricalParameters);
         const controlContent = this.createTabContent('control', this.controlParameters);
         const configContent = this.createTabContent('config', this.configParameters);
+        const economicContent = this.createTabContent('economic', this.economicParameters);
         
         contentArea.appendChild(electricalContent);
         contentArea.appendChild(controlContent);
         contentArea.appendChild(configContent);
+        contentArea.appendChild(economicContent);
         container.appendChild(contentArea);
 
         // Add button container
@@ -244,9 +255,10 @@ export class TCSCDialog extends Dialog {
         this.container = container;
         
         // Tab click handlers
-        electricalTab.onclick = () => this.switchTab('electrical', electricalTab, [controlTab, configTab], electricalContent, [controlContent, configContent]);
-        controlTab.onclick = () => this.switchTab('control', controlTab, [electricalTab, configTab], controlContent, [electricalContent, configContent]);
-        configTab.onclick = () => this.switchTab('config', configTab, [electricalTab, controlTab], configContent, [electricalContent, controlContent]);
+        electricalTab.onclick = () => this.switchTab('electrical', electricalTab, [controlTab, configTab, economicTab], electricalContent, [controlContent, configContent, economicContent]);
+        controlTab.onclick = () => this.switchTab('control', controlTab, [electricalTab, configTab, economicTab], controlContent, [electricalContent, configContent, economicContent]);
+        configTab.onclick = () => this.switchTab('config', configTab, [electricalTab, controlTab, economicTab], configContent, [electricalContent, controlContent, economicContent]);
+        economicTab.onclick = () => this.switchTab('economic', economicTab, [electricalTab, controlTab, configTab], economicContent, [electricalContent, controlContent, configContent]);
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
@@ -292,6 +304,14 @@ export class TCSCDialog extends Dialog {
     }
     
     createTabContent(tabId, parameters) {
+        if (tabId === 'economic' && parameters && parameters.length > 0 && parameters[0]?.id === 'cost_per_unit_by_currency') {
+            const content = document.createElement('div');
+            content.dataset.tab = tabId;
+            content.style.display = tabId === this.currentTab ? 'block' : 'none';
+            content.appendChild(createEconomicTabContent(buildCostPerUnitByCurrency(this.data), this.inputs, true));
+            return content;
+        }
+
         const content = document.createElement('div');
         content.dataset.tab = tabId;
         Object.assign(content.style, {
@@ -501,10 +521,12 @@ export class TCSCDialog extends Dialog {
         const values = {};
         
         // Collect all parameter values from all tabs
-        [...this.electricalParameters, ...this.controlParameters, ...this.configParameters].forEach(param => {
+        [...this.electricalParameters, ...this.controlParameters, ...this.configParameters, ...(this.economicParameters || [])].forEach(param => {
             const input = this.inputs.get(param.id);
             if (input) {
-                if (param.type === 'number') {
+                if (param.id === 'cost_per_unit_by_currency') {
+                    values[param.id] = input.value || '0';
+                } else if (param.type === 'number') {
                     values[param.id] = parseFloat(input.value) || 0;
                 } else if (param.type === 'checkbox') {
                     values[param.id] = input.checked;
@@ -550,6 +572,12 @@ export class TCSCDialog extends Dialog {
                 
                 console.log(`Processing attribute: ${attributeName} = ${attributeValue}`);
                 
+                if (attributeName === 'cost_per_unit_by_currency') {
+                    this.data[attributeName] = attributeValue;
+                    const ep = this.economicParameters?.find(p => p.id === attributeName);
+                    if (ep) ep.value = attributeValue.toString();
+                }
+                
                 // Update the dialog's parameter values (not DOM inputs)
                 const electricalParam = this.electricalParameters.find(p => p.id === attributeName);
                 if (electricalParam) {
@@ -584,7 +612,8 @@ export class TCSCDialog extends Dialog {
                     console.log(`  Updated config ${attributeName}: ${oldValue} → ${configParam.value}`);
                 }
                 
-                if (!electricalParam && !controlParam && !configParam) {
+                const economicParam = this.economicParameters?.find(p => p.id === attributeName);
+                if (!electricalParam && !controlParam && !configParam && !economicParam) {
                     console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
             }

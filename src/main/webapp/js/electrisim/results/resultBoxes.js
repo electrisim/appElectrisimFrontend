@@ -6,6 +6,17 @@
 
 // Deferred: preserve original and apply override when mxGraph is available
 var originalGraphAddEdge = null;
+var upgradedGraphs = typeof WeakSet !== 'undefined' ? new WeakSet() : {};
+
+function runUpgradeOnce(graph) {
+    if (!graph || !upgradeResultPlaceholderStyles) return;
+    if (upgradedGraphs instanceof WeakSet) {
+        if (upgradedGraphs.has(graph)) return;
+        upgradedGraphs.add(graph);
+    } else if (upgradedGraphs[graph.id]) return;
+    else if (graph.id) upgradedGraphs[graph.id] = true;
+    upgradeResultPlaceholderStyles(graph);
+}
 
 // Helper to extract custom Electrisim shape
 function getShapeElxxx(style) {
@@ -29,6 +40,7 @@ function createBusResultPlaceholder(graph, busCell) {
         console.warn('ELXXX: Cannot create Bus result placeholder - missing graph or busCell');
         return;
     }
+    runUpgradeOnce(graph);
     // Check if placeholder already exists
     var existingId = null;
     if (busCell.value && busCell.value.attributes) {
@@ -57,17 +69,17 @@ function createBusResultPlaceholder(graph, busCell) {
         'html=1',
         'align=center',
         'verticalAlign=middle',
-        'fontSize=6',
+        'fontSize=7',
         'fontColor=#6C757D',
         'fontStyle=0',
+        'spacing=3',
         'connectedTo=' + busCell.id
     ].join(';');
 
     var placeholderStyle = 'shapeELXXX=ResultBus;' + baseStyle;
 
-    // Size fits OpenDSS load flow: U[pu], U[degree], P[MW], Q[MVAr], PF, Q/P (6 lines)
-    var boxWidth = 65;
-    var boxHeight = 72;
+    var boxWidth = 80;
+    var boxHeight = 70;
 
     graph.model.beginUpdate();
     try {
@@ -76,7 +88,7 @@ function createBusResultPlaceholder(graph, busCell) {
         var placeholder = graph.insertVertex(
             busCell,           // parent is the Bus cell
             null,              // id (auto-generated)
-            'Click Simulate to generate results.',
+            'Click Simulate to generate results',
             0,                 // x position (relative, left-aligned with Bus label)
             1.0,               // y position (relative, below the bus - closer than before)
             boxWidth,
@@ -133,6 +145,71 @@ if (typeof window !== 'undefined') {
     window.createBusResultPlaceholder = createBusResultPlaceholder;
 }
 
+// Shared result box style for loadFlow.js, loadflowOpenDss.js, shortCircuit.js
+// Light grey dashed border, semi-transparent background, readable text
+var RESULT_BOX_STYLE = 'shapeELXXX=Result;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;overflow=hidden;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3';
+
+/**
+ * Insert a result box with proper geometry and styling.
+ * Used by loadflowOpenDss.js, shortCircuit.js (loadFlow.js has its own inline version).
+ * @param {mxGraph} graph - The mxGraph instance
+ * @param {mxCell} parent - Parent cell (vertex or edge)
+ * @param {string} resultString - Content to display
+ * @param {object} opts - { width, height, positionX, positionY, offsetXDelta, offsetYDelta, isLine }
+ */
+function insertResultBox(graph, parent, resultString, opts) {
+    if (!graph || !parent) return null;
+    var w = (opts && opts.width) || 70;
+    var h = (opts && opts.height) || 50;
+    var px = (opts && typeof opts.positionX === 'number') ? opts.positionX : -0.3;
+    var py = (opts && typeof opts.positionY === 'number') ? opts.positionY : 0;
+    var offsetXDelta = (opts && typeof opts.offsetXDelta === 'number') ? opts.offsetXDelta : 0;
+    var offsetYDelta = (opts && typeof opts.offsetYDelta === 'number') ? opts.offsetYDelta : 0;
+    var isLine = (opts && opts.isLine) || (px === 0.5 || px === 0.2);
+    var offsetY = isLine ? -h / 2 - 10 + offsetYDelta : -h / 2 - 5 + offsetYDelta;
+    var offsetX = -w / 2 + offsetXDelta;
+    var cell = graph.insertVertex(parent, null, resultString, px, py, w, h, RESULT_BOX_STYLE, true);
+    if (cell && typeof mxPoint !== 'undefined') {
+        var model = graph.getModel();
+        var geo = model.getGeometry(cell);
+        if (geo) {
+            geo.relative = true;
+            geo.x = px;
+            geo.y = py;
+            geo.offset = new mxPoint(offsetX, offsetY);
+            model.setGeometry(cell, geo);
+        }
+    }
+    return cell;
+}
+
+/**
+ * Find existing result placeholder child of parentCell (from resultBoxes.js placeholders).
+ * Used by loadFlow.js, loadflowOpenDss.js, shortCircuit.js - update in place instead of remove+insert.
+ * @param {mxGraph} graph - The mxGraph instance
+ * @param {mxCell} parentCell - Parent cell (vertex or edge) to search
+ * @returns {mxCell|null} The placeholder cell or null
+ */
+function findResultPlaceholder(graph, parentCell) {
+    if (!graph || !parentCell || !graph.getModel) return null;
+    var model = graph.getModel();
+    var childCount = model.getChildCount(parentCell);
+    var isResultStyle = function(s) {
+        return s && (s.indexOf('shapeELXXX=ResultBus') >= 0 || s.indexOf('shapeELXXX=Result') >= 0 || s.indexOf('shapeELXXX=ResultExternalGrid') >= 0);
+    };
+    for (var i = 0; i < childCount; i++) {
+        var child = model.getChildAt(parentCell, i);
+        if (child && isResultStyle(model.getStyle(child))) return child;
+    }
+    return null;
+}
+
+if (typeof window !== 'undefined') {
+    window.RESULT_BOX_STYLE = RESULT_BOX_STYLE;
+    window.insertResultBox = insertResultBox;
+    window.findResultPlaceholder = findResultPlaceholder;
+}
+
 //=============================================================================
 // COMPOSITE BLOCK SUPPORT
 // Creates result placeholders for component-to-bus edges in composite blocks
@@ -187,8 +264,8 @@ function createResultPlaceholdersForCompositeBlock(graph, cells) {
         var isBessTrafoOrStorage = (componentShape === 'Transformer' || componentShape === 'Storage');
         createResultPlaceholder(graph, edgeCell, componentCell, {
             logicalShape: isExtGrid ? 'ResultExternalGrid' : 'Result',
-            width: isExtGrid ? 80 : 60,
-            height: isExtGrid ? 72 : 40,
+            width: isExtGrid ? 95 : 70,
+            height: isExtGrid ? 58 : 50,
             positionX: -0.3,
             offsetXDelta: isBessTrafoOrStorage ? 10 : 0,
             offsetYDelta: isBessTrafoOrStorage ? 10 : 0
@@ -218,6 +295,38 @@ function isResultPlaceholderStyle(style) {
     return style.includes('shapeELXXX=ResultBus') ||
            style.includes('shapeELXXX=Result') ||
            style.includes('shapeELXXX=ResultExternalGrid');
+}
+
+/**
+ * Upgrades result placeholders to dashed/transparent format (light grey dashed border, semi-transparent).
+ * Converts solid-style placeholders to match the target format.
+ */
+function upgradeResultPlaceholderStyles(graph) {
+    if (!graph || !graph.getModel) return;
+    var model = graph.getModel();
+    var upgraded = 0;
+    function visit(cell) {
+        if (!cell) return;
+        var style = model.getStyle(cell) || '';
+        if (isResultPlaceholderStyle(style) && (style.indexOf('fillColor=#FFFFFF') >= 0 || style.indexOf('dashed=0') >= 0)) {
+            var newStyle = style
+                .replace(/fillColor=#FFFFFF/g, 'fillColor=#F8F9FA')
+                .replace(/strokeColor=#495057/g, 'strokeColor=#6C757D')
+                .replace(/strokeWidth=1;/g, 'strokeWidth=1.5;')
+                .replace(/dashed=0/g, 'dashed=1')
+                .replace(/opacity=100/g, 'opacity=70');
+            if (newStyle.indexOf('dashPattern=') < 0) newStyle = newStyle.replace('dashed=1', 'dashed=1;dashPattern=5 5');
+            if (newStyle !== style) {
+                model.setStyle(cell, newStyle);
+                upgraded++;
+            }
+        }
+        var childCount = model.getChildCount(cell);
+        for (var i = 0; i < childCount; i++) visit(model.getChildAt(cell, i));
+    }
+    var root = model.getRoot();
+    if (root) visit(root);
+    if (upgraded > 0) console.log('ELXXX: Upgraded', upgraded, 'result placeholder(s) to dashed format');
 }
 
 /**
@@ -293,7 +402,7 @@ function updateClonedBusPlaceholder(graph, clonedBusCell) {
                 graph.model.setStyle(placeholderChild, newStyle);
 
                 // Reset placeholder content to default message
-                graph.model.setValue(placeholderChild, 'Click Simulate to generate results.');
+                graph.model.setValue(placeholderChild, 'Click Simulate to generate results');
 
                 console.log('ELXXX: Updated cloned Bus result placeholder - Bus ID:', clonedBusCell.id, 'Placeholder ID:', newPlaceholderId, 'Style type:', oldStyle.includes('ResultBus') ? 'ResultBus' : 'Result');
             }
@@ -384,7 +493,7 @@ function updateClonedLinePlaceholder(graph, clonedLineCell) {
                 graph.model.setStyle(placeholderChild, newStyle);
 
                 // Reset placeholder content to default message
-                graph.model.setValue(placeholderChild, 'Click Simulate to generate results.');
+                graph.model.setValue(placeholderChild, 'Click Simulate to generate results');
 
                 console.log('ELXXX: Updated cloned Line result placeholder - Line ID:', clonedLineCell.id, 'Placeholder ID:', newPlaceholderId);
             }
@@ -484,7 +593,7 @@ function updateClonedComponentPlaceholder(graph, clonedCell) {
                     graph.model.setStyle(child, newStyle);
 
                     // Reset placeholder content to default message
-                    graph.model.setValue(child, 'Click Simulate to generate results.');
+                    graph.model.setValue(child, 'Click Simulate to generate results');
 
                     // Store the first placeholder ID for the component cell (for backward compatibility)
                     // Note: Components can have multiple edges, each with its own placeholder
@@ -648,6 +757,7 @@ if (typeof window !== 'undefined') {
 
 // Helper to create a professional placeholder box
 function createResultPlaceholder(graph, parentEdge, componentCell, opts) {
+    runUpgradeOnce(graph);
     var externalId = componentCell.id;
 
     var baseStyle = [
@@ -665,10 +775,10 @@ function createResultPlaceholder(graph, parentEdge, componentCell, opts) {
         'overflow=hidden',
         'align=center',
         'verticalAlign=middle',
-        'fontSize=6',
+        'fontSize=7',
         'fontColor=#6C757D',
         'fontStyle=0',
-        'spacing=2',
+        'spacing=3',
         'connectedTo=' + externalId
     ].join(';');
 
@@ -696,7 +806,7 @@ function createResultPlaceholder(graph, parentEdge, componentCell, opts) {
         var placeholder = graph.insertVertex(
             parentEdge,
             null,
-            'Click Simulate to generate results.',
+            'Click Simulate to generate results',
             positionX,
             positionY,
             boxWidth,
@@ -869,8 +979,8 @@ function applyResultBoxesHook() {
                     var isExternalGrid = (componentShape === 'External Grid');
                     createResultPlaceholder(this, result, componentCell, {
                         logicalShape: logicalShape,
-                        width: isExternalGrid ? 80 : 60,
-                        height: isExternalGrid ? 72 : 40,
+                        width: isExternalGrid ? 95 : 70,
+                        height: isExternalGrid ? 58 : 50,
                         positionX: -0.3
                     });
                 }
@@ -1052,6 +1162,17 @@ function applyResultBoxesHook() {
 function waitForMxGraphAndApply() {
     if (typeof mxGraph !== 'undefined' && typeof mxConnectionHandler !== 'undefined') {
         applyResultBoxesHook();
+        // Upgrade existing placeholders when diagram is loaded (e.g. from file)
+        setTimeout(function tryUpgradeOnLoad() {
+            var graph = null;
+            if (typeof Editor !== 'undefined' && Editor.ui && Editor.ui.editor && Editor.ui.editor.graph) {
+                graph = Editor.ui.editor.graph;
+            } else if (typeof window !== 'undefined' && window.EditorUi && window.EditorUi.getCurrentFile) {
+                var ui = window.EditorUi;
+                if (ui.editor && ui.editor.graph) graph = ui.editor.graph;
+            }
+            if (graph && graph.getModel) runUpgradeOnce(graph);
+        }, 2500);
         return;
     }
     setTimeout(waitForMxGraphAndApply, 50);
@@ -1060,4 +1181,8 @@ if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', waitForMxGraphAndApply);
 } else {
     waitForMxGraphAndApply();
+}
+
+if (typeof window !== 'undefined') {
+    window.upgradeResultPlaceholderStyles = upgradeResultPlaceholderStyles;
 }

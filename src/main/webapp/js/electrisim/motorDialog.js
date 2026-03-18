@@ -1,4 +1,5 @@
 import { Dialog } from './Dialog.js';
+import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
 
 // Default values for motor parameters (based on pandapower documentation)
 export const defaultMotorData = {
@@ -149,6 +150,11 @@ export class MotorDialog extends Dialog {
                 value: this.data.in_service
             }
         ];
+
+        // Economic parameters (for Economic Analysis)
+        this.economicParameters = [
+            { id: 'cost_per_unit_by_currency', label: 'Cost per unit', description: 'Cost per unit for Economic Analysis CAPEX calculation', type: 'text', value: '' }
+        ];
     }
     
     getDescription() {
@@ -210,11 +216,13 @@ export class MotorDialog extends Dialog {
         const electricalTab = this.createTab('Electrical', 'electrical', this.currentTab === 'electrical');
         const performanceTab = this.createTab('Performance', 'performance', this.currentTab === 'performance');
         const shortCircuitTab = this.createTab('Short Circuit', 'shortcircuit', this.currentTab === 'shortcircuit');
+        const economicTab = this.createTab('Economic', 'economic', this.currentTab === 'economic');
         
         tabContainer.appendChild(mechanicalTab);
         tabContainer.appendChild(electricalTab);
         tabContainer.appendChild(performanceTab);
         tabContainer.appendChild(shortCircuitTab);
+        tabContainer.appendChild(economicTab);
         container.appendChild(tabContainer);
 
         // Create content area
@@ -234,11 +242,13 @@ export class MotorDialog extends Dialog {
         const electricalContent = this.createTabContent('electrical', this.electricalParameters);
         const performanceContent = this.createTabContent('performance', this.performanceParameters);
         const shortCircuitContent = this.createTabContent('shortcircuit', this.shortCircuitParameters);
+        const economicContent = this.createTabContent('economic', this.economicParameters);
         
         contentArea.appendChild(mechanicalContent);
         contentArea.appendChild(electricalContent);
         contentArea.appendChild(performanceContent);
         contentArea.appendChild(shortCircuitContent);
+        contentArea.appendChild(economicContent);
         container.appendChild(contentArea);
 
         // Add button container
@@ -285,10 +295,11 @@ export class MotorDialog extends Dialog {
         this.container = container;
         
         // Tab click handlers
-        mechanicalTab.onclick = () => this.switchTab('mechanical', mechanicalTab, [electricalTab, performanceTab, shortCircuitTab], mechanicalContent, [electricalContent, performanceContent, shortCircuitContent]);
-        electricalTab.onclick = () => this.switchTab('electrical', electricalTab, [mechanicalTab, performanceTab, shortCircuitTab], electricalContent, [mechanicalContent, performanceContent, shortCircuitContent]);
-        performanceTab.onclick = () => this.switchTab('performance', performanceTab, [mechanicalTab, electricalTab, shortCircuitTab], performanceContent, [mechanicalContent, electricalContent, shortCircuitContent]);
-        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [mechanicalTab, electricalTab, performanceTab], shortCircuitContent, [mechanicalContent, electricalContent, performanceContent]);
+        mechanicalTab.onclick = () => this.switchTab('mechanical', mechanicalTab, [electricalTab, performanceTab, shortCircuitTab, economicTab], mechanicalContent, [electricalContent, performanceContent, shortCircuitContent, economicContent]);
+        electricalTab.onclick = () => this.switchTab('electrical', electricalTab, [mechanicalTab, performanceTab, shortCircuitTab, economicTab], electricalContent, [mechanicalContent, performanceContent, shortCircuitContent, economicContent]);
+        performanceTab.onclick = () => this.switchTab('performance', performanceTab, [mechanicalTab, electricalTab, shortCircuitTab, economicTab], performanceContent, [mechanicalContent, electricalContent, shortCircuitContent, economicContent]);
+        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [mechanicalTab, electricalTab, performanceTab, economicTab], shortCircuitContent, [mechanicalContent, electricalContent, performanceContent, economicContent]);
+        economicTab.onclick = () => this.switchTab('economic', economicTab, [mechanicalTab, electricalTab, performanceTab, shortCircuitTab], economicContent, [mechanicalContent, electricalContent, performanceContent, shortCircuitContent]);
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
@@ -334,6 +345,14 @@ export class MotorDialog extends Dialog {
     }
     
     createTabContent(tabId, parameters) {
+        if (tabId === 'economic' && parameters && parameters.length > 0 && parameters[0]?.id === 'cost_per_unit_by_currency') {
+            const content = document.createElement('div');
+            content.dataset.tab = tabId;
+            content.style.display = tabId === this.currentTab ? 'block' : 'none';
+            content.appendChild(createEconomicTabContent(buildCostPerUnitByCurrency(this.data), this.inputs, true));
+            return content;
+        }
+
         const content = document.createElement('div');
         content.dataset.tab = tabId;
         Object.assign(content.style, {
@@ -543,10 +562,12 @@ export class MotorDialog extends Dialog {
         const values = {};
         
         // Collect all parameter values from all tabs
-        [...this.mechanicalParameters, ...this.electricalParameters, ...this.performanceParameters, ...this.shortCircuitParameters].forEach(param => {
+        [...this.mechanicalParameters, ...this.electricalParameters, ...this.performanceParameters, ...this.shortCircuitParameters, ...(this.economicParameters || [])].forEach(param => {
             const input = this.inputs.get(param.id);
             if (input) {
-                if (param.type === 'number') {
+                if (param.id === 'cost_per_unit_by_currency') {
+                    values[param.id] = input.value || '0';
+                } else if (param.type === 'number') {
                     values[param.id] = parseFloat(input.value) || 0;
                 } else if (param.type === 'checkbox') {
                     values[param.id] = input.checked;
@@ -637,7 +658,13 @@ export class MotorDialog extends Dialog {
                     console.log(`  Updated shortCircuit ${attributeName}: ${oldValue} → ${shortCircuitParam.value}`);
                 }
                 
-                if (!mechanicalParam && !electricalParam && !performanceParam && !shortCircuitParam) {
+                const economicParam = (this.economicParameters || []).find(p => p.id === attributeName);
+                if (economicParam) {
+                    economicParam.value = attributeValue;
+                    this.data[attributeName] = attributeValue;
+                }
+                
+                if (!mechanicalParam && !electricalParam && !performanceParam && !shortCircuitParam && !economicParam) {
                     console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
             }

@@ -1,4 +1,5 @@
 import { Dialog } from './Dialog.js';
+import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
 
 // Default values for impedance parameters (based on pandapower documentation)
 export const defaultImpedanceData = {
@@ -6,7 +7,8 @@ export const defaultImpedanceData = {
     r_pu: 0.0,
     x_pu: 0.0,
     sn_mva: 0.0,
-    in_service: true
+    in_service: true,
+    cost_per_unit_by_currency: "0"
 };
 
 export class ImpedanceDialog extends Dialog {
@@ -64,6 +66,11 @@ export class ImpedanceDialog extends Dialog {
                 type: 'checkbox',
                 value: this.data.in_service
             }
+        ];
+
+        // Economic parameters (for Economic Analysis)
+        this.economicParameters = [
+            { id: 'cost_per_unit_by_currency', label: 'Cost per unit', description: 'Cost per unit for Economic Analysis CAPEX calculation', type: 'text', value: '' }
         ];
     }
     
@@ -144,9 +151,11 @@ export class ImpedanceDialog extends Dialog {
         // Create tab content containers
         const electricalContent = this.createTabContent('electrical', this.electricalParameters);
         const ratingContent = this.createTabContent('rating', this.ratingParameters);
+        const economicContent = this.createTabContent('economic', this.economicParameters);
         
         contentArea.appendChild(electricalContent);
         contentArea.appendChild(ratingContent);
+        contentArea.appendChild(economicContent);
         container.appendChild(contentArea);
 
         // Add button container
@@ -193,8 +202,9 @@ export class ImpedanceDialog extends Dialog {
         this.container = container;
         
         // Tab click handlers
-        electricalTab.onclick = () => this.switchTab('electrical', electricalTab, [ratingTab], electricalContent, [ratingContent]);
-        ratingTab.onclick = () => this.switchTab('rating', ratingTab, [electricalTab], ratingContent, [electricalContent]);
+        electricalTab.onclick = () => this.switchTab('electrical', electricalTab, [ratingTab, economicTab], electricalContent, [ratingContent, economicContent]);
+        ratingTab.onclick = () => this.switchTab('rating', ratingTab, [electricalTab, economicTab], ratingContent, [electricalContent, economicContent]);
+        economicTab.onclick = () => this.switchTab('economic', economicTab, [electricalTab, ratingTab], economicContent, [electricalContent, ratingContent]);
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
@@ -240,6 +250,14 @@ export class ImpedanceDialog extends Dialog {
     }
     
     createTabContent(tabId, parameters) {
+        if (tabId === 'economic' && parameters && parameters.length > 0 && parameters[0]?.id === 'cost_per_unit_by_currency') {
+            const content = document.createElement('div');
+            content.dataset.tab = tabId;
+            content.style.display = tabId === this.currentTab ? 'block' : 'none';
+            content.appendChild(createEconomicTabContent(buildCostPerUnitByCurrency(this.data), this.inputs, true));
+            return content;
+        }
+
         const content = document.createElement('div');
         content.dataset.tab = tabId;
         Object.assign(content.style, {
@@ -449,10 +467,12 @@ export class ImpedanceDialog extends Dialog {
         const values = {};
         
         // Collect all parameter values from all tabs
-        [...this.electricalParameters, ...this.ratingParameters].forEach(param => {
+        [...this.electricalParameters, ...this.ratingParameters, ...(this.economicParameters || [])].forEach(param => {
             const input = this.inputs.get(param.id);
             if (input) {
-                if (param.type === 'number') {
+                if (param.id === 'cost_per_unit_by_currency') {
+                    values[param.id] = input.value || '0';
+                } else if (param.type === 'number') {
                     values[param.id] = parseFloat(input.value) || 0;
                 } else if (param.type === 'checkbox') {
                     values[param.id] = input.checked;
@@ -521,7 +541,13 @@ export class ImpedanceDialog extends Dialog {
                     console.log(`  Updated rating ${attributeName}: ${oldValue} → ${ratingParam.value}`);
                 }
                 
-                if (!electricalParam && !ratingParam) {
+                const economicParam = (this.economicParameters || []).find(p => p.id === attributeName);
+                if (economicParam) {
+                    economicParam.value = attributeValue;
+                    this.data[attributeName] = attributeValue;
+                }
+                
+                if (!electricalParam && !ratingParam && !economicParam) {
                     console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
             }

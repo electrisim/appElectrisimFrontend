@@ -1,4 +1,5 @@
 import { Dialog } from './Dialog.js';
+import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
 import { rowDefsThreeWindingTransformerLibrary, gridOptionsThreeWindingTransformerLibrary, columnDefsThreeWindingTransformerLibrary } from './threeWindingTransformerLibraryDialog.js';
 import { LibraryDialogManager } from './LibraryDialogManager.js';
 
@@ -341,7 +342,11 @@ export class ThreeWindingTransformerDialog extends Dialog {
                 min: '0'
             }
         ];
-        
+
+        // Economic parameters (for Economic Analysis)
+        this.economicParameters = [
+            { id: 'cost_per_unit_by_currency', label: 'Cost per unit', description: 'Cost per unit for Economic Analysis CAPEX calculation', type: 'text', value: '' }
+        ];
     }
     
     getDescription() {
@@ -421,9 +426,11 @@ export class ThreeWindingTransformerDialog extends Dialog {
         // Create tab content containers
         const loadFlowContent = this.createTabContent('loadflow', this.loadFlowParameters);
         const shortCircuitContent = this.createTabContent('shortcircuit', this.shortCircuitParameters);
+        const economicContent = this.createTabContent('economic', this.economicParameters);
         
         contentArea.appendChild(loadFlowContent);
         contentArea.appendChild(shortCircuitContent);
+        contentArea.appendChild(economicContent);
         container.appendChild(contentArea);
 
         // Add button container
@@ -494,8 +501,9 @@ export class ThreeWindingTransformerDialog extends Dialog {
         this.container = container;
         
         // Tab click handlers
-        loadFlowTab.onclick = () => this.switchTab('loadflow', loadFlowTab, [shortCircuitTab], loadFlowContent, [shortCircuitContent]);
-        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [loadFlowTab], shortCircuitContent, [loadFlowContent]);
+        loadFlowTab.onclick = () => this.switchTab('loadflow', loadFlowTab, [shortCircuitTab, economicTab], loadFlowContent, [shortCircuitContent, economicContent]);
+        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [loadFlowTab, economicTab], shortCircuitContent, [loadFlowContent, economicContent]);
+        economicTab.onclick = () => this.switchTab('economic', economicTab, [loadFlowTab, shortCircuitTab], economicContent, [loadFlowContent, shortCircuitContent]);
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
@@ -539,13 +547,21 @@ export class ThreeWindingTransformerDialog extends Dialog {
     }
     
     createTabContent(tabId, parameters) {
+        if (tabId === 'economic' && parameters && parameters.length > 0 && parameters[0]?.id === 'cost_per_unit_by_currency') {
+            const content = document.createElement('div');
+            content.dataset.tab = tabId;
+            content.style.display = tabId === this.currentTab ? 'block' : 'none';
+            content.appendChild(createEconomicTabContent(buildCostPerUnitByCurrency(this.data), this.inputs, true));
+            return content;
+        }
+
         const content = document.createElement('div');
         content.dataset.tab = tabId;
         Object.assign(content.style, {
             display: tabId === this.currentTab ? 'block' : 'none'
         });
 
-        if (parameters.length === 0) {
+        if (!parameters || parameters.length === 0) {
             const emptyMessage = document.createElement('div');
             Object.assign(emptyMessage.style, {
                 padding: '20px',
@@ -757,10 +773,12 @@ export class ThreeWindingTransformerDialog extends Dialog {
         const values = {};
         
         // Collect all parameter values from all tabs
-        [...this.loadFlowParameters, ...this.shortCircuitParameters].forEach(param => {
+        [...this.loadFlowParameters, ...this.shortCircuitParameters, ...(this.economicParameters || [])].forEach(param => {
             const input = this.inputs.get(param.id);
             if (input) {
-                if (param.type === 'number') {
+                if (param.id === 'cost_per_unit_by_currency') {
+                    values[param.id] = input.value || '0';
+                } else if (param.type === 'number') {
                     // For optional parameters, convert 0 or empty strings to null for backend
                     const optionalParams = ['vk0_hv_percent', 'vk0_mv_percent', 'vk0_lv_percent', 
                                          'vkr0_hv_percent', 'vkr0_mv_percent', 'vkr0_lv_percent'];
@@ -945,6 +963,12 @@ export class ThreeWindingTransformerDialog extends Dialog {
                     } else {
                         shortCircuitParam.value = attributeValue;
                     }
+                }
+                
+                const economicParam = (this.economicParameters || []).find(p => p.id === attributeName);
+                if (economicParam) {
+                    economicParam.value = attributeValue;
+                    this.data[attributeName] = attributeValue;
                 }
             }
         }
