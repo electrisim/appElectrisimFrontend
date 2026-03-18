@@ -57,6 +57,7 @@ export class Dialog {
             padding: '0',
             margin: '0',
             width: '100%',
+            minWidth: 0,
             height: '100%',
             boxSizing: 'border-box',
             display: 'flex',
@@ -83,9 +84,10 @@ export class Dialog {
         const contentArea = document.createElement('div');
         Object.assign(contentArea.style, {
             overflowY: 'auto',
-            overflowX: 'hidden',
+            overflowX: 'auto',
             flex: '1 1 auto',
             minHeight: '0',
+            minWidth: 0,
             scrollbarWidth: 'thin',
             scrollbarColor: '#c1c1c1 #f1f1f1',
             paddingRight: '8px'
@@ -106,21 +108,25 @@ export class Dialog {
             this.parameters.forEach(param => {
                 const formGroup = document.createElement('div');
                 Object.assign(formGroup.style, {
-                    marginBottom: '6px'
+                    marginBottom: '6px',
+                    width: '100%',
+                    minWidth: 0,
+                    boxSizing: 'border-box'
                 });
-
-                const label = document.createElement('label');
-                Object.assign(label.style, {
-                    display: 'block',
-                    marginBottom: '2px',
-                    fontWeight: '600',
-                    fontSize: '13px',
-                    color: '#495057'
-                });
-                label.textContent = param.label;
-                formGroup.appendChild(label);
 
                 let input;
+                if (param.type !== 'section') {
+                    const label = document.createElement('label');
+                    Object.assign(label.style, {
+                        display: 'block',
+                        marginBottom: '2px',
+                        fontWeight: '600',
+                        fontSize: '13px',
+                        color: '#495057'
+                    });
+                    label.textContent = param.label;
+                    formGroup.appendChild(label);
+                }
                 if (param.type === 'radio') {
                     input = this.createRadioGroup(param);
                 } else if (param.type === 'checkbox') {
@@ -154,6 +160,64 @@ export class Dialog {
                     checkboxWrapper.appendChild(input);
                     checkboxWrapper.appendChild(checkboxLabel);
                     input = checkboxWrapper;
+                } else if (param.type === 'section') {
+                    const sectionDiv = document.createElement('div');
+                    Object.assign(sectionDiv.style, {
+                        marginTop: '16px',
+                        marginBottom: '8px',
+                        paddingBottom: '8px',
+                        borderBottom: '1px solid #e9ecef'
+                    });
+                    const titleEl = document.createElement('div');
+                    Object.assign(titleEl.style, {
+                        fontWeight: '600',
+                        fontSize: '14px',
+                        color: '#495057',
+                        marginBottom: '2px'
+                    });
+                    titleEl.textContent = param.label;
+                    sectionDiv.appendChild(titleEl);
+                    if (param.subtitle) {
+                        const subEl = document.createElement('div');
+                        Object.assign(subEl.style, {
+                            fontSize: '12px',
+                            color: '#6c757d',
+                            fontStyle: 'italic'
+                        });
+                        subEl.textContent = param.subtitle;
+                        sectionDiv.appendChild(subEl);
+                    }
+                    formGroup.appendChild(sectionDiv);
+                    formGroup.style.marginBottom = '8px';
+                    input = null;
+                } else if (param.type === 'select') {
+                    input = document.createElement('select');
+                    input.id = param.id;
+                    Object.assign(input.style, {
+                        width: '100%',
+                        minWidth: '120px',
+                        maxWidth: '100%',
+                        padding: '6px 10px',
+                        border: '1px solid #ced4da',
+                        borderRadius: '4px',
+                        fontSize: '13px',
+                        fontFamily: 'inherit',
+                        backgroundColor: '#ffffff',
+                        boxSizing: 'border-box'
+                    });
+                    (param.options || []).forEach(opt => {
+                        const o = document.createElement('option');
+                        const val = typeof opt === 'object' ? opt.value : opt;
+                        const lbl = typeof opt === 'object' ? (opt.label || opt.value) : opt;
+                        o.value = String(val);
+                        o.textContent = lbl;
+                        if (typeof opt === 'object' && opt.default) o.selected = true;
+                        input.appendChild(o);
+                    });
+                    if (!(param.options || []).some(o => typeof o === 'object' && o.default) && (param.options || []).length) {
+                        input.selectedIndex = 0;
+                    }
+                    this.inputs.set(param.id, input);
                 } else {
                     input = document.createElement('input');
                     input.type = param.type;
@@ -161,12 +225,15 @@ export class Dialog {
                     input.value = param.value;
                     Object.assign(input.style, {
                         width: '100%',
+                        minWidth: '120px',
+                        maxWidth: '100%',
                         padding: '6px 10px',
                         border: '1px solid #ced4da',
                         borderRadius: '4px',
                         fontSize: '13px',
                         fontFamily: 'inherit',
-                        backgroundColor: '#ffffff'
+                        backgroundColor: '#ffffff',
+                        boxSizing: 'border-box'
                     });
                     // Use tracked event listeners for automatic cleanup
                     this.addEventListener(input, 'focus', () => {
@@ -181,7 +248,7 @@ export class Dialog {
                     this.inputs.set(param.id, input);
                 }
 
-                formGroup.appendChild(input);
+                if (input != null) formGroup.appendChild(input);
                 form.appendChild(formGroup);
             });
         }
@@ -229,12 +296,17 @@ export class Dialog {
 
         buttonContainer.appendChild(cancelButton);
         buttonContainer.appendChild(applyButton);
-        container.appendChild(buttonContainer);
+
+        // Only add our buttons when using DrawIO's showDialog - showModalFallback adds its own
+        const useDrawIODialog = !this.useModalFallback && this.ui && typeof this.ui.showDialog === 'function';
+        if (useDrawIODialog) {
+            container.appendChild(buttonContainer);
+        }
 
         this.container = container;
 
         // Use DrawIO's dialog system like externalGridDialog does
-        if (this.ui && typeof this.ui.showDialog === 'function') {
+        if (useDrawIODialog) {
             // The true, false parameters tell DrawIO not to create its own buttons
             // Pass onDialogClose so destroy() runs when closed via ESC (ensures cleanupCallback runs)
             this.ui.showDialog(container, 680, 600, true, false, () => {
@@ -258,13 +330,17 @@ export class Dialog {
         
         // Calculate height for each parameter
         this.parameters.forEach(param => {
-            height += 30; // Label
-            if (param.type === 'radio') {
-                height += (param.options.length * 25) + 20; // Radio options + container padding
-            } else if (param.type === 'checkbox') {
-                height += 25; // Checkbox
+            if (param.type === 'section') {
+                height += 50;
             } else {
-                height += 35; // Input field
+                height += 30; // Label
+                if (param.type === 'radio') {
+                    height += (param.options.length * 25) + 20; // Radio options + container padding
+                } else if (param.type === 'checkbox') {
+                    height += 25; // Checkbox
+                } else {
+                    height += 35; // Input field
+                }
             }
             height += 10; // Margin between fields
         });
@@ -275,7 +351,9 @@ export class Dialog {
     getFormValues() {
         if (!this.parameters) return [];
         
-        return this.parameters.map(param => {
+        return this.parameters
+            .filter(param => param.type !== 'section')
+            .map(param => {
             if (param.type === 'radio') {
                 const selectedRadio = param.options.find(option => 
                     this.inputs.get(`${param.id}_${option.value}`).checked
@@ -313,8 +391,9 @@ export class Dialog {
             backgroundColor: 'white',
             borderRadius: '8px',
             boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-            maxWidth: '680px',
-            width: '90%',
+            maxWidth: '720px',
+            width: '95%',
+            minWidth: '320px',
             maxHeight: '80vh',
             display: 'flex',
             flexDirection: 'column'
@@ -336,6 +415,7 @@ export class Dialog {
         Object.assign(contentWrapper.style, {
             padding: '20px',
             flex: '1',
+            minWidth: 0,
             overflow: 'auto'
         });
         contentWrapper.appendChild(content);

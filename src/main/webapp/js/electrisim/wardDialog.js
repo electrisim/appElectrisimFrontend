@@ -1,4 +1,5 @@
 import { Dialog } from './Dialog.js';
+import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
 
 // Default values for ward parameters (based on pandapower documentation)
 export const defaultWardData = {
@@ -7,7 +8,8 @@ export const defaultWardData = {
     qs_mvar: 0.0,
     pz_mw: 0.0,
     qz_mvar: 0.0,
-    in_service: true
+    in_service: true,
+    cost_per_unit_by_currency: "0"
 };
 
 export class WardDialog extends Dialog {
@@ -73,6 +75,11 @@ export class WardDialog extends Dialog {
                 value: this.data.in_service
             }
         ];
+
+        // Economic parameters (for Economic Analysis)
+        this.economicParameters = [
+            { id: 'cost_per_unit_by_currency', label: 'Cost per unit', description: 'Cost per unit for Economic Analysis CAPEX calculation', type: 'text', value: '' }
+        ];
     }
     
     getDescription() {
@@ -132,9 +139,11 @@ export class WardDialog extends Dialog {
         // Create tabs
         const loadTab = this.createTab('PQ Load', 'load', this.currentTab === 'load');
         const impedanceTab = this.createTab('Impedance Load', 'impedance', this.currentTab === 'impedance');
+        const economicTab = this.createTab('Economic', 'economic', this.currentTab === 'economic');
         
         tabContainer.appendChild(loadTab);
         tabContainer.appendChild(impedanceTab);
+        tabContainer.appendChild(economicTab);
         container.appendChild(tabContainer);
 
         // Create content area
@@ -152,9 +161,11 @@ export class WardDialog extends Dialog {
         // Create tab content containers
         const loadContent = this.createTabContent('load', this.loadParameters);
         const impedanceContent = this.createTabContent('impedance', this.impedanceParameters);
+        const economicContent = this.createTabContent('economic', this.economicParameters);
         
         contentArea.appendChild(loadContent);
         contentArea.appendChild(impedanceContent);
+        contentArea.appendChild(economicContent);
         container.appendChild(contentArea);
 
         // Add button container
@@ -201,8 +212,9 @@ export class WardDialog extends Dialog {
         this.container = container;
         
         // Tab click handlers
-        loadTab.onclick = () => this.switchTab('load', loadTab, [impedanceTab], loadContent, [impedanceContent]);
-        impedanceTab.onclick = () => this.switchTab('impedance', impedanceTab, [loadTab], impedanceContent, [loadContent]);
+        loadTab.onclick = () => this.switchTab('load', loadTab, [impedanceTab, economicTab], loadContent, [impedanceContent, economicContent]);
+        impedanceTab.onclick = () => this.switchTab('impedance', impedanceTab, [loadTab, economicTab], impedanceContent, [loadContent, economicContent]);
+        economicTab.onclick = () => this.switchTab('economic', economicTab, [loadTab, impedanceTab], economicContent, [loadContent, impedanceContent]);
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
@@ -248,6 +260,14 @@ export class WardDialog extends Dialog {
     }
     
     createTabContent(tabId, parameters) {
+        if (tabId === 'economic' && parameters.length > 0 && parameters[0]?.id === 'cost_per_unit_by_currency') {
+            const content = document.createElement('div');
+            content.dataset.tab = tabId;
+            content.style.display = tabId === this.currentTab ? 'block' : 'none';
+            content.appendChild(createEconomicTabContent(buildCostPerUnitByCurrency(this.data), this.inputs, true));
+            return content;
+        }
+
         const content = document.createElement('div');
         content.dataset.tab = tabId;
         Object.assign(content.style, {
@@ -529,7 +549,14 @@ export class WardDialog extends Dialog {
                     console.log(`  Updated impedance ${attributeName}: ${oldValue} → ${impedanceParam.value}`);
                 }
                 
-                if (!loadParam && !impedanceParam) {
+                const economicParam = (this.economicParameters || []).find(p => p.id === attributeName);
+                if (economicParam) {
+                    economicParam.value = attributeValue;
+                    this.data[attributeName] = attributeValue;
+                    console.log(`  Updated economic ${attributeName}: → ${attributeValue}`);
+                }
+                
+                if (!loadParam && !impedanceParam && !economicParam) {
                     console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
             }

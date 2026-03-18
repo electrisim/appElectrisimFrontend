@@ -1,3 +1,17 @@
+/**
+ * Get display name for result boxes: prefers dialog name (from cell attributes), then backend name.
+ * @param {mxCell} resultCell - The graph cell (has value.attributes with 'name')
+ * @param {string} backendName - Name from backend (e.g. mxCell_260)
+ * @param {string} defaultName - Fallback (e.g. 'Line', 'Trafo', 'Generator')
+ * @returns {string} Display name for result box
+ */
+export function getDisplayName(resultCell, backendName, defaultName) {
+    const n = resultCell?.value?.attributes?.getNamedItem?.('name')?.nodeValue;
+    if (n && String(n).trim()) return String(n).trim();
+    const bn = backendName ? String(backendName).replace(/_/g, '#') : null;
+    return bn || defaultName || 'Unknown';
+}
+
 // Helper function to get attributes as object
 export const getAttributesAsObject = (cell, attributeMap) => {
     const result = {};
@@ -64,4 +78,5 @@ export const getAttributesAsObject = (cell, attributeMap) => {
 };
 
 // Make it available globally for legacy code
-window.getAttributesAsObject = getAttributesAsObject; 
+window.getAttributesAsObject = getAttributesAsObject;
+window.getDisplayName = getDisplayName; 

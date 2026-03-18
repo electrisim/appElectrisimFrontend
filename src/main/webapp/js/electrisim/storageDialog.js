@@ -1,4 +1,5 @@
 import { Dialog } from './Dialog.js';
+import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
 
 // Default values for storage parameters (based on pandapower and OpenDSS documentation)
 export const defaultStorageData = {
@@ -35,7 +36,8 @@ export const defaultStorageData = {
     discharge_trigger: 0.0,
     charge_trigger: 0.0,
     time_charge_trig: 2.0,
-    spectrum: 'default'
+    spectrum: 'default',
+    cost_per_unit_by_currency: "0"
 };
 
 export class StorageDialog extends Dialog {
@@ -321,6 +323,11 @@ export class StorageDialog extends Dialog {
                 options: ['default', 'defaultgen', 'defaultload', 'pwm6', 'none']
             }
         ];
+
+        // Economic parameters (for Economic Analysis)
+        this.economicParameters = [
+            { id: 'cost_per_unit_by_currency', label: 'Cost per unit', description: 'Cost per unit for Economic Analysis CAPEX calculation', type: 'text', value: '' }
+        ];
     }
     
     getDescription() {
@@ -383,12 +390,14 @@ export class StorageDialog extends Dialog {
         const configTab = this.createTab('Configuration', 'config', this.currentTab === 'config');
         const optimizationTab = this.createTab('Optimization (OPF)', 'optimization', this.currentTab === 'optimization');
         const opendssTab = this.createTab('OpenDSS Parameters', 'opendss', this.currentTab === 'opendss');
+        const economicTab = this.createTab('Economic', 'economic', this.currentTab === 'economic');
         
         tabContainer.appendChild(powerTab);
         tabContainer.appendChild(energyTab);
         tabContainer.appendChild(configTab);
         tabContainer.appendChild(optimizationTab);
         tabContainer.appendChild(opendssTab);
+        tabContainer.appendChild(economicTab);
         container.appendChild(tabContainer);
 
         // Create content area
@@ -409,12 +418,14 @@ export class StorageDialog extends Dialog {
         const configContent = this.createTabContent('config', this.configParameters);
         const optimizationContent = this.createTabContent('optimization', this.optimizationParameters);
         const opendssContent = this.createTabContent('opendss', this.opendssParameters);
+        const economicContent = this.createTabContent('economic', this.economicParameters);
         
         contentArea.appendChild(powerContent);
         contentArea.appendChild(energyContent);
         contentArea.appendChild(configContent);
         contentArea.appendChild(optimizationContent);
         contentArea.appendChild(opendssContent);
+        contentArea.appendChild(economicContent);
         container.appendChild(contentArea);
 
         // Add button container
@@ -461,13 +472,14 @@ export class StorageDialog extends Dialog {
         this.container = container;
         
         // Tab click handlers
-        const allTabs = [powerTab, energyTab, configTab, optimizationTab, opendssTab];
-        const allContents = [powerContent, energyContent, configContent, optimizationContent, opendssContent];
+        const allTabs = [powerTab, energyTab, configTab, optimizationTab, opendssTab, economicTab];
+        const allContents = [powerContent, energyContent, configContent, optimizationContent, opendssContent, economicContent];
         powerTab.onclick = () => this.switchTab('power', powerTab, allTabs.filter(t => t !== powerTab), powerContent, allContents.filter(c => c !== powerContent));
         energyTab.onclick = () => this.switchTab('energy', energyTab, allTabs.filter(t => t !== energyTab), energyContent, allContents.filter(c => c !== energyContent));
         configTab.onclick = () => this.switchTab('config', configTab, allTabs.filter(t => t !== configTab), configContent, allContents.filter(c => c !== configContent));
         optimizationTab.onclick = () => this.switchTab('optimization', optimizationTab, allTabs.filter(t => t !== optimizationTab), optimizationContent, allContents.filter(c => c !== optimizationContent));
         opendssTab.onclick = () => this.switchTab('opendss', opendssTab, allTabs.filter(t => t !== opendssTab), opendssContent, allContents.filter(c => c !== opendssContent));
+        economicTab.onclick = () => this.switchTab('economic', economicTab, allTabs.filter(t => t !== economicTab), economicContent, allContents.filter(c => c !== economicContent));
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
@@ -513,6 +525,14 @@ export class StorageDialog extends Dialog {
     }
     
     createTabContent(tabId, parameters) {
+        if (tabId === 'economic' && parameters && parameters.length > 0 && parameters[0]?.id === 'cost_per_unit_by_currency') {
+            const content = document.createElement('div');
+            content.dataset.tab = tabId;
+            content.style.display = tabId === this.currentTab ? 'block' : 'none';
+            content.appendChild(createEconomicTabContent(buildCostPerUnitByCurrency(this.data), this.inputs, true));
+            return content;
+        }
+
         const content = document.createElement('div');
         content.dataset.tab = tabId;
         Object.assign(content.style, {
@@ -758,10 +778,12 @@ export class StorageDialog extends Dialog {
         const values = {};
         
         // Collect all parameter values from all tabs
-        [...this.powerParameters, ...this.energyParameters, ...this.configParameters, ...this.optimizationParameters, ...this.opendssParameters].forEach(param => {
+        [...this.powerParameters, ...this.energyParameters, ...this.configParameters, ...this.optimizationParameters, ...this.opendssParameters, ...(this.economicParameters || [])].forEach(param => {
             const input = this.inputs.get(param.id);
             if (input) {
-                if (param.type === 'number') {
+                if (param.id === 'cost_per_unit_by_currency') {
+                    values[param.id] = input.value || '0';
+                } else if (param.type === 'number') {
                     values[param.id] = parseFloat(input.value) || 0;
                 } else if (param.type === 'checkbox') {
                     values[param.id] = input.checked;
@@ -865,7 +887,13 @@ export class StorageDialog extends Dialog {
                     console.log(`  Updated OpenDSS ${attributeName}: ${oldValue} → ${opendssParam.value}`);
                 }
                 
-                if (!powerParam && !energyParam && !configParam && !optimizationParam && !opendssParam) {
+                const economicParam = (this.economicParameters || []).find(p => p.id === attributeName);
+                if (economicParam) {
+                    economicParam.value = attributeValue;
+                    this.data[attributeName] = attributeValue;
+                }
+                
+                if (!powerParam && !energyParam && !configParam && !optimizationParam && !opendssParam && !economicParam) {
                     console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
             }

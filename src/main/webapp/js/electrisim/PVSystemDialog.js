@@ -1,4 +1,5 @@
 import { Dialog } from './Dialog.js';
+import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
 
 // Default values for PVSystem parameters (based on OpenDSS documentation)
 export const defaultPVSystemData = {
@@ -64,7 +65,8 @@ export const defaultPVSystemData = {
     pminkvarmax: 0.0,
     pminnovars: 0.0,
     pmpp_percent: 100.0,
-    in_service: true
+    in_service: true,
+    cost_per_unit_by_currency: "0"
 };
 
 export class PVSystemDialog extends Dialog {
@@ -582,6 +584,11 @@ export class PVSystemDialog extends Dialog {
                 category: 'Inverter Following'
             }
         ];
+
+        // Economic parameters (for Economic Analysis)
+        this.economicParameters = [
+            { id: 'cost_per_unit_by_currency', label: 'Cost per unit', description: 'Cost per unit for Economic Analysis CAPEX calculation', type: 'text', value: '' }
+        ];
     }
 
     getDescription() {
@@ -644,12 +651,14 @@ export class PVSystemDialog extends Dialog {
         const shortCircuitTab = this.createTab('Short Circuit', 'shortcircuit', false);
         const harmonicTab = this.createTab('Harmonic', 'harmonic', false);
         const dynamicTab = this.createTab('Dynamic', 'dynamic', false);
+        const economicTab = this.createTab('Economic', 'economic', false);
 
         tabContainer.appendChild(snapshotTab);
         tabContainer.appendChild(timeDependentTab);
         tabContainer.appendChild(shortCircuitTab);
         tabContainer.appendChild(harmonicTab);
         tabContainer.appendChild(dynamicTab);
+        tabContainer.appendChild(economicTab);
         container.appendChild(tabContainer);
 
         // Create content area
@@ -670,19 +679,21 @@ export class PVSystemDialog extends Dialog {
         const shortCircuitContent = this.createTabContentWithSubTabs('shortcircuit', this.shortCircuitParameters);
         const harmonicContent = this.createTabContentWithSubTabs('harmonic', this.harmonicParameters);
         const dynamicContent = this.createTabContentWithSubTabs('dynamic', this.dynamicParameters);
+        const economicContent = this.createTabContent('economic', this.economicParameters);
 
         contentArea.appendChild(snapshotContent);
         contentArea.appendChild(timeDependentContent);
         contentArea.appendChild(shortCircuitContent);
         contentArea.appendChild(harmonicContent);
         contentArea.appendChild(dynamicContent);
+        contentArea.appendChild(economicContent);
         container.appendChild(contentArea);
 
         // Ensure the initial tab content is visible and properly styled
         // Set snapshot content to be visible by default
         snapshotContent.style.display = 'block';
         // Call switchTab to properly style the active tab and hide others
-        this.switchTab('snapshot', snapshotTab, [timeDependentTab, shortCircuitTab, harmonicTab, dynamicTab], snapshotContent, [timeDependentContent, shortCircuitContent, harmonicContent, dynamicContent]);
+        this.switchTab('snapshot', snapshotTab, [timeDependentTab, shortCircuitTab, harmonicTab, dynamicTab, economicTab], snapshotContent, [timeDependentContent, shortCircuitContent, harmonicContent, dynamicContent, economicContent]);
 
         // Add button container
         const buttonContainer = document.createElement('div');
@@ -727,11 +738,12 @@ export class PVSystemDialog extends Dialog {
         this.container = container;
 
         // Tab click handlers
-        snapshotTab.onclick = () => this.switchTab('snapshot', snapshotTab, [timeDependentTab, shortCircuitTab, harmonicTab, dynamicTab], snapshotContent, [timeDependentContent, shortCircuitContent, harmonicContent, dynamicContent]);
-        timeDependentTab.onclick = () => this.switchTab('timedependent', timeDependentTab, [snapshotTab, shortCircuitTab, harmonicTab, dynamicTab], timeDependentContent, [snapshotContent, shortCircuitContent, harmonicContent, dynamicContent]);
-        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [snapshotTab, timeDependentTab, harmonicTab, dynamicTab], shortCircuitContent, [snapshotContent, timeDependentContent, harmonicContent, dynamicContent]);
-        harmonicTab.onclick = () => this.switchTab('harmonic', harmonicTab, [snapshotTab, timeDependentTab, shortCircuitTab, dynamicTab], harmonicContent, [snapshotContent, timeDependentContent, shortCircuitContent, dynamicContent]);
-        dynamicTab.onclick = () => this.switchTab('dynamic', dynamicTab, [snapshotTab, timeDependentTab, shortCircuitTab, harmonicTab], dynamicContent, [snapshotContent, timeDependentContent, shortCircuitContent, harmonicContent]);
+        snapshotTab.onclick = () => this.switchTab('snapshot', snapshotTab, [timeDependentTab, shortCircuitTab, harmonicTab, dynamicTab, economicTab], snapshotContent, [timeDependentContent, shortCircuitContent, harmonicContent, dynamicContent, economicContent]);
+        timeDependentTab.onclick = () => this.switchTab('timedependent', timeDependentTab, [snapshotTab, shortCircuitTab, harmonicTab, dynamicTab, economicTab], timeDependentContent, [snapshotContent, shortCircuitContent, harmonicContent, dynamicContent, economicContent]);
+        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [snapshotTab, timeDependentTab, harmonicTab, dynamicTab, economicTab], shortCircuitContent, [snapshotContent, timeDependentContent, harmonicContent, dynamicContent, economicContent]);
+        harmonicTab.onclick = () => this.switchTab('harmonic', harmonicTab, [snapshotTab, timeDependentTab, shortCircuitTab, dynamicTab, economicTab], harmonicContent, [snapshotContent, timeDependentContent, shortCircuitContent, dynamicContent, economicContent]);
+        dynamicTab.onclick = () => this.switchTab('dynamic', dynamicTab, [snapshotTab, timeDependentTab, shortCircuitTab, harmonicTab, economicTab], dynamicContent, [snapshotContent, timeDependentContent, shortCircuitContent, harmonicContent, economicContent]);
+        economicTab.onclick = () => this.switchTab('economic', economicTab, [snapshotTab, timeDependentTab, shortCircuitTab, harmonicTab, dynamicTab], economicContent, [snapshotContent, timeDependentContent, shortCircuitContent, harmonicContent, dynamicContent]);
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
@@ -777,6 +789,14 @@ export class PVSystemDialog extends Dialog {
     }
 
     createTabContent(tabId, parameters) {
+        if (tabId === 'economic' && parameters && parameters.length > 0 && parameters[0]?.id === 'cost_per_unit_by_currency') {
+            const content = document.createElement('div');
+            content.dataset.tab = tabId;
+            content.style.display = tabId === this.currentTab ? 'block' : 'none';
+            content.appendChild(createEconomicTabContent(buildCostPerUnitByCurrency(this.data), this.inputs, true));
+            return content;
+        }
+
         const content = document.createElement('div');
         content.dataset.tab = tabId;
         Object.assign(content.style, {
@@ -1233,10 +1253,12 @@ export class PVSystemDialog extends Dialog {
         const values = {};
 
         // Collect all parameter values from all tabs
-        [...this.snapshotLoadFlowParameters, ...this.timeDependentParameters, ...this.shortCircuitParameters, ...this.harmonicParameters, ...this.dynamicParameters].forEach(param => {
+        [...this.snapshotLoadFlowParameters, ...this.timeDependentParameters, ...this.shortCircuitParameters, ...this.harmonicParameters, ...this.dynamicParameters, ...(this.economicParameters || [])].forEach(param => {
             const input = this.inputs.get(param.id);
             if (input) {
-                if (param.type === 'number') {
+                if (param.id === 'cost_per_unit_by_currency') {
+                    values[param.id] = input.value || '0';
+                } else if (param.type === 'number') {
                     values[param.id] = parseFloat(input.value) || 0;
                 } else if (param.type === 'checkbox') {
                     values[param.id] = input.checked;
@@ -1268,6 +1290,12 @@ export class PVSystemDialog extends Dialog {
                 const attribute = cellData.attributes[i];
                 const attributeName = attribute.name;
                 const attributeValue = attribute.value;
+
+                if (attributeName === 'cost_per_unit_by_currency') {
+                    this.data[attributeName] = attributeValue;
+                    const ep = this.economicParameters?.find(p => p.id === attributeName);
+                    if (ep) ep.value = attributeValue.toString();
+                }
 
                 // Update the dialog's parameter values (not DOM inputs)
                 const snapshotParam = this.snapshotLoadFlowParameters.find(p => p.id === attributeName);
@@ -1313,6 +1341,11 @@ export class PVSystemDialog extends Dialog {
                     } else {
                         dynamicParam.value = attributeValue;
                     }
+                }
+
+                const economicParam = this.economicParameters?.find(p => p.id === attributeName);
+                if (economicParam) {
+                    economicParam.value = attributeValue;
                 }
             }
         }

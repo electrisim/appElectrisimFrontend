@@ -2608,6 +2608,18 @@ export class EditDataDialog {
             this.cell.value.setAttribute(attributeName, attributeValue);
         }
         
+        // Update the busbar label on the canvas when name changes
+        if ('name' in values) {
+            const graph = this.ui?.editor?.graph;
+            if (graph) {
+                const model = graph.getModel();
+                if (model.getChildCount(this.cell) > 0) {
+                    const labelCell = model.getChildAt(this.cell, 0);
+                    model.setValue(labelCell, values.name);
+                }
+            }
+        }
+        
         console.log('Bus values applied to cell');
     }
     

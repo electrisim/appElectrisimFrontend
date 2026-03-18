@@ -91,10 +91,13 @@ export class ComponentsDataDialog {
         Object.entries(attributeMap).forEach(([key, config]) => {
             const attributeName = typeof config === 'string' ? config : config.name;
             const isOptional = typeof config === 'object' && config.optional;
+            const defaultValue = typeof config === 'object' && config.defaultValue !== undefined ? config.defaultValue : undefined;
             
             const attribute = Array.from(cell.value.attributes).find(attr => attr.name === attributeName);
             if (attribute) {
                 result[key] = attribute.value;
+            } else if (isOptional && defaultValue !== undefined) {
+                result[key] = defaultValue;
             } else if (!isOptional) {
                 result[key] = 'N/A';
             }
@@ -369,7 +372,8 @@ export class ComponentsDataDialog {
                             x0_ohm_per_km: 'x0_ohm_per_km',
                             c0_nf_per_km: 'c0_nf_per_km',
                             endtemp_degree: 'endtemp_degree',
-                            in_service: 'in_service'
+                            in_service: 'in_service',
+                            cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true, defaultValue: '{}' }
                         })
                     });
                     break;
@@ -402,7 +406,8 @@ export class ComponentsDataDialog {
                             vkr0_percent: 'vkr0_percent',
                             mag0_percent: 'mag0_percent',
                             mag0_rx: 'mag0_rx',
-                            si0_hv_partial: 'si0_hv_partial'
+                            si0_hv_partial: 'si0_hv_partial',
+                            cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true, defaultValue: '{}' }
                         })
                     });
                     break;

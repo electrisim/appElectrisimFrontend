@@ -1,4 +1,5 @@
 import { Dialog } from './Dialog.js';
+import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
 
 // Default values for DC line parameters (based on pandapower documentation)
 export const defaultDCLineData = {
@@ -8,7 +9,8 @@ export const defaultDCLineData = {
     loss_mw: 0.0,
     vm_from_pu: 0.0,
     vm_to_pu: 0.0,
-    in_service: true
+    in_service: true,
+    cost_per_unit_by_currency: "0"
 };
 
 export class DCLineDialog extends Dialog {
@@ -90,6 +92,11 @@ export class DCLineDialog extends Dialog {
                 value: this.data.in_service
             }
         ];
+
+        // Economic parameters (for Economic Analysis)
+        this.economicParameters = [
+            { id: 'cost_per_unit_by_currency', label: 'Cost per unit', description: 'Cost per unit for Economic Analysis CAPEX calculation', type: 'text', value: '' }
+        ];
     }
     
     getDescription() {
@@ -150,10 +157,12 @@ export class DCLineDialog extends Dialog {
         const powerTab = this.createTab('Power', 'power', this.currentTab === 'power');
         const lossTab = this.createTab('Losses', 'loss', this.currentTab === 'loss');
         const voltageTab = this.createTab('Voltage', 'voltage', this.currentTab === 'voltage');
+        const economicTab = this.createTab('Economic', 'economic', this.currentTab === 'economic');
         
         tabContainer.appendChild(powerTab);
         tabContainer.appendChild(lossTab);
         tabContainer.appendChild(voltageTab);
+        tabContainer.appendChild(economicTab);
         container.appendChild(tabContainer);
 
         // Create content area
@@ -172,10 +181,12 @@ export class DCLineDialog extends Dialog {
         const powerContent = this.createTabContent('power', this.powerParameters);
         const lossContent = this.createTabContent('loss', this.lossParameters);
         const voltageContent = this.createTabContent('voltage', this.voltageParameters);
+        const economicContent = this.createTabContent('economic', this.economicParameters);
         
         contentArea.appendChild(powerContent);
         contentArea.appendChild(lossContent);
         contentArea.appendChild(voltageContent);
+        contentArea.appendChild(economicContent);
         container.appendChild(contentArea);
 
         // Add button container
@@ -222,9 +233,10 @@ export class DCLineDialog extends Dialog {
         this.container = container;
         
         // Tab click handlers
-        powerTab.onclick = () => this.switchTab('power', powerTab, [lossTab, voltageTab], powerContent, [lossContent, voltageContent]);
-        lossTab.onclick = () => this.switchTab('loss', lossTab, [powerTab, voltageTab], lossContent, [powerContent, voltageContent]);
-        voltageTab.onclick = () => this.switchTab('voltage', voltageTab, [powerTab, lossTab], voltageContent, [powerContent, lossContent]);
+        powerTab.onclick = () => this.switchTab('power', powerTab, [lossTab, voltageTab, economicTab], powerContent, [lossContent, voltageContent, economicContent]);
+        lossTab.onclick = () => this.switchTab('loss', lossTab, [powerTab, voltageTab, economicTab], lossContent, [powerContent, voltageContent, economicContent]);
+        voltageTab.onclick = () => this.switchTab('voltage', voltageTab, [powerTab, lossTab, economicTab], voltageContent, [powerContent, lossContent, economicContent]);
+        economicTab.onclick = () => this.switchTab('economic', economicTab, [powerTab, lossTab, voltageTab], economicContent, [powerContent, lossContent, voltageContent]);
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
@@ -270,6 +282,14 @@ export class DCLineDialog extends Dialog {
     }
     
     createTabContent(tabId, parameters) {
+        if (tabId === 'economic' && parameters && parameters.length > 0 && parameters[0]?.id === 'cost_per_unit_by_currency') {
+            const content = document.createElement('div');
+            content.dataset.tab = tabId;
+            content.style.display = tabId === this.currentTab ? 'block' : 'none';
+            content.appendChild(createEconomicTabContent(buildCostPerUnitByCurrency(this.data), this.inputs, true));
+            return content;
+        }
+
         const content = document.createElement('div');
         content.dataset.tab = tabId;
         Object.assign(content.style, {
@@ -479,10 +499,12 @@ export class DCLineDialog extends Dialog {
         const values = {};
         
         // Collect all parameter values from all tabs
-        [...this.powerParameters, ...this.lossParameters, ...this.voltageParameters].forEach(param => {
+        [...this.powerParameters, ...this.lossParameters, ...this.voltageParameters, ...(this.economicParameters || [])].forEach(param => {
             const input = this.inputs.get(param.id);
             if (input) {
-                if (param.type === 'number') {
+                if (param.id === 'cost_per_unit_by_currency') {
+                    values[param.id] = input.value || '0';
+                } else if (param.type === 'number') {
                     values[param.id] = parseFloat(input.value) || 0;
                 } else if (param.type === 'checkbox') {
                     values[param.id] = input.checked;
@@ -528,6 +550,12 @@ export class DCLineDialog extends Dialog {
                 
                 console.log(`Processing attribute: ${attributeName} = ${attributeValue}`);
                 
+                if (attributeName === 'cost_per_unit_by_currency') {
+                    this.data[attributeName] = attributeValue;
+                    const ep = this.economicParameters?.find(p => p.id === attributeName);
+                    if (ep) ep.value = attributeValue.toString();
+                }
+                
                 // Update the dialog's parameter values (not DOM inputs)
                 const powerParam = this.powerParameters.find(p => p.id === attributeName);
                 if (powerParam) {
@@ -562,7 +590,8 @@ export class DCLineDialog extends Dialog {
                     console.log(`  Updated voltage ${attributeName}: ${oldValue} → ${voltageParam.value}`);
                 }
                 
-                if (!powerParam && !lossParam && !voltageParam) {
+                const economicParam = this.economicParameters?.find(p => p.id === attributeName);
+                if (!powerParam && !lossParam && !voltageParam && !economicParam) {
                     console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
             }

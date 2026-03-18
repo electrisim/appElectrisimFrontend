@@ -30,6 +30,10 @@ export function configureExternalGridAttributes(grafka, vertex, options = {}) {
     g.setAttribute("Harmonic_parameters", "");
     g.setAttribute("spectrum", options.spectrum || "defaultvsource");
 
+    // Economic parameters
+    g.setAttribute("Economic_parameters", "");
+    g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
+
     // Set the new value for the vertex
     grafka.getModel().setValue(vertex, g);
     
@@ -82,6 +86,10 @@ export function configureGeneratorAttributes(grafka, vertex, options = {}) {
     g.setAttribute("Xdpp", options.Xdpp || "0.20");
     g.setAttribute("XRdp", options.XRdp || "20");
 
+    // Economic parameters
+    g.setAttribute("Economic_parameters", "");
+    g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
+
     grafka.getModel().setValue(vertex, g)
 
     grafka.insertVertex(vertex, null, 'Generator', 0.5, 1.1, 0, 0, null, true);
@@ -126,6 +134,10 @@ export function configureStaticGeneratorAttributes(grafka, vertex, options = {})
     g.setAttribute("Xdpp", options.Xdpp || "0.20");
     g.setAttribute("XRdp", options.XRdp || "20");
 
+    // Economic parameters
+    g.setAttribute("Economic_parameters", "");
+    g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
+
     grafka.getModel().setValue(vertex, g)
 
     //podpisz 
@@ -148,6 +160,10 @@ export function configureAsymmetricStaticGeneratorAttributes(grafka, vertex, opt
     g.setAttribute("scaling", defaultScaling(options.scaling));
     g.setAttribute("type", options.type || "Wye");
     // g.setAttribute("in_service", true); //in_service nie działa
+
+    // Economic parameters
+    g.setAttribute("Economic_parameters", "");
+    g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
 
     grafka.getModel().setValue(vertex, g)
 
@@ -174,6 +190,10 @@ export function configureBusAttributes(grafka, vertex, options = {}) {
     /*
     g.setAttribute("max_vm_pu", "0");
     g.setAttribute("min_vm_pu", "0");  */
+
+    // Economic parameters
+    g.setAttribute("Economic_parameters", "");
+    g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
 
     // Set the new value for the vertex
     grafka.getModel().setValue(vertex, g);
@@ -224,6 +244,10 @@ export function configureTransformerAttributes(grafka, vertex, options = {}) {
     // Harmonic analysis parameters (OpenDSS Transformer)
     g.setAttribute("Harmonic_parameters", "");
     g.setAttribute("XRConst", options.XRConst || "No");
+
+    // Economic parameters
+    g.setAttribute("Economic_parameters", "");
+    g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
 
     grafka.getModel().setValue(vertex, g)
 
@@ -284,6 +308,10 @@ export function configureThreeWindingTransformerAttributes(grafka, vertex, optio
     g.setAttribute("tap_changer_type", "Ratio"); // pandapower 3.0+: "Ratio", "Symmetrical", or "Ideal"
     // g.setAttribute("in_service", true); //in_service nie działa
 
+    // Economic parameters
+    g.setAttribute("Economic_parameters", "");
+    g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
+
     //Optimal power flow
     /*
     g.setAttribute("max_loading_percent", "0");
@@ -313,6 +341,10 @@ export function configureShuntReactorAttributes(grafka, vertex, options = {}) {
     g.setAttribute("max_step", options.max_step || "1");
     // g.setAttribute("in_service", "True"); //in_service nie działa
 
+    // Economic parameters
+    g.setAttribute("Economic_parameters", "");
+    g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
+
     grafka.getModel().setValue(vertex, g)
 
     // grafka.insertVertex(umieszczonaCell, null, 'Shunt Reactor', -0.25, 0, 0, 0, null, true);
@@ -334,6 +366,10 @@ export function configureCapacitorAttributes(grafka, vertex, options = {}) {
     g.setAttribute("step", options.step || "1");
     g.setAttribute("max_step", options.max_step || "1");
     // g.setAttribute("in_service", "True"); //in_service nie działa
+
+    // Economic parameters
+    g.setAttribute("Economic_parameters", "");
+    g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
 
     grafka.getModel().setValue(vertex, g)
 
@@ -366,6 +402,10 @@ export function configureLoadAttributes(grafka, vertex, options = {}) {
     g.setAttribute("puXharm", options.puXharm || "0.0");
     g.setAttribute("XRharm", options.XRharm || "6.0");
 
+    // Economic parameters
+    g.setAttribute("Economic_parameters", "");
+    g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
+
     grafka.getModel().setValue(vertex, g)
     
     grafka.insertVertex(vertex, null, 'Load', 0.5, 1.5, 0, 0, null, true);
@@ -392,6 +432,10 @@ export function configureAsymmetricLoadAttributes(grafka, vertex, options = {}) 
     g.setAttribute("type", options.type || "Wye");
     // g.setAttribute("in_service", "True"); //in_service nie działa
 
+    // Economic parameters
+    g.setAttribute("Economic_parameters", "");
+    g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
+
     grafka.getModel().setValue(vertex, g)
 
     grafka.insertVertex(vertex, null, 'A.Load', 0.5, 1.5, 0, 0, null, true);
@@ -408,6 +452,10 @@ export function configureImpedanceAttributes(grafka, vertex, options = {}) {
     g.setAttribute("x_pu", options.x_pu ?? options.xft_pu ?? "0");
     g.setAttribute("sn_mva", options.sn_mva || "0");
 
+    // Economic parameters
+    g.setAttribute("Economic_parameters", "");
+    g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
+
     grafka.getModel().setValue(vertex, g)
 
     grafka.insertVertex(vertex, null, 'Impedance', 0.5, 1.5, 0, 0, null, true);
@@ -423,6 +471,10 @@ export function configureWardAttributes(grafka, vertex, options = {}) {
     g.setAttribute("qs_mvar", options.qs_mvar || "0");
     g.setAttribute("pz_mw", options.pz_mw ||"0");
     g.setAttribute("qz_mvar", options.qz_mvar || "0");
+
+    // Economic parameters
+    g.setAttribute("Economic_parameters", "");
+    g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
 
     grafka.getModel().setValue(vertex, g)
 
@@ -444,6 +496,10 @@ export function configureExtendedWardAttributes(grafka, vertex, options = {}) {
     g.setAttribute("r_ohm", options.r_ohm || "0");
     g.setAttribute("x_ohm", options.x_ohm || "0");
     g.setAttribute("vm_pu", options.vm_pu || "0");
+
+    // Economic parameters
+    g.setAttribute("Economic_parameters", "");
+    g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
 
     //distributed slack power flow
     //g.setAttribute("slack_weight", "0");
@@ -479,6 +535,10 @@ export function configureMotorAttributes(grafka, vertex, options = {}) {
     g.setAttribute("loading_percent", options.loading_percent || "0");
     g.setAttribute("scaling", defaultScaling(options.scaling));
     // g.setAttribute("in_service", "True");  //in_service nie działa                
+
+    // Economic parameters
+    g.setAttribute("Economic_parameters", "");
+    g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
 
     grafka.getModel().setValue(vertex, g)
 
@@ -527,6 +587,10 @@ export function configureStorageAttributes(grafka, vertex, options = {}) {
     g.setAttribute("time_charge_trig", String(options.time_charge_trig ?? 2.0));
     g.setAttribute("spectrum", options.spectrum || "default");
 
+    // Economic parameters
+    g.setAttribute("Economic_parameters", "");
+    g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
+
     grafka.getModel().setValue(vertex, g)
 
     grafka.insertVertex(vertex, null, 'Storage', 0.5, 1.5, 0, 0, null, true);
@@ -547,6 +611,10 @@ export function configureSVCAttributes(grafka, vertex, options = {}) {
     g.setAttribute("controllable", options.controllable || "True");
     g.setAttribute("min_angle_degree", options.min_angle_degree || "90");
     g.setAttribute("max_angle_degree", options.max_angle_degree || "180");
+
+    // Economic parameters
+    g.setAttribute("Economic_parameters", "");
+    g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
 
     grafka.getModel().setValue(vertex, g)
 
@@ -569,6 +637,10 @@ export function configureTCSCAttributes(grafka, vertex, options = {}) {
     g.setAttribute("min_angle_degree", options.min_angle_degree || "90");
     g.setAttribute("max_angle_degree", options.max_angle_degree || "180");
 
+    // Economic parameters
+    g.setAttribute("Economic_parameters", "");
+    g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
+
     grafka.getModel().setValue(vertex, g)
 
     grafka.insertVertex(vertex, null, 'TCSC', 0.5, 1.5, 0, 0, null, true);
@@ -590,6 +662,10 @@ export function configureSSCAttributes(grafka, vertex, options = {}) {
     //OPTIONAL                
     g.setAttribute("controllable", options.controllable || "True");
 
+    // Economic parameters
+    g.setAttribute("Economic_parameters", "");
+    g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
+
     grafka.getModel().setValue(vertex, g)
 
     grafka.insertVertex(vertex, null, 'SSC', 0.5, 1.5, 0, 0, null, true);
@@ -607,6 +683,10 @@ export function configureDCLineAttributes(grafka, vertex, options = {}) {
     g.setAttribute("loss_mw", options.loss_mw || "0");
     g.setAttribute("vm_from_pu", options.vm_from_pu || "0");
     g.setAttribute("vm_to_pu", options.vm_to_pu || "0");
+
+    // Economic parameters
+    g.setAttribute("Economic_parameters", "");
+    g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
 
     //OPTIONAL
     //g.setAttribute("in_service", "True"); //in_service nie działa                               
@@ -657,6 +737,9 @@ export function configureLineAttributes(grafka, vertex, options = {}) {
     g.setAttribute("c0_nf_per_km", options.c0_nf_per_km || "0.1");
     g.setAttribute("endtemp_degree", "0");  
 
+    // Economic parameters
+    g.setAttribute("Economic_parameters", "");
+    g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "0");
 
     grafka.getModel().setValue(vertex, g) 
 }
@@ -667,6 +750,10 @@ export function configureDcBusAttributes(grafka, vertex, options = {}) {
     g.setAttribute("name", options.name || "DC Bus");
     g.setAttribute("Load_flow_parameters", "");
     g.setAttribute("vn_kv", options.vn_kv || "0");
+    
+    // Economic parameters
+    g.setAttribute("Economic_parameters", "");
+    g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
     
     grafka.getModel().setValue(vertex, g);
     grafka.insertVertex(vertex, null, options.name || "DC Bus", 0, -0.5, 0, 0, null, true);
@@ -679,6 +766,10 @@ export function configureLoadDcAttributes(grafka, vertex, options = {}) {
     g.setAttribute("Load_flow_parameters", "");
     g.setAttribute("p_mw", options.p_mw || "0");
     
+    // Economic parameters
+    g.setAttribute("Economic_parameters", "");
+    g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
+    
     grafka.getModel().setValue(vertex, g);
     grafka.insertVertex(vertex, null, 'Load DC', 0.5, 1.5, 0, 0, null, true);
 }
@@ -689,6 +780,10 @@ export function configureSourceDcAttributes(grafka, vertex, options = {}) {
     
     g.setAttribute("Load_flow_parameters", "");
     g.setAttribute("vm_pu", options.vm_pu || "1.0");
+    
+    // Economic parameters
+    g.setAttribute("Economic_parameters", "");
+    g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
     
     grafka.getModel().setValue(vertex, g);
     grafka.insertVertex(vertex, null, 'Source DC', 0.5, -0.25, 0, 0, null, true);
@@ -718,6 +813,10 @@ export function configureSwitchAttributes(grafka, vertex, options = {}) {
     g.setAttribute("z_ohm", options.z_ohm || "0.0");
     g.setAttribute("in_ka", options.in_ka !== undefined ? String(options.in_ka) : "0");
     
+    // Economic parameters
+    g.setAttribute("Economic_parameters", "");
+    g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
+    
     grafka.getModel().setValue(vertex, g);
     updateSwitchCellStyle(grafka, vertex, closed);
 }
@@ -737,6 +836,10 @@ export function configureVscAttributes(grafka, vertex, options = {}) {
     g.setAttribute("control_value_dc", options.control_value_dc || "0.0");  // DC control setpoint
     g.setAttribute("in_service", options.in_service !== undefined ? options.in_service : true);
     
+    // Economic parameters
+    g.setAttribute("Economic_parameters", "");
+    g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
+    
     grafka.getModel().setValue(vertex, g);
     grafka.insertVertex(vertex, null, options.name || 'VSC', 0.5, 1.5, 0, 0, null, true);
 }
@@ -755,6 +858,10 @@ export function configureB2bVscAttributes(grafka, vertex, options = {}) {
     g.setAttribute("control_mode_dc", options.control_mode_dc || "p_mw");   // 'vm_pu' or 'p_mw'
     g.setAttribute("control_value_dc", options.control_value_dc || "0.0");  // DC control setpoint
     g.setAttribute("in_service", options.in_service !== undefined ? options.in_service : true);
+    
+    // Economic parameters
+    g.setAttribute("Economic_parameters", "");
+    g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
     
     grafka.getModel().setValue(vertex, g);
     grafka.insertVertex(vertex, null, options.name || 'B2B VSC', 0.5, 1.5, 0, 0, null, true);

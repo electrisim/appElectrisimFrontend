@@ -1,4 +1,5 @@
 import { Dialog } from './Dialog.js';
+import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
 
 // Default values for asymmetric load parameters (based on pandapower documentation)
 export const defaultAsymmetricLoadData = {
@@ -12,7 +13,8 @@ export const defaultAsymmetricLoadData = {
     sn_mva: 0.0,
     scaling: 1.0,
     type: 'wye',
-    in_service: true
+    in_service: true,
+    cost_per_unit_by_currency: "0"
 };
 
 export class AsymmetricLoadDialog extends Dialog {
@@ -127,6 +129,11 @@ export class AsymmetricLoadDialog extends Dialog {
                 value: this.data.in_service
             }
         ];
+
+        // Economic parameters (for Economic Analysis)
+        this.economicParameters = [
+            { id: 'cost_per_unit_by_currency', label: 'Cost per unit', description: 'Cost per unit for Economic Analysis CAPEX calculation', type: 'text', value: '' }
+        ];
     }
     
     getDescription() {
@@ -187,10 +194,12 @@ export class AsymmetricLoadDialog extends Dialog {
         const powerTab = this.createTab('Active Power', 'power', this.currentTab === 'power');
         const reactiveTab = this.createTab('Reactive Power', 'reactive', this.currentTab === 'reactive');
         const configTab = this.createTab('Configuration', 'config', this.currentTab === 'config');
+        const economicTab = this.createTab('Economic', 'economic', this.currentTab === 'economic');
         
         tabContainer.appendChild(powerTab);
         tabContainer.appendChild(reactiveTab);
         tabContainer.appendChild(configTab);
+        tabContainer.appendChild(economicTab);
         container.appendChild(tabContainer);
 
         // Create content area
@@ -209,10 +218,12 @@ export class AsymmetricLoadDialog extends Dialog {
         const powerContent = this.createTabContent('power', this.powerParameters);
         const reactiveContent = this.createTabContent('reactive', this.reactivePowerParameters);
         const configContent = this.createTabContent('config', this.configParameters);
+        const economicContent = this.createTabContent('economic', this.economicParameters);
         
         contentArea.appendChild(powerContent);
         contentArea.appendChild(reactiveContent);
         contentArea.appendChild(configContent);
+        contentArea.appendChild(economicContent);
         container.appendChild(contentArea);
 
         // Add button container
@@ -259,9 +270,10 @@ export class AsymmetricLoadDialog extends Dialog {
         this.container = container;
         
         // Tab click handlers
-        powerTab.onclick = () => this.switchTab('power', powerTab, [reactiveTab, configTab], powerContent, [reactiveContent, configContent]);
-        reactiveTab.onclick = () => this.switchTab('reactive', reactiveTab, [powerTab, configTab], reactiveContent, [powerContent, configContent]);
-        configTab.onclick = () => this.switchTab('config', configTab, [powerTab, reactiveTab], configContent, [powerContent, reactiveContent]);
+        powerTab.onclick = () => this.switchTab('power', powerTab, [reactiveTab, configTab, economicTab], powerContent, [reactiveContent, configContent, economicContent]);
+        reactiveTab.onclick = () => this.switchTab('reactive', reactiveTab, [powerTab, configTab, economicTab], reactiveContent, [powerContent, configContent, economicContent]);
+        configTab.onclick = () => this.switchTab('config', configTab, [powerTab, reactiveTab, economicTab], configContent, [powerContent, reactiveContent, economicContent]);
+        economicTab.onclick = () => this.switchTab('economic', economicTab, [powerTab, reactiveTab, configTab], economicContent, [powerContent, reactiveContent, configContent]);
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
@@ -307,6 +319,14 @@ export class AsymmetricLoadDialog extends Dialog {
     }
     
     createTabContent(tabId, parameters) {
+        if (tabId === 'economic' && parameters.length > 0 && parameters[0]?.id === 'cost_per_unit_by_currency') {
+            const content = document.createElement('div');
+            content.dataset.tab = tabId;
+            content.style.display = tabId === this.currentTab ? 'block' : 'none';
+            content.appendChild(createEconomicTabContent(buildCostPerUnitByCurrency(this.data), this.inputs, true));
+            return content;
+        }
+
         const content = document.createElement('div');
         content.dataset.tab = tabId;
         Object.assign(content.style, {
@@ -540,10 +560,12 @@ export class AsymmetricLoadDialog extends Dialog {
         const values = {};
         
         // Collect all parameter values from all tabs
-        [...this.powerParameters, ...this.reactivePowerParameters, ...this.configParameters].forEach(param => {
+        [...this.powerParameters, ...this.reactivePowerParameters, ...this.configParameters, ...(this.economicParameters || [])].forEach(param => {
             const input = this.inputs.get(param.id);
             if (input) {
-                if (param.type === 'number') {
+                if (param.id === 'cost_per_unit_by_currency') {
+                    values[param.id] = input.value || '0';
+                } else if (param.type === 'number') {
                     values[param.id] = parseFloat(input.value) || 0;
                 } else if (param.type === 'checkbox') {
                     values[param.id] = input.checked;
@@ -619,7 +641,14 @@ export class AsymmetricLoadDialog extends Dialog {
                     console.log(`  Updated config ${attributeName}: ${oldValue} → ${configParam.value}`);
                 }
                 
-                if (!powerParam && !reactiveParam && !configParam) {
+                const economicParam = (this.economicParameters || []).find(p => p.id === attributeName);
+                if (economicParam) {
+                    economicParam.value = attributeValue;
+                    this.data[attributeName] = attributeValue;
+                    console.log(`  Updated economic ${attributeName}: → ${attributeValue}`);
+                }
+                
+                if (!powerParam && !reactiveParam && !configParam && !economicParam) {
                     console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
             }
