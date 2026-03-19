@@ -406,9 +406,11 @@ export class ThreeWindingTransformerDialog extends Dialog {
         // Create tabs
         const loadFlowTab = this.createTab('Load Flow', 'loadflow', this.currentTab === 'loadflow');
         const shortCircuitTab = this.createTab('Short Circuit', 'shortcircuit', this.currentTab === 'shortcircuit');
+        const economicTab = this.createTab('Economic', 'economic', this.currentTab === 'economic');
         
         tabContainer.appendChild(loadFlowTab);
         tabContainer.appendChild(shortCircuitTab);
+        tabContainer.appendChild(economicTab);
         container.appendChild(tabContainer);
 
         // Create content area

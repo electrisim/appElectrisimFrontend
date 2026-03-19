@@ -131,9 +131,11 @@ export class ImpedanceDialog extends Dialog {
         // Create tabs
         const electricalTab = this.createTab('Electrical', 'electrical', this.currentTab === 'electrical');
         const ratingTab = this.createTab('Rating', 'rating', this.currentTab === 'rating');
+        const economicTab = this.createTab('Economic', 'economic', this.currentTab === 'economic');
         
         tabContainer.appendChild(electricalTab);
         tabContainer.appendChild(ratingTab);
+        tabContainer.appendChild(economicTab);
         container.appendChild(tabContainer);
 
         // Create content area
