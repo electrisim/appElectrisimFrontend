@@ -204,10 +204,39 @@ function findResultPlaceholder(graph, parentCell) {
     return null;
 }
 
+/**
+ * Find result placeholder for a component with multiple edges (e.g. Transformer, Three Winding Transformer).
+ * Searches by placeholderId first (most reliable), then iterates all edges.
+ * @param {mxGraph} graph - The mxGraph instance
+ * @param {mxCell} componentCell - The component cell (transformer, external grid, etc.)
+ * @returns {mxCell|null} The placeholder cell or null
+ */
+function findResultPlaceholderForComponent(graph, componentCell) {
+    if (!graph || !componentCell || !graph.getModel) return null;
+    var model = graph.getModel();
+    var placeholderId = null;
+    if (componentCell.value && componentCell.value.attributes) {
+        var attr = componentCell.value.attributes.getNamedItem('placeholderId');
+        if (attr) placeholderId = attr.nodeValue;
+    }
+    if (!placeholderId && componentCell.placeholderId) placeholderId = componentCell.placeholderId;
+    if (placeholderId) {
+        var ph = model.getCell(placeholderId);
+        if (ph && isResultPlaceholderStyle(model.getStyle(ph))) return ph;
+    }
+    var edges = (graph.getEdges && graph.getEdges(componentCell)) || componentCell.edges || [];
+    for (var i = 0; i < edges.length; i++) {
+        var found = findResultPlaceholder(graph, edges[i]);
+        if (found) return found;
+    }
+    return null;
+}
+
 if (typeof window !== 'undefined') {
     window.RESULT_BOX_STYLE = RESULT_BOX_STYLE;
     window.insertResultBox = insertResultBox;
     window.findResultPlaceholder = findResultPlaceholder;
+    window.findResultPlaceholderForComponent = findResultPlaceholderForComponent;
 }
 
 //=============================================================================
