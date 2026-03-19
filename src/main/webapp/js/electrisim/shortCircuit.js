@@ -205,20 +205,94 @@ window.shortCircuitPandaPower = function(a, b, c) {
             });
         },
         trafos_sc: (data, b, grafka, cellIdMap) => {
+            const findCompFn = typeof window !== 'undefined' && window.findResultPlaceholderForComponent;
             const findFn = typeof window !== 'undefined' && window.findResultPlaceholder;
             const insertFn = typeof window !== 'undefined' && window.insertResultBox;
             const fallbackStyle = (typeof window !== 'undefined' && window.RESULT_BOX_STYLE) || 'shapeELXXX=Result;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;overflow=hidden;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3';
             data.forEach(cell => {
                 const resultCell = resolveCell(cell, b, cellIdMap);
-                if (!resultCell) return;
+                if (!resultCell) {
+                    console.warn('Short circuit: could not find transformer cell for id=', cell.id, 'name=', cell.name);
+                    return;
+                }
                 const trafoName = getDisplayName(resultCell, cell.name, 'Trafo');
                 const resultString = `${trafoName}
                 ikss_hv[kA]: ${formatNumber(cell.ikss_hv_ka)}
                 ikss_lv[kA]: ${formatNumber(cell.ikss_lv_ka)}`;
-                // Use same parent as loadFlow (edge || transformer) so we update the existing result box
-                const edge = (b.getEdges && b.getEdges(resultCell))?.[0];
-                const parent = edge || resultCell;
-                const existing = findFn ? findFn(b, parent) : null;
+                let existing = findCompFn ? findCompFn(b, resultCell) : null;
+                if (!existing) {
+                    const edges = (b.getEdges && b.getEdges(resultCell)) || resultCell.edges || [];
+                    const parent = edges[0] || resultCell;
+                    existing = findFn ? findFn(b, parent) : null;
+                }
+                const parent = existing ? b.getModel().getParent(existing) : ((b.getEdges && b.getEdges(resultCell))?.[0] || resultCell);
+                if (existing) {
+                    b.getModel().setValue(existing, resultString);
+                } else {
+                    const labelka = insertFn
+                        ? insertFn(b, parent, resultString, { width: 95, height: 58, positionX: -0.3 })
+                        : b.insertVertex(parent, null, resultString, -0.15, 1.1, 95, 58, fallbackStyle, true);
+                }
+            });
+        },
+        trafos3w_sc: (data, b, grafka, cellIdMap) => {
+            const findCompFn = typeof window !== 'undefined' && window.findResultPlaceholderForComponent;
+            const findFn = typeof window !== 'undefined' && window.findResultPlaceholder;
+            const insertFn = typeof window !== 'undefined' && window.insertResultBox;
+            const fallbackStyle = (typeof window !== 'undefined' && window.RESULT_BOX_STYLE) || 'shapeELXXX=Result;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;overflow=hidden;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3';
+            data.forEach(cell => {
+                const resultCell = resolveCell(cell, b, cellIdMap);
+                if (!resultCell) {
+                    console.warn('Short circuit: could not find 3w-transformer cell for id=', cell.id, 'name=', cell.name);
+                    return;
+                }
+                const trafoName = getDisplayName(resultCell, cell.name, 'Trafo3w');
+                const resultString = `${trafoName}
+                ikss_hv[kA]: ${formatNumber(cell.ikss_hv_ka ?? cell.ikss_hv)}
+                ikss_mv[kA]: ${formatNumber(cell.ikss_mv_ka ?? cell.ikss_mv)}
+                ikss_lv[kA]: ${formatNumber(cell.ikss_lv_ka ?? cell.ikss_lv)}`;
+                let existing = findCompFn ? findCompFn(b, resultCell) : null;
+                if (!existing) {
+                    const edges = (b.getEdges && b.getEdges(resultCell)) || resultCell.edges || [];
+                    const parent = edges[0] || resultCell;
+                    existing = findFn ? findFn(b, parent) : null;
+                }
+                const parent = existing ? b.getModel().getParent(existing) : ((b.getEdges && b.getEdges(resultCell))?.[0] || resultCell);
+                if (existing) {
+                    b.getModel().setValue(existing, resultString);
+                } else {
+                    const labelka = insertFn
+                        ? insertFn(b, parent, resultString, { width: 95, height: 70, positionX: -0.3 })
+                        : b.insertVertex(parent, null, resultString, -0.15, 1.1, 95, 70, fallbackStyle, true);
+                }
+            });
+        },
+        ext_grid_sc: (data, b, grafka, cellIdMap) => {
+            const findCompFn = typeof window !== 'undefined' && window.findResultPlaceholderForComponent;
+            const findFn = typeof window !== 'undefined' && window.findResultPlaceholder;
+            const insertFn = typeof window !== 'undefined' && window.insertResultBox;
+            const fallbackStyle = (typeof window !== 'undefined' && window.RESULT_BOX_STYLE) || 'shapeELXXX=Result;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;overflow=hidden;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3';
+            data.forEach(cell => {
+                const resultCell = resolveCell(cell, b, cellIdMap);
+                if (!resultCell) {
+                    console.warn('Short circuit: could not find external grid cell for id=', cell.id, 'name=', cell.name);
+                    return;
+                }
+                cell.name = replaceUnderscores(cell.name);
+                const extLabel = getDisplayName(resultCell, cell.name, 'External Grid');
+                const resultString = `${extLabel}
+                ikss[kA]: ${formatNumber(cell.ikss_ka)}
+                ip[kA]: ${formatNumber(cell.ip_ka)}
+                ith[kA]: ${formatNumber(cell.ith_ka)}
+                rk[ohm]: ${formatNumber(cell.rk_ohm)}
+                xk[ohm]: ${formatNumber(cell.xk_ohm)}`;
+                let existing = findCompFn ? findCompFn(b, resultCell) : null;
+                if (!existing) {
+                    const edges = (b.getEdges && b.getEdges(resultCell)) || resultCell.edges || [];
+                    const parent = edges[0] || resultCell;
+                    existing = findFn ? findFn(b, parent) : null;
+                }
+                const parent = existing ? b.getModel().getParent(existing) : ((b.getEdges && b.getEdges(resultCell))?.[0] || resultCell);
                 if (existing) {
                     b.getModel().setValue(existing, resultString);
                 } else {

@@ -7,6 +7,7 @@
 import { DIALOG_STYLES } from './utils/dialogStyles.js';
 import { LoadFlowDialog } from './dialogs/LoadFlowDialog.js';
 import { getDisplayName } from './utils/attributeUtils.js';
+import { getThreeWindingConnections } from './utils/gridUtils.js';
 import ENV from './config/environment.js';
 
 // Helper function to format bus IDs consistently (replace # with _)
@@ -144,6 +145,27 @@ const downloadOpenDSSResults = (dataJson) => {
                     trafo.i_lv_ka ? trafo.i_lv_ka.toFixed(3) : 'N/A',
                     trafo.loading_percent ? trafo.loading_percent.toFixed(1) : 'N/A',
                     trafo.pl_mw !== undefined ? trafo.pl_mw.toFixed(3) : 'N/A'
+                ];
+                resultsText += createOpenDSSTableRow(row, widths) + '\n';
+            });
+            resultsText += '\n';
+        }
+
+        // 3-Winding Transformers
+        if (dataJson.transformers3w && dataJson.transformers3w.length > 0) {
+            resultsText += '--- 3-WINDING TRANSFORMERS ---\n';
+            const widths = [20, 12, 12, 12, 12, 12];
+            const headers = ['Name', 'I_HV [kA]', 'I_MV [kA]', 'I_LV [kA]', 'Loading [%]', 'P_HV [MW]'];
+            resultsText += createOpenDSSTableRow(headers, widths) + '\n';
+            resultsText += createOpenDSSTableSeparator(widths) + '\n';
+            dataJson.transformers3w.forEach(trafo => {
+                const row = [
+                    trafo.name || 'N/A',
+                    trafo.i_hv_ka != null ? trafo.i_hv_ka.toFixed(3) : 'N/A',
+                    trafo.i_mv_ka != null ? trafo.i_mv_ka.toFixed(3) : 'N/A',
+                    trafo.i_lv_ka != null ? trafo.i_lv_ka.toFixed(3) : 'N/A',
+                    trafo.loading_percent != null ? trafo.loading_percent.toFixed(1) : 'N/A',
+                    trafo.p_hv_mw != null ? trafo.p_hv_mw.toFixed(3) : 'N/A'
                 ];
                 resultsText += createOpenDSSTableRow(row, widths) + '\n';
             });
@@ -298,34 +320,32 @@ const getConnectedBusId = (cell, isLine = false) => {
     return formatBusId(bus);
 };
 
-// Add helper function for transformer bus connections (same as loadFlow.js)
-// Fixed to ensure HV bus is always busFrom and LV bus is always busTo
-const getTransformerConnections = (cell, graph) => {
-    // Helper function to get bus voltage from a bus cell
-    const getBusVoltageLevel = (busId, graph) => {
-        if (!busId || !graph) return 0;
-        
-        const cells = graph.getModel().cells;
-        for (const cellId in cells) {
-            const busCell = cells[cellId];
-            if (busCell && busCell.mxObjectId === busId.replace('_', '#')) {
-                const style = busCell.getStyle ? busCell.getStyle() : '';
-                if (style && style.includes('shapeELXXX=Bus')) {
-                    // Get voltage from attributes
-                    if (busCell.value && busCell.value.attributes) {
-                        for (let i = 0; i < busCell.value.attributes.length; i++) {
-                            const attr = busCell.value.attributes[i];
-                            if (attr.nodeName === 'vn_kv') {
-                                return parseFloat(attr.nodeValue) || 0;
-                            }
+// Helper to get bus voltage from a bus cell (used by transformer connections)
+const getBusVoltageLevel = (busId, graph) => {
+    if (!busId || !graph) return 0;
+    const cells = graph.getModel().cells;
+    for (const cellId in cells) {
+        const busCell = cells[cellId];
+        if (busCell && (busCell.mxObjectId === busId.replace('_', '#') || busCell.mxObjectId === busId)) {
+            const style = busCell.getStyle ? busCell.getStyle() : '';
+            if (style && style.includes('shapeELXXX=Bus')) {
+                if (busCell.value && busCell.value.attributes) {
+                    for (let i = 0; i < busCell.value.attributes.length; i++) {
+                        const attr = busCell.value.attributes[i];
+                        if (attr.nodeName === 'vn_kv') {
+                            return parseFloat(attr.nodeValue) || 0;
                         }
                     }
                 }
             }
         }
-        return 0;
-    };
-    
+    }
+    return 0;
+};
+
+// Add helper function for transformer bus connections (same as loadFlow.js)
+// Fixed to ensure HV bus is always busFrom and LV bus is always busTo
+const getTransformerConnections = (cell, graph) => {
     if (cell.edges && cell.edges.length >= 2) {
         const edge1 = cell.edges[0];
         const edge2 = cell.edges[1];
@@ -797,12 +817,17 @@ U[deg]: ${cell.va_degree ? cell.va_degree.toFixed(3) : 'N/A'}`;
         Losses[MW]: ${cell.pl_mw !== undefined ? cell.pl_mw.toFixed(3) : 'N/A'}
         loading[%]: ${cell.loading_percent ? cell.loading_percent.toFixed(1) : 'N/A'}`;
 
-                const edge = (b.getEdges && b.getEdges(resultCell)) ? b.getEdges(resultCell)[0] : null;
-                const parent = edge || resultCell;
+                const findCompFn = typeof window !== 'undefined' && window.findResultPlaceholderForComponent;
                 const findFn = typeof window !== 'undefined' && window.findResultPlaceholder;
                 const insertFn = typeof window !== 'undefined' && window.insertResultBox;
                 const fallbackStyle = (typeof window !== 'undefined' && window.RESULT_BOX_STYLE) || 'shapeELXXX=Result';
-                const existing = findFn ? findFn(b, parent) : null;
+                let existing = findCompFn ? findCompFn(b, resultCell) : null;
+                if (!existing) {
+                    const edge = (b.getEdges && b.getEdges(resultCell)) ? b.getEdges(resultCell)[0] : null;
+                    const parent = edge || resultCell;
+                    existing = findFn ? findFn(b, parent) : null;
+                }
+                const parent = existing ? b.getModel().getParent(existing) : ((b.getEdges && b.getEdges(resultCell)) ? b.getEdges(resultCell)[0] : null) || resultCell;
                 if (existing) {
                     b.getModel().setValue(existing, resultString);
                 } else {
@@ -811,6 +836,47 @@ U[deg]: ${cell.va_degree ? cell.va_degree.toFixed(3) : 'N/A'}`;
                 processLoadingColor(grafka, resultCell, cell.loading_percent);
             } catch (error) {
                 console.error(`Error processing transformer ${cell.id}:`, error);
+            }
+        });
+    },
+
+    transformers3w: (data, b, grafka, cellIdMap) => {
+        if (!Array.isArray(data)) {
+            console.warn('transformers3w data is not an array:', data);
+            return;
+        }
+        data.forEach(cell => {
+            try {
+                const resultCell = cellIdMap ? cellIdMap.get(cell.id) : null;
+                if (!resultCell) {
+                    console.warn(`Could not find cell with mxObjectId: ${cell.id}`);
+                    return;
+                }
+                const cellName = getDisplayName(resultCell, cell.name, 'Trafo3W');
+                const resultString = `${cellName}
+        i_HV[kA]: ${cell.i_hv_ka != null ? cell.i_hv_ka.toFixed(3) : 'N/A'}
+        i_MV[kA]: ${cell.i_mv_ka != null ? cell.i_mv_ka.toFixed(3) : 'N/A'}
+        i_LV[kA]: ${cell.i_lv_ka != null ? cell.i_lv_ka.toFixed(3) : 'N/A'}
+        Loading[%]: ${cell.loading_percent != null ? cell.loading_percent.toFixed(1) : 'N/A'}`;
+                const findCompFn = typeof window !== 'undefined' && window.findResultPlaceholderForComponent;
+                const findFn = typeof window !== 'undefined' && window.findResultPlaceholder;
+                const insertFn = typeof window !== 'undefined' && window.insertResultBox;
+                const fallbackStyle = (typeof window !== 'undefined' && window.RESULT_BOX_STYLE) || 'shapeELXXX=Result';
+                let existing = findCompFn ? findCompFn(b, resultCell) : null;
+                if (!existing) {
+                    const edge = (b.getEdges && b.getEdges(resultCell)) ? b.getEdges(resultCell)[0] : null;
+                    const parent = edge || resultCell;
+                    existing = findFn ? findFn(b, parent) : null;
+                }
+                const parent = existing ? b.getModel().getParent(existing) : ((b.getEdges && b.getEdges(resultCell)) ? b.getEdges(resultCell)[0] : null) || resultCell;
+                if (existing) {
+                    b.getModel().setValue(existing, resultString);
+                } else {
+                    insertFn ? insertFn(b, parent, resultString, { width: 95, height: 70, positionX: -0.3 }) : b.insertVertex(parent, null, resultString, -0.15, 1.1, 95, 70, fallbackStyle, true);
+                }
+                processLoadingColor(grafka, resultCell, cell.loading_percent);
+            } catch (error) {
+                console.error(`Error processing 3-winding transformer ${cell.id}:`, error);
             }
         });
     },
@@ -1150,6 +1216,13 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
                 console.log(`Processing ${dataJson.transformers.length} transformers`);
                 elementProcessors.transformers(dataJson.transformers, b, grafka, cellIdMap);
                 processedCount += dataJson.transformers.length;
+            }
+
+            // Process 3-winding transformers if present
+            if (dataJson.transformers3w && Array.isArray(dataJson.transformers3w)) {
+                console.log(`Processing ${dataJson.transformers3w.length} 3-winding transformers`);
+                elementProcessors.transformers3w(dataJson.transformers3w, b, grafka, cellIdMap);
+                processedCount += dataJson.transformers3w.length;
             }
             
             // Process external grids if present
@@ -2181,15 +2254,31 @@ function collectNetworkDataStructured(graph) {
                         console.warn(`External Grid ${cellData.name} missing bus connection`);
                     }
                 } else if (styleObj && styleObj.shapeELXXX === 'Three Winding Transformer') {
-                    // This is a three winding transformer element
-                    const connections = getTransformerConnections(cell, graph);
+                    // Get 3 bus connections and sort by voltage (HV=highest, MV=middle, LV=lowest) for correct backend mapping
+                    let hv_bus, mv_bus, lv_bus;
+                    try {
+                        const connections = getThreeWindingConnections(cell);
+                        const busList = [
+                            { name: connections.hv_bus, v: getBusVoltageLevel(connections.hv_bus, graph) },
+                            { name: connections.mv_bus, v: getBusVoltageLevel(connections.mv_bus, graph) },
+                            { name: connections.lv_bus, v: getBusVoltageLevel(connections.lv_bus, graph) }
+                        ];
+                        busList.sort((a, b) => (b.v || 0) - (a.v || 0));
+                        hv_bus = busList[0]?.name;
+                        mv_bus = busList[1]?.name;
+                        lv_bus = busList[2]?.name;
+                    } catch (e) {
+                        console.warn(`Three Winding Transformer ${cell.mxObjectId || cellId}: ${e.message}`);
+                        hv_bus = mv_bus = lv_bus = null;
+                    }
                     
                     cellData = {
                         typ: 'Three Winding Transformer',
                         name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
                         id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
-                        busFrom: connections?.busFrom,
-                        busTo: connections?.busTo,
+                        hv_bus,
+                        mv_bus,
+                        lv_bus,
                         // Add three winding transformer parameters
                         ...getAttributesAsObject(cell, {
                             sn_hv_mva: 'sn_hv_mva',
@@ -2206,7 +2295,7 @@ function collectNetworkDataStructured(graph) {
                             vkr_lv_percent: 'vkr_lv_percent',
                             pfe_kw: 'pfe_kw',
                             i0_percent: 'i0_percent',
-                            shift_hv_degree: 'shift_hv_degree',
+                            vector_group: 'vector_group',
                             shift_mv_degree: 'shift_mv_degree',
                             shift_lv_degree: 'shift_lv_degree',
                             in_service: { name: 'in_service', optional: true }
@@ -2214,10 +2303,10 @@ function collectNetworkDataStructured(graph) {
                     };
                     
                     // Validate bus connections
-                    if (cellData.busFrom && cellData.busTo) {
-                        console.log(`Three Winding Transformer ${cellData.name}: busFrom=${cellData.busFrom}, busTo=${cellData.busTo}`);
+                    if (cellData.hv_bus && cellData.mv_bus && cellData.lv_bus) {
+                        console.log(`Three Winding Transformer ${cellData.name}: hv_bus=${cellData.hv_bus}, mv_bus=${cellData.mv_bus}, lv_bus=${cellData.lv_bus}`);
                     } else {
-                        console.warn(`Three Winding Transformer ${cellData.name} missing bus connections: busFrom=${cellData.busFrom}, busTo=${cellData.busTo}`);
+                        console.warn(`Three Winding Transformer ${cellData.name} missing bus connections: hv_bus=${cellData.hv_bus}, mv_bus=${cellData.mv_bus}, lv_bus=${cellData.lv_bus}`);
                     }
                 } else if (styleObj && styleObj.shapeELXXX === 'Impedance') {
                     // This is an impedance element

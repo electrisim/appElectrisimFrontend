@@ -1300,9 +1300,14 @@ Q/P: ${formatNumber(cell.q_p)}`,
             loading[%]: ${formatNumber(cell.loading_percent)}
             `;
 
-                const edge = (b.getEdges && b.getEdges(resultCell))?.[0];
-                const parent = edge || resultCell;
-                const existing = findResultPlaceholder(parent);
+                const findCompFn = typeof window !== 'undefined' && window.findResultPlaceholderForComponent;
+                let existing = findCompFn ? findCompFn(b, resultCell) : null;
+                if (!existing) {
+                    const edge = (b.getEdges && b.getEdges(resultCell))?.[0];
+                    const parent = edge || resultCell;
+                    existing = findResultPlaceholder(parent);
+                }
+                const parent = existing ? b.getModel().getParent(existing) : ((b.getEdges && b.getEdges(resultCell))?.[0] || resultCell);
                 if (existing) {
                     b.getModel().setValue(existing, resultString);
                     processCellStyles(b, existing);
@@ -1326,9 +1331,14 @@ Q/P: ${formatNumber(cell.q_p)}`,
             i_LV[kA]: ${formatNumber(cell.i_lv_ka)}
             loading[%]: ${formatNumber(cell.loading_percent)}`;
 
-                const edge = (b.getEdges && b.getEdges(resultCell))?.[0];
-                const parent = edge || resultCell;
-                const existing = findResultPlaceholder(parent);
+                const findCompFn = typeof window !== 'undefined' && window.findResultPlaceholderForComponent;
+                let existing = findCompFn ? findCompFn(b, resultCell) : null;
+                if (!existing) {
+                    const edge = (b.getEdges && b.getEdges(resultCell))?.[0];
+                    const parent = edge || resultCell;
+                    existing = findResultPlaceholder(parent);
+                }
+                const parent = existing ? b.getModel().getParent(existing) : ((b.getEdges && b.getEdges(resultCell))?.[0] || resultCell);
                 if (existing) {
                     b.getModel().setValue(existing, resultString);
                     processCellStyles(b, existing);
