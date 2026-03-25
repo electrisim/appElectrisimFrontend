@@ -6,6 +6,7 @@
 // Import helper functions from loadFlow.js
 import { DIALOG_STYLES } from './utils/dialogStyles.js';
 import { LoadFlowDialog } from './dialogs/LoadFlowDialog.js';
+import { HarmonicAnalysisDialog } from './dialogs/HarmonicAnalysisDialog.js';
 import { formatResultNameHeader, createDialogNameResolver } from './utils/attributeUtils.js';
 import { getThreeWindingConnections } from './utils/gridUtils.js';
 import ENV from './config/environment.js';
@@ -1516,6 +1517,73 @@ function executeOpenDSSLoadFlow(parameters, app, graph) {
     const exportCommands = opendssParams[7] || false;
     console.log('🌐 Using backend URL:', ENV.backendUrl);
     processNetworkData(ENV.backendUrl + "/", completeData, graph, graph, app, exportCommands);
+}
+
+/**
+ * OpenDSS harmonic analysis: same API envelope as power flow, with analysisType 'harmonic'
+ * (see app.py PowerFlowOpenDss branch).
+ */
+function executeOpenDSSHarmonicAnalysis(parameters, app, graph) {
+    app.spinner.spin(document.body, 'Waiting for OpenDSS harmonic analysis...');
+
+    function getUserEmail() {
+        try {
+            const userStr = localStorage.getItem('user');
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                if (user && user.email) {
+                    return user.email;
+                }
+            }
+            return 'unknown@user.com';
+        } catch (error) {
+            return 'unknown@user.com';
+        }
+    }
+
+    const userEmail = getUserEmail();
+    const opendssData = {
+        typ: 'PowerFlowOpenDss Parameters',
+        frequency: parameters.frequency || '50',
+        mode: parameters.mode || 'Snapshot',
+        algorithm: parameters.algorithm || 'Normal',
+        loadmodel: parameters.loadmodel || 'Powerflow',
+        maxIterations: parameters.maxIterations || '100',
+        tolerance: parameters.tolerance || '0.0001',
+        controlmode: parameters.controlmode || 'Static',
+        exportCommands: parameters.exportCommands || false,
+        exportOpenDSSResults: parameters.exportOpenDSSResults || false,
+        analysisType: 'harmonic',
+        harmonics: parameters.harmonics || '3,5,7,11,13',
+        neglectLoadY: !!parameters.neglectLoadY,
+        user_email: userEmail
+    };
+
+    let networkData = collectNetworkDataStructured(graph);
+    if (networkData.length === 0 && window.App && window.App.editor && window.App.editor.graph) {
+        networkData = collectNetworkDataStructured(window.App.editor.graph);
+    }
+
+    const completeData = [opendssData, ...networkData];
+    const exportCommands = opendssData.exportCommands || false;
+    processNetworkData(ENV.backendUrl + '/', completeData, graph, graph, app, exportCommands);
+}
+
+/** Menu entry: Harmonic Analysis — opens dialog then runs OpenDSS harmonics on the backend. */
+function harmonicAnalysisOpenDss(editorUi, graph) {
+    if (!graph || !graph.isEnabled() || graph.isCellLocked(graph.getDefaultParent())) {
+        return;
+    }
+    const ui = editorUi || window.App?.main?.editor?.editorUi;
+    try {
+        const dialog = new HarmonicAnalysisDialog(ui);
+        dialog.show((values) => {
+            executeOpenDSSHarmonicAnalysis(values, editorUi, graph);
+        });
+    } catch (err) {
+        console.error('harmonicAnalysisOpenDss:', err);
+        alert('Could not open harmonic analysis: ' + (err && err.message ? err.message : String(err)));
+    }
 }
 
 // Execute OpenDSS short circuit calculation
@@ -3080,6 +3148,8 @@ async function processPandapowerBackend(obj, graph) {
 // Make the function available globally
 window.loadFlowOpenDss = loadFlowOpenDss;
 globalThis.loadFlowOpenDss = loadFlowOpenDss;
+window.harmonicAnalysisOpenDss = harmonicAnalysisOpenDss;
+globalThis.harmonicAnalysisOpenDss = harmonicAnalysisOpenDss;
 
 // Export for module usage
-export { loadFlowOpenDss, executeOpenDSSShortCircuit };
+export { loadFlowOpenDss, executeOpenDSSShortCircuit, harmonicAnalysisOpenDss };
