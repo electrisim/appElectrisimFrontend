@@ -342,6 +342,10 @@
                             if (app && app.editor) {
                                 window.App.main.editor = app.editor;
                             }
+                            if (typeof window.initializePerformanceOptimizers === 'function' &&
+                                app && app.editor && app.editor.graph) {
+                                window.initializePerformanceOptimizers(app.editor.graph);
+                            }
                         });
                     }
                 } catch (e) {
@@ -648,7 +652,6 @@
 								'js/electrisim/utils/networkPreparation.js',
                                 'js/electrisim/ensureSubscriptionFunctions.js',
                                 'js/electrisim/dialogs/dialogInitializer.js',
-								'js/electrisim/dialogs/LoadFlowDialog.js?v=1.0',
 								'js/electrisim/dialogs/BessSizingDialog.js',
 								'js/electrisim/dialogs/RPCDialog.js',
 								'js/electrisim/dialogs/RPCResultsDialog.js',

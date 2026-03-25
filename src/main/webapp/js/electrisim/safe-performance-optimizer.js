@@ -101,7 +101,11 @@
 
         // 6. SAFE: Disable animations during interactions for smoother feel
         if (typeof mxGraph !== 'undefined') {
-            const graph = window.editorUi?.editor?.graph;
+            const graph =
+                window.App?._editorUi?.editor?.graph ||
+                window.App?._instance?.editor?.graph ||
+                window.App?.main?.editor?.graph ||
+                window.editorUi?.editor?.graph;
             if (graph) {
                 // Reduce cell highlight update frequency during drag
                 const originalMouseDown = graph.addMouseListener;
@@ -134,7 +138,7 @@
                 }
                 
                 // Clear any cached data
-                if (window.editorUi) {
+                if (window.App?._editorUi || window.editorUi) {
                     console.log('  ✓ Cache cleared');
                 }
                 
