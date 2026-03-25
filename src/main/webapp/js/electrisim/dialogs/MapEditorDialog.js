@@ -113,7 +113,7 @@ export class MapEditorDialog extends Dialog {
         drawCableBtn.style.cssText = 'padding:6px 12px;cursor:pointer;border:1px solid #ccc;border-radius:4px;background:#fff;';
         drawCableBtn.onclick = () => {
             this.mapEditor?.setMode('draw_cable');
-            this.mapEditor.cableDrawFrom = null;
+            if (this.mapEditor) this.mapEditor.cableDrawFrom = null;
             toolbar.querySelectorAll('button').forEach(b => b.style.background = '#fff');
             drawCableBtn.style.background = '#ffccbc';
             areaPanel.style.display = 'none';
@@ -127,7 +127,7 @@ export class MapEditorDialog extends Dialog {
         drawAreaBtn.onclick = () => {
             this.mapEditor?.setDefaultNodeType(NODE_TYPES.OFFSHORE_WIND_TURBINE);
             this.mapEditor?.setMode('draw_area');
-            this.mapEditor.areaDrawPoints = [];
+            if (this.mapEditor) this.mapEditor.areaDrawPoints = [];
             toolbar.querySelectorAll('button').forEach(b => b.style.background = '#fff');
             drawAreaBtn.style.background = '#bbdefb';
             areaPanel.style.display = 'none';

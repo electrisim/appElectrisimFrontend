@@ -284,6 +284,8 @@
             { src: 'js/electrisim/ensureSubscriptionFunctions.js', type: 'module', async: true },
             { src: 'js/electrisim/dialogs/LoadFlowDialog.js?v=1.0', type: 'module', async: true },
             { src: 'js/electrisim/dialogs/BessSizingDialog.js', type: 'module', async: true },
+            { src: 'js/electrisim/dialogs/RPCDialog.js', type: 'module', async: true },
+            { src: 'js/electrisim/dialogs/RPCResultsDialog.js', type: 'module', async: true },
             { src: 'js/electrisim/dialogs/OptimalPowerFlowDialog.js', type: 'module', async: true },
             { src: 'js/electrisim/dialogs/ContingencyDialog.js', type: 'module', async: true },
             { src: 'js/electrisim/dialogs/ShortCircuitDialog.js', type: 'module', async: true },
@@ -318,6 +320,7 @@
             { src: 'js/electrisim/loadFlow.js', type: 'module', async: true },
             { src: 'js/electrisim/loadflowOpenDss.js', type: 'module', async: true },
             { src: 'js/electrisim/bessSizing.js', type: 'module', async: true },
+            { src: 'js/electrisim/rpcAnalysis.js', type: 'module', async: true },
             { src: 'js/electrisim/optimalPowerFlow.js', type: 'module', async: true },
             { src: 'js/electrisim/shortCircuit.js', type: 'module', async: true },
             { src: 'js/electrisim/contingencyAnalysis.js', type: 'module', async: true }
@@ -565,6 +568,62 @@
 							}
 							console.log('✅ app.min.js loaded, starting to load Electrisim scripts');
 							
+							// Bridge mx* from classic global scope to window for ES modules (transformer terminal labels, etc.)
+							var bridgeScript = document.createElement('script');
+							bridgeScript.src = 'js/electrisim/utils/drawioGlobalsBridge.js';
+							bridgeScript.async = false;
+							bridgeScript.onload = function () {
+								startElectrisimModules();
+							};
+							bridgeScript.onerror = function () {
+								console.warn('drawioGlobalsBridge.js failed; ES modules may miss mxShape');
+								startElectrisimModules();
+							};
+							document.head.appendChild(bridgeScript);
+							
+							function startElectrisimModules() {
+							
+							// Terminal labels: hook draw.io redraw in classic scope (mxShape is a bare global here).
+							// ES module assigns window.__electrisimPaintTrafoLabels when dialogInitializer loads.
+							(function electrisimTrafoRedrawHook() {
+								if (window.__electrisimTrafoRedrawHooked) {
+									return;
+								}
+								var S = typeof mxShape !== 'undefined' ? mxShape : window.__drawio_mxShape;
+								var R = typeof mxCellRenderer !== 'undefined' ? mxCellRenderer : window.__drawio_mxCellRenderer;
+								if (!S || !S.prototype || !S.prototype.redraw) {
+									console.warn('Electrisim: mxShape not found; transformer terminal labels hook skipped');
+									return;
+								}
+								window.__electrisimTrafoRedrawHooked = true;
+								var oShape = S.prototype.redraw;
+								S.prototype.redraw = function () {
+									oShape.apply(this, arguments);
+									var fn = window.__electrisimPaintTrafoLabels;
+									if (fn && this.state) {
+										try {
+											fn(this.state);
+										} catch (err) {
+											console.warn('Electrisim trafo labels (mxShape):', err);
+										}
+									}
+								};
+								if (R && R.prototype && R.prototype.redraw) {
+									var oCell = R.prototype.redraw;
+									R.prototype.redraw = function (state, force, rendering) {
+										oCell.apply(this, arguments);
+										var fn = window.__electrisimPaintTrafoLabels;
+										if (fn && state) {
+											try {
+												fn(state);
+											} catch (err2) {
+												console.warn('Electrisim trafo labels (mxCellRenderer):', err2);
+											}
+										}
+									};
+								}
+							})();
+							
 							// Load Electrisim custom scripts after app.min.js
 							// PERFORMANCE: Load performance utils first, then other modules
                             // NOTE: For local dev use `npm run minify:restore` so the .js files contain unminified code; avoid loading .backup files directly to prevent MIME/404 issues.
@@ -591,6 +650,8 @@
                                 'js/electrisim/dialogs/dialogInitializer.js',
 								'js/electrisim/dialogs/LoadFlowDialog.js?v=1.0',
 								'js/electrisim/dialogs/BessSizingDialog.js',
+								'js/electrisim/dialogs/RPCDialog.js',
+								'js/electrisim/dialogs/RPCResultsDialog.js',
 								'js/electrisim/dialogs/DiagnosticReportDialog.js',
 								'js/electrisim/dialogs/OptimalPowerFlowDialog.js',
 								'js/electrisim/dialogs/OptimalPowerFlowResultsDialog.js',
@@ -633,6 +694,7 @@
 								'js/electrisim/loadFlow.js',
 								'js/electrisim/loadflowOpenDss.js',
 								'js/electrisim/bessSizing.js',
+								'js/electrisim/rpcAnalysis.js',
 								'js/electrisim/optimalPowerFlow.js',
 								'js/electrisim/controllerSimulation.js',
 								'js/electrisim/timeSeriesSimulation.js',
@@ -727,6 +789,8 @@
 							
 							// Start loading Electrisim scripts first (Stripe deferred until after)
 							loadElectrisimScripts(0);
+							
+							} // end startElectrisimModules
 							
 							}; // Close app.min.js onload function
 							

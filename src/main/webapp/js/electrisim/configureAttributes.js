@@ -210,6 +210,8 @@ export function configureTransformerAttributes(grafka, vertex, options = {}) {
 
     g.setAttribute("parameters", true);  //na potrzeby wyboru elementu z biblioteki
     g.setAttribute("name", options.name ||"-");
+    g.setAttribute("term_label_0", options.term_label_0 != null ? options.term_label_0 : "HV");
+    g.setAttribute("term_label_1", options.term_label_1 != null ? options.term_label_1 : "LV");
     g.setAttribute("Load_flow_parameters", "")
     g.setAttribute("sn_mva", options.sn_mva || "0");
     g.setAttribute("vn_hv_kv", options.vn_hv_kv || "0");
@@ -261,6 +263,9 @@ export function configureThreeWindingTransformerAttributes(grafka, vertex, optio
     g.setAttribute("parameters", true);  //na potrzeby wyboru elementu z biblioteki
 
     g.setAttribute("name", "-"); 
+    g.setAttribute("term_label_0", options.term_label_0 != null ? options.term_label_0 : "HV");
+    g.setAttribute("term_label_1", options.term_label_1 != null ? options.term_label_1 : "MV");
+    g.setAttribute("term_label_2", options.term_label_2 != null ? options.term_label_2 : "LV");
 
     //INPUT
     g.setAttribute("Load_flow_parameters", "");

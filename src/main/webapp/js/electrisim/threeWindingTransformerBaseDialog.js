@@ -7,6 +7,9 @@ import { LibraryDialogManager } from './LibraryDialogManager.js';
 // vk_*_percent, vkr_*_percent, pfe_kw, i0_percent are in Load Flow tab (necessary for power flow per pandapower trafo3w)
 export const defaultThreeWindingTransformerData = {
     name: "Three Winding Transformer",
+    term_label_0: "HV",
+    term_label_1: "MV",
+    term_label_2: "LV",
     sn_hv_mva: 0.0,
     sn_mv_mva: 0.0,
     sn_lv_mva: 0.0,
@@ -52,6 +55,31 @@ export class ThreeWindingTransformerDialog extends Dialog {
         this.data = { ...defaultThreeWindingTransformerData };
         this.inputs = new Map(); // Initialize inputs map for form elements
         
+        // Schematic parameters (terminal labels shown on the canvas symbol)
+        this.schematicParameters = [
+            {
+                id: 'term_label_0',
+                label: 'Schematic label — port 0 (HV bus / first connection)',
+                description: 'Display only. Matches edge order for export (hv_bus). Does not change ratings or solver data.',
+                type: 'text',
+                value: this.data.term_label_0 || 'HV'
+            },
+            {
+                id: 'term_label_1',
+                label: 'Schematic label — port 1 (MV bus / second connection)',
+                description: 'Display only. Matches edge order for export (mv_bus). Does not change ratings or solver data.',
+                type: 'text',
+                value: this.data.term_label_1 || 'MV'
+            },
+            {
+                id: 'term_label_2',
+                label: 'Schematic label — port 2 (LV bus / third connection)',
+                description: 'Display only. Matches edge order for export (lv_bus). Does not change ratings or solver data.',
+                type: 'text',
+                value: this.data.term_label_2 || 'LV'
+            }
+        ];
+
         // Load Flow parameters (necessary for executing a power flow calculation)
         this.loadFlowParameters = [
             {
@@ -406,10 +434,12 @@ export class ThreeWindingTransformerDialog extends Dialog {
         // Create tabs
         const loadFlowTab = this.createTab('Load Flow', 'loadflow', this.currentTab === 'loadflow');
         const shortCircuitTab = this.createTab('Short Circuit', 'shortcircuit', this.currentTab === 'shortcircuit');
+        const schematicTab = this.createTab('Schematic', 'schematic', this.currentTab === 'schematic');
         const economicTab = this.createTab('Economic', 'economic', this.currentTab === 'economic');
         
         tabContainer.appendChild(loadFlowTab);
         tabContainer.appendChild(shortCircuitTab);
+        tabContainer.appendChild(schematicTab);
         tabContainer.appendChild(economicTab);
         container.appendChild(tabContainer);
 
@@ -428,10 +458,12 @@ export class ThreeWindingTransformerDialog extends Dialog {
         // Create tab content containers
         const loadFlowContent = this.createTabContent('loadflow', this.loadFlowParameters);
         const shortCircuitContent = this.createTabContent('shortcircuit', this.shortCircuitParameters);
+        const schematicContent = this.createTabContent('schematic', this.schematicParameters);
         const economicContent = this.createTabContent('economic', this.economicParameters);
         
         contentArea.appendChild(loadFlowContent);
         contentArea.appendChild(shortCircuitContent);
+        contentArea.appendChild(schematicContent);
         contentArea.appendChild(economicContent);
         container.appendChild(contentArea);
 
@@ -503,9 +535,12 @@ export class ThreeWindingTransformerDialog extends Dialog {
         this.container = container;
         
         // Tab click handlers
-        loadFlowTab.onclick = () => this.switchTab('loadflow', loadFlowTab, [shortCircuitTab, economicTab], loadFlowContent, [shortCircuitContent, economicContent]);
-        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [loadFlowTab, economicTab], shortCircuitContent, [loadFlowContent, economicContent]);
-        economicTab.onclick = () => this.switchTab('economic', economicTab, [loadFlowTab, shortCircuitTab], economicContent, [loadFlowContent, shortCircuitContent]);
+        const allTabs = [loadFlowTab, shortCircuitTab, schematicTab, economicTab];
+        const allContents = [loadFlowContent, shortCircuitContent, schematicContent, economicContent];
+        loadFlowTab.onclick = () => this.switchTab('loadflow', loadFlowTab, allTabs.filter(t => t !== loadFlowTab), loadFlowContent, allContents.filter(c => c !== loadFlowContent));
+        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, allTabs.filter(t => t !== shortCircuitTab), shortCircuitContent, allContents.filter(c => c !== shortCircuitContent));
+        schematicTab.onclick = () => this.switchTab('schematic', schematicTab, allTabs.filter(t => t !== schematicTab), schematicContent, allContents.filter(c => c !== schematicContent));
+        economicTab.onclick = () => this.switchTab('economic', economicTab, allTabs.filter(t => t !== economicTab), economicContent, allContents.filter(c => c !== economicContent));
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
@@ -775,7 +810,7 @@ export class ThreeWindingTransformerDialog extends Dialog {
         const values = {};
         
         // Collect all parameter values from all tabs
-        [...this.loadFlowParameters, ...this.shortCircuitParameters, ...(this.economicParameters || [])].forEach(param => {
+        [...this.schematicParameters, ...this.loadFlowParameters, ...this.shortCircuitParameters, ...(this.economicParameters || [])].forEach(param => {
             const input = this.inputs.get(param.id);
             if (input) {
                 if (param.id === 'cost_per_unit_by_currency') {
@@ -881,6 +916,9 @@ export class ThreeWindingTransformerDialog extends Dialog {
         // Map library data to dialog inputs
         const mappings = {
             'name': transformerData.name || 'Three Winding Transformer',
+            'term_label_0': transformerData.term_label_0 != null ? transformerData.term_label_0 : 'HV',
+            'term_label_1': transformerData.term_label_1 != null ? transformerData.term_label_1 : 'MV',
+            'term_label_2': transformerData.term_label_2 != null ? transformerData.term_label_2 : 'LV',
             'sn_hv_mva': transformerData.sn_hv_mva || 0,
             'sn_mv_mva': transformerData.sn_mv_mva || 0,
             'sn_lv_mva': transformerData.sn_lv_mva || 0,
@@ -949,6 +987,11 @@ export class ThreeWindingTransformerDialog extends Dialog {
                 const attributeValue = attribute.value;
                 
                 // Update the dialog's parameter values (not DOM inputs)
+                const schematicParam = this.schematicParameters.find(p => p.id === attributeName);
+                if (schematicParam) {
+                    schematicParam.value = attributeValue;
+                }
+
                 const loadFlowParam = this.loadFlowParameters.find(p => p.id === attributeName);
                 if (loadFlowParam) {
                     if (loadFlowParam.type === 'checkbox') {

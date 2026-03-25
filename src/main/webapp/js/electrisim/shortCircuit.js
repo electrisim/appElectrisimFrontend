@@ -1,6 +1,6 @@
 // Import COMPONENT_TYPES from the utils
 import { COMPONENT_TYPES } from './utils/componentTypes.js';
-import { getAttributesAsObject, getDisplayName } from './utils/attributeUtils.js';
+import { getAttributesAsObject, formatResultNameHeader, createDialogNameResolver } from './utils/attributeUtils.js';
 import { ShortCircuitDialog } from './dialogs/ShortCircuitDialog.js';
 import ENV from './config/environment.js';
 
@@ -85,6 +85,143 @@ window.shortCircuitPandaPower = function(a, b, c) {
     };
     const replaceUnderscores = name => name.replace('_', '#');
 
+    const createTableRow = (columns, widths) => {
+        return columns.map((col, i) => {
+            const str = String(col);
+            return str.padEnd(widths[i], ' ');
+        }).join(' | ');
+    };
+
+    const createTableSeparator = (widths) => {
+        return widths.map(w => '-'.repeat(w)).join('-+-');
+    };
+
+    const downloadPandapowerShortCircuitResults = (dataJson, graph) => {
+        try {
+            const dialogNameFor = createDialogNameResolver(graph);
+            let resultsText = '========================================\n';
+            resultsText += '   Pandapower Short Circuit Results\n';
+            resultsText += '========================================\n\n';
+            resultsText += `Generated: ${new Date().toISOString()}\n\n`;
+
+            if (dataJson.busbars && dataJson.busbars.length > 0) {
+                resultsText += '--- BUSES ---\n';
+                const widths = [18, 18, 12, 12, 12, 12, 12];
+                const headers = ['Object id', 'Dialog name', 'ikss [kA]', 'ip [kA]', 'ith [kA]', 'rk [ohm]', 'xk [ohm]'];
+                resultsText += createTableRow(headers, widths) + '\n';
+                resultsText += createTableSeparator(widths) + '\n';
+                dataJson.busbars.forEach(bus => {
+                    const row = [
+                        bus.name || 'N/A',
+                        dialogNameFor(bus) || '—',
+                        formatNumber(bus.ikss_ka),
+                        formatNumber(bus.ip_ka),
+                        formatNumber(bus.ith_ka),
+                        formatNumber(bus.rk_ohm),
+                        formatNumber(bus.xk_ohm)
+                    ];
+                    resultsText += createTableRow(row, widths) + '\n';
+                });
+                resultsText += '\n';
+            }
+
+            if (dataJson.lines_sc && dataJson.lines_sc.length > 0) {
+                resultsText += '--- LINES ---\n';
+                const widths = [18, 18, 12, 12, 12];
+                const headers = ['Object id', 'Dialog name', 'ikss [kA]', 'ip [kA]', 'ith [kA]'];
+                resultsText += createTableRow(headers, widths) + '\n';
+                resultsText += createTableSeparator(widths) + '\n';
+                dataJson.lines_sc.forEach(line => {
+                    const row = [
+                        line.name || 'N/A',
+                        dialogNameFor(line) || '—',
+                        formatNumber(line.ikss_ka),
+                        formatNumber(line.ip_ka),
+                        formatNumber(line.ith_ka)
+                    ];
+                    resultsText += createTableRow(row, widths) + '\n';
+                });
+                resultsText += '\n';
+            }
+
+            if (dataJson.trafos_sc && dataJson.trafos_sc.length > 0) {
+                resultsText += '--- TRANSFORMERS (2W) ---\n';
+                const widths = [18, 18, 14, 14];
+                const headers = ['Object id', 'Dialog name', 'ikss_hv [kA]', 'ikss_lv [kA]'];
+                resultsText += createTableRow(headers, widths) + '\n';
+                resultsText += createTableSeparator(widths) + '\n';
+                dataJson.trafos_sc.forEach(t => {
+                    const row = [
+                        t.name || 'N/A',
+                        dialogNameFor(t) || '—',
+                        formatNumber(t.ikss_hv_ka),
+                        formatNumber(t.ikss_lv_ka)
+                    ];
+                    resultsText += createTableRow(row, widths) + '\n';
+                });
+                resultsText += '\n';
+            }
+
+            if (dataJson.trafos3w_sc && dataJson.trafos3w_sc.length > 0) {
+                resultsText += '--- TRANSFORMERS (3W) ---\n';
+                const widths = [16, 16, 14, 14, 14];
+                const headers = ['Object id', 'Dialog name', 'ikss_hv [kA]', 'ikss_mv [kA]', 'ikss_lv [kA]'];
+                resultsText += createTableRow(headers, widths) + '\n';
+                resultsText += createTableSeparator(widths) + '\n';
+                dataJson.trafos3w_sc.forEach(t => {
+                    const row = [
+                        t.name || 'N/A',
+                        dialogNameFor(t) || '—',
+                        formatNumber(t.ikss_hv_ka ?? t.ikss_hv),
+                        formatNumber(t.ikss_mv_ka ?? t.ikss_mv),
+                        formatNumber(t.ikss_lv_ka ?? t.ikss_lv)
+                    ];
+                    resultsText += createTableRow(row, widths) + '\n';
+                });
+                resultsText += '\n';
+            }
+
+            if (dataJson.ext_grid_sc && dataJson.ext_grid_sc.length > 0) {
+                resultsText += '--- EXTERNAL GRIDS ---\n';
+                const widths = [18, 18, 12, 12, 12, 12, 12];
+                const headers = ['Object id', 'Dialog name', 'ikss [kA]', 'ip [kA]', 'ith [kA]', 'rk [ohm]', 'xk [ohm]'];
+                resultsText += createTableRow(headers, widths) + '\n';
+                resultsText += createTableSeparator(widths) + '\n';
+                dataJson.ext_grid_sc.forEach(g => {
+                    const row = [
+                        g.name || 'N/A',
+                        dialogNameFor(g) || '—',
+                        formatNumber(g.ikss_ka),
+                        formatNumber(g.ip_ka),
+                        formatNumber(g.ith_ka),
+                        formatNumber(g.rk_ohm),
+                        formatNumber(g.xk_ohm)
+                    ];
+                    resultsText += createTableRow(row, widths) + '\n';
+                });
+                resultsText += '\n';
+            }
+
+            resultsText += '========================================\n';
+            resultsText += '          End of Results\n';
+            resultsText += '========================================\n';
+
+            const blob = new Blob([resultsText], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+            link.download = `Pandapower_ShortCircuit_Results_${timestamp}.txt`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Error downloading Pandapower short circuit results:', error);
+            alert('Failed to download Pandapower short circuit results. ' + error.message);
+        }
+    };
+
     // Error handler
     function handleNetworkErrors(dataJson) {
         // Check for diagnostic response format (new error handling)
@@ -161,7 +298,7 @@ window.shortCircuitPandaPower = function(a, b, c) {
                 }
                 cell.name = replaceUnderscores(cell.name);
 
-                const busLabel = getDisplayName(resultCell, cell.name, 'Bus');
+                const busLabel = formatResultNameHeader(resultCell, cell.name, 'Bus');
                 const resultString = `${busLabel}
                 ikss[kA]: ${formatNumber(cell.ikss_ka)}
                 ip[kA]: ${formatNumber(cell.ip_ka)}
@@ -187,7 +324,7 @@ window.shortCircuitPandaPower = function(a, b, c) {
             data.forEach(cell => {
                 const resultCell = resolveCell(cell, b, cellIdMap);
                 if (!resultCell) return;
-                const lineName = getDisplayName(resultCell, cell.name, 'Line');
+                const lineName = formatResultNameHeader(resultCell, cell.name, 'Line');
                 const resultString = `${lineName}
                 ikss[kA]: ${formatNumber(cell.ikss_ka)}
                 ip[kA]: ${formatNumber(cell.ip_ka)}
@@ -215,7 +352,7 @@ window.shortCircuitPandaPower = function(a, b, c) {
                     console.warn('Short circuit: could not find transformer cell for id=', cell.id, 'name=', cell.name);
                     return;
                 }
-                const trafoName = getDisplayName(resultCell, cell.name, 'Trafo');
+                const trafoName = formatResultNameHeader(resultCell, cell.name, 'Trafo');
                 const resultString = `${trafoName}
                 ikss_hv[kA]: ${formatNumber(cell.ikss_hv_ka)}
                 ikss_lv[kA]: ${formatNumber(cell.ikss_lv_ka)}`;
@@ -246,7 +383,7 @@ window.shortCircuitPandaPower = function(a, b, c) {
                     console.warn('Short circuit: could not find 3w-transformer cell for id=', cell.id, 'name=', cell.name);
                     return;
                 }
-                const trafoName = getDisplayName(resultCell, cell.name, 'Trafo3w');
+                const trafoName = formatResultNameHeader(resultCell, cell.name, 'Trafo3w');
                 const resultString = `${trafoName}
                 ikss_hv[kA]: ${formatNumber(cell.ikss_hv_ka ?? cell.ikss_hv)}
                 ikss_mv[kA]: ${formatNumber(cell.ikss_mv_ka ?? cell.ikss_mv)}
@@ -279,7 +416,7 @@ window.shortCircuitPandaPower = function(a, b, c) {
                     return;
                 }
                 cell.name = replaceUnderscores(cell.name);
-                const extLabel = getDisplayName(resultCell, cell.name, 'External Grid');
+                const extLabel = formatResultNameHeader(resultCell, cell.name, 'External Grid');
                 const resultString = `${extLabel}
                 ikss[kA]: ${formatNumber(cell.ikss_ka)}
                 ip[kA]: ${formatNumber(cell.ip_ka)}
@@ -336,6 +473,11 @@ window.shortCircuitPandaPower = function(a, b, c) {
             // Handle errors first
             if (handleNetworkErrors(dataJson)) {
                 return;
+            }
+
+            const param0 = obj && (obj[0] ?? obj['0']);
+            if (param0 && param0.exportPandapowerResults) {
+                downloadPandapowerShortCircuitResults(dataJson, b);
             }
 
             // Build cellIdMap for reliable lookups (id, mxObjectId, mxObjectId with _/# variants)
@@ -795,6 +937,7 @@ window.shortCircuitPandaPower = function(a, b, c) {
                 r_fault_ohm: a.r_fault_ohm || '0',
                 x_fault_ohm: a.x_fault_ohm || '0',
                 inverse_y: a.inverse_y || 'True',
+                exportPandapowerResults: a.exportPandapowerResults === true,
                 user_email: userEmail
             });
 

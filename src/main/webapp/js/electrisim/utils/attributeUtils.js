@@ -1,4 +1,21 @@
 /**
+ * Normalize backend / graph object id for display (underscores → #).
+ */
+export function normalizeGraphObjectName(name) {
+    if (name == null || name === '') return '';
+    return String(name).trim().replace(/_/g, '#');
+}
+
+/**
+ * User-editable name from component dialog (XML attribute `name`), shared by bus/line/trafo/etc. dialogs.
+ */
+export function getDialogNameFromCell(cell) {
+    if (!cell?.value?.attributes?.getNamedItem) return '';
+    const n = cell.value.attributes.getNamedItem('name')?.nodeValue;
+    return n != null && String(n).trim() ? String(n).trim() : '';
+}
+
+/**
  * Get display name for result boxes: prefers dialog name (from cell attributes), then backend name.
  * @param {mxCell} resultCell - The graph cell (has value.attributes with 'name')
  * @param {string} backendName - Name from backend (e.g. mxCell_260)
@@ -6,10 +23,102 @@
  * @returns {string} Display name for result box
  */
 export function getDisplayName(resultCell, backendName, defaultName) {
-    const n = resultCell?.value?.attributes?.getNamedItem?.('name')?.nodeValue;
-    if (n && String(n).trim()) return String(n).trim();
+    const n = getDialogNameFromCell(resultCell);
+    if (n) return n;
     const bn = backendName ? String(backendName).replace(/_/g, '#') : null;
     return bn || defaultName || 'Unknown';
+}
+
+/**
+ * Heading for on-canvas result boxes: dialog name on first line, (object id) on second when both differ.
+ */
+export function formatResultNameHeader(resultCell, backendName, defaultType) {
+    const dialog = getDialogNameFromCell(resultCell);
+    const fromBackend = normalizeGraphObjectName(backendName);
+    const rawMx = resultCell?.mxObjectId;
+    const fromCell = rawMx
+        ? normalizeGraphObjectName(String(rawMx).replace(/#/g, '_'))
+        : '';
+    const objectId = fromBackend || fromCell;
+    if (dialog) {
+        if (objectId && dialog !== objectId) {
+            return `${dialog}\n(${objectId})`;
+        }
+        return dialog;
+    }
+    return objectId || defaultType || 'Unknown';
+}
+
+function addMxLookupKeys(set, mxObjectId) {
+    if (mxObjectId == null || mxObjectId === '') return;
+    const raw = String(mxObjectId);
+    const under = raw.replace(/#/g, '_');
+    set.add(raw);
+    set.add(under);
+    if (under.startsWith('mxCell_')) {
+        set.add('mxCell#' + under.slice('mxCell_'.length));
+    }
+    set.add(raw.toLowerCase());
+    set.add(under.toLowerCase());
+}
+
+/**
+ * Map backend result row { id, name } → graph cell (same idea as OpenDSS cellIdMap).
+ */
+export function buildGraphCellLookupMap(graph) {
+    const map = new Map();
+    if (!graph?.getModel) return map;
+    const cells = graph.getModel().cells;
+    if (!cells || typeof cells !== 'object') return map;
+    const register = (key, cell) => {
+        if (key != null && key !== '') map.set(String(key), cell);
+    };
+    for (const cid in cells) {
+        const c = cells[cid];
+        if (!c) continue;
+        register(c.id, c);
+        if (typeof c.id === 'number') register(String(c.id), c);
+        if (c.mxObjectId) {
+            const keys = new Set();
+            addMxLookupKeys(keys, c.mxObjectId);
+            keys.forEach(k => register(k, c));
+        }
+    }
+    return map;
+}
+
+export function resolveGraphCellForResult(map, backendRow) {
+    if (!map || !backendRow) return null;
+    const tryKeys = [];
+    if (backendRow.id != null) {
+        tryKeys.push(String(backendRow.id), backendRow.id);
+    }
+    if (backendRow.name != null) {
+        const n = String(backendRow.name);
+        tryKeys.push(n, n.replace(/#/g, '_'), n.replace(/_/g, '#'));
+    }
+    for (const k of tryKeys) {
+        if (k === '' || k == null) continue;
+        let cell = map.get(String(k));
+        if (cell) return cell;
+        cell = map.get(String(k).toLowerCase());
+        if (cell) return cell;
+    }
+    return null;
+}
+
+/**
+ * Returns (row) => dialog name string for exported tables; empty if graph missing or cell not found.
+ */
+export function createDialogNameResolver(graph) {
+    if (!graph?.getModel) {
+        return () => '';
+    }
+    const map = buildGraphCellLookupMap(graph);
+    return (row) => {
+        const cell = resolveGraphCellForResult(map, row);
+        return cell ? (getDialogNameFromCell(cell) || '') : '';
+    };
 }
 
 // Helper function to get attributes as object
@@ -79,4 +188,7 @@ export const getAttributesAsObject = (cell, attributeMap) => {
 
 // Make it available globally for legacy code
 window.getAttributesAsObject = getAttributesAsObject;
-window.getDisplayName = getDisplayName; 
+window.getDisplayName = getDisplayName;
+window.formatResultNameHeader = formatResultNameHeader;
+window.getDialogNameFromCell = getDialogNameFromCell;
+window.createDialogNameResolver = createDialogNameResolver; 
