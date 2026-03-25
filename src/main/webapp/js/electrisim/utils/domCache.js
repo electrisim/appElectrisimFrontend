@@ -18,24 +18,33 @@ class DOMCache {
     }
 
     setupMutationObserver() {
-        // Clear cache on major DOM changes
-        this.observer = new MutationObserver((mutations) => {
-            // Only clear if significant changes occurred
-            const significantChange = mutations.some(mutation => 
-                mutation.type === 'childList' && 
-                (mutation.addedNodes.length > 5 || mutation.removedNodes.length > 5)
-            );
-            
-            if (significantChange) {
-                this.clearStaleEntries();
+        const attach = () => {
+            const target = document.body;
+            if (!target) {
+                return;
             }
-        });
-        
-        // Observe body with throttled observation
-        this.observer.observe(document.body, {
-            childList: true,
-            subtree: false // Only watch direct children for performance
-        });
+            this.observer = new MutationObserver((mutations) => {
+                const significantChange = mutations.some(mutation =>
+                    mutation.type === 'childList' &&
+                    (mutation.addedNodes.length > 5 || mutation.removedNodes.length > 5)
+                );
+                if (significantChange) {
+                    this.clearStaleEntries();
+                }
+            });
+            this.observer.observe(target, {
+                childList: true,
+                subtree: false
+            });
+        };
+
+        if (document.body) {
+            attach();
+        } else if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', attach, { once: true });
+        } else {
+            attach();
+        }
     }
 
     /**
