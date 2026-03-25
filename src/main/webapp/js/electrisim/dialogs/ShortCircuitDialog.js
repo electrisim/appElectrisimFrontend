@@ -61,6 +61,12 @@ export class ShortCircuitDialog extends Dialog {
                     { value: 'True', label: 'True', default: true },
                     { value: 'False', label: 'False' }
                 ]
+            },
+            {
+                id: 'exportPandapowerResults',
+                label: 'Export Pandapower Results (download .txt file)',
+                type: 'checkbox',
+                value: false
             }
         ];
 

@@ -1,4 +1,5 @@
 // dialogInitializer.js - Ensures proper dialog initialization
+import { installTransformerTerminalLabelOverlay } from '../utils/transformerTerminalLabels.js';
 import { EditDataDialog } from './EditDataDialog.js';
 import { LoadFlowDialog } from './LoadFlowDialog.js';
 import { OpenDSSLoadFlowDialog } from './OpenDSSLoadFlowDialog.js';
@@ -16,7 +17,7 @@ window.OpenDSSLoadFlowDialog = OpenDSSLoadFlowDialog;
         function waitForApp(callback) {
             const hasEditor = (window.App && window.App.main && window.App.main.editor) ||
                 (window.App && window.App._instance && window.App._instance.editor);
-            if (typeof EditorUi === 'undefined' || !window.App || !hasEditor) {
+            if (!window.EditorUi || !window.App || !hasEditor) {
                 setTimeout(() => waitForApp(callback), 100);
                 return;
             }
@@ -28,6 +29,7 @@ window.OpenDSSLoadFlowDialog = OpenDSSLoadFlowDialog;
 // Initialize all dialog overrides
 function initializeDialogs() {
     try {
+        installTransformerTerminalLabelOverlay();
         console.log('Initializing modern dialogs...');
         
         // Check if already initialized to prevent multiple initializations
@@ -192,7 +194,7 @@ if (document.readyState === 'loading') {
 // Also try to initialize when the window loads (fallback)
 window.addEventListener('load', () => {
     setTimeout(() => {
-        if (typeof EditorUi !== 'undefined' && !EditorUi.prototype._dialogOverridesInitialized) {
+        if (window.EditorUi && !window.EditorUi.prototype._dialogOverridesInitialized) {
             console.log('Attempting to initialize dialogs on window load...');
             waitForApp(initializeDialogs);
         }

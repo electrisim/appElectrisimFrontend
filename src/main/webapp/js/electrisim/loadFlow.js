@@ -53,10 +53,11 @@ const createTableSeparator = (widths) => {
 };
 
 // Helper function to download Pandapower results as a text file
-const downloadPandapowerResults = (dataJson) => {
+const downloadPandapowerResults = (dataJson, graph) => {
     console.log('🔽 downloadPandapowerResults() called');
     
     try {
+        const dialogNameFor = createDialogNameResolver(graph);
         let resultsText = '========================================\n';
         resultsText += '   Pandapower Load Flow Results\n';
         resultsText += '========================================\n\n';
@@ -65,13 +66,14 @@ const downloadPandapowerResults = (dataJson) => {
         // External Grids
         if (dataJson.externalgrids && dataJson.externalgrids.length > 0) {
             resultsText += '--- EXTERNAL GRIDS ---\n';
-            const widths = [20, 12, 12, 12, 10];
-            const headers = ['Name', 'P [MW]', 'Q [MVAr]', 'PF', 'Q/P'];
+            const widths = [18, 18, 12, 12, 12, 10];
+            const headers = ['Object id', 'Dialog name', 'P [MW]', 'Q [MVAr]', 'PF', 'Q/P'];
             resultsText += createTableRow(headers, widths) + '\n';
             resultsText += createTableSeparator(widths) + '\n';
             dataJson.externalgrids.forEach(grid => {
                 const row = [
                     grid.name || 'N/A',
+                    dialogNameFor(grid) || '—',
                     grid.p_mw ? grid.p_mw.toFixed(3) : 'N/A',
                     grid.q_mvar ? grid.q_mvar.toFixed(3) : 'N/A',
                     grid.pf ? grid.pf.toFixed(3) : 'N/A',
@@ -85,13 +87,14 @@ const downloadPandapowerResults = (dataJson) => {
         // Buses
         if (dataJson.busbars && dataJson.busbars.length > 0) {
             resultsText += '--- BUSES ---\n';
-            const widths = [20, 12, 14];
-            const headers = ['Name', 'U [pu]', 'U [degree]'];
+            const widths = [18, 18, 12, 14];
+            const headers = ['Object id', 'Dialog name', 'U [pu]', 'U [degree]'];
             resultsText += createTableRow(headers, widths) + '\n';
             resultsText += createTableSeparator(widths) + '\n';
             dataJson.busbars.forEach(bus => {
                 const row = [
                     bus.name || 'N/A',
+                    dialogNameFor(bus) || '—',
                     bus.vm_pu ? bus.vm_pu.toFixed(3) : 'N/A',
                     bus.va_degree ? bus.va_degree.toFixed(3) : 'N/A'
                 ];
@@ -103,13 +106,14 @@ const downloadPandapowerResults = (dataJson) => {
         // Lines
         if (dataJson.lines && dataJson.lines.length > 0) {
             resultsText += '--- LINES ---\n';
-            const widths = [20, 13, 14, 13, 12, 13, 12, 13];
-            const headers = ['Name', 'P_from [MW]', 'Q_from [MVAr]', 'I_from [kA]', 'P_to [MW]', 'Q_to [MVAr]', 'I_to [kA]', 'Loading [%]'];
+            const widths = [16, 16, 13, 14, 13, 12, 13, 12, 13];
+            const headers = ['Object id', 'Dialog name', 'P_from [MW]', 'Q_from [MVAr]', 'I_from [kA]', 'P_to [MW]', 'Q_to [MVAr]', 'I_to [kA]', 'Loading [%]'];
             resultsText += createTableRow(headers, widths) + '\n';
             resultsText += createTableSeparator(widths) + '\n';
             dataJson.lines.forEach(line => {
                 const row = [
                     line.name || 'N/A',
+                    dialogNameFor(line) || '—',
                     line.p_from_mw ? line.p_from_mw.toFixed(3) : 'N/A',
                     line.q_from_mvar ? line.q_from_mvar.toFixed(3) : 'N/A',
                     line.i_from_ka ? line.i_from_ka.toFixed(3) : 'N/A',
@@ -126,13 +130,14 @@ const downloadPandapowerResults = (dataJson) => {
         // Transformers
         if (dataJson.transformers && dataJson.transformers.length > 0) {
             resultsText += '--- TRANSFORMERS ---\n';
-            const widths = [20, 13, 13, 12, 13, 12, 12, 13, 12];
-            const headers = ['Name', 'P_HV [MW]', 'Q_HV [MVAr]', 'P_LV [MW]', 'Q_LV [MVAr]', 'I_HV [kA]', 'I_LV [kA]', 'Loading [%]', 'Loss [MW]'];
+            const widths = [14, 14, 13, 13, 12, 13, 12, 12, 13, 12];
+            const headers = ['Object id', 'Dialog name', 'P_HV [MW]', 'Q_HV [MVAr]', 'P_LV [MW]', 'Q_LV [MVAr]', 'I_HV [kA]', 'I_LV [kA]', 'Loading [%]', 'Loss [MW]'];
             resultsText += createTableRow(headers, widths) + '\n';
             resultsText += createTableSeparator(widths) + '\n';
             dataJson.transformers.forEach(trafo => {
                 const row = [
                     trafo.name || 'N/A',
+                    dialogNameFor(trafo) || '—',
                     trafo.p_hv_mw ? trafo.p_hv_mw.toFixed(3) : 'N/A',
                     trafo.q_hv_mvar ? trafo.q_hv_mvar.toFixed(3) : 'N/A',
                     trafo.p_lv_mw ? trafo.p_lv_mw.toFixed(3) : 'N/A',
@@ -150,13 +155,14 @@ const downloadPandapowerResults = (dataJson) => {
         // Generators
         if (dataJson.generators && dataJson.generators.length > 0) {
             resultsText += '--- GENERATORS ---\n';
-            const widths = [20, 12, 12, 10, 14];
-            const headers = ['Name', 'P [MW]', 'Q [MVAr]', 'U [pu]', 'U [degree]'];
+            const widths = [18, 18, 12, 12, 10, 14];
+            const headers = ['Object id', 'Dialog name', 'P [MW]', 'Q [MVAr]', 'U [pu]', 'U [degree]'];
             resultsText += createTableRow(headers, widths) + '\n';
             resultsText += createTableSeparator(widths) + '\n';
             dataJson.generators.forEach(gen => {
                 const row = [
                     gen.name || 'N/A',
+                    dialogNameFor(gen) || '—',
                     gen.p_mw ? gen.p_mw.toFixed(3) : 'N/A',
                     gen.q_mvar ? gen.q_mvar.toFixed(3) : 'N/A',
                     gen.vm_pu ? gen.vm_pu.toFixed(3) : 'N/A',
@@ -170,13 +176,14 @@ const downloadPandapowerResults = (dataJson) => {
         // Static Generators
         if (dataJson.staticgenerators && dataJson.staticgenerators.length > 0) {
             resultsText += '--- STATIC GENERATORS ---\n';
-            const widths = [20, 12, 12];
-            const headers = ['Name', 'P [MW]', 'Q [MVAr]'];
+            const widths = [18, 18, 12, 12];
+            const headers = ['Object id', 'Dialog name', 'P [MW]', 'Q [MVAr]'];
             resultsText += createTableRow(headers, widths) + '\n';
             resultsText += createTableSeparator(widths) + '\n';
             dataJson.staticgenerators.forEach(sgen => {
                 const row = [
                     sgen.name || 'N/A',
+                    dialogNameFor(sgen) || '—',
                     sgen.p_mw ? sgen.p_mw.toFixed(3) : 'N/A',
                     sgen.q_mvar ? sgen.q_mvar.toFixed(3) : 'N/A'
                 ];
@@ -188,13 +195,14 @@ const downloadPandapowerResults = (dataJson) => {
         // Loads
         if (dataJson.loads && dataJson.loads.length > 0) {
             resultsText += '--- LOADS ---\n';
-            const widths = [20, 12, 12];
-            const headers = ['Name', 'P [MW]', 'Q [MVAr]'];
+            const widths = [18, 18, 12, 12];
+            const headers = ['Object id', 'Dialog name', 'P [MW]', 'Q [MVAr]'];
             resultsText += createTableRow(headers, widths) + '\n';
             resultsText += createTableSeparator(widths) + '\n';
             dataJson.loads.forEach(load => {
                 const row = [
                     load.name || 'N/A',
+                    dialogNameFor(load) || '—',
                     load.p_mw ? load.p_mw.toFixed(3) : 'N/A',
                     load.q_mvar ? load.q_mvar.toFixed(3) : 'N/A'
                 ];
@@ -206,13 +214,14 @@ const downloadPandapowerResults = (dataJson) => {
         // Shunts
         if (dataJson.shunts && dataJson.shunts.length > 0) {
             resultsText += '--- SHUNT REACTORS ---\n';
-            const widths = [20, 12, 12, 10];
-            const headers = ['Name', 'P [MW]', 'Q [MVAr]', 'U [pu]'];
+            const widths = [18, 18, 12, 12, 10];
+            const headers = ['Object id', 'Dialog name', 'P [MW]', 'Q [MVAr]', 'U [pu]'];
             resultsText += createTableRow(headers, widths) + '\n';
             resultsText += createTableSeparator(widths) + '\n';
             dataJson.shunts.forEach(shunt => {
                 const row = [
                     shunt.name || 'N/A',
+                    dialogNameFor(shunt) || '—',
                     shunt.p_mw ? shunt.p_mw.toFixed(3) : 'N/A',
                     shunt.q_mvar ? shunt.q_mvar.toFixed(3) : 'N/A',
                     shunt.vm_pu ? shunt.vm_pu.toFixed(3) : 'N/A'
@@ -225,13 +234,14 @@ const downloadPandapowerResults = (dataJson) => {
         // Capacitors
         if (dataJson.capacitors && dataJson.capacitors.length > 0) {
             resultsText += '--- CAPACITORS ---\n';
-            const widths = [20, 12, 12, 10];
-            const headers = ['Name', 'P [MW]', 'Q [MVAr]', 'U [pu]'];
+            const widths = [18, 18, 12, 12, 10];
+            const headers = ['Object id', 'Dialog name', 'P [MW]', 'Q [MVAr]', 'U [pu]'];
             resultsText += createTableRow(headers, widths) + '\n';
             resultsText += createTableSeparator(widths) + '\n';
             dataJson.capacitors.forEach(cap => {
                 const row = [
                     cap.name || 'N/A',
+                    dialogNameFor(cap) || '—',
                     cap.p_mw ? cap.p_mw.toFixed(3) : 'N/A',
                     cap.q_mvar ? cap.q_mvar.toFixed(3) : 'N/A',
                     cap.vm_pu ? cap.vm_pu.toFixed(3) : 'N/A'
@@ -731,7 +741,7 @@ const COMPONENT_TYPES = {
 
 import { DIALOG_STYLES } from './utils/dialogStyles.js';
 import { LoadFlowDialog } from './dialogs/LoadFlowDialog.js';
-import { getDisplayName } from './utils/attributeUtils.js';
+import { formatResultNameHeader, createDialogNameResolver } from './utils/attributeUtils.js';
 import ENV from './config/environment.js';
 
 // Advanced payload compression function to reduce data transfer size
@@ -1119,7 +1129,7 @@ function loadFlowPandaPower(a, b, c) {
                 const resultCell = getCachedCell(cell.id);
                 if (!resultCell) return null;
                 cell.name = replaceUnderscores(cell.name);
-                const label = getDisplayName(resultCell, cell.name, 'Bus');
+                const label = formatResultNameHeader(resultCell, cell.name, 'Bus');
                 return {
                     resultCell,
                     resultString: `${label}
@@ -1158,7 +1168,7 @@ Q/P: ${formatNumber(cell.q_p)}`,
                     return null;
                 }
                 cell.name = replaceUnderscores(cell.name);
-                const lineLabel = getDisplayName(resultCell, cell.name, 'Line');
+                const lineLabel = formatResultNameHeader(resultCell, cell.name, 'Line');
 
                 return {
                     resultCell,
@@ -1197,7 +1207,7 @@ Q/P: ${formatNumber(cell.q_p)}`,
             data.forEach(cell => {
                 const resultCell = getCachedCell(cell.id);
                 if (!resultCell) return;
-                const label = getDisplayName(resultCell, cell.name, 'External Grid');
+                const label = formatResultNameHeader(resultCell, cell.name, 'External Grid');
                 const resultString = `${label}
             
             P[MW]: ${formatNumber(cell.p_mw)}
@@ -1226,7 +1236,7 @@ Q/P: ${formatNumber(cell.q_p)}`,
         generators: (data, b) => {
             data.forEach(cell => {
                 const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
-                const genLabel = getDisplayName(resultCell, cell.name, 'Generator');
+                const genLabel = formatResultNameHeader(resultCell, cell.name, 'Generator');
                 const resultString = `${genLabel}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}
@@ -1248,7 +1258,7 @@ Q/P: ${formatNumber(cell.q_p)}`,
         staticgenerators: (data, b) => {
             data.forEach(cell => {
                 const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
-                const label = getDisplayName(resultCell, cell.name, 'Static Generator');
+                const label = formatResultNameHeader(resultCell, cell.name, 'Static Generator');
                 const resultString = `${label}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}`;
@@ -1268,7 +1278,7 @@ Q/P: ${formatNumber(cell.q_p)}`,
         asymmetricstaticgenerators: (data, b) => {
             data.forEach(cell => {
                 const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
-                const label = getDisplayName(resultCell, cell.name, 'Asymmetric Static Generator');
+                const label = formatResultNameHeader(resultCell, cell.name, 'Asymmetric Static Generator');
                 const resultString = `${label}
             P_A[MW]: ${formatNumber(cell.p_a_mw)}
             Q_A[MVar]: ${formatNumber(cell.q_a_mvar)}
@@ -1292,7 +1302,7 @@ Q/P: ${formatNumber(cell.q_p)}`,
         transformers: (data, b) => {
             data.forEach(cell => {
                 const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
-                const trafoLabel = getDisplayName(resultCell, cell.name, 'Trafo');
+                const trafoLabel = formatResultNameHeader(resultCell, cell.name, 'Trafo');
 
                 const resultString = `${trafoLabel}
             i_HV[kA]: ${formatNumber(cell.i_hv_ka)}
@@ -1324,7 +1334,7 @@ Q/P: ${formatNumber(cell.q_p)}`,
         transformers3W: (data, b) => {
             data.forEach(cell => {
                 const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
-                const trafoLabel = getDisplayName(resultCell, cell.name, 'Trafo3W');
+                const trafoLabel = formatResultNameHeader(resultCell, cell.name, 'Trafo3W');
                 const resultString = `${trafoLabel}
             i_HV[kA]: ${formatNumber(cell.i_hv_ka)}
             i_MV[kA]: ${formatNumber(cell.i_mv_ka)}
@@ -1355,7 +1365,7 @@ Q/P: ${formatNumber(cell.q_p)}`,
         shunts: (data, b) => {
             data.forEach(cell => {
                 const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
-                const label = getDisplayName(resultCell, cell.name, 'Shunt');
+                const label = formatResultNameHeader(resultCell, cell.name, 'Shunt');
                 const resultString = `${label}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}
@@ -1376,7 +1386,7 @@ Q/P: ${formatNumber(cell.q_p)}`,
         capacitors: (data, b) => {
             data.forEach(cell => {
                 const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
-                const label = getDisplayName(resultCell, cell.name, 'Capacitor');
+                const label = formatResultNameHeader(resultCell, cell.name, 'Capacitor');
                 const resultString = `${label}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}
@@ -1397,7 +1407,7 @@ Q/P: ${formatNumber(cell.q_p)}`,
         loads: (data, b) => {
             data.forEach(cell => {
                 const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
-                const label = getDisplayName(resultCell, cell.name, 'Load');
+                const label = formatResultNameHeader(resultCell, cell.name, 'Load');
                 const resultString = `${label}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}`;
@@ -1417,7 +1427,7 @@ Q/P: ${formatNumber(cell.q_p)}`,
         asymmetricloads: (data, b) => {
             data.forEach(cell => {
                 const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
-                const label = getDisplayName(resultCell, cell.name, 'Asymmetric Load');
+                const label = formatResultNameHeader(resultCell, cell.name, 'Asymmetric Load');
                 const resultString = `${label}
             P_A[MW]: ${formatNumber(cell.p_a_mw)}
             Q_A[MVar]: ${formatNumber(cell.q_a_mvar)}
@@ -1444,7 +1454,7 @@ Q/P: ${formatNumber(cell.q_p)}`,
                 const resultCell = getCachedCell(cell.id);
                 if (!resultCell) return;
                 cell.name = replaceUnderscores(cell.name);
-                const label = getDisplayName(resultCell, cell.name, 'Impedance');
+                const label = formatResultNameHeader(resultCell, cell.name, 'Impedance');
                 const resultString = `${label}
             P_from[MW]: ${formatNumber(cell.p_from_mw)}
             Q_from[MVar]: ${formatNumber(cell.q_from_mvar)}
@@ -1470,7 +1480,7 @@ Q/P: ${formatNumber(cell.q_p)}`,
         wards: (data, b) => {
             data.forEach(cell => {
                 const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
-                const label = getDisplayName(resultCell, cell.name, 'Ward');
+                const label = formatResultNameHeader(resultCell, cell.name, 'Ward');
                 const resultString = `${label}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}
@@ -1492,7 +1502,7 @@ Q/P: ${formatNumber(cell.q_p)}`,
         extendedwards: (data, b) => {
             data.forEach(cell => {
                 const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
-                const label = getDisplayName(resultCell, cell.name, 'Extended Ward');
+                const label = formatResultNameHeader(resultCell, cell.name, 'Extended Ward');
                 const resultString = `${label}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}
@@ -1513,7 +1523,7 @@ Q/P: ${formatNumber(cell.q_p)}`,
         motors: (data, b) => {
             data.forEach(cell => {
                 const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
-                const label = getDisplayName(resultCell, cell.name, 'Motor');
+                const label = formatResultNameHeader(resultCell, cell.name, 'Motor');
                 const resultString = `${label}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}`;
@@ -1533,7 +1543,7 @@ Q/P: ${formatNumber(cell.q_p)}`,
         storages: (data, b) => {
             data.forEach(cell => {
                 const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
-                const label = getDisplayName(resultCell, cell.name, 'Storage');
+                const label = formatResultNameHeader(resultCell, cell.name, 'Storage');
                 const resultString = `${label}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}`;
@@ -1553,7 +1563,7 @@ Q/P: ${formatNumber(cell.q_p)}`,
         svc: (data, b) => {
             data.forEach(cell => {
                 const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
-                const label = getDisplayName(resultCell, cell.name, 'SVC');
+                const label = formatResultNameHeader(resultCell, cell.name, 'SVC');
                 const resultString = `${label}
             Firing angle[degree]: ${formatNumber(cell.thyristor_firing_angle_degree)}
             x[Ohm]: ${formatNumber(cell.x_ohm)}
@@ -1576,7 +1586,7 @@ Q/P: ${formatNumber(cell.q_p)}`,
         tcsc: (data, b) => {
             data.forEach(cell => {
                 const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
-                const label = getDisplayName(resultCell, cell.name, 'TCSC');
+                const label = formatResultNameHeader(resultCell, cell.name, 'TCSC');
                 const resultString = `${label}
             Firing angle[degree]: ${formatNumber(cell.thyristor_firing_angle_degree)}
             x[Ohm]: ${formatNumber(cell.x_ohm)}
@@ -1606,7 +1616,7 @@ Q/P: ${formatNumber(cell.q_p)}`,
         sscs: (data, b) => {
             data.forEach(cell => {
                 const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
-                const label = getDisplayName(resultCell, cell.name, 'SSC');
+                const label = formatResultNameHeader(resultCell, cell.name, 'SSC');
                 const resultString = `${label}
             q_mvar: ${formatNumber(cell.q_mvar)}
             vm_internal_pu: ${formatNumber(cell.vm_internal_pu)}
@@ -1630,7 +1640,7 @@ Q/P: ${formatNumber(cell.q_p)}`,
         dclines: (data, b) => {
             data.forEach(cell => {
                 const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
-                const label = getDisplayName(resultCell, cell.name, 'DC Line');
+                const label = formatResultNameHeader(resultCell, cell.name, 'DC Line');
                 const resultString = `${label}
             P_from[MW]: ${formatNumber(cell.p_from_mw)}
             Q_from[MVar]: ${formatNumber(cell.q_from_mvar)}
@@ -1710,7 +1720,7 @@ Q/P: ${formatNumber(cell.q_p)}`,
             
             if (obj && obj[0] && obj[0].exportPandapowerResults) {
                 console.log('✅ Exporting Pandapower results to file...');
-                downloadPandapowerResults(dataJson);
+                downloadPandapowerResults(dataJson, b);
             } else {
                 console.log('ℹ️ Pandapower results export not requested or flag not set');
                 console.log('  Condition breakdown:');

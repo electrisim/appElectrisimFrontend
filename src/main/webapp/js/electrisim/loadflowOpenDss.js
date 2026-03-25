@@ -6,7 +6,7 @@
 // Import helper functions from loadFlow.js
 import { DIALOG_STYLES } from './utils/dialogStyles.js';
 import { LoadFlowDialog } from './dialogs/LoadFlowDialog.js';
-import { getDisplayName } from './utils/attributeUtils.js';
+import { formatResultNameHeader, createDialogNameResolver } from './utils/attributeUtils.js';
 import { getThreeWindingConnections } from './utils/gridUtils.js';
 import ENV from './config/environment.js';
 
@@ -14,6 +14,29 @@ import ENV from './config/environment.js';
 const formatBusId = (busId) => {
     if (!busId) return null;
     return busId.replace('#', '_');
+};
+
+/** All string keys we may need to map OpenDSS/backend result `id` back to a graph cell. */
+const getMxIdLookupKeys = (mxObjectId) => {
+    if (!mxObjectId) return [];
+    const raw = String(mxObjectId);
+    const under = formatBusId(raw) || raw;
+    const keys = new Set([raw, under]);
+    if (under.startsWith('mxCell_')) {
+        keys.add('mxCell#' + under.slice('mxCell_'.length));
+    }
+    keys.add(raw.toLowerCase());
+    keys.add(under.toLowerCase());
+    for (const k of [...keys]) {
+        if (k && k.includes('#')) keys.add(k.toLowerCase());
+    }
+    return [...keys].filter(Boolean);
+};
+
+/** OpenDSS numeric fields: 0 is valid (avoid `value ? value.toFixed() : 'N/A'`). */
+const fmtOpenDssFloat = (val, decimals = 3) => {
+    if (val == null || val === '' || Number.isNaN(Number(val))) return 'N/A';
+    return Number(val).toFixed(decimals);
 };
 
 // Helper function to download OpenDSS commands as a text file
@@ -59,8 +82,9 @@ const createOpenDSSTableSeparator = (widths) => {
 };
 
 // Helper function to download OpenDSS results as a text file
-const downloadOpenDSSResults = (dataJson) => {
+const downloadOpenDSSResults = (dataJson, graph) => {
     try {
+        const dialogNameFor = createDialogNameResolver(graph);
         let resultsText = '========================================\n';
         resultsText += '     OpenDSS Load Flow Results\n';
         resultsText += '========================================\n\n';
@@ -69,13 +93,14 @@ const downloadOpenDSSResults = (dataJson) => {
         // External Grids
         if (dataJson.externalgrids && dataJson.externalgrids.length > 0) {
             resultsText += '--- EXTERNAL GRIDS ---\n';
-            const widths = [20, 12, 12, 12, 10];
-            const headers = ['Name', 'P [MW]', 'Q [MVAr]', 'PF', 'Q/P'];
+            const widths = [18, 18, 12, 12, 12, 10];
+            const headers = ['Object id', 'Dialog name', 'P [MW]', 'Q [MVAr]', 'PF', 'Q/P'];
             resultsText += createOpenDSSTableRow(headers, widths) + '\n';
             resultsText += createOpenDSSTableSeparator(widths) + '\n';
             dataJson.externalgrids.forEach(grid => {
                 const row = [
                     grid.name || 'N/A',
+                    dialogNameFor(grid) || '—',
                     grid.p_mw ? grid.p_mw.toFixed(3) : 'N/A',
                     grid.q_mvar ? grid.q_mvar.toFixed(3) : 'N/A',
                     grid.pf ? grid.pf.toFixed(3) : 'N/A',
@@ -89,13 +114,14 @@ const downloadOpenDSSResults = (dataJson) => {
         // Buses
         if (dataJson.busbars && dataJson.busbars.length > 0) {
             resultsText += '--- BUSES ---\n';
-            const widths = [20, 12, 14];
-            const headers = ['Name', 'U [pu]', 'U [degree]'];
+            const widths = [18, 18, 12, 14];
+            const headers = ['Object id', 'Dialog name', 'U [pu]', 'U [degree]'];
             resultsText += createOpenDSSTableRow(headers, widths) + '\n';
             resultsText += createOpenDSSTableSeparator(widths) + '\n';
             dataJson.busbars.forEach(bus => {
                 const row = [
                     bus.name || 'N/A',
+                    dialogNameFor(bus) || '—',
                     bus.vm_pu ? bus.vm_pu.toFixed(3) : 'N/A',
                     bus.va_degree ? bus.va_degree.toFixed(3) : 'N/A'
                 ];
@@ -107,13 +133,14 @@ const downloadOpenDSSResults = (dataJson) => {
         // Lines
         if (dataJson.lines && dataJson.lines.length > 0) {
             resultsText += '--- LINES ---\n';
-            const widths = [20, 13, 14, 13, 12, 13, 12, 13];
-            const headers = ['Name', 'P_from [MW]', 'Q_from [MVAr]', 'I_from [kA]', 'P_to [MW]', 'Q_to [MVAr]', 'I_to [kA]', 'Loading [%]'];
+            const widths = [16, 16, 13, 14, 13, 12, 13, 12, 13];
+            const headers = ['Object id', 'Dialog name', 'P_from [MW]', 'Q_from [MVAr]', 'I_from [kA]', 'P_to [MW]', 'Q_to [MVAr]', 'I_to [kA]', 'Loading [%]'];
             resultsText += createOpenDSSTableRow(headers, widths) + '\n';
             resultsText += createOpenDSSTableSeparator(widths) + '\n';
             dataJson.lines.forEach(line => {
                 const row = [
                     line.name || 'N/A',
+                    dialogNameFor(line) || '—',
                     line.p_from_mw ? line.p_from_mw.toFixed(3) : 'N/A',
                     line.q_from_mvar ? line.q_from_mvar.toFixed(3) : 'N/A',
                     line.i_from_ka ? line.i_from_ka.toFixed(3) : 'N/A',
@@ -130,13 +157,14 @@ const downloadOpenDSSResults = (dataJson) => {
         // Transformers
         if (dataJson.transformers && dataJson.transformers.length > 0) {
             resultsText += '--- TRANSFORMERS ---\n';
-            const widths = [20, 13, 13, 12, 13, 12, 12, 13, 12];
-            const headers = ['Name', 'P_HV [MW]', 'Q_HV [MVAr]', 'P_LV [MW]', 'Q_LV [MVAr]', 'I_HV [kA]', 'I_LV [kA]', 'Loading [%]', 'Loss [MW]'];
+            const widths = [14, 14, 13, 13, 12, 13, 12, 12, 13, 12];
+            const headers = ['Object id', 'Dialog name', 'P_HV [MW]', 'Q_HV [MVAr]', 'P_LV [MW]', 'Q_LV [MVAr]', 'I_HV [kA]', 'I_LV [kA]', 'Loading [%]', 'Loss [MW]'];
             resultsText += createOpenDSSTableRow(headers, widths) + '\n';
             resultsText += createOpenDSSTableSeparator(widths) + '\n';
             dataJson.transformers.forEach(trafo => {
                 const row = [
                     trafo.name || 'N/A',
+                    dialogNameFor(trafo) || '—',
                     trafo.p_hv_mw !== undefined ? trafo.p_hv_mw.toFixed(3) : 'N/A',
                     trafo.q_hv_mvar !== undefined ? trafo.q_hv_mvar.toFixed(3) : 'N/A',
                     trafo.p_lv_mw !== undefined ? trafo.p_lv_mw.toFixed(3) : 'N/A',
@@ -154,13 +182,14 @@ const downloadOpenDSSResults = (dataJson) => {
         // 3-Winding Transformers
         if (dataJson.transformers3w && dataJson.transformers3w.length > 0) {
             resultsText += '--- 3-WINDING TRANSFORMERS ---\n';
-            const widths = [20, 12, 12, 12, 12, 12];
-            const headers = ['Name', 'I_HV [kA]', 'I_MV [kA]', 'I_LV [kA]', 'Loading [%]', 'P_HV [MW]'];
+            const widths = [16, 16, 12, 12, 12, 12, 12];
+            const headers = ['Object id', 'Dialog name', 'I_HV [kA]', 'I_MV [kA]', 'I_LV [kA]', 'Loading [%]', 'P_HV [MW]'];
             resultsText += createOpenDSSTableRow(headers, widths) + '\n';
             resultsText += createOpenDSSTableSeparator(widths) + '\n';
             dataJson.transformers3w.forEach(trafo => {
                 const row = [
                     trafo.name || 'N/A',
+                    dialogNameFor(trafo) || '—',
                     trafo.i_hv_ka != null ? trafo.i_hv_ka.toFixed(3) : 'N/A',
                     trafo.i_mv_ka != null ? trafo.i_mv_ka.toFixed(3) : 'N/A',
                     trafo.i_lv_ka != null ? trafo.i_lv_ka.toFixed(3) : 'N/A',
@@ -175,13 +204,14 @@ const downloadOpenDSSResults = (dataJson) => {
         // Generators
         if (dataJson.generators && dataJson.generators.length > 0) {
             resultsText += '--- GENERATORS ---\n';
-            const widths = [20, 12, 12, 10, 14];
-            const headers = ['Name', 'P [MW]', 'Q [MVAr]', 'U [pu]', 'U [degree]'];
+            const widths = [18, 18, 12, 12, 10, 14];
+            const headers = ['Object id', 'Dialog name', 'P [MW]', 'Q [MVAr]', 'U [pu]', 'U [degree]'];
             resultsText += createOpenDSSTableRow(headers, widths) + '\n';
             resultsText += createOpenDSSTableSeparator(widths) + '\n';
             dataJson.generators.forEach(gen => {
                 const row = [
                     gen.name || 'N/A',
+                    dialogNameFor(gen) || '—',
                     gen.p_mw ? gen.p_mw.toFixed(3) : 'N/A',
                     gen.q_mvar ? gen.q_mvar.toFixed(3) : 'N/A',
                     gen.vm_pu ? gen.vm_pu.toFixed(3) : 'N/A',
@@ -195,13 +225,14 @@ const downloadOpenDSSResults = (dataJson) => {
         // Loads
         if (dataJson.loads && dataJson.loads.length > 0) {
             resultsText += '--- LOADS ---\n';
-            const widths = [20, 12, 12];
-            const headers = ['Name', 'P [MW]', 'Q [MVAr]'];
+            const widths = [18, 18, 12, 12];
+            const headers = ['Object id', 'Dialog name', 'P [MW]', 'Q [MVAr]'];
             resultsText += createOpenDSSTableRow(headers, widths) + '\n';
             resultsText += createOpenDSSTableSeparator(widths) + '\n';
             dataJson.loads.forEach(load => {
                 const row = [
                     load.name || 'N/A',
+                    dialogNameFor(load) || '—',
                     load.p_mw ? load.p_mw.toFixed(3) : 'N/A',
                     load.q_mvar ? load.q_mvar.toFixed(3) : 'N/A'
                 ];
@@ -213,13 +244,14 @@ const downloadOpenDSSResults = (dataJson) => {
         // Shunts
         if (dataJson.shunts && dataJson.shunts.length > 0) {
             resultsText += '--- SHUNT REACTORS ---\n';
-            const widths = [20, 12, 12, 10];
-            const headers = ['Name', 'P [MW]', 'Q [MVAr]', 'U [pu]'];
+            const widths = [18, 18, 12, 12, 10];
+            const headers = ['Object id', 'Dialog name', 'P [MW]', 'Q [MVAr]', 'U [pu]'];
             resultsText += createOpenDSSTableRow(headers, widths) + '\n';
             resultsText += createOpenDSSTableSeparator(widths) + '\n';
             dataJson.shunts.forEach(shunt => {
                 const row = [
                     shunt.name || 'N/A',
+                    dialogNameFor(shunt) || '—',
                     shunt.p_mw ? shunt.p_mw.toFixed(3) : 'N/A',
                     shunt.q_mvar ? shunt.q_mvar.toFixed(3) : 'N/A',
                     shunt.vm_pu ? shunt.vm_pu.toFixed(3) : 'N/A'
@@ -232,13 +264,14 @@ const downloadOpenDSSResults = (dataJson) => {
         // Capacitors
         if (dataJson.capacitors && dataJson.capacitors.length > 0) {
             resultsText += '--- CAPACITORS ---\n';
-            const widths = [20, 12, 12, 10];
-            const headers = ['Name', 'P [MW]', 'Q [MVAr]', 'U [pu]'];
+            const widths = [18, 18, 12, 12, 10];
+            const headers = ['Object id', 'Dialog name', 'P [MW]', 'Q [MVAr]', 'U [pu]'];
             resultsText += createOpenDSSTableRow(headers, widths) + '\n';
             resultsText += createOpenDSSTableSeparator(widths) + '\n';
             dataJson.capacitors.forEach(cap => {
                 const row = [
                     cap.name || 'N/A',
+                    dialogNameFor(cap) || '—',
                     cap.p_mw ? cap.p_mw.toFixed(3) : 'N/A',
                     cap.q_mvar ? cap.q_mvar.toFixed(3) : 'N/A',
                     cap.vm_pu ? cap.vm_pu.toFixed(3) : 'N/A'
@@ -251,13 +284,14 @@ const downloadOpenDSSResults = (dataJson) => {
         // PVSystems
         if (dataJson.pvsystems && dataJson.pvsystems.length > 0) {
             resultsText += '--- PV SYSTEMS ---\n';
-            const widths = [20, 12, 12, 10, 14, 12, 14];
-            const headers = ['Name', 'P [MW]', 'Q [MVAr]', 'U [pu]', 'U [degree]', 'Irradiance', 'Temp [°C]'];
+            const widths = [16, 16, 12, 12, 10, 14, 12, 14];
+            const headers = ['Object id', 'Dialog name', 'P [MW]', 'Q [MVAr]', 'U [pu]', 'U [degree]', 'Irradiance', 'Temp [°C]'];
             resultsText += createOpenDSSTableRow(headers, widths) + '\n';
             resultsText += createOpenDSSTableSeparator(widths) + '\n';
             dataJson.pvsystems.forEach(pv => {
                 const row = [
                     pv.name || 'N/A',
+                    dialogNameFor(pv) || '—',
                     pv.p_mw ? pv.p_mw.toFixed(3) : 'N/A',
                     pv.q_mvar ? pv.q_mvar.toFixed(3) : 'N/A',
                     pv.vm_pu ? pv.vm_pu.toFixed(3) : 'N/A',
@@ -292,6 +326,56 @@ const downloadOpenDSSResults = (dataJson) => {
     } catch (error) {
         console.error('Error downloading OpenDSS results:', error);
         alert('Failed to download OpenDSS results file. Please check the console for details.');
+    }
+};
+
+const downloadOpenDSSShortCircuitResults = (dataJson, graph) => {
+    try {
+        const dialogNameFor = createDialogNameResolver(graph);
+        let resultsText = '========================================\n';
+        resultsText += '   OpenDSS Short Circuit Results\n';
+        resultsText += '========================================\n\n';
+        resultsText += `Generated: ${new Date().toISOString()}\n\n`;
+
+        if (dataJson.busbars && dataJson.busbars.length > 0) {
+            resultsText += '--- BUSES ---\n';
+            const widths = [18, 18, 12, 12, 12, 12, 12];
+            const headers = ['Object id', 'Dialog name', 'ikss [kA]', 'ip [kA]', 'ith [kA]', 'rk [ohm]', 'xk [ohm]'];
+            resultsText += createOpenDSSTableRow(headers, widths) + '\n';
+            resultsText += createOpenDSSTableSeparator(widths) + '\n';
+            dataJson.busbars.forEach(bus => {
+                const row = [
+                    bus.name || 'N/A',
+                    dialogNameFor(bus) || '—',
+                    fmtOpenDssFloat(bus.ikss_ka),
+                    fmtOpenDssFloat(bus.ip_ka),
+                    fmtOpenDssFloat(bus.ith_ka),
+                    fmtOpenDssFloat(bus.rk_ohm),
+                    fmtOpenDssFloat(bus.xk_ohm)
+                ];
+                resultsText += createOpenDSSTableRow(row, widths) + '\n';
+            });
+            resultsText += '\n';
+        }
+
+        resultsText += '========================================\n';
+        resultsText += '          End of Results\n';
+        resultsText += '========================================\n';
+
+        const blob = new Blob([resultsText], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+        link.download = `OpenDSS_ShortCircuit_Results_${timestamp}.txt`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        console.log('OpenDSS short circuit results file downloaded successfully');
+    } catch (error) {
+        console.error('Error downloading OpenDSS short circuit results:', error);
+        alert('Failed to download OpenDSS short circuit results file. Please check the console for details.');
     }
 };
 
@@ -591,11 +675,11 @@ const elementProcessors = {
                     return;
                 }
                 
-                const cellName = getDisplayName(resultCell, cell.name, 'Bus');
+                const cellName = formatResultNameHeader(resultCell, cell.name, 'Bus');
                 
                 const resultString = `${cellName}
-U[pu]: ${cell.vm_pu ? cell.vm_pu.toFixed(3) : 'N/A'}
-U[deg]: ${cell.va_degree ? cell.va_degree.toFixed(3) : 'N/A'}`;
+U[pu]: ${fmtOpenDssFloat(cell.vm_pu)}
+U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
 
                 const findFn = typeof window !== 'undefined' && window.findResultPlaceholder;
                 const insertFn = typeof window !== 'undefined' && window.insertResultBox;
@@ -630,18 +714,18 @@ U[deg]: ${cell.va_degree ? cell.va_degree.toFixed(3) : 'N/A'}`;
                     return;
                 }
                 
-                const cellName = getDisplayName(resultCell, cell.name, 'Line');
+                const cellName = formatResultNameHeader(resultCell, cell.name, 'Line');
                 
                 const resultString = `${cellName}
-        P_from[MW]: ${cell.p_from_mw ? cell.p_from_mw.toFixed(3) : 'N/A'}
-        Q_from[MVar]: ${cell.q_from_mvar ? cell.q_from_mvar.toFixed(3) : 'N/A'}
-        i_from[kA]: ${cell.i_from_ka ? cell.i_from_ka.toFixed(3) : 'N/A'}
+        P_from[MW]: ${fmtOpenDssFloat(cell.p_from_mw)}
+        Q_from[MVar]: ${fmtOpenDssFloat(cell.q_from_mvar)}
+        i_from[kA]: ${fmtOpenDssFloat(cell.i_from_ka)}
 
-        Loading[%]: ${cell.loading_percent ? cell.loading_percent.toFixed(1) : 'N/A'}
+        Loading[%]: ${fmtOpenDssFloat(cell.loading_percent, 1)}
 
-        P_to[MW]: ${cell.p_to_mw ? cell.p_to_mw.toFixed(3) : 'N/A'}
-        Q_to[MVar]: ${cell.q_to_mvar ? cell.q_to_mvar.toFixed(3) : 'N/A'}
-        i_to[kA]: ${cell.i_to_ka ? cell.i_to_ka.toFixed(3) : 'N/A'}`;
+        P_to[MW]: ${fmtOpenDssFloat(cell.p_to_mw)}
+        Q_to[MVar]: ${fmtOpenDssFloat(cell.q_to_mvar)}
+        i_to[kA]: ${fmtOpenDssFloat(cell.i_to_ka)}`;
 
                 const findFn = typeof window !== 'undefined' && window.findResultPlaceholder;
                 const insertFn = typeof window !== 'undefined' && window.insertResultBox;
@@ -677,14 +761,14 @@ U[deg]: ${cell.va_degree ? cell.va_degree.toFixed(3) : 'N/A'}`;
                     return;
                 }
                 
-                const cellName = getDisplayName(resultCell, cell.name, 'External Grid');
+                const cellName = formatResultNameHeader(resultCell, cell.name, 'External Grid');
                 
                 const resultString = `${cellName}
         
-        P[MW]: ${cell.p_mw ? cell.p_mw.toFixed(3) : 'N/A'}
-        Q[MVar]: ${cell.q_mvar ? cell.q_mvar.toFixed(3) : 'N/A'}
-        PF: ${cell.pf ? cell.pf.toFixed(3) : 'N/A'}
-        Q/P: ${cell.q_p ? cell.q_p.toFixed(3) : 'N/A'}`;
+        P[MW]: ${fmtOpenDssFloat(cell.p_mw)}
+        Q[MVar]: ${fmtOpenDssFloat(cell.q_mvar)}
+        PF: ${fmtOpenDssFloat(cell.pf)}
+        Q/P: ${fmtOpenDssFloat(cell.q_p)}`;
 
                 const edge = (b.getEdges && b.getEdges(resultCell)) ? b.getEdges(resultCell)[0] : null;
                 const parent = edge || resultCell;
@@ -723,13 +807,13 @@ U[deg]: ${cell.va_degree ? cell.va_degree.toFixed(3) : 'N/A'}`;
                     return;
                 }
                 
-                const cellName = getDisplayName(resultCell, cell.name, 'Generator');
+                const cellName = formatResultNameHeader(resultCell, cell.name, 'Generator');
                 
                 const resultString = `${cellName}
-        P[MW]: ${cell.p_mw ? cell.p_mw.toFixed(3) : 'N/A'}
-        Q[MVar]: ${cell.q_mvar ? cell.q_mvar.toFixed(3) : 'N/A'}
-        U[degree]: ${cell.va_degree ? cell.va_degree.toFixed(3) : 'N/A'}
-        Um[pu]: ${cell.vm_pu ? cell.vm_pu.toFixed(3) : 'N/A'}`;
+        P[MW]: ${fmtOpenDssFloat(cell.p_mw)}
+        Q[MVar]: ${fmtOpenDssFloat(cell.q_mvar)}
+        U[degree]: ${fmtOpenDssFloat(cell.va_degree)}
+        Um[pu]: ${fmtOpenDssFloat(cell.vm_pu)}`;
 
                 const edge = (b.getEdges && b.getEdges(resultCell)) ? b.getEdges(resultCell)[0] : null;
                 const parent = edge || resultCell;
@@ -764,11 +848,11 @@ U[deg]: ${cell.va_degree ? cell.va_degree.toFixed(3) : 'N/A'}`;
                     return;
                 }
                 
-                const cellName = getDisplayName(resultCell, cell.name, 'Load');
+                const cellName = formatResultNameHeader(resultCell, cell.name, 'Load');
                 
                 const resultString = `${cellName}
-        P[MW]: ${cell.p_mw ? cell.p_mw.toFixed(3) : 'N/A'}
-        Q[MVar]: ${cell.q_mvar ? cell.q_mvar.toFixed(3) : 'N/A'}`;
+        P[MW]: ${fmtOpenDssFloat(cell.p_mw)}
+        Q[MVar]: ${fmtOpenDssFloat(cell.q_mvar)}`;
 
                 const edge = (b.getEdges && b.getEdges(resultCell)) ? b.getEdges(resultCell)[0] : null;
                 const parent = edge || resultCell;
@@ -803,19 +887,19 @@ U[deg]: ${cell.va_degree ? cell.va_degree.toFixed(3) : 'N/A'}`;
                     return;
                 }
                 
-                const cellName = getDisplayName(resultCell, cell.name, 'Trafo');
+                const cellName = formatResultNameHeader(resultCell, cell.name, 'Trafo');
                 
                 const resultString = `${cellName}
         P_HV[MW]: ${cell.p_hv_mw !== undefined ? cell.p_hv_mw.toFixed(3) : 'N/A'}
         Q_HV[MVAr]: ${cell.q_hv_mvar !== undefined ? cell.q_hv_mvar.toFixed(3) : 'N/A'}
-        i_HV[kA]: ${cell.i_hv_ka ? cell.i_hv_ka.toFixed(3) : 'N/A'}
+        i_HV[kA]: ${fmtOpenDssFloat(cell.i_hv_ka)}
         
         P_LV[MW]: ${cell.p_lv_mw !== undefined ? cell.p_lv_mw.toFixed(3) : 'N/A'}
         Q_LV[MVAr]: ${cell.q_lv_mvar !== undefined ? cell.q_lv_mvar.toFixed(3) : 'N/A'}
-        i_LV[kA]: ${cell.i_lv_ka ? cell.i_lv_ka.toFixed(3) : 'N/A'}
+        i_LV[kA]: ${fmtOpenDssFloat(cell.i_lv_ka)}
         
         Losses[MW]: ${cell.pl_mw !== undefined ? cell.pl_mw.toFixed(3) : 'N/A'}
-        loading[%]: ${cell.loading_percent ? cell.loading_percent.toFixed(1) : 'N/A'}`;
+        loading[%]: ${fmtOpenDssFloat(cell.loading_percent, 1)}`;
 
                 const findCompFn = typeof window !== 'undefined' && window.findResultPlaceholderForComponent;
                 const findFn = typeof window !== 'undefined' && window.findResultPlaceholder;
@@ -852,7 +936,7 @@ U[deg]: ${cell.va_degree ? cell.va_degree.toFixed(3) : 'N/A'}`;
                     console.warn(`Could not find cell with mxObjectId: ${cell.id}`);
                     return;
                 }
-                const cellName = getDisplayName(resultCell, cell.name, 'Trafo3W');
+                const cellName = formatResultNameHeader(resultCell, cell.name, 'Trafo3W');
                 const resultString = `${cellName}
         i_HV[kA]: ${cell.i_hv_ka != null ? cell.i_hv_ka.toFixed(3) : 'N/A'}
         i_MV[kA]: ${cell.i_mv_ka != null ? cell.i_mv_ka.toFixed(3) : 'N/A'}
@@ -898,7 +982,7 @@ U[deg]: ${cell.va_degree ? cell.va_degree.toFixed(3) : 'N/A'}`;
                     return;
                 }
                 
-                const cellName = getDisplayName(resultCell, cell.name, 'Shunt');
+                const cellName = formatResultNameHeader(resultCell, cell.name, 'Shunt');
                 
                 const resultString = `${cellName}
         P[MW]: ${(cell.p_mw !== undefined && cell.p_mw !== null) ? cell.p_mw.toFixed(3) : 'N/A'}
@@ -938,12 +1022,12 @@ U[deg]: ${cell.va_degree ? cell.va_degree.toFixed(3) : 'N/A'}`;
                     return;
                 }
                 
-                const cellName = getDisplayName(resultCell, cell.name, 'Capacitor');
+                const cellName = formatResultNameHeader(resultCell, cell.name, 'Capacitor');
                 
                 const resultString = `${cellName}
-        P[MW]: ${cell.p_mw ? cell.p_mw.toFixed(3) : 'N/A'}
-        Q[MVar]: ${cell.q_mvar ? cell.q_mvar.toFixed(3) : 'N/A'}
-        Um[pu]: ${cell.vm_pu ? cell.vm_pu.toFixed(3) : 'N/A'}`;
+        P[MW]: ${fmtOpenDssFloat(cell.p_mw)}
+        Q[MVar]: ${fmtOpenDssFloat(cell.q_mvar)}
+        Um[pu]: ${fmtOpenDssFloat(cell.vm_pu)}`;
 
                 const edge = (b.getEdges && b.getEdges(resultCell)) ? b.getEdges(resultCell)[0] : null;
                 const parent = edge || resultCell;
@@ -978,11 +1062,11 @@ U[deg]: ${cell.va_degree ? cell.va_degree.toFixed(3) : 'N/A'}`;
                     return;
                 }
                 
-                const cellName = getDisplayName(resultCell, cell.name, 'Storage');
+                const cellName = formatResultNameHeader(resultCell, cell.name, 'Storage');
                 
                 const resultString = `${cellName}
-        P[MW]: ${cell.p_mw ? cell.p_mw.toFixed(3) : 'N/A'}
-        Q[MVar]: ${cell.q_mvar ? cell.q_mvar.toFixed(3) : 'N/A'}`;
+        P[MW]: ${fmtOpenDssFloat(cell.p_mw)}
+        Q[MVar]: ${fmtOpenDssFloat(cell.q_mvar)}`;
 
                 const edge = (b.getEdges && b.getEdges(resultCell)) ? b.getEdges(resultCell)[0] : null;
                 const parent = edge || resultCell;
@@ -1017,15 +1101,15 @@ U[deg]: ${cell.va_degree ? cell.va_degree.toFixed(3) : 'N/A'}`;
                     return;
                 }
 
-                const cellName = getDisplayName(resultCell, cell.name, 'PVSystem');
+                const cellName = formatResultNameHeader(resultCell, cell.name, 'PVSystem');
 
                 const resultString = `${cellName}
-        P[MW]: ${cell.p_mw ? cell.p_mw.toFixed(3) : 'N/A'}
-        Q[MVar]: ${cell.q_mvar ? cell.q_mvar.toFixed(3) : 'N/A'}
-        Um[pu]: ${cell.vm_pu ? cell.vm_pu.toFixed(3) : 'N/A'}
-        U[degree]: ${cell.va_degree ? cell.va_degree.toFixed(3) : 'N/A'}
-        Irradiance: ${cell.irradiance ? cell.irradiance.toFixed(3) : 'N/A'}
-        Temperature: ${cell.temperature ? cell.temperature.toFixed(3) : 'N/A'}`;
+        P[MW]: ${fmtOpenDssFloat(cell.p_mw)}
+        Q[MVar]: ${fmtOpenDssFloat(cell.q_mvar)}
+        Um[pu]: ${fmtOpenDssFloat(cell.vm_pu)}
+        U[degree]: ${fmtOpenDssFloat(cell.va_degree)}
+        Irradiance: ${fmtOpenDssFloat(cell.irradiance)}
+        Temperature: ${fmtOpenDssFloat(cell.temperature)}`;
 
                 const edge = (b.getEdges && b.getEdges(resultCell)) ? b.getEdges(resultCell)[0] : null;
                 const parent = edge || resultCell;
@@ -1169,7 +1253,9 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
         for (const cellId in cells) {
             const cell = cells[cellId];
             if (cell && cell.mxObjectId) {
-                cellIdMap.set(cell.mxObjectId, cell);
+                for (const key of getMxIdLookupKeys(cell.mxObjectId)) {
+                    cellIdMap.set(key, cell);
+                }
             }
         }
         const mapBuildTime = performance.now() - mapBuildStart;
@@ -1296,7 +1382,7 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
         
         if (obj && obj[0] && obj[0].exportOpenDSSResults) {
             console.log('✅ Exporting OpenDSS results to file...');
-            downloadOpenDSSResults(dataJson);
+            downloadOpenDSSResults(dataJson, b);
         } else {
             console.log('ℹ️ OpenDSS results export not requested or flag not set');
             console.log('  Condition breakdown:');
@@ -1496,6 +1582,10 @@ function executeOpenDSSShortCircuit(parameters, app, graph) {
 
             if (handleNetworkErrors(dataJson)) return;
 
+            if (parameters.exportOpenDSSResults) {
+                downloadOpenDSSShortCircuitResults(dataJson, graph);
+            }
+
             if (dataJson.busbars && Array.isArray(dataJson.busbars)) {
                 const findFn = typeof window !== 'undefined' && window.findResultPlaceholder;
                 const insertFn = typeof window !== 'undefined' && window.insertResultBox;
@@ -1538,7 +1628,7 @@ function executeOpenDSSShortCircuit(parameters, app, graph) {
                             return;
                         }
                         cell.name = replaceUnderscores(cell.name);
-                        const busLabel = getDisplayName(resultCell, cell.name, 'Bus');
+                        const busLabel = formatResultNameHeader(resultCell, cell.name, 'Bus');
                         const resultString = `${busLabel}
                 ikss[kA]: ${formatNumber(cell.ikss_ka)}
                 ip[kA]: ${formatNumber(cell.ip_ka)}
