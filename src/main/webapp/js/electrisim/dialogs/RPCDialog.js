@@ -9,6 +9,11 @@ const GRID_CODE_TEMPLATES = {
         description: '',
         rows: []
     },
+    'custom_manual': {
+        name: 'Custom (manual table)',
+        description: 'Select this when you enter P, Q_min, and Q_max in the table yourself. Required for labeling whenever the table contains data.',
+        rows: []
+    },
     'entsoe_ppm_inner': {
         name: 'ENTSO-E RfG \u2013 PPM Inner Envelope (EU minimum)',
         description: 'EU Reg. 2016/631 Art. 21 \u2013 minimum Q capability for Power Park Modules (wind/solar). cos\u03C6 = 0.95 both directions at P \u2265 0.2\u00B7Pmax.',
@@ -130,6 +135,53 @@ const GRID_CODE_TEMPLATES = {
     }
 };
 
+/**
+ * Scale a built-in grid code template to absolute MW/Mvar for RPC request / charts.
+ * @param {string} templateKey — key in GRID_CODE_TEMPLATES (not 'none')
+ * @param {number} pRatedMw — rated active power base (MW)
+ * @returns {{ p: number, qMin: number, qMax: number }[]}
+ */
+export function getGridTemplateRequirementsMw(templateKey, pRatedMw) {
+    const tpl = GRID_CODE_TEMPLATES[templateKey];
+    if (!tpl || !tpl.rows || tpl.rows.length === 0 || !(pRatedMw > 0)) {
+        return [];
+    }
+    return tpl.rows.map(r => ({
+        p: +(r.p_pu * pRatedMw).toFixed(4),
+        qMin: +(r.q_min_pu * pRatedMw).toFixed(4),
+        qMax: +(r.q_max_pu * pRatedMw).toFixed(4)
+    }));
+}
+
+/** Display name for template key (for results UI). */
+export function getGridTemplateDisplayName(templateKey) {
+    const tpl = GRID_CODE_TEMPLATES[templateKey];
+    return tpl && tpl.name ? tpl.name : '';
+}
+
+/** Sum S_n / P from static generators (MW) — same base as P Max = 0 “auto” on the backend. */
+export function estimateRpcInstalledMw(graph) {
+    if (!graph) return 0;
+    const model = graph.getModel();
+    const cells = model.getDescendants();
+    let totalSn = 0;
+    cells.forEach(cell => {
+        if (!cell || !cell.value) return;
+        const style = cell.getStyle();
+        if (!style) return;
+        if (style.includes('shapeELXXX=Static Generator')) {
+            try {
+                const snAttr = cell.value.attributes?.getNamedItem('sn_mva');
+                const pAttr = cell.value.attributes?.getNamedItem('p_mw');
+                const sn = snAttr ? parseFloat(snAttr.nodeValue) : 0;
+                const p = pAttr ? parseFloat(pAttr.nodeValue) : 0;
+                totalSn += (sn > 0 ? sn : (p > 0 ? p : 0));
+            } catch (e) { /* skip */ }
+        }
+    });
+    return totalSn;
+}
+
 export class RPCDialog extends Dialog {
     constructor(editorUi) {
         super('Reactive Power Capability Analysis', 'Calculate');
@@ -167,8 +219,8 @@ export class RPCDialog extends Dialog {
                 id: 'pSteps',
                 label: 'Number of P Steps',
                 type: 'number',
-                value: '20',
-                placeholder: '20'
+                value: '10',
+                placeholder: '10'
             },
             {
                 id: 'voltageLevels',
@@ -392,7 +444,7 @@ export class RPCDialog extends Dialog {
 
         // --- Title ---
         const title = document.createElement('label');
-        title.textContent = 'Grid Code Requirements (optional)';
+        title.textContent = 'Grid Code Requirements';
         Object.assign(title.style, {
             display: 'block', fontWeight: '600', fontSize: '13px', color: '#495057', marginBottom: '6px'
         });
@@ -407,7 +459,7 @@ export class RPCDialog extends Dialog {
         const templateGroup = document.createElement('div');
         Object.assign(templateGroup.style, { flex: '1 1 280px' });
         const templateLabel = document.createElement('label');
-        templateLabel.textContent = 'Grid Code Template';
+        templateLabel.textContent = 'Grid Code Template (required if table has rows)';
         Object.assign(templateLabel.style, { display: 'block', fontSize: '12px', color: '#6c757d', marginBottom: '2px' });
         templateGroup.appendChild(templateLabel);
 
@@ -424,6 +476,7 @@ export class RPCDialog extends Dialog {
         });
         templateGroup.appendChild(templateSelect);
         templateRow.appendChild(templateGroup);
+        this._templateSelect = templateSelect;
 
         const pratedGroup = document.createElement('div');
         Object.assign(pratedGroup.style, { flex: '0 0 120px' });
@@ -501,7 +554,7 @@ export class RPCDialog extends Dialog {
         });
 
         const helpText = document.createElement('div');
-        helpText.textContent = 'P (MW), Q_min (Mvar, underexcited / negative), Q_max (Mvar, overexcited / positive). Applied to all voltage levels.';
+        helpText.textContent = 'P (MW), Q_min (Mvar, underexcited / negative), Q_max (Mvar, overexcited / positive). Applied to all voltage levels. If you add any rows, choose a template above — use "Custom (manual table)" for hand-entered points. Leave the table empty and keep "-- Select --" to plot capability only.';
         Object.assign(helpText.style, { fontSize: '11px', color: '#6c757d', flex: '1' });
         actionsRow.appendChild(helpText);
 
@@ -705,25 +758,7 @@ export class RPCDialog extends Dialog {
     }
 
     _estimateInstalledCapacity() {
-        if (!this.graph) return 0;
-        const model = this.graph.getModel();
-        const cells = model.getDescendants();
-        let totalSn = 0;
-        cells.forEach(cell => {
-            if (!cell || !cell.value) return;
-            const style = cell.getStyle();
-            if (!style) return;
-            if (style.includes('shapeELXXX=Static Generator')) {
-                try {
-                    const snAttr = cell.value.attributes?.getNamedItem('sn_mva');
-                    const pAttr = cell.value.attributes?.getNamedItem('p_mw');
-                    const sn = snAttr ? parseFloat(snAttr.nodeValue) : 0;
-                    const p = pAttr ? parseFloat(pAttr.nodeValue) : 0;
-                    totalSn += (sn > 0 ? sn : (p > 0 ? p : 0));
-                } catch (e) { /* skip */ }
-            }
-        });
-        return totalSn;
+        return estimateRpcInstalledMw(this.graph);
     }
 
     _addRequirementRow(tbody, p = '', qMin = '', qMax = '') {
@@ -793,6 +828,10 @@ export class RPCDialog extends Dialog {
             qMin: parseFloat(r.inputs.qMin.value) || 0,
             qMax: parseFloat(r.inputs.qMax.value) || 0
         }));
+
+        values.gridCodeTemplateKey = this._templateSelect ? this._templateSelect.value : 'none';
+        const pr = this._pRatedInput ? parseFloat(this._pRatedInput.value) : NaN;
+        values.pRatedMw = !isNaN(pr) && pr > 0 ? pr : null;
 
         return values;
     }

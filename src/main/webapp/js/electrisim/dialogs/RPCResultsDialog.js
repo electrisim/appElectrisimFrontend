@@ -170,6 +170,9 @@ export class RPCResultsDialog {
             ['Installed P', `${(data.total_installed_mw || 0).toFixed(1)} MW`],
             ['Voltage Levels', (data.voltage_levels || []).length]
         ];
+        if (data.grid_code_template_name) {
+            items.push(['Grid code requirement', data.grid_code_template_name]);
+        }
         items.forEach(([label, val]) => {
             const span = document.createElement('span');
             span.innerHTML = `<strong>${label}:</strong> ${val}`;
@@ -290,8 +293,11 @@ export class RPCResultsDialog {
                     if (reqQMax[i] != null) reqEnvelope.push({ x: reqQMax[i], y: reqP[i] });
                 }
 
+                const reqLabelSuffix = fullData.grid_code_template_name
+                    ? ' (grid code)'
+                    : '';
                 datasets.push({
-                    label: 'Requirement Q_max',
+                    label: `Required Q (overexcited)${reqLabelSuffix}`,
                     data: reqMaxPts,
                     borderColor: '#0d6efd',
                     backgroundColor: 'transparent',
@@ -301,7 +307,7 @@ export class RPCResultsDialog {
                     order: 2
                 });
                 datasets.push({
-                    label: 'Requirement Q_min',
+                    label: `Required Q (underexcited)${reqLabelSuffix}`,
                     data: reqMinPts,
                     borderColor: '#0d6efd',
                     backgroundColor: 'transparent',
@@ -334,7 +340,11 @@ export class RPCResultsDialog {
                 plugins: {
                     title: {
                         display: true,
-                        text: `PQ Diagram — PCC Voltage: ${voltageLevel} pu`,
+                        text: `PQ Diagram — PCC Voltage: ${voltageLevel} pu${
+                            fullData.grid_code_template_name
+                                ? ` · ${fullData.grid_code_template_name}`
+                                : ''
+                        }`,
                         font: { size: 15, weight: '600' },
                         color: '#212529'
                     },
