@@ -572,6 +572,7 @@
 							}
 							console.log('✅ app.min.js loaded, starting to load Electrisim scripts');
 							
+							function appendDrawioGlobalsBridge() {
 							// Bridge mx* from classic global scope to window for ES modules (transformer terminal labels, etc.)
 							var bridgeScript = document.createElement('script');
 							bridgeScript.src = 'js/electrisim/utils/drawioGlobalsBridge.js';
@@ -584,6 +585,16 @@
 								startElectrisimModules();
 							};
 							document.head.appendChild(bridgeScript);
+							}
+							var emptyImageFix = document.createElement('script');
+							emptyImageFix.src = 'js/electrisim/utils/mxSvgCanvasEmptyImageFix.js';
+							emptyImageFix.async = false;
+							emptyImageFix.onload = appendDrawioGlobalsBridge;
+							emptyImageFix.onerror = function () {
+								console.warn('mxSvgCanvasEmptyImageFix.js failed; empty SVG image hrefs may error');
+								appendDrawioGlobalsBridge();
+							};
+							document.head.appendChild(emptyImageFix);
 							
 							function startElectrisimModules() {
 							
