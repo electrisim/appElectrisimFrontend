@@ -404,7 +404,17 @@
 						appScript.onload = function() {
 						console.log('✅ app.min.js loaded');
 						performance.mark('app-min-loaded');
-						
+						(function loadEmptyImageFixThenCritical() {
+						var emptyImageFix = document.createElement('script');
+						emptyImageFix.src = 'js/electrisim/utils/mxSvgCanvasEmptyImageFix.js';
+						emptyImageFix.async = false;
+						emptyImageFix.onload = startCriticalElectrisimScripts;
+						emptyImageFix.onerror = function () {
+							console.warn('mxSvgCanvasEmptyImageFix.js failed; empty SVG image hrefs may error');
+							startCriticalElectrisimScripts();
+						};
+						document.head.appendChild(emptyImageFix);
+						function startCriticalElectrisimScripts() {
 						// Load only critical Electrisim scripts immediately
 						// Others will be lazy loaded on demand
 						var criticalScripts = [
@@ -449,6 +459,8 @@
 						
 						// Start loading critical scripts
 						loadCriticalScripts(0);
+						}
+						})();
 						
 						}; // Close app.min.js onload
 						

@@ -132,6 +132,30 @@ const GRID_CODE_TEMPLATES = {
             { p_pu: 0.8,  q_min_pu: -0.3287,  q_max_pu: 0.4843 },
             { p_pu: 1.0,  q_min_pu: -0.3287,  q_max_pu: 0.4843 }
         ]
+    },
+    'sagc_ppm': {
+        name: 'Saudi Arabian Grid Code (SAGC May 2024) \u2013 Power Park Module',
+        description: 'Connection Code \u00A72.5.5.1 \u2014 PPM at connection point: Q within [\u22120.33, +0.33]\u00B7P_rated for P > 20% rated; [\u22120.05, +0.05]\u00B7P_rated for P < 20% (Fig. 2.1). Simplified envelope; verify against official SAGC and connection agreement.',
+        rows: [
+            { p_pu: 0.0,  q_min_pu: 0.0,    q_max_pu: 0.0 },
+            { p_pu: 0.1,  q_min_pu: -0.05,  q_max_pu: 0.05 },
+            { p_pu: 0.2,  q_min_pu: -0.33,  q_max_pu: 0.33 },
+            { p_pu: 0.5,  q_min_pu: -0.33,  q_max_pu: 0.33 },
+            { p_pu: 0.8,  q_min_pu: -0.33,  q_max_pu: 0.33 },
+            { p_pu: 1.0,  q_min_pu: -0.33,  q_max_pu: 0.33 }
+        ]
+    },
+    'sagc_sgu': {
+        name: 'Saudi Arabian Grid Code (SAGC May 2024) \u2013 Synchronous Generating Unit',
+        description: 'Connection Code \u00A72.5.5.1 \u2014 at rated P: 85% PF lagging to 95% PF leading at unit terminals (Q/P \u2248 +0.62 / \u22120.33 p.u.). Below rated P the table uses a linear ramp to (0,0) for plotting; the code text is explicit at rated output\u2014confirm with TSP.',
+        rows: [
+            { p_pu: 0.0,  q_min_pu: 0.0,     q_max_pu: 0.0 },
+            { p_pu: 0.1,  q_min_pu: -0.0329,  q_max_pu: 0.062 },
+            { p_pu: 0.2,  q_min_pu: -0.0657,  q_max_pu: 0.124 },
+            { p_pu: 0.5,  q_min_pu: -0.1643,  q_max_pu: 0.3099 },
+            { p_pu: 0.8,  q_min_pu: -0.2629,  q_max_pu: 0.4958 },
+            { p_pu: 1.0,  q_min_pu: -0.3287,  q_max_pu: 0.6197 }
+        ]
     }
 };
 
