@@ -816,15 +816,9 @@ export class ThreeWindingTransformerDialog extends Dialog {
                 if (param.id === 'cost_per_unit_by_currency') {
                     values[param.id] = input.value || '0';
                 } else if (param.type === 'number') {
-                    // For optional parameters, convert 0 or empty strings to null for backend
-                    const optionalParams = ['vk0_hv_percent', 'vk0_mv_percent', 'vk0_lv_percent', 
-                                         'vkr0_hv_percent', 'vkr0_mv_percent', 'vkr0_lv_percent'];
-                    if (optionalParams.includes(param.id)) {
-                        const numValue = parseFloat(input.value);
-                        values[param.id] = (input.value.trim() === '' || numValue === 0) ? null : numValue;
-                    } else {
-                        values[param.id] = parseFloat(input.value) || 0;
-                    }
+                    const raw = input.value.trim();
+                    const numValue = parseFloat(raw);
+                    values[param.id] = Number.isFinite(numValue) ? numValue : 0;
                 } else if (param.type === 'checkbox') {
                     values[param.id] = input.checked;
                 } else {

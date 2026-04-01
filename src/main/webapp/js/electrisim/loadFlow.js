@@ -368,6 +368,12 @@ const getAttributesAsObject = (cell, attributeMap) => {
         vkr0_percent: '0.0',
         mag0_percent: '0.0',
         si0_hv_partial: '0.0',
+        vk0_hv_percent: '0',
+        vk0_mv_percent: '0',
+        vk0_lv_percent: '0',
+        vkr0_hv_percent: '0',
+        vkr0_mv_percent: '0',
+        vkr0_lv_percent: '0',
         step: '1',
         max_step: '1',
         scaling: '1.0'
@@ -385,7 +391,7 @@ const getAttributesAsObject = (cell, attributeMap) => {
         } else if (!isOptional) {
             console.warn(`Missing required attribute ${key} with name ${attributeName}`);
             result[key] = null;
-        } else if (defaults[key]) {
+        } else if (Object.prototype.hasOwnProperty.call(defaults, key)) {
             result[key] = defaults[key];
         }
     }
@@ -2038,6 +2044,9 @@ Q/P: ${formatNumber(cell.q_p)}`,
                                 max_ik_ka: 'max_ik_ka',
                                 kappa: 'kappa',
                                 current_source: 'current_source',
+                                reactive_capability_curve: 'reactive_capability_curve',
+                                curve_style: 'curve_style',
+                                q_capability_curve_json: 'q_capability_curve_json',
                                 in_service: { name: 'in_service', optional: true }
                             })
                         };
@@ -2173,12 +2182,12 @@ Q/P: ${formatNumber(cell.q_p)}`,
                                     vkr_lv_percent: 'vkr_lv_percent',
                                     pfe_kw: 'pfe_kw',
                                     i0_percent: 'i0_percent',
-                                    vk0_hv_percent: 'vk0_hv_percent',
-                                    vk0_mv_percent: 'vk0_mv_percent',
-                                    vk0_lv_percent: 'vk0_lv_percent',
-                                    vkr0_hv_percent: 'vkr0_hv_percent',
-                                    vkr0_mv_percent: 'vkr0_mv_percent',
-                                    vkr0_lv_percent: 'vkr0_lv_percent',
+                                    vk0_hv_percent: { name: 'vk0_hv_percent', optional: true },
+                                    vk0_mv_percent: { name: 'vk0_mv_percent', optional: true },
+                                    vk0_lv_percent: { name: 'vk0_lv_percent', optional: true },
+                                    vkr0_hv_percent: { name: 'vkr0_hv_percent', optional: true },
+                                    vkr0_mv_percent: { name: 'vkr0_mv_percent', optional: true },
+                                    vkr0_lv_percent: { name: 'vkr0_lv_percent', optional: true },
                                     vector_group: 'vector_group',
                                     shift_mv_degree: { name: 'shift_mv_degree', optional: true },
                                     shift_lv_degree: { name: 'shift_lv_degree', optional: true },

@@ -1,6 +1,76 @@
 import { Dialog } from './Dialog.js';
 import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
 
+/**
+ * Rated active power (MW) for the built-in offshore WTG Q(P) example.
+ * Used only as documentation / preset alignment with curve end-point.
+ */
+export const Q_CAPABILITY_PRESET_15MW_OFFSHORE_P_RATED_MW = 15;
+
+/**
+ * Representative Q(P) for a ~15 MW class Type IV (full-converter) wind turbine,
+ * not OEM-specific. |Q| at each P follows |Q| ≈ P·tan(arccos(0.95)) (±0.95 PF
+ * capability), a widely used simplification in wind/PV grid-code and integration
+ * studies; see e.g. interconnection overviews such as
+ * https://www.esig.energy/wiki-main-page/reactive-power-capability-and-interconnection-requirements-for-pv-and-wind-plants/
+ * Replace with manufacturer or project data when available.
+ */
+// |Q|/P = tan(arccos(0.95)) = sqrt(1-0.95²)/0.95 ≈ 0.32868 (±0.95 PF at each P)
+export const qCapabilityCurve15MwOffshoreWtgPoints = [
+    { p_mw: 0, q_min_mvar: 0, q_max_mvar: 0 },
+    { p_mw: 3.75, q_min_mvar: -1.23, q_max_mvar: 1.23 },
+    { p_mw: 7.5, q_min_mvar: -2.47, q_max_mvar: 2.47 },
+    { p_mw: 11.25, q_min_mvar: -3.7, q_max_mvar: 3.7 },
+    { p_mw: 15, q_min_mvar: -4.93, q_max_mvar: 4.93 }
+];
+
+export const qCapabilityCurve15MwOffshoreWtgJson = JSON.stringify(qCapabilityCurve15MwOffshoreWtgPoints);
+
+/**
+ * Digitized P–Q envelope for **1·U<sub>n</sub>** (export / import limits) for a **15 MW offshore wind turbine**,
+ * from a typical manufacturer-style “power boosted reactive power limits” diagram (50 Hz LV side).
+ * Original axes: P [kW], Q [kVAr]; stored here as MW / MVAr for pandapower.
+ * Asymmetric Qmin/Qmax vs P (import slightly lower magnitude than export at mid-P).
+ * For engineering studies only — confirm against OEM certified curves for your plant.
+ */
+export const qCapabilityCurve15MwOffshoreWt1UnChartPoints = [
+    { p_mw: 0, q_min_mvar: -16.5, q_max_mvar: 16.5 },
+    { p_mw: 2.5, q_min_mvar: -16.2, q_max_mvar: 16.3 },
+    { p_mw: 5, q_min_mvar: -15.5, q_max_mvar: 16.0 },
+    { p_mw: 7.5, q_min_mvar: -14.5, q_max_mvar: 15.2 },
+    { p_mw: 10, q_min_mvar: -12.8, q_max_mvar: 13.8 },
+    { p_mw: 12.5, q_min_mvar: -10.5, q_max_mvar: 11.5 },
+    { p_mw: 15, q_min_mvar: -6.5, q_max_mvar: 6.5 }
+];
+
+export const qCapabilityCurve15MwOffshoreWt1UnChartJson = JSON.stringify(qCapabilityCurve15MwOffshoreWt1UnChartPoints);
+
+/** Suggested S<sub>n</sub> (MVA) for the 1·U<sub>n</sub> offshore wind turbine Q curve preset (converter apparent-power order). */
+export const Q_CAPABILITY_PRESET_OFFSHORE_WT_1UN_SN_MVA = '17.5';
+
+/**
+ * Expand table knots to a polyline: straight segments (straightLineYValues) or
+ * horizontal steps until the next P (constantYValue), matching pandapower naming.
+ */
+function expandQCapabilityPolyline(parsed, qkey, curveStyle) {
+    const n = parsed.length;
+    const out = [];
+    if (curveStyle === 'constantYValue') {
+        for (let i = 0; i < n - 1; i++) {
+            const q = parsed[i][qkey];
+            out.push([parsed[i].p_mw, q]);
+            out.push([parsed[i + 1].p_mw, q]);
+        }
+        const last = parsed[n - 1];
+        out.push([last.p_mw, last[qkey]]);
+    } else {
+        for (let i = 0; i < n; i++) {
+            out.push([parsed[i].p_mw, parsed[i][qkey]]);
+        }
+    }
+    return out;
+}
+
 // Default values for static generator parameters (based on pandapower documentation)
 export const defaultStaticGeneratorData = {
     name: "Static Generator",
@@ -17,7 +87,11 @@ export const defaultStaticGeneratorData = {
     kappa: 0.0,
     current_source: true,
     in_service: true,
-    cost_per_unit_by_currency: "0"
+    cost_per_unit_by_currency: "0",
+    /** pandapower: net.sgen.reactive_capability_curve + q_capability_curve_table */
+    reactive_capability_curve: false,
+    curve_style: 'straightLineYValues',
+    q_capability_curve_json: qCapabilityCurve15MwOffshoreWtgJson
 };
 
 export class StaticGeneratorDialog extends Dialog {
@@ -161,6 +235,33 @@ export class StaticGeneratorDialog extends Dialog {
             }
         ];
 
+        // Reactive power capability curve (pandapower net.q_capability_curve_table; requires enforce_q_lims in PF)
+        this.qCapabilityParameters = [
+            {
+                id: 'reactive_capability_curve',
+                label: 'Use Q capability curve',
+                description: 'If enabled, Qmin/Qmax vs active power follow the table below (pandapower static generator reactive capability). Power flow uses this when reactive limits are enforced. See <a href="https://pandapower.readthedocs.io/en/latest/elements/sgen.html#static-generator-reactive-power-capability-curve-characteristics" target="_blank" rel="noopener">pandapower sgen Q curve</a>.',
+                type: 'checkbox',
+                value: this.data.reactive_capability_curve
+            },
+            {
+                id: 'curve_style',
+                label: 'Curve style',
+                description: 'straightLineYValues: linear segments between points. constantYValue: Q holds until the next P point.',
+                type: 'select',
+                value: this.data.curve_style,
+                options: ['straightLineYValues', 'constantYValue']
+            },
+            {
+                id: 'q_capability_curve_json',
+                label: 'Curve points (JSON)',
+                description: 'Array of { "p_mw", "q_min_mvar", "q_max_mvar" } — at least two points, sorted by p_mw recommended. Default: generic ±0.95 PF 15 MW curve. Use the buttons below for offshore wind turbine 1·Un (digitized manufacturer-style) or the generic template.',
+                type: 'textarea',
+                value: this.data.q_capability_curve_json,
+                rows: 8
+            }
+        ];
+
         // Economic parameters (for Economic Analysis)
         this.economicParameters = [
             { id: 'cost_per_unit_by_currency', label: 'Cost per unit', description: 'Cost per unit for Economic Analysis CAPEX calculation', type: 'text', value: '' }
@@ -226,12 +327,14 @@ export class StaticGeneratorDialog extends Dialog {
         const ratingTab = this.createTab('Rating', 'rating', this.currentTab === 'rating');
         const shortCircuitTab = this.createTab('Short Circuit', 'shortcircuit', this.currentTab === 'shortcircuit');
         const advancedTab = this.createTab('Advanced', 'advanced', this.currentTab === 'advanced');
+        const qCapTab = this.createTab('Q capability', 'qcapability', this.currentTab === 'qcapability');
         const economicTab = this.createTab('Economic', 'economic', this.currentTab === 'economic');
         
         tabContainer.appendChild(powerTab);
         tabContainer.appendChild(ratingTab);
         tabContainer.appendChild(shortCircuitTab);
         tabContainer.appendChild(advancedTab);
+        tabContainer.appendChild(qCapTab);
         tabContainer.appendChild(economicTab);
         container.appendChild(tabContainer);
 
@@ -252,14 +355,85 @@ export class StaticGeneratorDialog extends Dialog {
         const ratingContent = this.createTabContent('rating', this.ratingParameters);
         const shortCircuitContent = this.createTabContent('shortcircuit', this.shortCircuitParameters);
         const advancedContent = this.createTabContent('advanced', this.advancedParameters);
+        const qCapContent = this.createTabContent('qcapability', this.qCapabilityParameters);
         const economicContent = this.createTabContent('economic', this.economicParameters);
+
+        const qCapForm = qCapContent.querySelector('form');
+        if (qCapForm) {
+            this._mountQCapabilityChartPanel(qCapContent, qCapForm);
+        }
         
         contentArea.appendChild(powerContent);
         contentArea.appendChild(ratingContent);
         contentArea.appendChild(shortCircuitContent);
         contentArea.appendChild(advancedContent);
+        contentArea.appendChild(qCapContent);
         contentArea.appendChild(economicContent);
         container.appendChild(contentArea);
+
+        const qCapPresetWrap = document.createElement('div');
+        Object.assign(qCapPresetWrap.style, {
+            padding: '0 16px 16px',
+            marginTop: '4px'
+        });
+        const qCapPresetHint = document.createElement('div');
+        Object.assign(qCapPresetHint.style, { fontSize: '12px', color: '#6c757d', marginBottom: '10px', lineHeight: '1.45' });
+        qCapPresetHint.innerHTML = '<strong>Templates</strong> — (1) Generic ±0.95 PF model, 15 MW. (2) <strong>Offshore wind turbine</strong> (15 MW): digitized <strong>1·U<sub>n</sub></strong> export/import limits from a typical manufacturer P–Q diagram (50 Hz LV), MW/MVAr. Both set P = 15 MW, <code>current_source</code>, enable the curve and linear segments. Verify OEM data for real projects.';
+
+        const applyQCapabilityPreset = (jsonStr, pMw, snMva) => {
+            const ta = this.inputs.get('q_capability_curve_json');
+            const cb = this.inputs.get('reactive_capability_curve');
+            const styleSel = this.inputs.get('curve_style');
+            if (ta) ta.value = jsonStr;
+            if (cb) cb.checked = true;
+            if (styleSel) styleSel.value = 'straightLineYValues';
+            const pIn = this.inputs.get('p_mw');
+            const snIn = this.inputs.get('sn_mva');
+            if (pIn) pIn.value = String(pMw);
+            if (snIn) snIn.value = String(snMva);
+            const gt = this.inputs.get('generator_type');
+            if (gt) gt.value = 'current_source';
+            if (typeof this._qCapabilityChartRedraw === 'function') {
+                this._qCapabilityChartRedraw();
+            }
+        };
+
+        const presetRow = document.createElement('div');
+        Object.assign(presetRow.style, {
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '8px',
+            alignItems: 'center'
+        });
+
+        const qCapPresetBtn = this.createButton('Template: ±0.95 PF (15 MW)', '#17a2b8', '#138496');
+        qCapPresetBtn.type = 'button';
+        qCapPresetBtn.onclick = (e) => {
+            e.preventDefault();
+            applyQCapabilityPreset(
+                qCapabilityCurve15MwOffshoreWtgJson,
+                Q_CAPABILITY_PRESET_15MW_OFFSHORE_P_RATED_MW,
+                '16.5'
+            );
+        };
+
+        const qCapPresetOffshoreWt1UnBtn = this.createButton('Template: offshore wind turbine 1·Un (15 MW)', '#6f42c1', '#5a32a3');
+        qCapPresetOffshoreWt1UnBtn.type = 'button';
+        qCapPresetOffshoreWt1UnBtn.title = 'P–Q limits digitized from typical 15 MW offshore wind turbine diagram (1·Un), LV side';
+        qCapPresetOffshoreWt1UnBtn.onclick = (e) => {
+            e.preventDefault();
+            applyQCapabilityPreset(
+                qCapabilityCurve15MwOffshoreWt1UnChartJson,
+                Q_CAPABILITY_PRESET_15MW_OFFSHORE_P_RATED_MW,
+                Q_CAPABILITY_PRESET_OFFSHORE_WT_1UN_SN_MVA
+            );
+        };
+
+        qCapPresetWrap.appendChild(qCapPresetHint);
+        presetRow.appendChild(qCapPresetBtn);
+        presetRow.appendChild(qCapPresetOffshoreWt1UnBtn);
+        qCapPresetWrap.appendChild(presetRow);
+        qCapContent.appendChild(qCapPresetWrap);
 
         // Add button container
         const buttonContainer = document.createElement('div');
@@ -305,11 +479,12 @@ export class StaticGeneratorDialog extends Dialog {
         this.container = container;
         
         // Tab click handlers
-        powerTab.onclick = () => this.switchTab('power', powerTab, [ratingTab, shortCircuitTab, advancedTab, economicTab], powerContent, [ratingContent, shortCircuitContent, advancedContent, economicContent]);
-        ratingTab.onclick = () => this.switchTab('rating', ratingTab, [powerTab, shortCircuitTab, advancedTab, economicTab], ratingContent, [powerContent, shortCircuitContent, advancedContent, economicContent]);
-        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [powerTab, ratingTab, advancedTab, economicTab], shortCircuitContent, [powerContent, ratingContent, advancedContent, economicContent]);
-        advancedTab.onclick = () => this.switchTab('advanced', advancedTab, [powerTab, ratingTab, shortCircuitTab, economicTab], advancedContent, [powerContent, ratingContent, shortCircuitContent, economicContent]);
-        economicTab.onclick = () => this.switchTab('economic', economicTab, [powerTab, ratingTab, shortCircuitTab, advancedTab], economicContent, [powerContent, ratingContent, shortCircuitContent, advancedContent]);
+        powerTab.onclick = () => this.switchTab('power', powerTab, [ratingTab, shortCircuitTab, advancedTab, qCapTab, economicTab], powerContent, [ratingContent, shortCircuitContent, advancedContent, qCapContent, economicContent]);
+        ratingTab.onclick = () => this.switchTab('rating', ratingTab, [powerTab, shortCircuitTab, advancedTab, qCapTab, economicTab], ratingContent, [powerContent, shortCircuitContent, advancedContent, qCapContent, economicContent]);
+        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [powerTab, ratingTab, advancedTab, qCapTab, economicTab], shortCircuitContent, [powerContent, ratingContent, advancedContent, qCapContent, economicContent]);
+        advancedTab.onclick = () => this.switchTab('advanced', advancedTab, [powerTab, ratingTab, shortCircuitTab, qCapTab, economicTab], advancedContent, [powerContent, ratingContent, shortCircuitContent, qCapContent, economicContent]);
+        qCapTab.onclick = () => this.switchTab('qcapability', qCapTab, [powerTab, ratingTab, shortCircuitTab, advancedTab, economicTab], qCapContent, [powerContent, ratingContent, shortCircuitContent, advancedContent, economicContent]);
+        economicTab.onclick = () => this.switchTab('economic', economicTab, [powerTab, ratingTab, shortCircuitTab, advancedTab, qCapTab], economicContent, [powerContent, ratingContent, shortCircuitContent, advancedContent, qCapContent]);
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
@@ -378,16 +553,17 @@ export class StaticGeneratorDialog extends Dialog {
 
         parameters.forEach(param => {
             const parameterRow = document.createElement('div');
+            const isTextarea = param.type === 'textarea';
             Object.assign(parameterRow.style, {
                 display: 'grid',
-                gridTemplateColumns: '1fr 200px',
+                gridTemplateColumns: isTextarea ? '1fr' : '1fr 200px',
                 gap: '20px',
                 alignItems: 'start',
                 padding: '16px',
                 backgroundColor: '#f8f9fa',
                 border: '1px solid #e9ecef',
                 borderRadius: '8px',
-                minHeight: '80px'
+                minHeight: isTextarea ? '120px' : '80px'
             });
 
             // Left column: Label and description
@@ -418,7 +594,11 @@ export class StaticGeneratorDialog extends Dialog {
                 fontStyle: 'italic',
                 marginBottom: '4px'
             });
-            description.textContent = param.description;
+            if (param.description && param.description.includes('<a ')) {
+                description.innerHTML = param.description;
+            } else {
+                description.textContent = param.description;
+            }
 
             leftColumn.appendChild(label);
             leftColumn.appendChild(description);
@@ -427,10 +607,10 @@ export class StaticGeneratorDialog extends Dialog {
             const rightColumn = document.createElement('div');
             Object.assign(rightColumn.style, {
                 display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'flex-end',
+                alignItems: isTextarea ? 'stretch' : 'center',
+                justifyContent: isTextarea ? 'stretch' : 'flex-end',
                 minHeight: '60px',
-                width: '200px'
+                width: isTextarea ? '100%' : '200px'
             });
             
             let input;
@@ -452,7 +632,13 @@ export class StaticGeneratorDialog extends Dialog {
                 param.options.forEach(option => {
                     const optionElement = document.createElement('option');
                     optionElement.value = option;
-                    optionElement.textContent = option.charAt(0).toUpperCase() + option.slice(1);
+                    if (param.id === 'curve_style') {
+                        optionElement.textContent = option === 'straightLineYValues'
+                            ? 'Straight line between points'
+                            : 'Constant Q to next P point';
+                    } else {
+                        optionElement.textContent = option.charAt(0).toUpperCase() + option.slice(1);
+                    }
                     if (option === param.value) {
                         optionElement.selected = true;
                     }
@@ -470,6 +656,22 @@ export class StaticGeneratorDialog extends Dialog {
                     transition: 'all 0.2s ease',
                     outline: 'none',
                     cursor: 'pointer'
+                });
+            } else if (param.type === 'textarea') {
+                input = document.createElement('textarea');
+                input.value = param.value || '';
+                input.rows = param.rows || 6;
+                Object.assign(input.style, {
+                    width: '100%',
+                    minHeight: '140px',
+                    padding: '10px 14px',
+                    border: '2px solid #ced4da',
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    fontFamily: 'Consolas, monospace',
+                    backgroundColor: '#ffffff',
+                    boxSizing: 'border-box',
+                    resize: 'vertical'
                 });
             } else {
                 input = document.createElement('input');
@@ -525,10 +727,16 @@ export class StaticGeneratorDialog extends Dialog {
 
             input.id = param.id;
             this.inputs.set(param.id, input);
-            rightColumn.appendChild(input);
 
-            parameterRow.appendChild(leftColumn);
-            parameterRow.appendChild(rightColumn);
+            if (isTextarea) {
+                parameterRow.appendChild(leftColumn);
+                rightColumn.appendChild(input);
+                parameterRow.appendChild(rightColumn);
+            } else {
+                rightColumn.appendChild(input);
+                parameterRow.appendChild(leftColumn);
+                parameterRow.appendChild(rightColumn);
+            }
             form.appendChild(parameterRow);
         });
 
@@ -596,7 +804,8 @@ export class StaticGeneratorDialog extends Dialog {
         const values = {};
         
         // Collect all parameter values from all tabs
-        [...this.powerParameters, ...this.ratingParameters, ...this.shortCircuitParameters, ...this.advancedParameters, ...(this.economicParameters || [])].forEach(param => {
+        [...this.powerParameters, ...this.ratingParameters, ...this.shortCircuitParameters, ...this.advancedParameters,
+            ...(this.qCapabilityParameters || []), ...(this.economicParameters || [])].forEach(param => {
             const input = this.inputs.get(param.id);
             if (input) {
                 if (param.id === 'cost_per_unit_by_currency') {
@@ -606,6 +815,8 @@ export class StaticGeneratorDialog extends Dialog {
                 } else if (param.type === 'checkbox') {
                     values[param.id] = input.checked;
                 } else if (param.type === 'select') {
+                    values[param.id] = input.value;
+                } else if (param.type === 'textarea') {
                     values[param.id] = input.value;
                 } else {
                     values[param.id] = input.value;
@@ -617,6 +828,7 @@ export class StaticGeneratorDialog extends Dialog {
     }
     
     destroy() {
+        this._qCapabilityChartRedraw = null;
         // Call parent destroy method
         super.destroy();
         
@@ -634,7 +846,8 @@ export class StaticGeneratorDialog extends Dialog {
         
         // Log initial parameter values
         console.log('Initial parameter values:');
-        [...this.powerParameters, ...this.ratingParameters, ...this.shortCircuitParameters, ...this.advancedParameters].forEach(param => {
+        [...this.powerParameters, ...this.ratingParameters, ...this.shortCircuitParameters, ...this.advancedParameters,
+            ...(this.qCapabilityParameters || [])].forEach(param => {
             console.log(`  ${param.id}: ${param.value} (${param.type})`);
         });
         
@@ -693,6 +906,17 @@ export class StaticGeneratorDialog extends Dialog {
                     }
                     console.log(`  Updated advanced ${attributeName}: ${oldValue} → ${advancedParam.value}`);
                 }
+
+                const qCapParam = (this.qCapabilityParameters || []).find(p => p.id === attributeName);
+                if (qCapParam) {
+                    const oldValue = qCapParam.value;
+                    if (qCapParam.type === 'checkbox') {
+                        qCapParam.value = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        qCapParam.value = attributeValue != null ? String(attributeValue) : qCapParam.value;
+                    }
+                    console.log(`  Updated qCapability ${attributeName}: ${oldValue} → ${qCapParam.value}`);
+                }
                 
                 const economicParam = (this.economicParameters || []).find(p => p.id === attributeName);
                 if (economicParam) {
@@ -701,7 +925,7 @@ export class StaticGeneratorDialog extends Dialog {
                     console.log(`  Updated economic ${attributeName}: → ${attributeValue}`);
                 }
                 
-                if (!powerParam && !ratingParam && !shortCircuitParam && !advancedParam && !economicParam) {
+                if (!powerParam && !ratingParam && !shortCircuitParam && !advancedParam && !qCapParam && !economicParam) {
                     console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
             }
@@ -711,11 +935,289 @@ export class StaticGeneratorDialog extends Dialog {
         
         // Log final parameter values
         console.log('Final parameter values:');
-        [...this.powerParameters, ...this.ratingParameters, ...this.shortCircuitParameters, ...this.advancedParameters].forEach(param => {
+        [...this.powerParameters, ...this.ratingParameters, ...this.shortCircuitParameters, ...this.advancedParameters,
+            ...(this.qCapabilityParameters || [])].forEach(param => {
             console.log(`  ${param.id}: ${param.value} (${param.type})`);
         });
         
         console.log('=== StaticGeneratorDialog.populateDialog completed ===');
+    }
+
+    /**
+     * P–Q chart above the Q capability form; redrawn from JSON textarea and curve style.
+     */
+    _mountQCapabilityChartPanel(parentEl, insertBeforeEl) {
+        const wrap = document.createElement('div');
+        Object.assign(wrap.style, {
+            margin: '0 0 8px 0',
+            padding: '14px 16px',
+            backgroundColor: '#ffffff',
+            border: '1px solid #e9ecef',
+            borderRadius: '8px'
+        });
+        const title = document.createElement('div');
+        title.textContent = 'P–Q capability preview';
+        Object.assign(title.style, { fontWeight: '600', fontSize: '14px', color: '#495057', marginBottom: '4px' });
+        const sub = document.createElement('div');
+        Object.assign(sub.style, { fontSize: '11px', color: '#6c757d', marginBottom: '8px', lineHeight: '1.4' });
+        sub.textContent = 'Allowable reactive band (Qmin … Qmax) vs active power P from the curve points. Shape follows the selected curve style.';
+        const status = document.createElement('div');
+        Object.assign(status.style, { fontSize: '12px', color: '#c62828', minHeight: '20px', marginBottom: '6px' });
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('viewBox', '0 0 580 320');
+        svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+        Object.assign(svg.style, { width: '100%', maxHeight: '300px', display: 'block' });
+        wrap.appendChild(title);
+        wrap.appendChild(sub);
+        wrap.appendChild(status);
+        wrap.appendChild(svg);
+        parentEl.insertBefore(wrap, insertBeforeEl);
+
+        const redraw = () => this._redrawQCapabilityChartSvg(svg, status);
+        this._qCapabilityChartRedraw = redraw;
+
+        const ta = this.inputs.get('q_capability_curve_json');
+        const styleSel = this.inputs.get('curve_style');
+        let debounceT = null;
+        const schedule = () => {
+            if (debounceT) clearTimeout(debounceT);
+            debounceT = setTimeout(() => {
+                debounceT = null;
+                redraw();
+            }, 200);
+        };
+        if (ta) {
+            ta.addEventListener('input', schedule);
+            ta.addEventListener('change', redraw);
+        }
+        if (styleSel) {
+            styleSel.addEventListener('change', redraw);
+        }
+        redraw();
+    }
+
+    _redrawQCapabilityChartSvg(svg, statusEl) {
+        while (svg.firstChild) {
+            svg.removeChild(svg.firstChild);
+        }
+        statusEl.textContent = '';
+        statusEl.style.color = '#c62828';
+
+        const ta = this.inputs.get('q_capability_curve_json');
+        const styleSel = this.inputs.get('curve_style');
+        const raw = ta ? ta.value.trim() : '';
+
+        let points;
+        try {
+            points = JSON.parse(raw);
+        } catch {
+            statusEl.textContent = 'Invalid JSON — fix the curve text to see the chart.';
+            return;
+        }
+        if (!Array.isArray(points) || points.length < 2) {
+            statusEl.textContent = 'Enter at least two points to plot the characteristic.';
+            return;
+        }
+
+        const parsed = [];
+        for (let i = 0; i < points.length; i++) {
+            const pt = points[i];
+            if (!pt || typeof pt !== 'object') continue;
+            const p = Number(pt.p_mw);
+            const qmin = Number(pt.q_min_mvar);
+            const qmax = Number(pt.q_max_mvar);
+            if (!Number.isFinite(p) || !Number.isFinite(qmin) || !Number.isFinite(qmax)) continue;
+            parsed.push({ p_mw: p, q_min_mvar: qmin, q_max_mvar: qmax });
+        }
+        if (parsed.length < 2) {
+            statusEl.textContent = 'Need at least two valid objects with p_mw, q_min_mvar, q_max_mvar.';
+            return;
+        }
+        parsed.sort((a, b) => a.p_mw - b.p_mw);
+
+        const curveStyle = styleSel && styleSel.value === 'constantYValue' ? 'constantYValue' : 'straightLineYValues';
+        const upper = expandQCapabilityPolyline(parsed, 'q_max_mvar', curveStyle);
+        const lower = expandQCapabilityPolyline(parsed, 'q_min_mvar', curveStyle);
+
+        let pMin = parsed[0].p_mw;
+        let pMax = parsed[parsed.length - 1].p_mw;
+        let qMin = parsed[0].q_min_mvar;
+        let qMax = parsed[0].q_max_mvar;
+        for (let i = 0; i < parsed.length; i++) {
+            qMin = Math.min(qMin, parsed[i].q_min_mvar);
+            qMax = Math.max(qMax, parsed[i].q_max_mvar);
+        }
+        const pPad = Math.max(0.5, (pMax - pMin) * 0.06) || 1;
+        const qPad = Math.max(0.25, (qMax - qMin) * 0.08) || 0.5;
+        pMin -= pPad;
+        pMax += pPad;
+        qMin -= qPad;
+        qMax += qPad;
+        if (pMax <= pMin) pMax = pMin + 1;
+        if (qMax <= qMin) qMax = qMin + 0.1;
+
+        const W = 580;
+        const H = 320;
+        const ml = 52;
+        const mr = 28;
+        const mt = 24;
+        const mb = 48;
+        const pw = W - ml - mr;
+        const ph = H - mt - mb;
+
+        const xOf = (p) => ml + ((p - pMin) / (pMax - pMin)) * pw;
+        const yOf = (q) => mt + ph - ((q - qMin) / (qMax - qMin)) * ph;
+
+        const add = (el) => svg.appendChild(el);
+
+        const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        bg.setAttribute('x', String(ml));
+        bg.setAttribute('y', String(mt));
+        bg.setAttribute('width', String(pw));
+        bg.setAttribute('height', String(ph));
+        bg.setAttribute('fill', '#f8f9fa');
+        bg.setAttribute('stroke', '#dee2e6');
+        add(bg);
+
+        const gridN = 5;
+        for (let g = 0; g <= gridN; g++) {
+            const gx = ml + (g / gridN) * pw;
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', String(gx));
+            line.setAttribute('x2', String(gx));
+            line.setAttribute('y1', String(mt));
+            line.setAttribute('y2', String(mt + ph));
+            line.setAttribute('stroke', '#e9ecef');
+            line.setAttribute('stroke-width', '1');
+            add(line);
+        }
+        for (let g = 0; g <= gridN; g++) {
+            const gy = mt + (g / gridN) * ph;
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', String(ml));
+            line.setAttribute('x2', String(ml + pw));
+            line.setAttribute('y1', String(gy));
+            line.setAttribute('y2', String(gy));
+            line.setAttribute('stroke', '#e9ecef');
+            line.setAttribute('stroke-width', '1');
+            add(line);
+        }
+
+        const polyPts = [];
+        for (let i = 0; i < upper.length; i++) {
+            polyPts.push(`${xOf(upper[i][0]).toFixed(1)},${yOf(upper[i][1]).toFixed(1)}`);
+        }
+        for (let i = lower.length - 1; i >= 0; i--) {
+            polyPts.push(`${xOf(lower[i][0]).toFixed(1)},${yOf(lower[i][1]).toFixed(1)}`);
+        }
+        const band = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        band.setAttribute('points', polyPts.join(' '));
+        band.setAttribute('fill', 'rgba(13, 71, 161, 0.12)');
+        band.setAttribute('stroke', 'none');
+        add(band);
+
+        const lineUpper = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+        lineUpper.setAttribute('fill', 'none');
+        lineUpper.setAttribute('stroke', '#0d47a1');
+        lineUpper.setAttribute('stroke-width', '2.5');
+        lineUpper.setAttribute('points', upper.map(([p, q]) => `${xOf(p).toFixed(1)},${yOf(q).toFixed(1)}`).join(' '));
+        add(lineUpper);
+
+        const lineLower = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+        lineLower.setAttribute('fill', 'none');
+        lineLower.setAttribute('stroke', '#e65100');
+        lineLower.setAttribute('stroke-width', '2.5');
+        lineLower.setAttribute('points', lower.map(([p, q]) => `${xOf(p).toFixed(1)},${yOf(q).toFixed(1)}`).join(' '));
+        add(lineLower);
+
+        for (let i = 0; i < parsed.length; i++) {
+            const cx = xOf(parsed[i].p_mw);
+            const cyMax = yOf(parsed[i].q_max_mvar);
+            const cyMin = yOf(parsed[i].q_min_mvar);
+            [cyMax, cyMin].forEach((cy) => {
+                const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                c.setAttribute('cx', String(cx.toFixed(1)));
+                c.setAttribute('cy', String(cy.toFixed(1)));
+                c.setAttribute('r', '4');
+                c.setAttribute('fill', '#fff');
+                c.setAttribute('stroke', '#495057');
+                c.setAttribute('stroke-width', '1.5');
+                add(c);
+            });
+        }
+
+        const xAx = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        xAx.setAttribute('x1', String(ml));
+        xAx.setAttribute('x2', String(ml + pw));
+        xAx.setAttribute('y1', String(mt + ph));
+        xAx.setAttribute('y2', String(mt + ph));
+        xAx.setAttribute('stroke', '#495057');
+        xAx.setAttribute('stroke-width', '1.5');
+        add(xAx);
+
+        const yAx = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        yAx.setAttribute('x1', String(ml));
+        yAx.setAttribute('x2', String(ml));
+        yAx.setAttribute('y1', String(mt));
+        yAx.setAttribute('y2', String(mt + ph));
+        yAx.setAttribute('stroke', '#495057');
+        yAx.setAttribute('stroke-width', '1.5');
+        add(yAx);
+
+        const xl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        xl.setAttribute('x', String(ml + pw / 2));
+        xl.setAttribute('y', String(H - 12));
+        xl.setAttribute('text-anchor', 'middle');
+        xl.setAttribute('font-size', '12');
+        xl.setAttribute('fill', '#495057');
+        xl.textContent = 'P [MW]';
+        add(xl);
+
+        const yl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        yl.setAttribute('x', String(14));
+        yl.setAttribute('y', String(mt + ph / 2));
+        yl.setAttribute('text-anchor', 'middle');
+        yl.setAttribute('font-size', '12');
+        yl.setAttribute('fill', '#495057');
+        yl.setAttribute('transform', `rotate(-90 14 ${mt + ph / 2})`);
+        yl.textContent = 'Q [MVAr]';
+        add(yl);
+
+        const fmt = (v) => (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(2));
+        for (let g = 0; g <= gridN; g++) {
+            const pv = pMin + (g / gridN) * (pMax - pMin);
+            const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            t.setAttribute('x', String(xOf(pv)));
+            t.setAttribute('y', String(mt + ph + 22));
+            t.setAttribute('text-anchor', 'middle');
+            t.setAttribute('font-size', '10');
+            t.setAttribute('fill', '#6c757d');
+            t.textContent = fmt(pv);
+            add(t);
+        }
+        for (let g = 0; g <= gridN; g++) {
+            const qv = qMin + (g / gridN) * (qMax - qMin);
+            const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            t.setAttribute('x', String(ml - 8));
+            t.setAttribute('y', String(yOf(qv) + 4));
+            t.setAttribute('text-anchor', 'end');
+            t.setAttribute('font-size', '10');
+            t.setAttribute('fill', '#6c757d');
+            t.textContent = fmt(qv);
+            add(t);
+        }
+
+        const leg = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        leg.setAttribute('x', String(ml + pw - 4));
+        leg.setAttribute('y', String(mt + 14));
+        leg.setAttribute('text-anchor', 'end');
+        leg.setAttribute('font-size', '10');
+        leg.setAttribute('fill', '#6c757d');
+        leg.textContent = curveStyle === 'constantYValue' ? 'Style: steps' : 'Style: linear segments';
+        add(leg);
+
+        statusEl.style.color = '#2e7d32';
+        statusEl.textContent = `${parsed.length} knot(s) — blue: Qmax, orange: Qmin`;
     }
 }
 
@@ -801,6 +1303,21 @@ export const columnDefsStaticGenerator = [
         field: "in_service",
         headerTooltip: "Specifies if the static generator is in service (True/False)",
         maxWidth: 100
+    },
+    {
+        field: "reactive_capability_curve",
+        headerTooltip: "pandapower: use Q capability curve (P vs Qmin/Qmax) when enforce_q_lims applies",
+        maxWidth: 120
+    },
+    {
+        field: "curve_style",
+        headerTooltip: "straightLineYValues or constantYValue (pandapower sgen)",
+        maxWidth: 140
+    },
+    {
+        field: "q_capability_curve_json",
+        headerTooltip: "JSON array of {p_mw, q_min_mvar, q_max_mvar}. Dialog presets: ±0.95 PF or offshore wind turbine 1·Un digitized curve.",
+        maxWidth: 200
     }
 ];
   

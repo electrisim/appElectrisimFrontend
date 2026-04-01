@@ -259,7 +259,11 @@ export class RPCDialog extends Dialog {
                 type: 'radio',
                 options: [
                     { value: 'from_rating', label: 'From S_n and P (circular capability)', default: true },
-                    { value: 'fixed_fraction', label: 'Fixed fraction (0.5 × S_n)' }
+                    { value: 'fixed_fraction', label: 'Fixed fraction (0.5 × S_n)' },
+                    {
+                        value: 'from_sgen_curve',
+                        label: 'From static generator P–Q curve (diagram, reactive capability enabled)'
+                    }
                 ]
             },
             {
@@ -290,7 +294,8 @@ export class RPCDialog extends Dialog {
     getDescription() {
         return '<strong>Reactive Power Capability (PQ Diagram)</strong><br>' +
             'Sweeps active power of the wind farm and determines the reactive power capability envelope at the PCC bus across multiple voltage levels. ' +
-            'Optionally compares against grid code requirements.';
+            'Optionally compares against grid code requirements. ' +
+            'To use manufacturer-style limits per unit, enable <em>Use Q capability curve</em> on each static generator and pick <strong>From static generator P–Q curve</strong> below.';
     }
 
     populateOptions() {
@@ -826,8 +831,22 @@ export class RPCDialog extends Dialog {
         const values = {};
         this.parameters.forEach(param => {
             if (param.type === 'radio') {
-                const radio = this.inputs.get(param.id);
-                values[param.id] = radio ? radio.value : (param.options[0]?.value || '');
+                let checked = null;
+                if (this.container) {
+                    checked = this.container.querySelector(
+                        `input[type="radio"][name="${param.id}"]:checked`
+                    );
+                }
+                if (!checked) {
+                    const radio = this.inputs.get(param.id);
+                    if (radio && radio.checked) checked = radio;
+                }
+                if (checked) {
+                    values[param.id] = checked.value;
+                } else {
+                    const defOpt = param.options.find(o => o.default);
+                    values[param.id] = defOpt ? defOpt.value : (param.options[0]?.value || '');
+                }
             } else if (param.type === 'checkbox') {
                 const cb = this.inputs.get(param.id);
                 values[param.id] = cb ? cb.checked : false;

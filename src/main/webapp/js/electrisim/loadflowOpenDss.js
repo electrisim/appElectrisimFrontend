@@ -2820,6 +2820,9 @@ function collectNetworkDataStructured(graph) {
                         max_ik_ka: 'max_ik_ka',
                         kappa: 'kappa',
                         current_source: 'current_source',
+                        reactive_capability_curve: 'reactive_capability_curve',
+                        curve_style: 'curve_style',
+                        q_capability_curve_json: 'q_capability_curve_json',
                         in_service: { name: 'in_service', optional: true }
                     });
 
@@ -2854,7 +2857,10 @@ function collectNetworkDataStructured(graph) {
                         max_ik_ka: staticGenParams.max_ik_ka || 1.0,
                         kappa: staticGenParams.kappa || 1.0,
                         current_source: staticGenParams.current_source || false,
-                        in_service: staticGenInService
+                        in_service: staticGenInService,
+                        reactive_capability_curve: staticGenParams.reactive_capability_curve,
+                        curve_style: staticGenParams.curve_style || 'straightLineYValues',
+                        q_capability_curve_json: staticGenParams.q_capability_curve_json
                     };
                     
                     // Validate bus connection

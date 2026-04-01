@@ -178,6 +178,18 @@ export class RPCResultsDialog {
             span.innerHTML = `<strong>${label}:</strong> ${val}`;
             bar.appendChild(span);
         });
+        if (data.pcc_q_convention) {
+            const note = document.createElement('div');
+            Object.assign(note.style, {
+                flexBasis: '100%',
+                marginTop: '6px',
+                fontSize: '11px',
+                color: '#6c757d',
+                lineHeight: '1.4'
+            });
+            note.textContent = data.pcc_q_convention;
+            bar.appendChild(note);
+        }
         return bar;
     }
 
@@ -363,7 +375,11 @@ export class RPCResultsDialog {
                 },
                 scales: {
                     x: {
-                        title: { display: true, text: 'Q (Mvar)', font: { size: 13, weight: '600' } },
+                        title: {
+                            display: true,
+                            text: 'Net Q at PCC, res_bus (Mvar) — + overexcited, − underexcited; blue = PCC req.',
+                            font: { size: 12, weight: '600' }
+                        },
                         grid: { color: 'rgba(0,0,0,0.06)' }
                     },
                     y: {

@@ -1,5 +1,7 @@
 // Export all configure functions and make them globally available
 
+import { qCapabilityCurve15MwOffshoreWtgJson } from './staticGeneratorDialog.js';
+
 /** Default scaling for load/gen/sgen etc.: use "1" when value is "0", null, undefined, or empty */
 function defaultScaling(value) {
     if (value == null || value === "" || value === "0") return "1";
@@ -137,6 +139,12 @@ export function configureStaticGeneratorAttributes(grafka, vertex, options = {})
     // Economic parameters
     g.setAttribute("Economic_parameters", "");
     g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
+
+    // pandapower Q capability curve (net.q_capability_curve_table)
+    const qcapOn = options.reactive_capability_curve === true || options.reactive_capability_curve === 'true';
+    g.setAttribute("reactive_capability_curve", qcapOn ? "true" : "false");
+    g.setAttribute("curve_style", options.curve_style || "straightLineYValues");
+    g.setAttribute("q_capability_curve_json", options.q_capability_curve_json || qCapabilityCurve15MwOffshoreWtgJson);
 
     grafka.getModel().setValue(vertex, g)
 
