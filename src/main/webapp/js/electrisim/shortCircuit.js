@@ -1040,7 +1040,10 @@ window.shortCircuitPandaPower = function(a, b, c) {
                                 lrc_pu: 'lrc_pu',
                                 max_ik_ka: 'max_ik_ka',
                                 kappa: 'kappa',
-                                current_source: 'current_source'
+                                current_source: 'current_source',
+                                reactive_capability_curve: 'reactive_capability_curve',
+                                curve_style: 'curve_style',
+                                q_capability_curve_json: 'q_capability_curve_json'
                             })
                         };
                         componentArrays.staticGenerator.push(staticGenerator);
@@ -1144,12 +1147,12 @@ window.shortCircuitPandaPower = function(a, b, c) {
                                 vkr_lv_percent: 'vkr_lv_percent',
                                 pfe_kw: 'pfe_kw',
                                 i0_percent: 'i0_percent',
-                                vk0_hv_percent: 'vk0_hv_percent',
-                                vk0_mv_percent: 'vk0_mv_percent',
-                                vk0_lv_percent: 'vk0_lv_percent',
-                                vkr0_hv_percent: 'vkr0_hv_percent',
-                                vkr0_mv_percent: 'vkr0_mv_percent',
-                                vkr0_lv_percent: 'vkr0_lv_percent',
+                                vk0_hv_percent: { name: 'vk0_hv_percent', optional: true },
+                                vk0_mv_percent: { name: 'vk0_mv_percent', optional: true },
+                                vk0_lv_percent: { name: 'vk0_lv_percent', optional: true },
+                                vkr0_hv_percent: { name: 'vkr0_hv_percent', optional: true },
+                                vkr0_mv_percent: { name: 'vkr0_mv_percent', optional: true },
+                                vkr0_lv_percent: { name: 'vkr0_lv_percent', optional: true },
                                 vector_group: 'vector_group',
 
                                 // Optional parameters

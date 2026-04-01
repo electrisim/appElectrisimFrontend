@@ -450,6 +450,9 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         max_ik_ka: 'max_ik_ka',
                         kappa: 'kappa',
                         current_source: 'current_source',
+                        reactive_capability_curve: 'reactive_capability_curve',
+                        curve_style: 'curve_style',
+                        q_capability_curve_json: 'q_capability_curve_json',
                         in_service: { name: 'in_service', optional: true },
                         cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
                     })

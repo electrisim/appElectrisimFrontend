@@ -178,6 +178,11 @@ export const getAttributesAsObject = (cell, attributeMap) => {
             } else if (key === 'si0_hv_partial') {
                 console.log(`⚠ ${key} not found, using default value: 0.0`);
                 result[key] = '0.0';  // Default zero sequence partial current
+            } else if (
+                key === 'vk0_hv_percent' || key === 'vk0_mv_percent' || key === 'vk0_lv_percent' ||
+                key === 'vkr0_hv_percent' || key === 'vkr0_mv_percent' || key === 'vkr0_lv_percent'
+            ) {
+                result[key] = '0';
             }
             // Note: Other optional parameters can be left undefined as they truly are optional
         }
