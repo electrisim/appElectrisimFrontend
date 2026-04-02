@@ -1,5 +1,10 @@
 import { Dialog } from './Dialog.js';
 import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
+import {
+    mountHarmonicSpectrumTriState,
+    syncHarmonicSpectrumTriStateFromDialogData,
+    valuesFromHarmonicSpectrumTriState
+} from './utils/loadHarmonicSpectrumTriStateUi.js';
 
 // Default values for generator parameters (based on pandapower documentation)
 export const defaultGeneratorData = {
@@ -20,7 +25,12 @@ export const defaultGeneratorData = {
     min_p_mw: 0.0,
     max_q_mvar: 0.0,
     min_q_mvar: 0.0,
-    in_service: true
+    in_service: true,
+    /** OpenDSS harmonic (Generator) */
+    spectrum: 'defaultgen',
+    spectrum_csv: '',
+    Xdpp: 0.2,
+    XRdp: 20
 };
 
 export class GeneratorDialog extends Dialog {
@@ -222,6 +232,43 @@ export class GeneratorDialog extends Dialog {
                 step: '1'
             }
         ];
+
+        this.harmonicParameters = [
+            {
+                id: 'spectrum',
+                type: 'harmonicSpectrumTriState',
+                triStateModeSelectId: 'generator_harm_spectrum_mode',
+                defaultSpectrum: 'defaultgen',
+                spectrumCsvInputId: 'generator_spectrum_csv',
+                label: 'Harmonic spectrum',
+                symbol: 'spectrum / spectrum_csv',
+                description: 'Default (OpenDSS defaultgen), Linear, Custom (CSV: harmonic order, %magnitude, angle), or None (no harmonic spectrum).',
+                spectrumValue: this.data.spectrum,
+                csvValue: this.data.spectrum_csv,
+                rows: 5
+            },
+            {
+                id: 'Xdpp',
+                label: 'Subtransient reactance (Xdpp)',
+                symbol: 'Xdpp',
+                unit: 'p.u.',
+                description: 'Subtransient reactance for harmonic model (per unit)',
+                type: 'number',
+                value: String(this.data.Xdpp),
+                step: '0.01',
+                min: '0'
+            },
+            {
+                id: 'XRdp',
+                label: 'X/R (XRdp)',
+                symbol: 'XRdp',
+                description: 'X/R ratio at subtransient frequency for harmonic model',
+                type: 'number',
+                value: String(this.data.XRdp),
+                step: '0.1',
+                min: '0'
+            }
+        ];
         
         // Economic parameters (for Economic Analysis) - cost_per_unit_by_currency holds JSON of { currency: value }
         this.economicParameters = [
@@ -287,11 +334,13 @@ export class GeneratorDialog extends Dialog {
         const loadFlowTab = this.createTab('Load Flow', 'loadflow', this.currentTab === 'loadflow');
         const shortCircuitTab = this.createTab('Short Circuit', 'shortcircuit', this.currentTab === 'shortcircuit');
         const opfTab = this.createTab('OPF', 'opf', this.currentTab === 'opf');
+        const harmonicTab = this.createTab('Harmonic', 'harmonic', this.currentTab === 'harmonic');
         const economicTab = this.createTab('Economic', 'economic', this.currentTab === 'economic');
         
         tabContainer.appendChild(loadFlowTab);
         tabContainer.appendChild(shortCircuitTab);
         tabContainer.appendChild(opfTab);
+        tabContainer.appendChild(harmonicTab);
         tabContainer.appendChild(economicTab);
         container.appendChild(tabContainer);
 
@@ -311,11 +360,18 @@ export class GeneratorDialog extends Dialog {
         const loadFlowContent = this.createTabContent('loadflow', this.loadFlowParameters);
         const shortCircuitContent = this.createTabContent('shortcircuit', this.shortCircuitParameters);
         const opfContent = this.createTabContent('opf', this.opfParameters);
+        const triGen = this.harmonicParameters.find(p => p.type === 'harmonicSpectrumTriState');
+        if (triGen) {
+            triGen.spectrumValue = this.data.spectrum;
+            triGen.csvValue = this.data.spectrum_csv || '';
+        }
+        const harmonicContent = this.createTabContent('harmonic', this.harmonicParameters);
         const economicContent = this.createTabContent('economic', this.economicParameters);
         
         contentArea.appendChild(loadFlowContent);
         contentArea.appendChild(shortCircuitContent);
         contentArea.appendChild(opfContent);
+        contentArea.appendChild(harmonicContent);
         contentArea.appendChild(economicContent);
         container.appendChild(contentArea);
 
@@ -363,10 +419,11 @@ export class GeneratorDialog extends Dialog {
         this.container = container;
         
         // Tab click handlers
-        loadFlowTab.onclick = () => this.switchTab('loadflow', loadFlowTab, [shortCircuitTab, opfTab, economicTab], loadFlowContent, [shortCircuitContent, opfContent, economicContent]);
-        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [loadFlowTab, opfTab, economicTab], shortCircuitContent, [loadFlowContent, opfContent, economicContent]);
-        opfTab.onclick = () => this.switchTab('opf', opfTab, [loadFlowTab, shortCircuitTab, economicTab], opfContent, [loadFlowContent, shortCircuitContent, economicContent]);
-        economicTab.onclick = () => this.switchTab('economic', economicTab, [loadFlowTab, shortCircuitTab, opfTab], economicContent, [loadFlowContent, shortCircuitContent, opfContent]);
+        loadFlowTab.onclick = () => this.switchTab('loadflow', loadFlowTab, [shortCircuitTab, opfTab, harmonicTab, economicTab], loadFlowContent, [shortCircuitContent, opfContent, harmonicContent, economicContent]);
+        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [loadFlowTab, opfTab, harmonicTab, economicTab], shortCircuitContent, [loadFlowContent, opfContent, harmonicContent, economicContent]);
+        opfTab.onclick = () => this.switchTab('opf', opfTab, [loadFlowTab, shortCircuitTab, harmonicTab, economicTab], opfContent, [loadFlowContent, shortCircuitContent, harmonicContent, economicContent]);
+        harmonicTab.onclick = () => this.switchTab('harmonic', harmonicTab, [loadFlowTab, shortCircuitTab, opfTab, economicTab], harmonicContent, [loadFlowContent, shortCircuitContent, opfContent, economicContent]);
+        economicTab.onclick = () => this.switchTab('economic', economicTab, [loadFlowTab, shortCircuitTab, opfTab, harmonicTab], economicContent, [loadFlowContent, shortCircuitContent, opfContent, harmonicContent]);
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
@@ -430,10 +487,11 @@ export class GeneratorDialog extends Dialog {
         });
 
         parameters.forEach(param => {
+            const isTriHarm = param.type === 'harmonicSpectrumTriState';
             const parameterRow = document.createElement('div');
             Object.assign(parameterRow.style, {
                 display: 'grid',
-                gridTemplateColumns: '1fr 200px',
+                gridTemplateColumns: isTriHarm ? '1fr minmax(300px, 1.25fr)' : '1fr 200px',
                 gap: '20px',
                 alignItems: 'start',
                 padding: '16px',
@@ -469,7 +527,7 @@ export class GeneratorDialog extends Dialog {
                 labelText += ` [${param.unit}]`;
             }
             label.textContent = labelText;
-            label.htmlFor = param.id;
+            label.htmlFor = isTriHarm ? param.triStateModeSelectId : param.id;
 
             const description = document.createElement('div');
             Object.assign(description.style, {
@@ -486,17 +544,41 @@ export class GeneratorDialog extends Dialog {
 
             // Right column: Input field with fixed width
             const rightColumn = document.createElement('div');
-            Object.assign(rightColumn.style, {
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'flex-end',
-                minHeight: '60px',
-                width: '200px'
-            });
+            if (isTriHarm) {
+                Object.assign(rightColumn.style, {
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'stretch',
+                    justifyContent: 'flex-start',
+                    gap: '10px',
+                    minHeight: '60px',
+                    width: '100%'
+                });
+            } else {
+                Object.assign(rightColumn.style, {
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'flex-end',
+                    minHeight: '60px',
+                    width: '200px'
+                });
+            }
             
             let input;
             
             // Handle different input types
+            if (param.type === 'harmonicSpectrumTriState') {
+                mountHarmonicSpectrumTriState(param, rightColumn, this.inputs, {
+                    modeSelectId: param.triStateModeSelectId,
+                    defaultSpectrum: param.defaultSpectrum,
+                    spectrumCsvInputId: param.spectrumCsvInputId,
+                    textareaRows: param.rows
+                });
+                parameterRow.appendChild(leftColumn);
+                parameterRow.appendChild(rightColumn);
+                form.appendChild(parameterRow);
+                return;
+            }
             if (param.type === 'checkbox') {
                 input = document.createElement('input');
                 input.type = 'checkbox';
@@ -633,7 +715,17 @@ export class GeneratorDialog extends Dialog {
         const values = {};
         
         // Collect all parameter values from all tabs
-        [...this.loadFlowParameters, ...this.shortCircuitParameters, ...this.opfParameters, ...this.economicParameters].forEach(param => {
+        [...this.loadFlowParameters, ...this.shortCircuitParameters, ...this.opfParameters, ...this.harmonicParameters, ...this.economicParameters].forEach(param => {
+            if (param.type === 'harmonicSpectrumTriState') {
+                if (this.inputs.get(param.triStateModeSelectId)) {
+                    Object.assign(values, valuesFromHarmonicSpectrumTriState(this.inputs, {
+                        modeSelectId: param.triStateModeSelectId,
+                        defaultSpectrum: param.defaultSpectrum,
+                        spectrumCsvInputId: param.spectrumCsvInputId
+                    }));
+                }
+                return;
+            }
             const input = this.inputs.get(param.id);
             if (input) {
                 if (param.type === 'number') {
@@ -709,6 +801,29 @@ export class GeneratorDialog extends Dialog {
                     }
                     console.log(`  Updated opf ${attributeName}: ${oldValue} → ${opfParam.value}`);
                 }
+
+                const harmonicParam = this.harmonicParameters.find(p => p.id === attributeName);
+                if (harmonicParam && harmonicParam.type !== 'harmonicSpectrumTriState') {
+                    harmonicParam.value = attributeValue != null ? String(attributeValue) : harmonicParam.value;
+                }
+
+                if (attributeName === 'spectrum' || attributeName === 'spectrum_csv') {
+                    if (attributeName === 'spectrum') {
+                        this.data.spectrum = attributeValue != null ? String(attributeValue) : this.data.spectrum;
+                    }
+                    if (attributeName === 'spectrum_csv') {
+                        this.data.spectrum_csv = attributeValue != null ? String(attributeValue) : (this.data.spectrum_csv || '');
+                    }
+                    const tri = this.harmonicParameters.find(p => p.type === 'harmonicSpectrumTriState');
+                    if (tri) {
+                        if (attributeName === 'spectrum') {
+                            tri.spectrumValue = this.data.spectrum;
+                        }
+                        if (attributeName === 'spectrum_csv') {
+                            tri.csvValue = this.data.spectrum_csv;
+                        }
+                    }
+                }
                 
                 const economicParam = this.economicParameters && this.economicParameters.find(p => p.id === attributeName);
                 if (economicParam) {
@@ -717,13 +832,16 @@ export class GeneratorDialog extends Dialog {
                 if (attributeName === 'cost_per_unit_by_currency') {
                     this.data[attributeName] = attributeValue;
                 }
-                if (!loadFlowParam && !shortCircuitParam && !opfParam && !economicParam && attributeName !== 'cost_per_unit_by_currency') {
+                if (!loadFlowParam && !shortCircuitParam && !opfParam && !harmonicParam && !economicParam && attributeName !== 'cost_per_unit_by_currency'
+                    && attributeName !== 'spectrum' && attributeName !== 'spectrum_csv') {
                     console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
             }
         } else {
             console.log('No cell data or attributes found');
         }
+
+        syncHarmonicSpectrumTriStateFromDialogData(this.inputs, this.harmonicParameters, this.data);
         
         console.log('=== GeneratorDialog.populateDialog completed ===');
     }

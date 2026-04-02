@@ -229,6 +229,53 @@ const debouncedComponentInsertion = (() => {
     };
 })();
 
+/**
+ * Called from app (import .py / .dss) after backend returns pandapower-compatible JSON.
+ * Uses the same insertion path as dropping a "Pandapower Network" shape.
+ */
+window.buildDiagramFromModelJson = function (graph, jsonText) {
+    if (!graph || !graph.view) {
+        console.error('buildDiagramFromModelJson: invalid graph');
+        return;
+    }
+    let parsed;
+    try {
+        parsed = typeof jsonText === 'string' ? JSON.parse(jsonText) : jsonText;
+    } catch (e) {
+        if (typeof mxUtils !== 'undefined' && mxUtils.alert) {
+            mxUtils.alert('Invalid JSON from import: ' + e.message);
+        } else {
+            console.error('Invalid JSON from import:', e);
+        }
+        return;
+    }
+    if (parsed && typeof parsed.error === 'string') {
+        const msg = parsed.error;
+        if (typeof mxUtils !== 'undefined' && mxUtils.alert) {
+            mxUtils.alert('Import failed: ' + msg);
+        } else {
+            console.error('Import failed:', msg);
+        }
+        return;
+    }
+    if (!parsed || !parsed._object) {
+        if (typeof mxUtils !== 'undefined' && mxUtils.alert) {
+            mxUtils.alert('Import response missing network model.');
+        }
+        return;
+    }
+    const scale = graph.view.scale;
+    const tr = graph.view.translate;
+    let ip;
+    if (typeof graph.getFreeInsertPoint === 'function') {
+        ip = graph.getFreeInsertPoint();
+    } else {
+        ip = { x: 100, y: 100 };
+    }
+    const point = { x: (ip.x + tr.x) * scale, y: (ip.y + tr.y) * scale };
+    debouncedComponentInsertion(graph, null, null, point, parsed);
+};
+
 // Extract component insertion logic into separate function
 async function insertComponentsForData(grafka, a, target, point, data) {
     // Show progress indicator for large component sets

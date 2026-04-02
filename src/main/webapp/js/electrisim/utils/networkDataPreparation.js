@@ -393,6 +393,8 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         rx_min: 'rx_min',
                         r0x0_max: 'r0x0_max',
                         x0x_max: 'x0x_max',
+                        spectrum: { name: 'spectrum', optional: true },
+                        spectrum_csv: { name: 'spectrum_csv', optional: true },
                         in_service: { name: 'in_service', optional: true },
                         cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
                     })
@@ -415,6 +417,10 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         cos_phi: 'cos_phi',
                         pg_percent: 'pg_percent',
                         power_station_trafo: 'power_station_trafo',
+                        spectrum: { name: 'spectrum', optional: true },
+                        spectrum_csv: { name: 'spectrum_csv', optional: true },
+                        Xdpp: { name: 'Xdpp', optional: true },
+                        XRdp: { name: 'XRdp', optional: true },
                         in_service: { name: 'in_service', optional: true },
                         cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
                     })
@@ -453,6 +459,10 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         reactive_capability_curve: 'reactive_capability_curve',
                         curve_style: 'curve_style',
                         q_capability_curve_json: 'q_capability_curve_json',
+                        spectrum: { name: 'spectrum', optional: true },
+                        spectrum_csv: { name: 'spectrum_csv', optional: true },
+                        Xdpp: { name: 'Xdpp', optional: true },
+                        XRdp: { name: 'XRdp', optional: true },
                         in_service: { name: 'in_service', optional: true },
                         cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
                     })

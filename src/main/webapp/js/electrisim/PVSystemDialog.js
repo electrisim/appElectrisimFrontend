@@ -1,5 +1,10 @@
 import { Dialog } from './Dialog.js';
 import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
+import {
+    mountHarmonicSpectrumTriState,
+    syncHarmonicSpectrumTriStateFromDialogData,
+    valuesFromHarmonicSpectrumTriState
+} from './utils/loadHarmonicSpectrumTriStateUi.js';
 
 // Default values for PVSystem parameters (based on OpenDSS documentation)
 export const defaultPVSystemData = {
@@ -38,6 +43,7 @@ export const defaultPVSystemData = {
 
     // Short Circuit
     spectrum: "default",
+    spectrum_csv: "",
     basefreq: 50.0,
     balanced: false,
 
@@ -372,10 +378,15 @@ export class PVSystemDialog extends Dialog {
             // Harmonic Analysis Properties
             {
                 id: 'spectrum',
-                label: 'Harmonic Spectrum (spectrum)',
-                description: 'Name of harmonic voltage or current spectrum',
-                type: 'text',
-                value: this.data.spectrum,
+                type: 'harmonicSpectrumTriState',
+                triStateModeSelectId: 'pvsystem_harm_spectrum_mode',
+                defaultSpectrum: 'default',
+                spectrumCsvInputId: 'pvsystem_spectrum_csv',
+                label: 'Harmonic spectrum',
+                description: 'Default (OpenDSS default), Linear, Custom (CSV: harmonic order, %magnitude, angle), or None (no harmonic spectrum).',
+                spectrumValue: this.data.spectrum,
+                csvValue: this.data.spectrum_csv,
+                rows: 5,
                 category: 'Harmonic Analysis'
             }
         ];
@@ -677,6 +688,11 @@ export class PVSystemDialog extends Dialog {
         const snapshotContent = this.createTabContentWithSubTabs('snapshot', this.snapshotLoadFlowParameters);
         const timeDependentContent = this.createTabContentWithSubTabs('timedependent', this.timeDependentParameters);
         const shortCircuitContent = this.createTabContentWithSubTabs('shortcircuit', this.shortCircuitParameters);
+        const triPv = this.harmonicParameters.find(p => p.type === 'harmonicSpectrumTriState');
+        if (triPv) {
+            triPv.spectrumValue = this.data.spectrum;
+            triPv.csvValue = this.data.spectrum_csv || '';
+        }
         const harmonicContent = this.createTabContentWithSubTabs('harmonic', this.harmonicParameters);
         const dynamicContent = this.createTabContentWithSubTabs('dynamic', this.dynamicParameters);
         const economicContent = this.createTabContent('economic', this.economicParameters);
@@ -1028,10 +1044,11 @@ export class PVSystemDialog extends Dialog {
         });
 
         parameters.forEach(param => {
+            const isTriHarm = param.type === 'harmonicSpectrumTriState';
             const parameterRow = document.createElement('div');
             Object.assign(parameterRow.style, {
                 display: 'grid',
-                gridTemplateColumns: '1fr 200px',
+                gridTemplateColumns: isTriHarm ? '1fr minmax(300px, 1.25fr)' : '1fr 200px',
                 gap: '20px',
                 alignItems: 'start',
                 padding: '16px',
@@ -1059,7 +1076,7 @@ export class PVSystemDialog extends Dialog {
                 lineHeight: '1.2'
             });
             label.textContent = param.label;
-            label.htmlFor = param.id;
+            label.htmlFor = isTriHarm ? param.triStateModeSelectId : param.id;
 
             const description = document.createElement('div');
             Object.assign(description.style, {
@@ -1076,17 +1093,41 @@ export class PVSystemDialog extends Dialog {
 
             // Right column: Input field with fixed width
             const rightColumn = document.createElement('div');
-            Object.assign(rightColumn.style, {
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'flex-end',
-                minHeight: '60px',
-                width: '200px'
-            });
+            if (isTriHarm) {
+                Object.assign(rightColumn.style, {
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'stretch',
+                    justifyContent: 'flex-start',
+                    gap: '10px',
+                    minHeight: '60px',
+                    width: '100%'
+                });
+            } else {
+                Object.assign(rightColumn.style, {
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'flex-end',
+                    minHeight: '60px',
+                    width: '200px'
+                });
+            }
 
             let input;
 
             // Handle different input types
+            if (param.type === 'harmonicSpectrumTriState') {
+                mountHarmonicSpectrumTriState(param, rightColumn, this.inputs, {
+                    modeSelectId: param.triStateModeSelectId,
+                    defaultSpectrum: param.defaultSpectrum,
+                    spectrumCsvInputId: param.spectrumCsvInputId,
+                    textareaRows: param.rows
+                });
+                parameterRow.appendChild(leftColumn);
+                parameterRow.appendChild(rightColumn);
+                content.appendChild(parameterRow);
+                return;
+            }
             if (param.type === 'checkbox') {
                 input = document.createElement('input');
                 input.type = 'checkbox';
@@ -1254,6 +1295,16 @@ export class PVSystemDialog extends Dialog {
 
         // Collect all parameter values from all tabs
         [...this.snapshotLoadFlowParameters, ...this.timeDependentParameters, ...this.shortCircuitParameters, ...this.harmonicParameters, ...this.dynamicParameters, ...(this.economicParameters || [])].forEach(param => {
+            if (param.type === 'harmonicSpectrumTriState') {
+                if (this.inputs.get(param.triStateModeSelectId)) {
+                    Object.assign(values, valuesFromHarmonicSpectrumTriState(this.inputs, {
+                        modeSelectId: param.triStateModeSelectId,
+                        defaultSpectrum: param.defaultSpectrum,
+                        spectrumCsvInputId: param.spectrumCsvInputId
+                    }));
+                }
+                return;
+            }
             const input = this.inputs.get(param.id);
             if (input) {
                 if (param.id === 'cost_per_unit_by_currency') {
@@ -1326,11 +1377,25 @@ export class PVSystemDialog extends Dialog {
                 }
 
                 const harmonicParam = this.harmonicParameters.find(p => p.id === attributeName);
-                if (harmonicParam) {
+                if (harmonicParam && harmonicParam.type !== 'harmonicSpectrumTriState') {
                     if (harmonicParam.type === 'checkbox') {
                         harmonicParam.value = attributeValue === 'true' || attributeValue === true;
                     } else {
                         harmonicParam.value = attributeValue;
+                    }
+                }
+
+                if (attributeName === 'spectrum' || attributeName === 'spectrum_csv') {
+                    if (attributeName === 'spectrum') {
+                        this.data.spectrum = attributeValue != null ? String(attributeValue) : this.data.spectrum;
+                    }
+                    if (attributeName === 'spectrum_csv') {
+                        this.data.spectrum_csv = attributeValue != null ? String(attributeValue) : (this.data.spectrum_csv || '');
+                    }
+                    const tri = this.harmonicParameters.find(p => p.type === 'harmonicSpectrumTriState');
+                    if (tri) {
+                        if (attributeName === 'spectrum') tri.spectrumValue = this.data.spectrum;
+                        if (attributeName === 'spectrum_csv') tri.csvValue = this.data.spectrum_csv;
                     }
                 }
 
@@ -1349,6 +1414,8 @@ export class PVSystemDialog extends Dialog {
                 }
             }
         }
+
+        syncHarmonicSpectrumTriStateFromDialogData(this.inputs, this.harmonicParameters, this.data);
     }
 }
 

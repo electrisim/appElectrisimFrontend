@@ -1,5 +1,10 @@
 import { Dialog } from './Dialog.js';
 import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
+import {
+    mountHarmonicSpectrumTriState,
+    syncHarmonicSpectrumTriStateFromDialogData,
+    valuesFromHarmonicSpectrumTriState
+} from './utils/loadHarmonicSpectrumTriStateUi.js';
 
 // Default values for load parameters (based on pandapower documentation)
 export const defaultLoadData = {
@@ -16,7 +21,14 @@ export const defaultLoadData = {
     min_p_mw: 0.0,
     max_q_mvar: 0.0,
     min_q_mvar: 0.0,
-    in_service: true
+    in_service: true,
+    /** OpenDSS harmonic analysis (see configureLoadAttributes) */
+    spectrum: 'defaultload',
+    spectrum_csv: '',
+    pctSeriesRL: 100,
+    conn: 'wye',
+    puXharm: 0.0,
+    XRharm: 6.0
 };
 
 export class LoadDialog extends Dialog {
@@ -179,6 +191,64 @@ export class LoadDialog extends Dialog {
                 step: '1'
             }
         ];
+
+        // OpenDSS harmonic analysis (Load / HarmonicsLoadModeling)
+        this.harmonicParameters = [
+            {
+                type: 'harmonicSpectrumTriState',
+                triStateModeSelectId: 'load_harm_spectrum_mode',
+                defaultSpectrum: 'defaultload',
+                spectrumCsvInputId: 'spectrum_csv',
+                label: 'Harmonic spectrum',
+                symbol: 'spectrum / spectrum_csv',
+                description: 'Default (OpenDSS defaultload), Linear, Custom (CSV: harmonic order, magnitude %, angle), or None (no harmonic spectrum / spectrum=none).',
+                spectrumValue: this.data.spectrum,
+                csvValue: this.data.spectrum_csv,
+                rows: 5
+            },
+            {
+                id: 'pctSeriesRL',
+                label: 'Series R-L %',
+                symbol: 'pctSeriesRL',
+                unit: '%',
+                description: 'Percent of load modeled as series R-L for harmonics (0 = pure parallel; 50 is typical for motors)',
+                type: 'number',
+                value: String(this.data.pctSeriesRL),
+                step: '1',
+                min: '0',
+                max: '100'
+            },
+            {
+                id: 'conn',
+                label: 'Harmonic connection',
+                symbol: 'conn',
+                description: 'Connection for harmonic load model (OpenDSS)',
+                type: 'select',
+                value: this.data.conn,
+                options: ['wye', 'delta']
+            },
+            {
+                id: 'puXharm',
+                label: 'pu X at harmonic',
+                symbol: 'puXharm',
+                unit: 'p.u.',
+                description: 'Per-unit reactance of the load at harmonic frequency when modeled as series R-L',
+                type: 'number',
+                value: String(this.data.puXharm),
+                step: '0.01',
+                min: '0'
+            },
+            {
+                id: 'XRharm',
+                label: 'X/R at harmonic',
+                symbol: 'XRharm',
+                description: 'X/R ratio for the harmonic model of the load',
+                type: 'number',
+                value: String(this.data.XRharm),
+                step: '0.1',
+                min: '0'
+            }
+        ];
         
         // Economic parameters (for Economic Analysis) - cost_per_unit_by_currency holds JSON of { currency: value }
         this.economicParameters = [
@@ -244,11 +314,13 @@ export class LoadDialog extends Dialog {
         const loadFlowTab = this.createTab('Load Flow', 'loadflow', this.currentTab === 'loadflow');
         const shortCircuitTab = this.createTab('Short Circuit', 'shortcircuit', this.currentTab === 'shortcircuit');
         const opfTab = this.createTab('OPF', 'opf', this.currentTab === 'opf');
+        const harmonicTab = this.createTab('Harmonic', 'harmonic', this.currentTab === 'harmonic');
         const economicTab = this.createTab('Economic', 'economic', this.currentTab === 'economic');
         
         tabContainer.appendChild(loadFlowTab);
         tabContainer.appendChild(shortCircuitTab);
         tabContainer.appendChild(opfTab);
+        tabContainer.appendChild(harmonicTab);
         tabContainer.appendChild(economicTab);
         container.appendChild(tabContainer);
 
@@ -264,15 +336,23 @@ export class LoadDialog extends Dialog {
             paddingRight: '8px'
         });
 
+        const triHarmLoad = this.harmonicParameters.find(p => p.type === 'harmonicSpectrumTriState');
+        if (triHarmLoad) {
+            triHarmLoad.spectrumValue = this.data.spectrum;
+            triHarmLoad.csvValue = this.data.spectrum_csv || '';
+        }
+
         // Create tab content containers
         const loadFlowContent = this.createTabContent('loadflow', this.loadFlowParameters);
         const shortCircuitContent = this.createTabContent('shortcircuit', this.shortCircuitParameters);
         const opfContent = this.createTabContent('opf', this.opfParameters);
+        const harmonicContent = this.createTabContent('harmonic', this.harmonicParameters);
         const economicContent = this.createTabContent('economic', this.economicParameters);
         
         contentArea.appendChild(loadFlowContent);
         contentArea.appendChild(shortCircuitContent);
         contentArea.appendChild(opfContent);
+        contentArea.appendChild(harmonicContent);
         contentArea.appendChild(economicContent);
         container.appendChild(contentArea);
 
@@ -320,10 +400,11 @@ export class LoadDialog extends Dialog {
         this.container = container;
         
         // Tab click handlers
-        loadFlowTab.onclick = () => this.switchTab('loadflow', loadFlowTab, [shortCircuitTab, opfTab, economicTab], loadFlowContent, [shortCircuitContent, opfContent, economicContent]);
-        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [loadFlowTab, opfTab, economicTab], shortCircuitContent, [loadFlowContent, opfContent, economicContent]);
-        opfTab.onclick = () => this.switchTab('opf', opfTab, [loadFlowTab, shortCircuitTab, economicTab], opfContent, [loadFlowContent, shortCircuitContent, economicContent]);
-        economicTab.onclick = () => this.switchTab('economic', economicTab, [loadFlowTab, shortCircuitTab, opfTab], economicContent, [loadFlowContent, shortCircuitContent, opfContent]);
+        loadFlowTab.onclick = () => this.switchTab('loadflow', loadFlowTab, [shortCircuitTab, opfTab, harmonicTab, economicTab], loadFlowContent, [shortCircuitContent, opfContent, harmonicContent, economicContent]);
+        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [loadFlowTab, opfTab, harmonicTab, economicTab], shortCircuitContent, [loadFlowContent, opfContent, harmonicContent, economicContent]);
+        opfTab.onclick = () => this.switchTab('opf', opfTab, [loadFlowTab, shortCircuitTab, harmonicTab, economicTab], opfContent, [loadFlowContent, shortCircuitContent, harmonicContent, economicContent]);
+        harmonicTab.onclick = () => this.switchTab('harmonic', harmonicTab, [loadFlowTab, shortCircuitTab, opfTab, economicTab], harmonicContent, [loadFlowContent, shortCircuitContent, opfContent, economicContent]);
+        economicTab.onclick = () => this.switchTab('economic', economicTab, [loadFlowTab, shortCircuitTab, opfTab, harmonicTab], economicContent, [loadFlowContent, shortCircuitContent, opfContent, harmonicContent]);
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
@@ -388,16 +469,18 @@ export class LoadDialog extends Dialog {
 
         parameters.forEach(param => {
             const parameterRow = document.createElement('div');
+            const isTextarea = param.type === 'textarea';
+            const isTriHarm = param.type === 'harmonicSpectrumTriState';
             Object.assign(parameterRow.style, {
                 display: 'grid',
-                gridTemplateColumns: '1fr 200px',
+                gridTemplateColumns: isTextarea ? '1fr' : (isTriHarm ? '1fr minmax(300px, 1.25fr)' : '1fr 200px'),
                 gap: '20px',
                 alignItems: 'start',
                 padding: '16px',
                 backgroundColor: '#f8f9fa',
                 border: '1px solid #e9ecef',
                 borderRadius: '8px',
-                minHeight: '80px'
+                minHeight: isTextarea || isTriHarm ? 'auto' : '80px'
             });
 
             // Left column: Label and description
@@ -426,7 +509,7 @@ export class LoadDialog extends Dialog {
                 labelText += ` [${param.unit}]`;
             }
             label.textContent = labelText;
-            label.htmlFor = param.id;
+            label.htmlFor = param.type === 'harmonicSpectrumTriState' ? param.triStateModeSelectId : param.id;
 
             const description = document.createElement('div');
             Object.assign(description.style, {
@@ -443,17 +526,41 @@ export class LoadDialog extends Dialog {
 
             // Right column: Input field with fixed width
             const rightColumn = document.createElement('div');
-            Object.assign(rightColumn.style, {
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'flex-end',
-                minHeight: '60px',
-                width: '200px'
-            });
+            if (isTriHarm) {
+                Object.assign(rightColumn.style, {
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'stretch',
+                    justifyContent: 'flex-start',
+                    gap: '10px',
+                    minHeight: '60px',
+                    width: '100%'
+                });
+            } else {
+                Object.assign(rightColumn.style, {
+                    display: 'flex',
+                    alignItems: isTextarea ? 'stretch' : 'center',
+                    justifyContent: isTextarea ? 'stretch' : 'flex-end',
+                    minHeight: '60px',
+                    width: isTextarea ? '100%' : '200px'
+                });
+            }
             
             let input;
             
             // Handle different input types
+            if (param.type === 'harmonicSpectrumTriState') {
+                mountHarmonicSpectrumTriState(param, rightColumn, this.inputs, {
+                    modeSelectId: param.triStateModeSelectId,
+                    defaultSpectrum: param.defaultSpectrum,
+                    spectrumCsvInputId: param.spectrumCsvInputId,
+                    textareaRows: param.rows
+                });
+                parameterRow.appendChild(leftColumn);
+                parameterRow.appendChild(rightColumn);
+                form.appendChild(parameterRow);
+                return;
+            }
             if (param.type === 'checkbox') {
                 input = document.createElement('input');
                 input.type = 'checkbox';
@@ -488,6 +595,22 @@ export class LoadDialog extends Dialog {
                     transition: 'all 0.2s ease',
                     outline: 'none',
                     cursor: 'pointer'
+                });
+            } else if (param.type === 'textarea') {
+                input = document.createElement('textarea');
+                input.value = param.value || '';
+                input.rows = param.rows || 6;
+                Object.assign(input.style, {
+                    width: '100%',
+                    minHeight: '120px',
+                    padding: '10px 14px',
+                    border: '2px solid #ced4da',
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    fontFamily: 'Consolas, monospace',
+                    backgroundColor: '#ffffff',
+                    boxSizing: 'border-box',
+                    resize: 'vertical'
                 });
             } else {
                 input = document.createElement('input');
@@ -614,7 +737,17 @@ export class LoadDialog extends Dialog {
         const values = {};
         
         // Collect all parameter values from all tabs
-        [...this.loadFlowParameters, ...this.shortCircuitParameters, ...this.opfParameters, ...this.economicParameters].forEach(param => {
+        [...this.loadFlowParameters, ...this.shortCircuitParameters, ...this.opfParameters, ...this.harmonicParameters, ...this.economicParameters].forEach(param => {
+            if (param.type === 'harmonicSpectrumTriState') {
+                if (this.inputs.get(param.triStateModeSelectId)) {
+                    Object.assign(values, valuesFromHarmonicSpectrumTriState(this.inputs, {
+                        modeSelectId: param.triStateModeSelectId,
+                        defaultSpectrum: param.defaultSpectrum,
+                        spectrumCsvInputId: param.spectrumCsvInputId
+                    }));
+                }
+                return;
+            }
             const input = this.inputs.get(param.id);
             if (input) {
                 if (param.type === 'number') {
@@ -622,6 +755,8 @@ export class LoadDialog extends Dialog {
                 } else if (param.type === 'checkbox') {
                     values[param.id] = input.checked;
                 } else if (param.type === 'select') {
+                    values[param.id] = input.value;
+                } else if (param.type === 'textarea') {
                     values[param.id] = input.value;
                 } else {
                     values[param.id] = input.value;
@@ -692,6 +827,29 @@ export class LoadDialog extends Dialog {
                     }
                     console.log(`  Updated opf ${attributeName}: ${oldValue} → ${opfParam.value}`);
                 }
+
+                const harmonicParam = this.harmonicParameters.find(p => p.id === attributeName);
+                if (harmonicParam) {
+                    harmonicParam.value = attributeValue != null ? String(attributeValue) : harmonicParam.value;
+                }
+
+                if (attributeName === 'spectrum' || attributeName === 'spectrum_csv') {
+                    if (attributeName === 'spectrum') {
+                        this.data.spectrum = attributeValue != null ? String(attributeValue) : this.data.spectrum;
+                    }
+                    if (attributeName === 'spectrum_csv') {
+                        this.data.spectrum_csv = attributeValue != null ? String(attributeValue) : (this.data.spectrum_csv || '');
+                    }
+                    const tri = this.harmonicParameters.find(p => p.type === 'harmonicSpectrumTriState');
+                    if (tri) {
+                        if (attributeName === 'spectrum') {
+                            tri.spectrumValue = this.data.spectrum;
+                        }
+                        if (attributeName === 'spectrum_csv') {
+                            tri.csvValue = this.data.spectrum_csv;
+                        }
+                    }
+                }
                 
                 const economicParam = this.economicParameters && this.economicParameters.find(p => p.id === attributeName);
                 if (economicParam) {
@@ -700,13 +858,17 @@ export class LoadDialog extends Dialog {
                 if (attributeName === 'cost_per_unit_by_currency') {
                     this.data[attributeName] = attributeValue;
                 }
-                if (!loadFlowParam && !shortCircuitParam && !opfParam && !economicParam && attributeName !== 'cost_per_unit_by_currency') {
+                if (!loadFlowParam && !shortCircuitParam && !opfParam && !harmonicParam && !economicParam
+                    && attributeName !== 'cost_per_unit_by_currency'
+                    && attributeName !== 'spectrum' && attributeName !== 'spectrum_csv') {
                     console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
             }
         } else {
             console.log('No cell data or attributes found');
         }
+
+        syncHarmonicSpectrumTriStateFromDialogData(this.inputs, this.harmonicParameters, this.data);
         
         console.log('=== LoadDialog.populateDialog completed ===');
     }
