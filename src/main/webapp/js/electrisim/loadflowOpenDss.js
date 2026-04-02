@@ -7,6 +7,7 @@
 import { DIALOG_STYLES } from './utils/dialogStyles.js';
 import { LoadFlowDialog } from './dialogs/LoadFlowDialog.js';
 import { HarmonicAnalysisDialog } from './dialogs/HarmonicAnalysisDialog.js';
+import { showHarmonicAnalysisResultsDialog } from './dialogs/HarmonicAnalysisResultsDialog.js';
 import { formatResultNameHeader, createDialogNameResolver } from './utils/attributeUtils.js';
 import { getThreeWindingConnections } from './utils/gridUtils.js';
 import ENV from './config/environment.js';
@@ -1198,6 +1199,7 @@ function updateCellColor(grafka, cell, color) {
 // Main processing function for OpenDSS (FROM BACKEND TO FRONTEND)
 // Updated to handle simplified backend response without output classes
 async function processNetworkData(url, obj, b, grafka, app, exportCommands = false) {
+    let harmonicResultsData = null;
     try {
         // Initialize styles once
         b.getStylesheet().putCellStyle('labelstyle', STYLES.label);
@@ -1367,6 +1369,15 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
             console.log(`OpenDSS calculation completed successfully! Processed ${processedCount} results.`);
         }
 
+        if (
+            dataJson.harmonic_analysis &&
+            dataJson.harmonic_analysis.executed === true &&
+            Array.isArray(dataJson.busbars) &&
+            dataJson.busbars.length > 0
+        ) {
+            harmonicResultsData = dataJson;
+        }
+
         // Handle OpenDSS commands export if requested
         if (exportCommands && dataJson.opendss_commands) {
             console.log('Exporting OpenDSS commands to file...');
@@ -1419,6 +1430,16 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
             }
         } catch (spinnerErr) {
             console.error('Error stopping spinner:', spinnerErr);
+        }
+
+        if (harmonicResultsData) {
+            queueMicrotask(() => {
+                try {
+                    showHarmonicAnalysisResultsDialog(harmonicResultsData, b);
+                } catch (dialogErr) {
+                    console.error('Harmonic analysis results dialog:', dialogErr);
+                }
+            });
         }
     }
 }
@@ -1989,6 +2010,10 @@ function collectNetworkDataStructured(graph) {
                         min_p_mw: 'min_p_mw',
                         max_q_mvar: 'max_q_mvar',
                         min_q_mvar: 'min_q_mvar',
+                        spectrum: { name: 'spectrum', optional: true },
+                        spectrum_csv: { name: 'spectrum_csv', optional: true },
+                        Xdpp: { name: 'Xdpp', optional: true },
+                        XRdp: { name: 'XRdp', optional: true },
                         in_service: { name: 'in_service', optional: true }
                     });
                     
@@ -2019,7 +2044,11 @@ function collectNetworkDataStructured(graph) {
                         min_p_mw: genParams.min_p_mw || 0.0,
                         max_q_mvar: genParams.max_q_mvar || 5.0,
                         min_q_mvar: genParams.min_q_mvar || -5.0,
-                        in_service: genInService
+                        in_service: genInService,
+                        spectrum: genParams.spectrum || 'defaultgen',
+                        spectrum_csv: genParams.spectrum_csv || '',
+                        Xdpp: genParams.Xdpp,
+                        XRdp: genParams.XRdp
                     };
                     
                     // Validate bus connection
@@ -2037,6 +2066,13 @@ function collectNetworkDataStructured(graph) {
                         sn_mva: 'sn_mva',
                         scaling: 'scaling',
                         type: 'type',
+                        // Harmonic spectrum + load harmonic model (loadDialog Harmonic tab / configureLoadAttributes)
+                        spectrum: { name: 'spectrum', optional: true },
+                        spectrum_csv: { name: 'spectrum_csv', optional: true },
+                        pctSeriesRL: { name: 'pctSeriesRL', optional: true },
+                        conn: { name: 'conn', optional: true },
+                        puXharm: { name: 'puXharm', optional: true },
+                        XRharm: { name: 'XRharm', optional: true },
                         // Additional parameters
                         const_p_percent: 'const_p_percent',
                         const_q_percent: 'const_q_percent',
@@ -2077,8 +2113,21 @@ function collectNetworkDataStructured(graph) {
                         const_s_percent_abs: loadParams.const_s_percent_abs || 100.0,
                         const_s_percent_abs_degree: loadParams.const_s_percent_abs_degree || 0.0,
                         const_s_percent_abs_degree_abs: loadParams.const_s_percent_abs_degree_abs || 100.0,
-                        const_s_percent_abs_degree_abs_degree: loadParams.const_s_percent_abs_degree_abs_degree || 0.0
+                        const_s_percent_abs_degree_abs_degree: loadParams.const_s_percent_abs_degree_abs_degree || 0.0,
+                        spectrum: loadParams.spectrum || 'defaultload',
+                        spectrum_csv: loadParams.spectrum_csv || '',
+                        pctSeriesRL: loadParams.pctSeriesRL,
+                        conn:
+                            loadParams.conn != null && String(loadParams.conn).trim() !== ''
+                                ? String(loadParams.conn).trim().toLowerCase()
+                                : undefined,
+                        puXharm: loadParams.puXharm,
+                        XRharm: loadParams.XRharm
                     };
+                    if (cellData.conn == null || cellData.conn === '') {
+                        const t = loadParams.type != null ? String(loadParams.type).trim().toLowerCase() : '';
+                        if (t === 'wye' || t === 'delta') cellData.conn = t;
+                    }
                     
                     // Validate bus connection
                     if (cellData.bus) {
@@ -2197,6 +2246,7 @@ function collectNetworkDataStructured(graph) {
                         sn_mva: 'sn_mva',
                         scaling: 'scaling',
                         type: 'type',
+                        spectrum: { name: 'spectrum', optional: true },
                         // Additional parameters
                         max_e_mwh: 'max_e_mwh',
                         max_p_mw: 'max_p_mw',
@@ -2233,7 +2283,8 @@ function collectNetworkDataStructured(graph) {
                         min_q_mvar: storageParams.min_q_mvar || -1.0,
                         soc_percent: storageParams.soc_percent || 50.0,
                         min_e_mwh: storageParams.min_e_mwh || 0.0,
-                        in_service: storageInService
+                        in_service: storageInService,
+                        spectrum: storageParams.spectrum || 'default'
                     };
                     
                     // Validate bus connection
@@ -2274,6 +2325,7 @@ function collectNetworkDataStructured(graph) {
                         class_: 'class',
                         debugtrace: 'debugtrace',
                         spectrum: 'spectrum',
+                        spectrum_csv: { name: 'spectrum_csv', optional: true },
                         pminkvarmax: 'pminkvarmax',
                         pminnovars: 'pminnovars',
                         pmpp_percent: 'pmpp_percent',
@@ -2335,6 +2387,7 @@ function collectNetworkDataStructured(graph) {
                         class_: pvParams.class_ || 1,
                         debugtrace: pvParams.debugtrace || false,
                         spectrum: pvParams.spectrum || 'default',
+                        spectrum_csv: pvParams.spectrum_csv || '',
                         pminkvarmax: pvParams.pminkvarmax || 0.0,
                         pminnovars: pvParams.pminnovars || 0.0,
                         pmpp_percent: pvParams.pmpp_percent || 100.0,
@@ -2378,6 +2431,8 @@ function collectNetworkDataStructured(graph) {
                         rx_min: 'rx_min',
                         r0x0_max: 'r0x0_max',
                         x0x_max: 'x0x_max',
+                        spectrum: { name: 'spectrum', optional: true },
+                        spectrum_csv: { name: 'spectrum_csv', optional: true },
                         in_service: { name: 'in_service', optional: true }
                     });
 
@@ -2402,7 +2457,9 @@ function collectNetworkDataStructured(graph) {
                         rx_min: extGridParams.rx_min || 0.1,
                         r0x0_max: extGridParams.r0x0_max || 0.1,
                         x0x_max: extGridParams.x0x_max || 1.0,
-                        in_service: extGridInService
+                        in_service: extGridInService,
+                        spectrum: extGridParams.spectrum || 'defaultvsource',
+                        spectrum_csv: extGridParams.spectrum_csv || ''
                     };
                     
                     // Validate bus connection
@@ -2823,6 +2880,10 @@ function collectNetworkDataStructured(graph) {
                         reactive_capability_curve: 'reactive_capability_curve',
                         curve_style: 'curve_style',
                         q_capability_curve_json: 'q_capability_curve_json',
+                        spectrum: { name: 'spectrum', optional: true },
+                        spectrum_csv: { name: 'spectrum_csv', optional: true },
+                        Xdpp: { name: 'Xdpp', optional: true },
+                        XRdp: { name: 'XRdp', optional: true },
                         in_service: { name: 'in_service', optional: true }
                     });
 
@@ -2860,7 +2921,11 @@ function collectNetworkDataStructured(graph) {
                         in_service: staticGenInService,
                         reactive_capability_curve: staticGenParams.reactive_capability_curve,
                         curve_style: staticGenParams.curve_style || 'straightLineYValues',
-                        q_capability_curve_json: staticGenParams.q_capability_curve_json
+                        q_capability_curve_json: staticGenParams.q_capability_curve_json,
+                        spectrum: staticGenParams.spectrum || 'defaultgen',
+                        spectrum_csv: staticGenParams.spectrum_csv || '',
+                        Xdpp: staticGenParams.Xdpp,
+                        XRdp: staticGenParams.XRdp
                     };
                     
                     // Validate bus connection

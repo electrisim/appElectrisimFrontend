@@ -31,6 +31,7 @@ export function configureExternalGridAttributes(grafka, vertex, options = {}) {
     // Harmonic analysis parameters (OpenDSS Vsource)
     g.setAttribute("Harmonic_parameters", "");
     g.setAttribute("spectrum", options.spectrum || "defaultvsource");
+    g.setAttribute("spectrum_csv", options.spectrum_csv || "");
 
     // Economic parameters
     g.setAttribute("Economic_parameters", "");
@@ -85,6 +86,7 @@ export function configureGeneratorAttributes(grafka, vertex, options = {}) {
     // Reference: https://opendss.epri.com/Properties9.html
     g.setAttribute("Harmonic_parameters", "");
     g.setAttribute("spectrum", options.spectrum || "defaultgen");
+    g.setAttribute("spectrum_csv", options.spectrum_csv || "");
     g.setAttribute("Xdpp", options.Xdpp || "0.20");
     g.setAttribute("XRdp", options.XRdp || "20");
 
@@ -133,6 +135,7 @@ export function configureStaticGeneratorAttributes(grafka, vertex, options = {})
     // Reference: https://opendss.epri.com/Properties9.html
     g.setAttribute("Harmonic_parameters", "");
     g.setAttribute("spectrum", options.spectrum || "defaultgen");
+    g.setAttribute("spectrum_csv", options.spectrum_csv || "");
     g.setAttribute("Xdpp", options.Xdpp || "0.20");
     g.setAttribute("XRdp", options.XRdp || "20");
 

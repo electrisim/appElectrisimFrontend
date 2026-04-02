@@ -1,5 +1,10 @@
 import { Dialog } from './Dialog.js';
 import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
+import {
+    mountHarmonicSpectrumTriState,
+    syncHarmonicSpectrumTriStateFromDialogData,
+    valuesFromHarmonicSpectrumTriState
+} from './utils/loadHarmonicSpectrumTriStateUi.js';
 
 /**
  * Rated active power (MW) for the built-in offshore WTG Q(P) example.
@@ -91,7 +96,12 @@ export const defaultStaticGeneratorData = {
     /** pandapower: net.sgen.reactive_capability_curve + q_capability_curve_table */
     reactive_capability_curve: false,
     curve_style: 'straightLineYValues',
-    q_capability_curve_json: qCapabilityCurve15MwOffshoreWtgJson
+    q_capability_curve_json: qCapabilityCurve15MwOffshoreWtgJson,
+    /** OpenDSS harmonic (static gen) */
+    spectrum: 'defaultgen',
+    spectrum_csv: '',
+    Xdpp: 0.2,
+    XRdp: 20
 };
 
 export class StaticGeneratorDialog extends Dialog {
@@ -235,6 +245,40 @@ export class StaticGeneratorDialog extends Dialog {
             }
         ];
 
+        this.harmonicParameters = [
+            {
+                id: 'spectrum',
+                type: 'harmonicSpectrumTriState',
+                triStateModeSelectId: 'staticgen_harm_spectrum_mode',
+                defaultSpectrum: 'defaultgen',
+                spectrumCsvInputId: 'staticgen_spectrum_csv',
+                label: 'Harmonic spectrum',
+                description: 'Default (OpenDSS defaultgen), Linear, Custom (CSV: harmonic order, %magnitude, angle), or None (no harmonic spectrum).',
+                spectrumValue: this.data.spectrum,
+                csvValue: this.data.spectrum_csv,
+                rows: 5
+            },
+            {
+                id: 'Xdpp',
+                label: 'Subtransient reactance (Xdpp)',
+                unit: 'p.u.',
+                description: 'Subtransient reactance for harmonic model (per unit)',
+                type: 'number',
+                value: String(this.data.Xdpp),
+                step: '0.01',
+                min: '0'
+            },
+            {
+                id: 'XRdp',
+                label: 'X/R (XRdp)',
+                description: 'X/R ratio at subtransient frequency for harmonic model',
+                type: 'number',
+                value: String(this.data.XRdp),
+                step: '0.1',
+                min: '0'
+            }
+        ];
+
         // Reactive power capability curve (pandapower net.q_capability_curve_table; requires enforce_q_lims in PF)
         this.qCapabilityParameters = [
             {
@@ -327,6 +371,7 @@ export class StaticGeneratorDialog extends Dialog {
         const ratingTab = this.createTab('Rating', 'rating', this.currentTab === 'rating');
         const shortCircuitTab = this.createTab('Short Circuit', 'shortcircuit', this.currentTab === 'shortcircuit');
         const advancedTab = this.createTab('Advanced', 'advanced', this.currentTab === 'advanced');
+        const harmonicTab = this.createTab('Harmonic', 'harmonic', this.currentTab === 'harmonic');
         const qCapTab = this.createTab('Q capability', 'qcapability', this.currentTab === 'qcapability');
         const economicTab = this.createTab('Economic', 'economic', this.currentTab === 'economic');
         
@@ -334,6 +379,7 @@ export class StaticGeneratorDialog extends Dialog {
         tabContainer.appendChild(ratingTab);
         tabContainer.appendChild(shortCircuitTab);
         tabContainer.appendChild(advancedTab);
+        tabContainer.appendChild(harmonicTab);
         tabContainer.appendChild(qCapTab);
         tabContainer.appendChild(economicTab);
         container.appendChild(tabContainer);
@@ -355,6 +401,12 @@ export class StaticGeneratorDialog extends Dialog {
         const ratingContent = this.createTabContent('rating', this.ratingParameters);
         const shortCircuitContent = this.createTabContent('shortcircuit', this.shortCircuitParameters);
         const advancedContent = this.createTabContent('advanced', this.advancedParameters);
+        const triSgen = (this.harmonicParameters || []).find(p => p.type === 'harmonicSpectrumTriState');
+        if (triSgen) {
+            triSgen.spectrumValue = this.data.spectrum;
+            triSgen.csvValue = this.data.spectrum_csv || '';
+        }
+        const harmonicContent = this.createTabContent('harmonic', this.harmonicParameters);
         const qCapContent = this.createTabContent('qcapability', this.qCapabilityParameters);
         const economicContent = this.createTabContent('economic', this.economicParameters);
 
@@ -367,6 +419,7 @@ export class StaticGeneratorDialog extends Dialog {
         contentArea.appendChild(ratingContent);
         contentArea.appendChild(shortCircuitContent);
         contentArea.appendChild(advancedContent);
+        contentArea.appendChild(harmonicContent);
         contentArea.appendChild(qCapContent);
         contentArea.appendChild(economicContent);
         container.appendChild(contentArea);
@@ -479,12 +532,13 @@ export class StaticGeneratorDialog extends Dialog {
         this.container = container;
         
         // Tab click handlers
-        powerTab.onclick = () => this.switchTab('power', powerTab, [ratingTab, shortCircuitTab, advancedTab, qCapTab, economicTab], powerContent, [ratingContent, shortCircuitContent, advancedContent, qCapContent, economicContent]);
-        ratingTab.onclick = () => this.switchTab('rating', ratingTab, [powerTab, shortCircuitTab, advancedTab, qCapTab, economicTab], ratingContent, [powerContent, shortCircuitContent, advancedContent, qCapContent, economicContent]);
-        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [powerTab, ratingTab, advancedTab, qCapTab, economicTab], shortCircuitContent, [powerContent, ratingContent, advancedContent, qCapContent, economicContent]);
-        advancedTab.onclick = () => this.switchTab('advanced', advancedTab, [powerTab, ratingTab, shortCircuitTab, qCapTab, economicTab], advancedContent, [powerContent, ratingContent, shortCircuitContent, qCapContent, economicContent]);
-        qCapTab.onclick = () => this.switchTab('qcapability', qCapTab, [powerTab, ratingTab, shortCircuitTab, advancedTab, economicTab], qCapContent, [powerContent, ratingContent, shortCircuitContent, advancedContent, economicContent]);
-        economicTab.onclick = () => this.switchTab('economic', economicTab, [powerTab, ratingTab, shortCircuitTab, advancedTab, qCapTab], economicContent, [powerContent, ratingContent, shortCircuitContent, advancedContent, qCapContent]);
+        powerTab.onclick = () => this.switchTab('power', powerTab, [ratingTab, shortCircuitTab, advancedTab, harmonicTab, qCapTab, economicTab], powerContent, [ratingContent, shortCircuitContent, advancedContent, harmonicContent, qCapContent, economicContent]);
+        ratingTab.onclick = () => this.switchTab('rating', ratingTab, [powerTab, shortCircuitTab, advancedTab, harmonicTab, qCapTab, economicTab], ratingContent, [powerContent, shortCircuitContent, advancedContent, harmonicContent, qCapContent, economicContent]);
+        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [powerTab, ratingTab, advancedTab, harmonicTab, qCapTab, economicTab], shortCircuitContent, [powerContent, ratingContent, advancedContent, harmonicContent, qCapContent, economicContent]);
+        advancedTab.onclick = () => this.switchTab('advanced', advancedTab, [powerTab, ratingTab, shortCircuitTab, harmonicTab, qCapTab, economicTab], advancedContent, [powerContent, ratingContent, shortCircuitContent, harmonicContent, qCapContent, economicContent]);
+        harmonicTab.onclick = () => this.switchTab('harmonic', harmonicTab, [powerTab, ratingTab, shortCircuitTab, advancedTab, qCapTab, economicTab], harmonicContent, [powerContent, ratingContent, shortCircuitContent, advancedContent, qCapContent, economicContent]);
+        qCapTab.onclick = () => this.switchTab('qcapability', qCapTab, [powerTab, ratingTab, shortCircuitTab, advancedTab, harmonicTab, economicTab], qCapContent, [powerContent, ratingContent, shortCircuitContent, advancedContent, harmonicContent, economicContent]);
+        economicTab.onclick = () => this.switchTab('economic', economicTab, [powerTab, ratingTab, shortCircuitTab, advancedTab, harmonicTab, qCapTab], economicContent, [powerContent, ratingContent, shortCircuitContent, advancedContent, harmonicContent, qCapContent]);
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
@@ -554,9 +608,10 @@ export class StaticGeneratorDialog extends Dialog {
         parameters.forEach(param => {
             const parameterRow = document.createElement('div');
             const isTextarea = param.type === 'textarea';
+            const isTriHarm = param.type === 'harmonicSpectrumTriState';
             Object.assign(parameterRow.style, {
                 display: 'grid',
-                gridTemplateColumns: isTextarea ? '1fr' : '1fr 200px',
+                gridTemplateColumns: isTextarea ? '1fr' : (isTriHarm ? '1fr minmax(300px, 1.25fr)' : '1fr 200px'),
                 gap: '20px',
                 alignItems: 'start',
                 padding: '16px',
@@ -584,7 +639,7 @@ export class StaticGeneratorDialog extends Dialog {
                 lineHeight: '1.2'
             });
             label.textContent = param.label;
-            label.htmlFor = param.id;
+            label.htmlFor = isTriHarm ? param.triStateModeSelectId : param.id;
 
             const description = document.createElement('div');
             Object.assign(description.style, {
@@ -605,17 +660,41 @@ export class StaticGeneratorDialog extends Dialog {
 
             // Right column: Input field with fixed width
             const rightColumn = document.createElement('div');
-            Object.assign(rightColumn.style, {
-                display: 'flex',
-                alignItems: isTextarea ? 'stretch' : 'center',
-                justifyContent: isTextarea ? 'stretch' : 'flex-end',
-                minHeight: '60px',
-                width: isTextarea ? '100%' : '200px'
-            });
+            if (isTriHarm) {
+                Object.assign(rightColumn.style, {
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'stretch',
+                    justifyContent: 'flex-start',
+                    gap: '10px',
+                    minHeight: '60px',
+                    width: '100%'
+                });
+            } else {
+                Object.assign(rightColumn.style, {
+                    display: 'flex',
+                    alignItems: isTextarea ? 'stretch' : 'center',
+                    justifyContent: isTextarea ? 'stretch' : 'flex-end',
+                    minHeight: '60px',
+                    width: isTextarea ? '100%' : '200px'
+                });
+            }
             
             let input;
             
             // Handle different input types
+            if (param.type === 'harmonicSpectrumTriState') {
+                mountHarmonicSpectrumTriState(param, rightColumn, this.inputs, {
+                    modeSelectId: param.triStateModeSelectId,
+                    defaultSpectrum: param.defaultSpectrum,
+                    spectrumCsvInputId: param.spectrumCsvInputId,
+                    textareaRows: param.rows
+                });
+                parameterRow.appendChild(leftColumn);
+                parameterRow.appendChild(rightColumn);
+                form.appendChild(parameterRow);
+                return;
+            }
             if (param.type === 'checkbox') {
                 input = document.createElement('input');
                 input.type = 'checkbox';
@@ -805,7 +884,17 @@ export class StaticGeneratorDialog extends Dialog {
         
         // Collect all parameter values from all tabs
         [...this.powerParameters, ...this.ratingParameters, ...this.shortCircuitParameters, ...this.advancedParameters,
-            ...(this.qCapabilityParameters || []), ...(this.economicParameters || [])].forEach(param => {
+            ...(this.harmonicParameters || []), ...(this.qCapabilityParameters || []), ...(this.economicParameters || [])].forEach(param => {
+            if (param.type === 'harmonicSpectrumTriState') {
+                if (this.inputs.get(param.triStateModeSelectId)) {
+                    Object.assign(values, valuesFromHarmonicSpectrumTriState(this.inputs, {
+                        modeSelectId: param.triStateModeSelectId,
+                        defaultSpectrum: param.defaultSpectrum,
+                        spectrumCsvInputId: param.spectrumCsvInputId
+                    }));
+                }
+                return;
+            }
             const input = this.inputs.get(param.id);
             if (input) {
                 if (param.id === 'cost_per_unit_by_currency') {
@@ -847,7 +936,7 @@ export class StaticGeneratorDialog extends Dialog {
         // Log initial parameter values
         console.log('Initial parameter values:');
         [...this.powerParameters, ...this.ratingParameters, ...this.shortCircuitParameters, ...this.advancedParameters,
-            ...(this.qCapabilityParameters || [])].forEach(param => {
+            ...(this.harmonicParameters || []), ...(this.qCapabilityParameters || [])].forEach(param => {
             console.log(`  ${param.id}: ${param.value} (${param.type})`);
         });
         
@@ -907,6 +996,25 @@ export class StaticGeneratorDialog extends Dialog {
                     console.log(`  Updated advanced ${attributeName}: ${oldValue} → ${advancedParam.value}`);
                 }
 
+                const harmonicParam = (this.harmonicParameters || []).find(p => p.id === attributeName);
+                if (harmonicParam && harmonicParam.type !== 'harmonicSpectrumTriState') {
+                    harmonicParam.value = attributeValue != null ? String(attributeValue) : harmonicParam.value;
+                }
+
+                if (attributeName === 'spectrum' || attributeName === 'spectrum_csv') {
+                    if (attributeName === 'spectrum') {
+                        this.data.spectrum = attributeValue != null ? String(attributeValue) : this.data.spectrum;
+                    }
+                    if (attributeName === 'spectrum_csv') {
+                        this.data.spectrum_csv = attributeValue != null ? String(attributeValue) : (this.data.spectrum_csv || '');
+                    }
+                    const tri = (this.harmonicParameters || []).find(p => p.type === 'harmonicSpectrumTriState');
+                    if (tri) {
+                        if (attributeName === 'spectrum') tri.spectrumValue = this.data.spectrum;
+                        if (attributeName === 'spectrum_csv') tri.csvValue = this.data.spectrum_csv;
+                    }
+                }
+
                 const qCapParam = (this.qCapabilityParameters || []).find(p => p.id === attributeName);
                 if (qCapParam) {
                     const oldValue = qCapParam.value;
@@ -925,7 +1033,8 @@ export class StaticGeneratorDialog extends Dialog {
                     console.log(`  Updated economic ${attributeName}: → ${attributeValue}`);
                 }
                 
-                if (!powerParam && !ratingParam && !shortCircuitParam && !advancedParam && !qCapParam && !economicParam) {
+                if (!powerParam && !ratingParam && !shortCircuitParam && !advancedParam && !harmonicParam && !qCapParam && !economicParam
+                    && attributeName !== 'spectrum' && attributeName !== 'spectrum_csv') {
                     console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
             }
@@ -936,9 +1045,11 @@ export class StaticGeneratorDialog extends Dialog {
         // Log final parameter values
         console.log('Final parameter values:');
         [...this.powerParameters, ...this.ratingParameters, ...this.shortCircuitParameters, ...this.advancedParameters,
-            ...(this.qCapabilityParameters || [])].forEach(param => {
+            ...(this.harmonicParameters || []), ...(this.qCapabilityParameters || [])].forEach(param => {
             console.log(`  ${param.id}: ${param.value} (${param.type})`);
         });
+
+        syncHarmonicSpectrumTriStateFromDialogData(this.inputs, this.harmonicParameters, this.data);
         
         console.log('=== StaticGeneratorDialog.populateDialog completed ===');
     }

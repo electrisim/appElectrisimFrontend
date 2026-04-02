@@ -1,5 +1,10 @@
 import { Dialog } from './Dialog.js';
 import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
+import {
+    mountHarmonicSpectrumTriState,
+    syncHarmonicSpectrumTriStateFromDialogData,
+    valuesFromHarmonicSpectrumTriState
+} from './utils/loadHarmonicSpectrumTriStateUi.js';
 
 // Default values for external grid parameters (based on pandapower documentation)
 export const defaultExternalGridData = {
@@ -19,6 +24,9 @@ export const defaultExternalGridData = {
     min_q_mvar: 0.0,
     controllable: false,
     slack_weight: 1.0,
+    /** OpenDSS Vsource harmonic spectrum */
+    spectrum: 'defaultvsource',
+    spectrum_csv: '',
 };
 
 export class ExternalGridDialog extends Dialog {
@@ -178,6 +186,21 @@ export class ExternalGridDialog extends Dialog {
                 min: '0'
             }
         ];
+
+        this.harmonicParameters = [
+            {
+                id: 'spectrum',
+                type: 'harmonicSpectrumTriState',
+                triStateModeSelectId: 'extgrid_harm_spectrum_mode',
+                defaultSpectrum: 'defaultvsource',
+                spectrumCsvInputId: 'extgrid_spectrum_csv',
+                label: 'Harmonic voltage spectrum',
+                description: 'Default (OpenDSS defaultvsource), Linear, Custom (CSV: harmonic order, %magnitude, angle), or None (no harmonic voltage spectrum).',
+                spectrumValue: this.data.spectrum,
+                csvValue: this.data.spectrum_csv,
+                rows: 5
+            }
+        ];
         
         // Economic parameters (for Economic Analysis) - cost_per_unit_by_currency holds JSON of { currency: value }
         this.economicParameters = [
@@ -243,11 +266,13 @@ export class ExternalGridDialog extends Dialog {
         const loadFlowTab = this.createTab('Load Flow', 'loadflow', this.currentTab === 'loadflow');
         const shortCircuitTab = this.createTab('Short Circuit', 'shortcircuit', this.currentTab === 'shortcircuit');
         const opfTab = this.createTab('OPF', 'opf', this.currentTab === 'opf');
+        const harmonicTab = this.createTab('Harmonic', 'harmonic', this.currentTab === 'harmonic');
         const economicTab = this.createTab('Economic', 'economic', this.currentTab === 'economic');
         
         tabContainer.appendChild(loadFlowTab);
         tabContainer.appendChild(shortCircuitTab);
         tabContainer.appendChild(opfTab);
+        tabContainer.appendChild(harmonicTab);
         tabContainer.appendChild(economicTab);
         container.appendChild(tabContainer);
 
@@ -264,14 +289,21 @@ export class ExternalGridDialog extends Dialog {
         });
 
         // Create tab content containers
+        const triExt = this.harmonicParameters.find(p => p.type === 'harmonicSpectrumTriState');
+        if (triExt) {
+            triExt.spectrumValue = this.data.spectrum;
+            triExt.csvValue = this.data.spectrum_csv || '';
+        }
         const loadFlowContent = this.createTabContent('loadflow', this.loadFlowParameters);
         const shortCircuitContent = this.createTabContent('shortcircuit', this.shortCircuitParameters);
         const opfContent = this.createTabContent('opf', this.opfParameters);
+        const harmonicContent = this.createTabContent('harmonic', this.harmonicParameters);
         const economicContent = this.createTabContent('economic', this.economicParameters);
         
         contentArea.appendChild(loadFlowContent);
         contentArea.appendChild(shortCircuitContent);
         contentArea.appendChild(opfContent);
+        contentArea.appendChild(harmonicContent);
         contentArea.appendChild(economicContent);
         container.appendChild(contentArea);
 
@@ -319,10 +351,11 @@ export class ExternalGridDialog extends Dialog {
         this.container = container;
         
         // Tab click handlers
-        loadFlowTab.onclick = () => this.switchTab('loadflow', loadFlowTab, [shortCircuitTab, opfTab, economicTab], loadFlowContent, [shortCircuitContent, opfContent, economicContent]);
-        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [loadFlowTab, opfTab, economicTab], shortCircuitContent, [loadFlowContent, opfContent, economicContent]);
-        opfTab.onclick = () => this.switchTab('opf', opfTab, [loadFlowTab, shortCircuitTab, economicTab], opfContent, [loadFlowContent, shortCircuitContent, economicContent]);
-        economicTab.onclick = () => this.switchTab('economic', economicTab, [loadFlowTab, shortCircuitTab, opfTab], economicContent, [loadFlowContent, shortCircuitContent, opfContent]);
+        loadFlowTab.onclick = () => this.switchTab('loadflow', loadFlowTab, [shortCircuitTab, opfTab, harmonicTab, economicTab], loadFlowContent, [shortCircuitContent, opfContent, harmonicContent, economicContent]);
+        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [loadFlowTab, opfTab, harmonicTab, economicTab], shortCircuitContent, [loadFlowContent, opfContent, harmonicContent, economicContent]);
+        opfTab.onclick = () => this.switchTab('opf', opfTab, [loadFlowTab, shortCircuitTab, harmonicTab, economicTab], opfContent, [loadFlowContent, shortCircuitContent, harmonicContent, economicContent]);
+        harmonicTab.onclick = () => this.switchTab('harmonic', harmonicTab, [loadFlowTab, shortCircuitTab, opfTab, economicTab], harmonicContent, [loadFlowContent, shortCircuitContent, opfContent, economicContent]);
+        economicTab.onclick = () => this.switchTab('economic', economicTab, [loadFlowTab, shortCircuitTab, opfTab, harmonicTab], economicContent, [loadFlowContent, shortCircuitContent, opfContent, harmonicContent]);
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
@@ -386,10 +419,11 @@ export class ExternalGridDialog extends Dialog {
         });
 
         parameters.forEach(param => {
+            const isTriHarm = param.type === 'harmonicSpectrumTriState';
             const parameterRow = document.createElement('div');
             Object.assign(parameterRow.style, {
                 display: 'grid',
-                gridTemplateColumns: '1fr 200px',
+                gridTemplateColumns: isTriHarm ? '1fr minmax(300px, 1.25fr)' : '1fr 200px',
                 gap: '20px',
                 alignItems: 'start',
                 padding: '16px',
@@ -417,7 +451,7 @@ export class ExternalGridDialog extends Dialog {
                 lineHeight: '1.2'
             });
             label.textContent = param.label;
-            label.htmlFor = param.id;
+            label.htmlFor = isTriHarm ? param.triStateModeSelectId : param.id;
 
             const description = document.createElement('div');
             Object.assign(description.style, {
@@ -434,14 +468,39 @@ export class ExternalGridDialog extends Dialog {
 
             // Right column: Input field with fixed width
             const rightColumn = document.createElement('div');
-            Object.assign(rightColumn.style, {
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'flex-end',
-                minHeight: '60px',
-                width: '200px'
-            });
-            
+            if (isTriHarm) {
+                Object.assign(rightColumn.style, {
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'stretch',
+                    justifyContent: 'flex-start',
+                    gap: '10px',
+                    minHeight: '60px',
+                    width: '100%'
+                });
+            } else {
+                Object.assign(rightColumn.style, {
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'flex-end',
+                    minHeight: '60px',
+                    width: '200px'
+                });
+            }
+
+            if (param.type === 'harmonicSpectrumTriState') {
+                mountHarmonicSpectrumTriState(param, rightColumn, this.inputs, {
+                    modeSelectId: param.triStateModeSelectId,
+                    defaultSpectrum: param.defaultSpectrum,
+                    spectrumCsvInputId: param.spectrumCsvInputId,
+                    textareaRows: param.rows
+                });
+                parameterRow.appendChild(leftColumn);
+                parameterRow.appendChild(rightColumn);
+                form.appendChild(parameterRow);
+                return;
+            }
+
             const input = document.createElement('input');
             input.type = param.type;
             input.id = param.id;
@@ -576,7 +635,17 @@ export class ExternalGridDialog extends Dialog {
         const values = {};
         
         // Collect all parameter values from all tabs
-        [...this.loadFlowParameters, ...this.shortCircuitParameters, ...this.opfParameters, ...this.economicParameters].forEach(param => {
+        [...this.loadFlowParameters, ...this.shortCircuitParameters, ...this.opfParameters, ...this.harmonicParameters, ...this.economicParameters].forEach(param => {
+            if (param.type === 'harmonicSpectrumTriState') {
+                if (this.inputs.get(param.triStateModeSelectId)) {
+                    Object.assign(values, valuesFromHarmonicSpectrumTriState(this.inputs, {
+                        modeSelectId: param.triStateModeSelectId,
+                        defaultSpectrum: param.defaultSpectrum,
+                        spectrumCsvInputId: param.spectrumCsvInputId
+                    }));
+                }
+                return;
+            }
             const input = this.inputs.get(param.id);
             if (input) {
                 if (param.type === 'number') {
@@ -590,6 +659,26 @@ export class ExternalGridDialog extends Dialog {
         });
         
         return values;
+    }
+
+    /** After cell attributes are applied, sync tri-state harmonic UI (spectrum + spectrum_csv). */
+    applyHarmonicSpectrumCustomFromCell(cellValue) {
+        if (!cellValue?.attributes || !this.harmonicParameters) return;
+        let spectrum = this.data.spectrum;
+        let csv = this.data.spectrum_csv || '';
+        for (let i = 0; i < cellValue.attributes.length; i++) {
+            const attr = cellValue.attributes[i];
+            if (attr.name === 'spectrum') spectrum = attr.value != null ? String(attr.value) : spectrum;
+            if (attr.name === 'spectrum_csv') csv = attr.value != null ? String(attr.value) : '';
+        }
+        this.data.spectrum = spectrum;
+        this.data.spectrum_csv = csv;
+        const h = this.harmonicParameters.find(p => p.type === 'harmonicSpectrumTriState');
+        if (h) {
+            h.spectrumValue = spectrum;
+            h.csvValue = csv;
+        }
+        syncHarmonicSpectrumTriStateFromDialogData(this.inputs, this.harmonicParameters, this.data);
     }
     
     destroy() {
