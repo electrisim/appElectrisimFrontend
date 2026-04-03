@@ -57,10 +57,38 @@ export function getEconomicProfileRelevance(graph) {
 // Cache for prepareNetworkData - speeds up repeated analyses when graph unchanged
 const _networkDataCache = new WeakMap();
 
-function _computeGraphHashForData(model) {
-    if (!model || !model.cells) return '0';
-    const keys = Object.keys(model.cells);
-    return keys.length + '_' + keys.slice(0, 30).join(',');
+/**
+ * Fingerprint of all user-object (parameter) XML on the graph so edits to q_mvar, ratings, etc.
+ * invalidate the cache. Previously only cell count + first IDs were used, so RPC could keep
+ * stale shunt/generator data while Load Flow (separate code path) showed fresh values.
+ */
+function _computeGraphContentFingerprint(model) {
+    if (!model || !model.getRoot) return '0';
+    const chunks = [];
+    const walk = (cell) => {
+        if (!cell) return;
+        const v = model.getValue(cell);
+        if (v != null && typeof v === 'object' && v.nodeType === 1) {
+            try {
+                chunks.push(new XMLSerializer().serializeToString(v));
+            } catch (e) {
+                chunks.push(String(v));
+            }
+        } else if (v != null && typeof v !== 'object') {
+            chunks.push(String(v));
+        }
+        const n = model.getChildCount(cell);
+        for (let i = 0; i < n; i++) {
+            walk(model.getChildAt(cell, i));
+        }
+    };
+    walk(model.getRoot());
+    const s = chunks.join('\n');
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) {
+        h = ((h << 5) + h) ^ s.charCodeAt(i);
+    }
+    return `${chunks.length}_${h >>> 0}`;
 }
 
 /**
@@ -114,7 +142,7 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
     } = options;
 
     const model = graph.getModel();
-    const cacheKey = _computeGraphHashForData(model) + '_' + JSON.stringify(simulationParameters) + '_' + removeResultCells;
+    const cacheKey = _computeGraphContentFingerprint(model) + '_' + JSON.stringify(simulationParameters) + '_' + removeResultCells;
     let cache = _networkDataCache.get(graph);
     if (cache && cache.key === cacheKey) {
         return cache.result;

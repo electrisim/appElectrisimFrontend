@@ -293,7 +293,7 @@ export class RPCDialog extends Dialog {
 
     getDescription() {
         return '<strong>Reactive Power Capability (PQ Diagram)</strong><br>' +
-            'Sweeps active power of the wind farm and determines the reactive power capability envelope at the PCC bus across multiple voltage levels. ' +
+            'Sweeps active power of the power plant and determines the reactive power capability envelope at the PCC bus across multiple voltage levels. ' +
             'Optionally compares against grid code requirements. ' +
             'To use manufacturer-style limits per unit, enable <em>Use Q capability curve</em> on each static generator and pick <strong>From static generator P–Q curve</strong> below.';
     }
