@@ -54,6 +54,98 @@ export const qCapabilityCurve15MwOffshoreWt1UnChartJson = JSON.stringify(qCapabi
 export const Q_CAPABILITY_PRESET_OFFSHORE_WT_1UN_SN_MVA = '17.5';
 
 /**
+ * Scale a Q-capability point table homogeneously: same technology, different plant rating.
+ * Each p_mw and q value is multiplied by `scale` (typically targetRatedMw / templateRatedMw).
+ */
+export function scaleQCapabilityPointsForPlantRating(basePoints, scale) {
+    if (!Array.isArray(basePoints) || !Number.isFinite(scale) || scale <= 0) {
+        return [];
+    }
+    const r = (x) => {
+        const n = Number(x);
+        if (!Number.isFinite(n)) return 0;
+        return Math.round(n * scale * 1e6) / 1e6;
+    };
+    return basePoints.map((pt) => ({
+        p_mw: r(pt.p_mw),
+        q_min_mvar: r(pt.q_min_mvar),
+        q_max_mvar: r(pt.q_max_mvar)
+    }));
+}
+
+function parseSortedQCapabilityPoints(raw) {
+    let pts;
+    try {
+        pts = JSON.parse(String(raw).trim());
+    } catch {
+        return null;
+    }
+    if (!Array.isArray(pts) || pts.length < 2) return null;
+    const sorted = [];
+    for (let i = 0; i < pts.length; i++) {
+        const p = pts[i];
+        if (!p || typeof p !== 'object') continue;
+        const pMw = Number(p.p_mw);
+        const qMin = Number(p.q_min_mvar);
+        const qMax = Number(p.q_max_mvar);
+        if (!Number.isFinite(pMw) || !Number.isFinite(qMin) || !Number.isFinite(qMax)) continue;
+        sorted.push({ p_mw: pMw, q_min_mvar: qMin, q_max_mvar: qMax });
+    }
+    if (sorted.length < 2) return null;
+    sorted.sort((a, b) => a.p_mw - b.p_mw);
+    return sorted;
+}
+
+/**
+ * If JSON is the ±0.95 PF or 1·Un preset at 15 MW or homogeneously scaled from it, return canonical base knots + sn.
+ */
+function matchBuiltInQCapabilityTemplate(sortedPts) {
+    const pMax = sortedPts[sortedPts.length - 1].p_mw;
+    if (!Number.isFinite(pMax) || pMax <= 1e-9) return null;
+    const pRef = Q_CAPABILITY_PRESET_15MW_OFFSHORE_P_RATED_MW;
+    const inv = pRef / pMax;
+    const tolAbs = 0.07;
+    const tolRel = 0.015;
+    const close = (a, b) =>
+        Math.abs(a - b) <= Math.max(tolAbs, tolRel * Math.max(Math.abs(b), 1));
+
+    const presets = [
+        { template: qCapabilityCurve15MwOffshoreWtgPoints, snBase: 16.5 },
+        {
+            template: qCapabilityCurve15MwOffshoreWt1UnChartPoints,
+            snBase: parseFloat(Q_CAPABILITY_PRESET_OFFSHORE_WT_1UN_SN_MVA)
+        }
+    ];
+    for (let pi = 0; pi < presets.length; pi++) {
+        const { template, snBase } = presets[pi];
+        if (sortedPts.length !== template.length) continue;
+        let ok = true;
+        for (let i = 0; i < template.length; i++) {
+            if (!close(sortedPts[i].p_mw * inv, template[i].p_mw)) {
+                ok = false;
+                break;
+            }
+            if (!close(sortedPts[i].q_min_mvar * inv, template[i].q_min_mvar)) {
+                ok = false;
+                break;
+            }
+            if (!close(sortedPts[i].q_max_mvar * inv, template[i].q_max_mvar)) {
+                ok = false;
+                break;
+            }
+        }
+        if (ok) {
+            return {
+                basePoints: JSON.parse(JSON.stringify(template)),
+                pRatedMw: pRef,
+                snBase
+            };
+        }
+    }
+    return null;
+}
+
+/**
  * Expand table knots to a polyline: straight segments (straightLineYValues) or
  * horizontal steps until the next P (constantYValue), matching pandapower naming.
  */
@@ -113,6 +205,11 @@ export class StaticGeneratorDialog extends Dialog {
         this.currentTab = 'power';
         this.data = { ...defaultStaticGeneratorData };
         this.inputs = new Map(); // Initialize inputs map for form elements
+        /** Deep-copied template knots (15 MW class); used to rescale when Active power (MW) changes */
+        this._qcapTemplateBasePoints = null;
+        this._qcapTemplatePRatedMw = null;
+        this._qcapTemplateSnBase = null;
+        this._qcapProgrammaticJsonUpdate = false;
         
         // Power parameters (necessary for executing a power flow calculation)
         this.powerParameters = [
@@ -126,7 +223,7 @@ export class StaticGeneratorDialog extends Dialog {
             {
                 id: 'p_mw',
                 label: 'Active Power (MW)',
-                description: 'The active power of the static generator (positive for generation!)',
+                description: 'The active power of the static generator (positive for generation!). When a Q-capability template is active, the P–Q table is scaled so its maximum P equals this value.',
                 type: 'number',
                 value: this.data.p_mw.toString(),
                 step: '0.1'
@@ -299,7 +396,7 @@ export class StaticGeneratorDialog extends Dialog {
             {
                 id: 'q_capability_curve_json',
                 label: 'Curve points (JSON)',
-                description: 'Array of { "p_mw", "q_min_mvar", "q_max_mvar" } — at least two points, sorted by p_mw recommended. Default: generic ±0.95 PF 15 MW curve. Use the buttons below for offshore wind turbine 1·Un (digitized manufacturer-style) or the generic template.',
+                description: 'Array of { "p_mw", "q_min_mvar", "q_max_mvar" } — at least two points, sorted by p_mw recommended. Templates below are defined for 15 MW; P and Q scale to Active power (MW) on the Power tab. Editing this JSON clears template scaling.',
                 type: 'textarea',
                 value: this.data.q_capability_curve_json,
                 rows: 8
@@ -327,6 +424,11 @@ export class StaticGeneratorDialog extends Dialog {
     showTabDialog() {
         // Use global App if ui is not valid
         this.ui = this.ui || window.App?.main?.editor?.editorUi;
+
+        this._qcapTemplateBasePoints = null;
+        this._qcapTemplatePRatedMw = null;
+        this._qcapTemplateSnBase = null;
+        this._qcapProgrammaticJsonUpdate = false;
         
         // Create main container
         const container = document.createElement('div');
@@ -431,24 +533,27 @@ export class StaticGeneratorDialog extends Dialog {
         });
         const qCapPresetHint = document.createElement('div');
         Object.assign(qCapPresetHint.style, { fontSize: '12px', color: '#6c757d', marginBottom: '10px', lineHeight: '1.45' });
-        qCapPresetHint.innerHTML = '<strong>Templates</strong> — (1) Generic ±0.95 PF model, 15 MW. (2) <strong>Offshore wind turbine</strong> (15 MW): digitized <strong>1·U<sub>n</sub></strong> export/import limits from a typical manufacturer P–Q diagram (50 Hz LV), MW/MVAr. Both set P = 15 MW, <code>current_source</code>, enable the curve and linear segments. Verify OEM data for real projects.';
+        qCapPresetHint.innerHTML = '<strong>Templates</strong> — Shapes are defined for a <strong>15 MW</strong> reference; <strong>P and Q are scaled</strong> to the <strong>Active power (MW)</strong> on the Power tab (e.g. 3.3 MW). Nominal MVA is scaled by the same ratio. (1) Generic ±0.95 PF. (2) Offshore wind: digitized <strong>1·U<sub>n</sub></strong> limits from a typical manufacturer P–Q diagram (50 Hz LV). Both enable the curve, linear segments, and <code>current_source</code>. Editing the JSON clears auto-scaling. Verify OEM data for real projects.';
 
-        const applyQCapabilityPreset = (jsonStr, pMw, snMva) => {
+        const applyQCapabilityPreset = (jsonStr, templatePRatedMw, snMvaAtTemplate) => {
+            let base;
+            try {
+                base = JSON.parse(jsonStr);
+            } catch {
+                return;
+            }
+            if (!Array.isArray(base) || base.length < 2) return;
+            this._qcapTemplateBasePoints = JSON.parse(JSON.stringify(base));
+            this._qcapTemplatePRatedMw = templatePRatedMw;
+            this._qcapTemplateSnBase = parseFloat(snMvaAtTemplate);
             const ta = this.inputs.get('q_capability_curve_json');
             const cb = this.inputs.get('reactive_capability_curve');
             const styleSel = this.inputs.get('curve_style');
-            if (ta) ta.value = jsonStr;
             if (cb) cb.checked = true;
             if (styleSel) styleSel.value = 'straightLineYValues';
-            const pIn = this.inputs.get('p_mw');
-            const snIn = this.inputs.get('sn_mva');
-            if (pIn) pIn.value = String(pMw);
-            if (snIn) snIn.value = String(snMva);
             const gt = this.inputs.get('generator_type');
             if (gt) gt.value = 'current_source';
-            if (typeof this._qCapabilityChartRedraw === 'function') {
-                this._qCapabilityChartRedraw();
-            }
+            this._applyQCapabilityScalingFromTemplate();
         };
 
         const presetRow = document.createElement('div');
@@ -487,6 +592,32 @@ export class StaticGeneratorDialog extends Dialog {
         presetRow.appendChild(qCapPresetOffshoreWt1UnBtn);
         qCapPresetWrap.appendChild(presetRow);
         qCapContent.appendChild(qCapPresetWrap);
+
+        const pMwEl = this.inputs.get('p_mw');
+        if (pMwEl) {
+            let pMwInputDebounce = null;
+            const onActivePowerForQcap = () => this._syncQcapCurveToActivePowerIfPossible();
+            pMwEl.addEventListener('change', onActivePowerForQcap);
+            pMwEl.addEventListener('blur', onActivePowerForQcap);
+            pMwEl.addEventListener('input', () => {
+                if (pMwInputDebounce) clearTimeout(pMwInputDebounce);
+                pMwInputDebounce = setTimeout(() => {
+                    pMwInputDebounce = null;
+                    onActivePowerForQcap();
+                }, 100);
+            });
+        }
+
+        const reactiveCapCb = this.inputs.get('reactive_capability_curve');
+        if (reactiveCapCb) {
+            reactiveCapCb.addEventListener('change', () => {
+                if (reactiveCapCb.checked) {
+                    this._syncQcapCurveToActivePowerIfPossible();
+                }
+            });
+        }
+
+        this._syncQcapCurveToActivePowerIfPossible();
 
         // Add button container
         const buttonContainer = document.createElement('div');
@@ -918,6 +1049,10 @@ export class StaticGeneratorDialog extends Dialog {
     
     destroy() {
         this._qCapabilityChartRedraw = null;
+        this._qcapTemplateBasePoints = null;
+        this._qcapTemplatePRatedMw = null;
+        this._qcapTemplateSnBase = null;
+        this._qcapProgrammaticJsonUpdate = false;
         // Call parent destroy method
         super.destroy();
         
@@ -1054,6 +1189,68 @@ export class StaticGeneratorDialog extends Dialog {
         console.log('=== StaticGeneratorDialog.populateDialog completed ===');
     }
 
+    _setQCapabilityJsonProgrammatically(textarea, jsonStr) {
+        this._qcapProgrammaticJsonUpdate = true;
+        textarea.value = jsonStr;
+        this._qcapProgrammaticJsonUpdate = false;
+    }
+
+    _tryAttachQCapabilityTemplateFromJsonString(raw) {
+        const sorted = parseSortedQCapabilityPoints(raw);
+        if (!sorted) return false;
+        const m = matchBuiltInQCapabilityTemplate(sorted);
+        if (!m) return false;
+        this._qcapTemplateBasePoints = m.basePoints;
+        this._qcapTemplatePRatedMw = m.pRatedMw;
+        this._qcapTemplateSnBase = m.snBase;
+        return true;
+    }
+
+    /**
+     * If Q curve is on, ensure built-in preset shape is bound (from JSON) then rescale P/Q to Active power (MW).
+     */
+    _syncQcapCurveToActivePowerIfPossible() {
+        const cb = this.inputs.get('reactive_capability_curve');
+        if (!cb || !cb.checked) return;
+        const ta = this.inputs.get('q_capability_curve_json');
+        if (!this._qcapTemplateBasePoints) {
+            if (!ta || !this._tryAttachQCapabilityTemplateFromJsonString(ta.value)) return;
+        }
+        this._applyQCapabilityScalingFromTemplate();
+    }
+
+    /**
+     * Writes scaled Q-capability JSON and optional sn_mva from stored template knots.
+     */
+    _applyQCapabilityScalingFromTemplate() {
+        if (!this._qcapTemplateBasePoints || this._qcapTemplatePRatedMw == null || this._qcapTemplatePRatedMw <= 0) {
+            return;
+        }
+        const ta = this.inputs.get('q_capability_curve_json');
+        const pIn = this.inputs.get('p_mw');
+        const snIn = this.inputs.get('sn_mva');
+        if (!ta) return;
+
+        let targetP = parseFloat(pIn && pIn.value);
+        if (!Number.isFinite(targetP) || targetP <= 0) {
+            targetP = this._qcapTemplatePRatedMw;
+        }
+        const scale = targetP / this._qcapTemplatePRatedMw;
+        const scaled = scaleQCapabilityPointsForPlantRating(this._qcapTemplateBasePoints, scale);
+        if (scaled.length < 2) return;
+
+        this._setQCapabilityJsonProgrammatically(ta, JSON.stringify(scaled));
+
+        if (snIn && Number.isFinite(this._qcapTemplateSnBase) && this._qcapTemplateSnBase > 0) {
+            const sn = this._qcapTemplateSnBase * scale;
+            snIn.value = String(Math.round(sn * 10000) / 10000);
+        }
+
+        if (typeof this._qCapabilityChartRedraw === 'function') {
+            this._qCapabilityChartRedraw();
+        }
+    }
+
     /**
      * P–Q chart above the Q capability form; redrawn from JSON textarea and curve style.
      */
@@ -1071,7 +1268,9 @@ export class StaticGeneratorDialog extends Dialog {
         Object.assign(title.style, { fontWeight: '600', fontSize: '14px', color: '#495057', marginBottom: '4px' });
         const sub = document.createElement('div');
         Object.assign(sub.style, { fontSize: '11px', color: '#6c757d', marginBottom: '8px', lineHeight: '1.4' });
-        sub.textContent = 'Allowable reactive band (Qmin … Qmax) vs active power P from the curve points. Shape follows the selected curve style.';
+        sub.textContent =
+            'Allowable reactive band (Qmin … Qmax) vs active power P from the curve points. ' +
+            'For built-in templates, the plot updates as you change Active power (MW) on the Power tab (with Q curve enabled).';
         const status = document.createElement('div');
         Object.assign(status.style, { fontSize: '12px', color: '#c62828', minHeight: '20px', marginBottom: '6px' });
         const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -1098,7 +1297,14 @@ export class StaticGeneratorDialog extends Dialog {
             }, 200);
         };
         if (ta) {
-            ta.addEventListener('input', schedule);
+            ta.addEventListener('input', () => {
+                if (!this._qcapProgrammaticJsonUpdate) {
+                    this._qcapTemplateBasePoints = null;
+                    this._qcapTemplatePRatedMw = null;
+                    this._qcapTemplateSnBase = null;
+                }
+                schedule();
+            });
             ta.addEventListener('change', redraw);
         }
         if (styleSel) {
