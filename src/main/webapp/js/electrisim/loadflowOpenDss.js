@@ -3108,6 +3108,11 @@ function executePandapowerCoreLogic(parameters, app, graph) {
     console.log('⚠️ executePandapowerCoreLogic called - THIS SHOULD NOT BE USED FOR NORMAL LOAD FLOW!');
     console.log('Executing pandapower core logic with parameters:', parameters);
     console.log('exportPython in parameters:', parameters.exportPython);
+
+    const coercePandapowerBool = (v) =>
+        v === true ||
+        v === 1 ||
+        (typeof v === 'string' && ['true', '1', 'yes', 'on'].includes(v.toLowerCase()));
     
     // Convert old array format to new object format
     let paramObject;
@@ -3119,12 +3124,15 @@ function executePandapowerCoreLogic(parameters, app, graph) {
             calculate_voltage_angles: parameters[2] || 'auto',
             initialization: parameters[3] || 'auto',
             exportPython: false,  // Default to false for this legacy path
+            exportPandapowerResults: false,
+            run_control: false,
             engine: 'pandapower'
         };
     } else if (typeof parameters === 'object' && parameters !== null) {
         console.log('✅ Object format detected - preserving all properties including exportPython');
         console.log('✅ exportPython value:', parameters.exportPython);
         console.log('✅ exportPandapowerResults value:', parameters.exportPandapowerResults);
+        console.log('✅ run_control value:', parameters.run_control);
         // Parameters is already an object, use it directly (preserves exportPython!)
         paramObject = {
             frequency: parameters.frequency || '50',
@@ -3134,10 +3142,12 @@ function executePandapowerCoreLogic(parameters, app, graph) {
             exportPython: parameters.exportPython || false,  // PRESERVE the user's choice!
             exportPandapowerResults: parameters.exportPandapowerResults || false,  // PRESERVE results export choice!
             enforceLimits: parameters.enforceLimits || false,  // Also preserve other checkboxes
+            run_control: coercePandapowerBool(parameters.run_control),
             engine: parameters.engine || 'pandapower'
         };
         console.log('✅ Final paramObject.exportPython:', paramObject.exportPython);
         console.log('✅ Final paramObject.exportPandapowerResults:', paramObject.exportPandapowerResults);
+        console.log('✅ Final paramObject.run_control:', paramObject.run_control);
     } else {
         console.warn('⚠️ Unexpected parameters format:', typeof parameters);
         paramObject = {
@@ -3146,6 +3156,8 @@ function executePandapowerCoreLogic(parameters, app, graph) {
             calculate_voltage_angles: 'auto',
             initialization: 'auto',
             exportPython: false,
+            exportPandapowerResults: false,
+            run_control: false,
             engine: 'pandapower'
         };
     }
