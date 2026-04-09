@@ -52,11 +52,29 @@ const createTableSeparator = (widths) => {
     return widths.map(w => '-'.repeat(w)).join('-+-');
 };
 
+/** Attach backend tap_control_results to matching transformers (by cell_id or internal name). */
+const mergeTapControlIntoTransformers = (dataJson) => {
+    const rows = dataJson.tap_control_results;
+    if (!Array.isArray(rows) || rows.length === 0 || !dataJson.transformers?.length) return;
+    const byCellId = new Map();
+    const byInternalName = new Map();
+    for (const row of rows) {
+        if (row && row.cell_id) byCellId.set(String(row.cell_id), row);
+        if (row && row.id != null) byInternalName.set(String(row.id), row);
+    }
+    for (const tr of dataJson.transformers) {
+        let m = tr.id != null ? byCellId.get(String(tr.id)) : null;
+        if (!m && tr.name != null) m = byInternalName.get(String(tr.name));
+        if (m) tr.tap_control_result = m;
+    }
+};
+
 // Helper function to download Pandapower results as a text file
 const downloadPandapowerResults = (dataJson, graph) => {
     console.log('🔽 downloadPandapowerResults() called');
     
     try {
+        mergeTapControlIntoTransformers(dataJson);
         const dialogNameFor = createDialogNameResolver(graph);
         let resultsText = '========================================\n';
         resultsText += '   Pandapower Load Flow Results\n';
@@ -130,11 +148,17 @@ const downloadPandapowerResults = (dataJson, graph) => {
         // Transformers
         if (dataJson.transformers && dataJson.transformers.length > 0) {
             resultsText += '--- TRANSFORMERS ---\n';
-            const widths = [14, 14, 13, 13, 12, 13, 12, 12, 13, 12];
-            const headers = ['Object id', 'Dialog name', 'P_HV [MW]', 'Q_HV [MVAr]', 'P_LV [MW]', 'Q_LV [MVAr]', 'I_HV [kA]', 'I_LV [kA]', 'Loading [%]', 'Loss [MW]'];
+            const widths = [14, 14, 13, 13, 12, 13, 12, 12, 13, 12, 18];
+            const headers = ['Object id', 'Dialog name', 'P_HV [MW]', 'Q_HV [MVAr]', 'P_LV [MW]', 'Q_LV [MVAr]', 'I_HV [kA]', 'I_LV [kA]', 'Loading [%]', 'Loss [MW]', 'Tap (control)'];
             resultsText += createTableRow(headers, widths) + '\n';
             resultsText += createTableSeparator(widths) + '\n';
             dataJson.transformers.forEach(trafo => {
+                const tc = trafo.tap_control_result;
+                const tapInfo = tc
+                    ? (Number(tc.tap_pos_initial) !== Number(tc.tap_pos)
+                        ? `tap ${tc.tap_pos_initial}→${tc.tap_pos}`
+                        : `tap_pos ${tc.tap_pos}`)
+                    : '—';
                 const row = [
                     trafo.name || 'N/A',
                     dialogNameFor(trafo) || '—',
@@ -145,9 +169,20 @@ const downloadPandapowerResults = (dataJson, graph) => {
                     trafo.i_hv_ka ? trafo.i_hv_ka.toFixed(3) : 'N/A',
                     trafo.i_lv_ka ? trafo.i_lv_ka.toFixed(3) : 'N/A',
                     trafo.loading_percent ? trafo.loading_percent.toFixed(1) : 'N/A',
-                    trafo.pl_mw ? trafo.pl_mw.toFixed(3) : 'N/A'
+                    trafo.pl_mw ? trafo.pl_mw.toFixed(3) : 'N/A',
+                    tapInfo
                 ];
                 resultsText += createTableRow(row, widths) + '\n';
+            });
+            resultsText += '\n';
+        }
+
+        if (dataJson.tap_control_results && dataJson.tap_control_results.length > 0) {
+            resultsText += '--- DISCRETE TAP CONTROL (summary) ---\n';
+            dataJson.tap_control_results.forEach((t) => {
+                const ti = t.tap_pos_initial != null ? t.tap_pos_initial : '?';
+                const tf = t.tap_pos != null ? t.tap_pos : '?';
+                resultsText += `${t.name || t.id}: tap_pos ${ti} → ${tf}  (range [${t.tap_min}, ${t.tap_max}], ${t.control_side || ''} U=${t.controlled_vm_pu} pu)\n`;
             });
             resultsText += '\n';
         }
@@ -978,6 +1013,19 @@ function loadFlowPandaPower(a, b, c) {
         }
         return parseFloat(num).toFixed(decimals);
     };
+
+    const formatTapControlOnTrafo = (cell) => {
+        const tc = cell.tap_control_result;
+        if (!tc) return '';
+        const range = `[${formatNumber(tc.tap_min, 0)}…${formatNumber(tc.tap_max, 0)}]`;
+        const tf = tc.tap_pos;
+        const ti = tc.tap_pos_initial;
+        if (ti !== undefined && ti !== null && Number(ti) !== Number(tf)) {
+            return `\n            tap_pos: ${formatNumber(ti, 0)} → ${formatNumber(tf, 0)} ${range} (DiscreteTapControl)`;
+        }
+        return `\n            tap_pos (after control): ${formatNumber(tf, 0)} ${range}`;
+    };
+
     const replaceUnderscores = name => name.replace('_', '#');
 
     // Highly optimized cell processor with pre-computed styles
@@ -1309,12 +1357,13 @@ Q/P: ${formatNumber(cell.q_p)}`,
             data.forEach(cell => {
                 const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const trafoLabel = formatResultNameHeader(resultCell, cell.name, 'Trafo');
+                const tapBlock = formatTapControlOnTrafo(cell);
 
                 const resultString = `${trafoLabel}
             i_HV[kA]: ${formatNumber(cell.i_hv_ka)}
             i_LV[kA]: ${formatNumber(cell.i_lv_ka)}
             loading[%]: ${formatNumber(cell.loading_percent)}
-            `;
+${tapBlock}`;
 
                 const findCompFn = typeof window !== 'undefined' && window.findResultPlaceholderForComponent;
                 let existing = findCompFn ? findCompFn(b, resultCell) : null;
@@ -1324,12 +1373,14 @@ Q/P: ${formatNumber(cell.q_p)}`,
                     existing = findResultPlaceholder(parent);
                 }
                 const parent = existing ? b.getModel().getParent(existing) : ((b.getEdges && b.getEdges(resultCell))?.[0] || resultCell);
+                const boxW = tapBlock ? 74 : 60;
+                const boxH = tapBlock ? 58 : 50;
                 if (existing) {
                     b.getModel().setValue(existing, resultString);
                     processCellStyles(b, existing);
                     processLoadingColor(grafka, resultCell, cell.loading_percent);
                 } else {
-                    const labelka = insertResultPlaceholder(parent, resultString, { width: 60, height: 50, positionX: -0.3 });
+                    const labelka = insertResultPlaceholder(parent, resultString, { width: boxW, height: boxH, positionX: -0.3 });
                     if (labelka) {
                         processCellStyles(b, labelka);
                         processLoadingColor(grafka, resultCell, cell.loading_percent);
@@ -1707,6 +1758,11 @@ Q/P: ${formatNumber(cell.q_p)}`,
             // Handle errors first
             if (handleNetworkErrors(dataJson)) {
                 return;
+            }
+
+            mergeTapControlIntoTransformers(dataJson);
+            if (dataJson.tap_control_results?.length) {
+                console.log('DiscreteTapControl summary:', dataJson.tap_control_results);
             }
 
             // Handle Python code export if requested
