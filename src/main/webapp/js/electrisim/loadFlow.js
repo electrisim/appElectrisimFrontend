@@ -1682,6 +1682,7 @@ Q/P: ${formatNumber(cell.q_p)}`,
             // Log payload before sending
             console.log('🔍 Payload obj[0] (simulationParameters):', obj[0]);
             console.log('🔍 exportPython value:', obj[0]?.exportPython);
+            console.log('🔍 run_control value:', obj[0]?.run_control);
             console.log('🔍 Full payload keys:', Object.keys(obj));
 
             const response = await fetch(url, {
@@ -1875,10 +1876,16 @@ Q/P: ${formatNumber(cell.q_p)}`,
             console.log('===================================');
             
             // Ensure exportPython is properly captured as a boolean
-            const exportPythonValue = isObjectFormat ? (a.exportPython === true) : false;
-            const exportPandapowerResultsValue = isObjectFormat ? (a.exportPandapowerResults === true) : false;
+            const coerceBool = (v) =>
+                v === true ||
+                v === 1 ||
+                (typeof v === 'string' && ['true', '1', 'yes', 'on'].includes(v.toLowerCase()));
+            const exportPythonValue = isObjectFormat ? coerceBool(a.exportPython) : false;
+            const exportPandapowerResultsValue = isObjectFormat ? coerceBool(a.exportPandapowerResults) : false;
+            const runControlValue = isObjectFormat ? coerceBool(a.run_control) : false;
             console.log('🔍 Final exportPython value being sent:', exportPythonValue);
             console.log('🔍 Final exportPandapowerResults value being sent:', exportPandapowerResultsValue);
+            console.log('🔍 Final run_control value being sent:', runControlValue);
             
             componentArrays.simulationParameters.push({
                 typ: "PowerFlowPandaPower Parameters",
@@ -1888,6 +1895,7 @@ Q/P: ${formatNumber(cell.q_p)}`,
                 initialization: isObjectFormat ? a.initialization : a[3],
                 exportPython: exportPythonValue,  // Use explicitly converted boolean
                 exportPandapowerResults: exportPandapowerResultsValue,  // Results export flag
+                run_control: runControlValue,  // Pandapower runpp(run_control=...) + DiscreteTapControl
                 user_email: userEmail  // Add user email to simulation data
             });
 
@@ -2143,7 +2151,11 @@ Q/P: ${formatNumber(cell.q_p)}`,
                                 tap_step_percent: { name: 'tap_step_percent', optional: true },
                                 tap_step_degree: { name: 'tap_step_degree', optional: true },
                                 tap_phase_shifter: { name: 'tap_phase_shifter', optional: true },
-                                in_service: { name: 'in_service', optional: true }
+                                in_service: { name: 'in_service', optional: true },
+                                discrete_tap_control: { name: 'discrete_tap_control', optional: true },
+                                control_side: { name: 'control_side', optional: true },
+                                vm_lower_pu: { name: 'vm_lower_pu', optional: true },
+                                vm_upper_pu: { name: 'vm_upper_pu', optional: true }
                             })
                         };
                         componentArrays.transformer.push(transformer);

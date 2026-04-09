@@ -65,6 +65,13 @@ export class LoadFlowDialog extends Dialog {
             { id: 'tolerance', label: 'Tolerance', type: 'number', value: '1e-6' },
             { id: 'enforceLimits', label: 'Enforce Q Limits', type: 'checkbox', value: false },
             {
+                id: 'run_control',
+                label: 'Include controller',
+                checkboxLabel: 'DiscreteTapControl for transformers with discrete tap control enabled',
+                type: 'checkbox',
+                value: false
+            },
+            {
                 id: 'exportPython',
                 label: 'Export Pandapower Python Code (download .py file)',
                 type: 'checkbox',
@@ -440,7 +447,7 @@ export class LoadFlowDialog extends Dialog {
 
         const checkboxLabel = document.createElement('label');
         checkboxLabel.htmlFor = param.id;
-        checkboxLabel.textContent = param.label;
+        checkboxLabel.textContent = param.checkboxLabel ?? param.label;
         Object.assign(checkboxLabel.style, {
             fontSize: '13px',
             color: '#6c757d',
@@ -539,6 +546,21 @@ export class LoadFlowDialog extends Dialog {
 
         // Add engine type
         values.engine = this.currentTab;
+
+        // Sync Pandapower checkboxes from this dialog's DOM. The inputs Map can be stale if ids
+        // collide elsewhere in the page, which previously broke export flags and run_control.
+        if (this.currentTab === 'pandapower' && this.container) {
+            const syncCheckbox = (id) => {
+                const el = this.container.querySelector(`input[type="checkbox"][id="${id}"]`);
+                if (el) {
+                    values[id] = el.checked;
+                }
+            };
+            syncCheckbox('enforceLimits');
+            syncCheckbox('run_control');
+            syncCheckbox('exportPython');
+            syncCheckbox('exportPandapowerResults');
+        }
         
         console.log('📋 Collected values:', values);
         return values;
