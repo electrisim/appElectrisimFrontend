@@ -213,10 +213,8 @@
                     return;
                 }
                 
-                const isProd = window.location.hostname === 'app.electrisim.com';
-                const apiUrl = isProd 
-                    ? 'https://api.electrisim.com/api' 
-                    : 'http://localhost:5502/api';
+                const apiUrl = config.apiBaseUrl;
+                const isProd = !config.isDevelopment;
                 const priceId = isProd 
                     ? 'price_1RLjivAd4ULYw2Nb6oGrb9P1' 
                     : 'price_1RMDAEAd4ULYw2Nb9nhh8Wf2';

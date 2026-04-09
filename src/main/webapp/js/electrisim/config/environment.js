@@ -1,3 +1,7 @@
+// Resend: verified sending domain noreply.electrisim.com (DNS send.noreply / resend._domainkey.noreply).
+// The auth API must use this exact "from" in development and production (not onboarding@resend.dev).
+const MAIL_FROM_TRANSACTIONAL = 'ElectriSim <noreply@noreply.electrisim.com>';
+
 const config = {
     development: {
       // Backend simulation API
@@ -7,7 +11,8 @@ const config = {
       apiBaseUrl: 'http://localhost:5502/api',
       frontendUrl: 'http://127.0.0.1:5501',
       stripePublishableKey: 'pk_test_51OOivlAd4ULYw2NbezAGuGZCcd12huJWoi4GHPmUZzz5SmuCaptFp9tcR8Tefcgpkzu8S5xkI1NG8P0VWQJktoxJ00IX6EC0nO',
-      isDevelopment: true
+      isDevelopment: true,
+      mailFromTransactional: MAIL_FROM_TRANSACTIONAL
     },
     production: {
       // Backend simulation API (custom domain for sim service)
@@ -17,7 +22,8 @@ const config = {
       apiBaseUrl: 'https://api.electrisim.com/api',
       frontendUrl: 'https://app.electrisim.com',
       stripePublishableKey: 'pk_live_51OOivlAd4ULYw2NbUnCgqV6KHAiRzkuoMJfcYKv1R5DsarBaly7QDOQCwwHI4GQUhYqA57SGHIOIwYleWKs0UQNe00fiZkcYco',
-      isDevelopment: false
+      isDevelopment: false,
+      mailFromTransactional: MAIL_FROM_TRANSACTIONAL
     }
   };
   
