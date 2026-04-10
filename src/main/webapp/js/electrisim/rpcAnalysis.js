@@ -196,6 +196,13 @@ function rpcAnalysis(a, b, c) {
                 requirements = reqObj;
             }
 
+            const coerceBool = (v) => {
+                if (typeof v === 'string') {
+                    return ['true', '1', 'yes', 'on'].includes(v.trim().toLowerCase());
+                }
+                return !!v;
+            };
+
             const rpcParams = {
                 typ: 'RPCAnalysisPandaPower Parameters',
                 pcc_bus_name: pccBusName,
@@ -207,6 +214,7 @@ function rpcAnalysis(a, b, c) {
                 p_steps: parseInt(values.pSteps, 10) || 10,
                 q_capability_mode: values.qCapabilityMode || 'from_rating',
                 limit_overloads: values.limitOverloads || false,
+                run_control: coerceBool(values.rpc_run_control),
                 max_loading_percent: parseFloat(values.maxLoadingPercent) || 100,
                 requirements: requirements,
                 grid_code_template_key: tplKey !== 'none' ? tplKey : null,

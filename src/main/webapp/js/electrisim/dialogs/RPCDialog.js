@@ -273,6 +273,13 @@ export class RPCDialog extends Dialog {
                 value: false
             },
             {
+                id: 'rpc_run_control',
+                label: 'Include controller',
+                checkboxLabel: 'DiscreteTapControl for transformers with discrete tap control enabled',
+                type: 'checkbox',
+                value: false
+            },
+            {
                 id: 'maxLoadingPercent',
                 label: 'Max Loading (%)',
                 type: 'number',
@@ -295,7 +302,8 @@ export class RPCDialog extends Dialog {
         return '<strong>Reactive Power Capability (PQ Diagram)</strong><br>' +
             'Sweeps active power of the power plant and determines the reactive power capability envelope at the PCC bus across multiple voltage levels. ' +
             'Optionally compares against grid code requirements. ' +
-            'To use manufacturer-style limits per unit, enable <em>Use Q capability curve</em> on each static generator and pick <strong>From static generator P–Q curve</strong> below.';
+            'To use manufacturer-style limits per unit, enable <em>Use Q capability curve</em> on each static generator and pick <strong>From static generator P–Q curve</strong> below. ' +
+            'Use <strong>Include controller</strong> to run each power flow with pandapower DiscreteTapControl on transformers that have discrete tap control enabled in the diagram.';
     }
 
     populateOptions() {
@@ -446,7 +454,7 @@ export class RPCDialog extends Dialog {
         cb.checked = param.value || false;
         const label = document.createElement('label');
         label.htmlFor = param.id;
-        label.textContent = param.label;
+        label.textContent = param.checkboxLabel != null ? param.checkboxLabel : param.label;
         Object.assign(label.style, { fontSize: '13px', color: '#6c757d', cursor: 'pointer' });
         wrapper.appendChild(cb);
         wrapper.appendChild(label);
@@ -876,6 +884,18 @@ export class RPCDialog extends Dialog {
         const pr = this._pRatedInput ? parseFloat(this._pRatedInput.value) : NaN;
         values.pRatedMw = !isNaN(pr) && pr > 0 ? pr : null;
 
+        if (this.container) {
+            const syncCb = (id) => {
+                const el = this.container.querySelector(`input[type="checkbox"][id="${id}"]`);
+                if (el) {
+                    const key = id;
+                    values[key] = el.checked;
+                }
+            };
+            syncCb('limitOverloads');
+            syncCb('rpc_run_control');
+        }
+
         return values;
     }
 
@@ -930,7 +950,7 @@ export class RPCDialog extends Dialog {
             const formGroup = document.createElement('div');
             Object.assign(formGroup.style, { marginBottom: '4px' });
 
-            if (param.type !== 'checkbox') {
+            if (param.type !== 'checkbox' || param.checkboxLabel != null) {
                 const label = document.createElement('label');
                 Object.assign(label.style, {
                     display: 'block', marginBottom: '2px', fontWeight: '600',

@@ -583,7 +583,11 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         tap_phase_shifter: { name: 'tap_phase_shifter', optional: true },
                         tap_changer_type: { name: 'tap_changer_type', optional: true },
                         in_service: { name: 'in_service', optional: true },
-                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
+                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true },
+                        discrete_tap_control: { name: 'discrete_tap_control', optional: true },
+                        control_side: { name: 'control_side', optional: true },
+                        vm_lower_pu: { name: 'vm_lower_pu', optional: true },
+                        vm_upper_pu: { name: 'vm_upper_pu', optional: true }
                     })
                 };
                 componentArrays.transformer.push(transformer);

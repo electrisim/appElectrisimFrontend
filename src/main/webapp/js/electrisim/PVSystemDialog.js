@@ -1339,12 +1339,13 @@ export class PVSystemDialog extends Dialog {
         if (cellData && cellData.attributes) {
             for (let i = 0; i < cellData.attributes.length; i++) {
                 const attribute = cellData.attributes[i];
-                const attributeName = attribute.name;
+                const rawName = attribute.name;
+                const attributeName = rawName === 'class' ? 'class_' : rawName;
                 const attributeValue = attribute.value;
 
-                if (attributeName === 'cost_per_unit_by_currency') {
-                    this.data[attributeName] = attributeValue;
-                    const ep = this.economicParameters?.find(p => p.id === attributeName);
+                if (rawName === 'cost_per_unit_by_currency') {
+                    this.data[rawName] = attributeValue;
+                    const ep = this.economicParameters?.find(p => p.id === rawName);
                     if (ep) ep.value = attributeValue.toString();
                 }
 
@@ -1385,17 +1386,17 @@ export class PVSystemDialog extends Dialog {
                     }
                 }
 
-                if (attributeName === 'spectrum' || attributeName === 'spectrum_csv') {
-                    if (attributeName === 'spectrum') {
+                if (rawName === 'spectrum' || rawName === 'spectrum_csv') {
+                    if (rawName === 'spectrum') {
                         this.data.spectrum = attributeValue != null ? String(attributeValue) : this.data.spectrum;
                     }
-                    if (attributeName === 'spectrum_csv') {
+                    if (rawName === 'spectrum_csv') {
                         this.data.spectrum_csv = attributeValue != null ? String(attributeValue) : (this.data.spectrum_csv || '');
                     }
                     const tri = this.harmonicParameters.find(p => p.type === 'harmonicSpectrumTriState');
                     if (tri) {
-                        if (attributeName === 'spectrum') tri.spectrumValue = this.data.spectrum;
-                        if (attributeName === 'spectrum_csv') tri.csvValue = this.data.spectrum_csv;
+                        if (rawName === 'spectrum') tri.spectrumValue = this.data.spectrum;
+                        if (rawName === 'spectrum_csv') tri.csvValue = this.data.spectrum_csv;
                     }
                 }
 

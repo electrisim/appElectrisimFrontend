@@ -170,6 +170,17 @@ export class RPCResultsDialog {
             ['Installed P', `${(data.total_installed_mw || 0).toFixed(1)} MW`],
             ['Voltage Levels', (data.voltage_levels || []).length]
         ];
+        const tcc = data.tap_changer_control;
+        if (tcc) {
+            const applied = tcc.controllers_applied;
+            const req = tcc.run_control_requested;
+            let tapLine = req
+                ? (applied
+                    ? `On (${tcc.transformer_count || 0} transformer(s): ${(tcc.transformer_names || []).join(', ') || '—'})`
+                    : 'Requested but no configured transformers')
+                : 'Off';
+            items.push(['Tap changer control', tapLine]);
+        }
         if (data.grid_code_template_name) {
             items.push(['Grid code requirement', data.grid_code_template_name]);
         }
