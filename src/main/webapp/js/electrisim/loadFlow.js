@@ -324,6 +324,27 @@ const getConnectedBusId = (cell, isLine = false, strictValidation = false) => {
                (connectedCell.value && connectedCell.value.nodeName && connectedCell.value.nodeName.includes('Bus'));
     };
 
+    /** Opposite endpoint of an edge incident to `vertex` (avoids treating a dangling end as the bus). */
+    const getOppositeVertexOfEdge = (edge, vertex) => {
+        if (!edge || !vertex) return null;
+        const src = edge.source;
+        const tgt = edge.target;
+        if (src && (src === vertex || src.id === vertex.id)) {
+            return tgt || null;
+        }
+        if (tgt && (tgt === vertex || tgt.id === vertex.id)) {
+            return src || null;
+        }
+        const vOid = vertex.mxObjectId;
+        if (vOid && tgt?.mxObjectId && tgt.mxObjectId !== vOid) {
+            return tgt;
+        }
+        if (vOid && src?.mxObjectId && src.mxObjectId !== vOid) {
+            return src;
+        }
+        return null;
+    };
+
     if (isLine) {
         // For lines, only validate if strict validation is enabled
         if (strictValidation) {
@@ -342,32 +363,31 @@ const getConnectedBusId = (cell, isLine = false, strictValidation = false) => {
     if (!cell.edges || cell.edges.length === 0) {
         return null;
     }
-    const edge = cell.edges[0];
-    if (!edge) {
-        return null;
+
+    const cellOid = cell.mxObjectId;
+
+    // Prefer a bus neighbor; scan all edges (edges[0] alone is wrong when order varies or first edge is incomplete).
+    for (let ei = 0; ei < cell.edges.length; ei++) {
+        const other = getOppositeVertexOfEdge(cell.edges[ei], cell);
+        if (!other || !other.mxObjectId) continue;
+        if (cellOid && other.mxObjectId === cellOid) continue;
+        if (isBus(other)) {
+            return other.mxObjectId.replace('#', '_');
+        }
     }
 
-    // Then check if both target and source exist before accessing their properties
-    if (!edge.target && !edge.source) {
-        return null; // or some default value
+    // Legacy fallback: first non-self neighbor (e.g. unusual bus styling)
+    for (let ei = 0; ei < cell.edges.length; ei++) {
+        const connectedCell = getOppositeVertexOfEdge(cell.edges[ei], cell);
+        if (!connectedCell || !connectedCell.mxObjectId) continue;
+        if (cellOid && connectedCell.mxObjectId === cellOid) continue;
+        if (strictValidation && !isBus(connectedCell)) {
+            console.warn(`Component "${cell.id}" is connected to "${connectedCell.id}" which may not be a Bus. PandaPower requires explicit Bus connections.`);
+        }
+        return connectedCell.mxObjectId.replace('#', '_');
     }
 
-    // Get the connected cell
-    const connectedCell = edge.target && edge.target.mxObjectId !== cell.mxObjectId ?
-        edge.target : edge.source;
-
-    // Only validate if strict validation is enabled
-    if (strictValidation && connectedCell && !isBus(connectedCell)) {
-        console.warn(`Component "${cell.id}" is connected to "${connectedCell.id}" which may not be a Bus. PandaPower requires explicit Bus connections.`);
-    }
-
-    // Only try to replace if connectedCell is not null
-    return connectedCell ? connectedCell.mxObjectId.replace('#', '_') : null;
-    /*        
-    const edge = cell.edges[0];
-        const bus = edge.target.mxObjectId !== cell.mxObjectId ?
-            edge.target.mxObjectId : edge.source.mxObjectId;
-    return bus.replace('#', '_');*/
+    return null;
 };
 
  // Helper function to parse cell style

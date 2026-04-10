@@ -11,6 +11,7 @@ import { showHarmonicAnalysisResultsDialog } from './dialogs/HarmonicAnalysisRes
 import { formatResultNameHeader, createDialogNameResolver } from './utils/attributeUtils.js';
 import { getThreeWindingConnections } from './utils/gridUtils.js';
 import ENV from './config/environment.js';
+import { getConnectedBusId } from './loadFlow.js';
 
 // Helper function to format bus IDs consistently (replace # with _)
 const formatBusId = (busId) => {
@@ -379,31 +380,6 @@ const downloadOpenDSSShortCircuitResults = (dataJson, graph) => {
         console.error('Error downloading OpenDSS short circuit results:', error);
         alert('Failed to download OpenDSS short circuit results file. Please check the console for details.');
     }
-};
-
-// Helper functions for bus connections and cell processing
-const getConnectedBusId = (cell, isLine = false) => {
-    if (isLine) {                 
-        // For lines, use the same approach as loadFlow.js
-        // Access source and target directly from the cell (not through edges)
-        return {            
-            busFrom: formatBusId(cell.source?.mxObjectId),
-            busTo: formatBusId(cell.target?.mxObjectId)
-        };            
-    }
-    
-    // For non-line elements (like generators, loads, etc.)
-    const edge = cell.edges ? cell.edges[0] : null;
-    if (!edge) {
-        return null;
-    }
-    if (!edge.target && !edge.source) {
-        return null;
-    }
-    const bus = edge.target && edge.target.mxObjectId !== cell.mxObjectId ?
-        edge.target.mxObjectId : 
-        edge.source.mxObjectId;
-    return formatBusId(bus);
 };
 
 // Helper to get bus voltage from a bus cell (used by transformer connections)
