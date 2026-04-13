@@ -995,10 +995,13 @@ function loadFlowPandaPower(a, b, c) {
     let cellsArray = model.getDescendants();   
        
     function setCellStyle(cell, styles) {
-        let currentStyle = modelCache.getStyle(cell);
-        let newStyle = Object.entries(styles).reduce((style, [key, value]) => {
-            return mxUtils.setStyle(style, `mxConstants.STYLE_${key.toUpperCase()}`, value);
-        }, currentStyle);
+        let newStyle = modelCache.getStyle(cell);
+        if (styles.strokeColor !== undefined) {
+            newStyle = mxUtils.setStyle(newStyle, mxConstants.STYLE_STROKECOLOR, styles.strokeColor);
+        }
+        if (styles.strokeOpacity !== undefined) {
+            newStyle = mxUtils.setStyle(newStyle, mxConstants.STYLE_STROKE_OPACITY, String(styles.strokeOpacity));
+        }
         b.setCellStyle(newStyle, [cell]);
     }
 
@@ -2762,7 +2765,7 @@ ${tapBlock}`;
                             setCellStyle(cell, { strokeColor: 'black' });
                         } catch (error) {
                             console.error(error.message);
-                            setCellStyle(cell, { strokeColor: 'red' });
+                            setCellStyle(cell, { strokeColor: 'red', strokeOpacity: 100 });
                             alert('The line is not connected to the bus. Please check the line highlighted in red and connect it to the appropriate bus.');
                         }
 

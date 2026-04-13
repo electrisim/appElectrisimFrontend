@@ -958,6 +958,17 @@ window.shortCircuitPandaPower = function(a, b, c) {
             const cellProcessingTime = performance.now() - cellProcessingStart;
             console.log(`Cell processing: ${cellProcessingTime.toFixed(2)}ms (found ${validCells.length} valid cells)`);
 
+            const setCellStyle = (cell, styles) => {
+                let newStyle = model.getStyle(cell);
+                if (styles.strokeColor !== undefined) {
+                    newStyle = mxUtils.setStyle(newStyle, mxConstants.STYLE_STROKECOLOR, styles.strokeColor);
+                }
+                if (styles.strokeOpacity !== undefined) {
+                    newStyle = mxUtils.setStyle(newStyle, mxConstants.STYLE_STROKE_OPACITY, String(styles.strokeOpacity));
+                }
+                b.setCellStyle(newStyle, [cell]);
+            };
+
             // Process valid cells with optimized attribute extraction
             const componentProcessingStart = performance.now();
             let processedComponents = 0;
@@ -1469,10 +1480,10 @@ window.shortCircuitPandaPower = function(a, b, c) {
                             // Validate bus connections
                             try {
                                 validateBusConnections(cell);
-                                //setCellStyle(cell, { strokeColor: 'black' });
+                                setCellStyle(cell, { strokeColor: 'black' });
                             } catch (error) {
                                 console.error(error.message);
-                                //setCellStyle(cell, { strokeColor: 'red' });
+                                setCellStyle(cell, { strokeColor: 'red', strokeOpacity: 100 });
                                 alert('The line is not connected to the bus. Please check the line highlighted in red and connect it to the appropriate bus.');
                             }
 
