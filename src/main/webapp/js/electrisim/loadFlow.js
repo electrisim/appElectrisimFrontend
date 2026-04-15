@@ -431,7 +431,8 @@ const getAttributesAsObject = (cell, attributeMap) => {
         vkr0_lv_percent: '0',
         step: '1',
         max_step: '1',
-        scaling: '1.0'
+        scaling: '1.0',
+        in_service: 'true'
     };
 
     // Process attributes efficiently
