@@ -803,7 +803,7 @@ const COMPONENT_TYPES = {
 
 import { DIALOG_STYLES } from './utils/dialogStyles.js';
 import { LoadFlowDialog } from './dialogs/LoadFlowDialog.js';
-import { formatResultNameHeader, createDialogNameResolver } from './utils/attributeUtils.js';
+import { formatResultNameHeader, createDialogNameResolver, buildGraphCellLookupMap, resolveGraphCellForResult } from './utils/attributeUtils.js';
 import ENV from './config/environment.js';
 
 // Advanced payload compression function to reduce data transfer size
@@ -927,6 +927,25 @@ function loadFlowPandaPower(a, b, c) {
         }
         cellCache.set(cellId, cell);
         return cell;
+    };
+
+    /** Set in processNetworkData before applying results; cleared after. Uses map + vertex scan (attributeUtils). */
+    let resultCellLookupMap = null;
+    let resultCellLookupGraph = null;
+
+    const getResultGraphCell = (resultRow) => {
+        if (!resultRow) return null;
+        if (resultCellLookupMap) {
+            const mapped = resolveGraphCellForResult(resultCellLookupMap, resultRow, resultCellLookupGraph);
+            if (mapped) return mapped;
+        }
+        let c = getCachedCell(resultRow.id);
+        if (c) return c;
+        if (resultRow.name != null && String(resultRow.name) !== String(resultRow.id)) {
+            c = getCachedCell(resultRow.name);
+            if (c) return c;
+        }
+        return null;
     };
     
     // Optimized userFriendlyName function with caching
@@ -1099,7 +1118,13 @@ function loadFlowPandaPower(a, b, c) {
         const isLineMiddle = (px === 0.5 || px === 0.2);
         const offsetY = isLineMiddle ? -h / 2 - 10 + offsetYDelta : -h / 2 - 5 + offsetYDelta;
         const offsetX = -w / 2 + offsetXDelta;
-        const cell = b.insertVertex(parent, null, resultString, px, py, w, h, RESULT_BOX_STYLE, true);
+        let boxStyle = RESULT_BOX_STYLE;
+        if (opts && opts.connectedToId != null && opts.connectedToId !== '') {
+            boxStyle = typeof mxUtils !== 'undefined' && mxUtils.setStyle
+                ? mxUtils.setStyle(boxStyle, 'connectedTo', String(opts.connectedToId))
+                : `${boxStyle};connectedTo=${String(opts.connectedToId)}`;
+        }
+        const cell = b.insertVertex(parent, null, resultString, px, py, w, h, boxStyle, true);
         if (cell && typeof mxPoint !== 'undefined') {
             const model = b.getModel();
             const geo = model.getGeometry(cell);
@@ -1379,7 +1404,8 @@ Q/P: ${formatNumber(cell.q_p)}`,
         },
         transformers: (data, b) => {
             data.forEach(cell => {
-                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
+                const resultCell = getResultGraphCell(cell);
+                if (!resultCell) return;
                 const trafoLabel = formatResultNameHeader(resultCell, cell.name, 'Trafo');
                 const tapBlock = formatTapControlOnTrafo(cell);
 
@@ -1404,7 +1430,12 @@ ${tapBlock}`;
                     processCellStyles(b, existing);
                     processLoadingColor(grafka, resultCell, cell.loading_percent);
                 } else {
-                    const labelka = insertResultPlaceholder(parent, resultString, { width: boxW, height: boxH, positionX: -0.3 });
+                    const labelka = insertResultPlaceholder(parent, resultString, {
+                        width: boxW,
+                        height: boxH,
+                        positionX: -0.3,
+                        connectedToId: resultCell.id
+                    });
                     if (labelka) {
                         processCellStyles(b, labelka);
                         processLoadingColor(grafka, resultCell, cell.loading_percent);
@@ -1414,7 +1445,8 @@ ${tapBlock}`;
         },
         transformers3W: (data, b) => {
             data.forEach(cell => {
-                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
+                const resultCell = getResultGraphCell(cell);
+                if (!resultCell) return;
                 const trafoLabel = formatResultNameHeader(resultCell, cell.name, 'Trafo3W');
                 const resultString = `${trafoLabel}
             i_HV[kA]: ${formatNumber(cell.i_hv_ka)}
@@ -1435,7 +1467,12 @@ ${tapBlock}`;
                     processCellStyles(b, existing);
                     processLoadingColor(grafka, resultCell, cell.loading_percent);
                 } else {
-                    const labelka = insertResultPlaceholder(parent, resultString, { width: 60, height: 50, positionX: -0.3 });
+                    const labelka = insertResultPlaceholder(parent, resultString, {
+                        width: 60,
+                        height: 50,
+                        positionX: -0.3,
+                        connectedToId: resultCell.id
+                    });
                     if (labelka) {
                         processCellStyles(b, labelka);
                         processLoadingColor(grafka, resultCell, cell.loading_percent);
@@ -1789,6 +1826,9 @@ ${tapBlock}`;
                 console.log('DiscreteTapControl summary:', dataJson.tap_control_results);
             }
 
+            resultCellLookupMap = buildGraphCellLookupMap(b);
+            resultCellLookupGraph = b;
+
             // Handle Python code export if requested
             if (dataJson.pandapower_python) {
                 console.log('✅ Exporting Pandapower Python code to file...');
@@ -1855,9 +1895,13 @@ ${tapBlock}`;
                 const resultProcessingTime = performance.now() - resultProcessingStart;
                 console.log(`Total result visualization: ${resultProcessingTime.toFixed(2)}ms`);
                 if (b.getView && b.getView().refresh) b.getView().refresh();
+                resultCellLookupMap = null;
+                resultCellLookupGraph = null;
             }
 
         } catch (err) {
+            resultCellLookupMap = null;
+            resultCellLookupGraph = null;
             if (err.message === "server") return;
            // alert('Error processing network data.' + err+'\n \nCheck input data or contact electrisim@electrisim.com', );
         } finally {
@@ -2185,6 +2229,7 @@ ${tapBlock}`;
                         break;
 
                     case COMPONENT_TYPES.TRANSFORMER:
+                    case 'Two Winding Transformer':
                         const { hv_bus, lv_bus } = getTransformerConnections(cell);
                         const transformer = {
                             typ: `Transformer${counters.transformer++}`,

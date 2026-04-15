@@ -205,6 +205,21 @@ function findResultPlaceholder(graph, parentCell) {
 }
 
 /**
+ * Result boxes created via createResultPlaceholder carry connectedTo=&lt;component id&gt;.
+ * If placeholderId on a cell was copied from another element, getCell(placeholderId) can point
+ * at the wrong box — reject unless connectedTo matches this component.
+ */
+function resultPlaceholderBelongsToComponent(placeholder, componentCell, model) {
+    if (!placeholder || !componentCell || !model) return false;
+    var st = model.getStyle(placeholder) || '';
+    var isResult = st.indexOf('shapeELXXX=ResultBus') >= 0 || st.indexOf('shapeELXXX=Result') >= 0 || st.indexOf('shapeELXXX=ResultExternalGrid') >= 0;
+    if (!isResult) return false;
+    var m = st.match(/connectedTo=([^;]+)/);
+    if (!m) return true;
+    return String(m[1]).trim() === String(componentCell.id);
+}
+
+/**
  * Find result placeholder for a component with multiple edges (e.g. Transformer, Three Winding Transformer).
  * Searches by placeholderId first (most reliable), then iterates all edges.
  * @param {mxGraph} graph - The mxGraph instance
@@ -222,14 +237,18 @@ function findResultPlaceholderForComponent(graph, componentCell) {
     if (!placeholderId && componentCell.placeholderId) placeholderId = componentCell.placeholderId;
     if (placeholderId) {
         var ph = model.getCell(placeholderId);
-        if (ph && isResultPlaceholderStyle(model.getStyle(ph))) return ph;
+        if (ph && resultPlaceholderBelongsToComponent(ph, componentCell, model)) return ph;
     }
     var edges = (graph.getEdges && graph.getEdges(componentCell)) || componentCell.edges || [];
+    var legacy = null;
     for (var i = 0; i < edges.length; i++) {
         var found = findResultPlaceholder(graph, edges[i]);
-        if (found) return found;
+        if (!found) continue;
+        if (resultPlaceholderBelongsToComponent(found, componentCell, model)) return found;
+        var fst = model.getStyle(found) || '';
+        if (!/connectedTo=/.test(fst)) legacy = legacy || found;
     }
-    return null;
+    return legacy;
 }
 
 if (typeof window !== 'undefined') {
