@@ -275,7 +275,7 @@ export class RPCDialog extends Dialog {
             {
                 id: 'rpc_run_control',
                 label: 'Include controller',
-                checkboxLabel: 'DiscreteTapControl for 2w/3w transformers with discrete tap control enabled',
+                checkboxLabel: 'DiscreteTapControl / DiscreteShuntController where enabled on diagram',
                 type: 'checkbox',
                 value: false
             },
@@ -303,7 +303,7 @@ export class RPCDialog extends Dialog {
             'Sweeps active power of the power plant and determines the reactive power capability envelope at the PCC bus across multiple voltage levels. ' +
             'Optionally compares against grid code requirements. ' +
             'To use manufacturer-style limits per unit, enable <em>Use Q capability curve</em> on each static generator and pick <strong>From static generator P–Q curve</strong> below. ' +
-            'Use <strong>Include controller</strong> to run each power flow with pandapower DiscreteTapControl on two- and three-winding transformers that have discrete tap control enabled in the diagram.';
+            'Use <strong>Include controller</strong> to run each power flow with pandapower DiscreteTapControl (transformers) and DiscreteShuntController (shunt reactors) where enabled in the diagram.';
     }
 
     populateOptions() {

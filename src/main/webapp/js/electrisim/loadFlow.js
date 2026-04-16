@@ -79,12 +79,31 @@ const mergeTapControlIntoTransformers = (dataJson) => {
     }
 };
 
+/** Attach backend shunt_control_results to shunt reactor rows in dataJson.shunts */
+const mergeShuntControlIntoShunts = (dataJson) => {
+    const rows = dataJson.shunt_control_results;
+    if (!Array.isArray(rows) || rows.length === 0 || !dataJson.shunts?.length) return;
+    const byCellId = new Map();
+    const byInternalName = new Map();
+    for (const row of rows) {
+        if (row && row.element !== 'shunt') continue;
+        if (row && row.cell_id) byCellId.set(String(row.cell_id), row);
+        if (row && row.id != null) byInternalName.set(String(row.id), row);
+    }
+    for (const s of dataJson.shunts) {
+        let m = s.id != null ? byCellId.get(String(s.id)) : null;
+        if (!m && s.name != null) m = byInternalName.get(String(s.name));
+        if (m) s.shunt_control_result = m;
+    }
+};
+
 // Helper function to download Pandapower results as a text file
 const downloadPandapowerResults = (dataJson, graph) => {
     console.log('🔽 downloadPandapowerResults() called');
     
     try {
         mergeTapControlIntoTransformers(dataJson);
+        mergeShuntControlIntoShunts(dataJson);
         const dialogNameFor = createDialogNameResolver(graph);
         let resultsText = '========================================\n';
         resultsText += '   Pandapower Load Flow Results\n';
@@ -193,6 +212,16 @@ const downloadPandapowerResults = (dataJson, graph) => {
                 const ti = t.tap_pos_initial != null ? t.tap_pos_initial : '?';
                 const tf = t.tap_pos != null ? t.tap_pos : '?';
                 resultsText += `${t.name || t.id}: tap_pos ${ti} → ${tf}  (range [${t.tap_min}, ${t.tap_max}], ${t.control_side || ''} U=${t.controlled_vm_pu} pu)\n`;
+            });
+            resultsText += '\n';
+        }
+
+        if (dataJson.shunt_control_results && dataJson.shunt_control_results.length > 0) {
+            resultsText += '--- DISCRETE SHUNT CONTROL (summary) ---\n';
+            dataJson.shunt_control_results.forEach((s) => {
+                const si = s.step_initial != null ? s.step_initial : '?';
+                const sf = s.step != null ? s.step : '?';
+                resultsText += `${s.name || s.id}: step ${si} → ${sf}  (max_step ${s.max_step}, vm_set=${s.vm_set_pu} pu, U=${s.vm_pu} pu)\n`;
             });
             resultsText += '\n';
         }
@@ -1079,6 +1108,18 @@ function loadFlowPandaPower(a, b, c) {
         return `\n            tap_pos (after control): ${formatNumber(tf, 0)} ${range}`;
     };
 
+    const formatShuntControlOnShunt = (cell) => {
+        const sc = cell.shunt_control_result;
+        if (!sc) return '';
+        const si = sc.step_initial;
+        const sf = sc.step;
+        const range = `[0…${formatNumber(sc.max_step, 0)}]`;
+        if (si !== undefined && si !== null && Number(si) !== Number(sf)) {
+            return `\n            step: ${formatNumber(si, 0)} → ${formatNumber(sf, 0)} ${range} (DiscreteShuntController)`;
+        }
+        return `\n            step (after control): ${formatNumber(sf, 0)} ${range}`;
+    };
+
     const replaceUnderscores = name => name.replace('_', '#');
 
     // Highly optimized cell processor with pre-computed styles
@@ -1497,19 +1538,22 @@ ${tapBlock}`;
             data.forEach(cell => {
                 const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const label = formatResultNameHeader(resultCell, cell.name, 'Shunt');
+                const scBlock = formatShuntControlOnShunt(cell);
                 const resultString = `${label}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}
-            Um[pu]: ${formatNumber(cell.vm_pu)}`;
+            Um[pu]: ${formatNumber(cell.vm_pu)}${scBlock}`;
 
                 const edge = (b.getEdges && b.getEdges(resultCell))?.[0];
                 const parent = edge || resultCell;
                 const existing = findResultPlaceholder(parent);
+                const boxW = scBlock ? 74 : 60;
+                const boxH = scBlock ? 58 : 50;
                 if (existing) {
                     b.getModel().setValue(existing, resultString);
                     processCellStyles(b, existing);
                 } else {
-                    const labelka = insertResultPlaceholder(parent, resultString, { width: 60, height: 50, positionX: -0.3 });
+                    const labelka = insertResultPlaceholder(parent, resultString, { width: boxW, height: boxH, positionX: -0.3 });
                     if (labelka) processCellStyles(b, labelka);
                 }
             });
@@ -1835,8 +1879,12 @@ ${tapBlock}`;
             }
 
             mergeTapControlIntoTransformers(dataJson);
+            mergeShuntControlIntoShunts(dataJson);
             if (dataJson.tap_control_results?.length) {
                 console.log('DiscreteTapControl summary:', dataJson.tap_control_results);
+            }
+            if (dataJson.shunt_control_results?.length) {
+                console.log('DiscreteShuntController summary:', dataJson.shunt_control_results);
             }
 
             resultCellLookupMap = buildGraphCellLookupMap(b);
@@ -2393,7 +2441,12 @@ ${tapBlock}`;
                                 // Optional parameters
                                 step: { name: 'step', optional: true },
                                 max_step: { name: 'max_step', optional: true },
-                                in_service: { name: 'in_service', optional: true }
+                                in_service: { name: 'in_service', optional: true },
+                                discrete_shunt_control: { name: 'discrete_shunt_control', optional: true },
+                                vm_set_pu: { name: 'vm_set_pu', optional: true },
+                                shunt_control_increment: { name: 'shunt_control_increment', optional: true },
+                                shunt_control_tol: { name: 'shunt_control_tol', optional: true },
+                                shunt_reset_at_init: { name: 'shunt_reset_at_init', optional: true }
                             })
                         };
                         componentArrays.shuntReactor.push(shuntReactor);

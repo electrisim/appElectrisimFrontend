@@ -1202,7 +1202,13 @@ window.shortCircuitPandaPower = function(a, b, c) {
                                 vn_kv: 'vn_kv',
                                 // Optional parameters
                                 step: { name: 'step', optional: true },
-                                max_step: { name: 'max_step', optional: true }
+                                max_step: { name: 'max_step', optional: true },
+                                in_service: { name: 'in_service', optional: true },
+                                discrete_shunt_control: { name: 'discrete_shunt_control', optional: true },
+                                vm_set_pu: { name: 'vm_set_pu', optional: true },
+                                shunt_control_increment: { name: 'shunt_control_increment', optional: true },
+                                shunt_control_tol: { name: 'shunt_control_tol', optional: true },
+                                shunt_reset_at_init: { name: 'shunt_reset_at_init', optional: true }
                             })
                         };
                         componentArrays.shuntReactor.push(shuntReactor);
