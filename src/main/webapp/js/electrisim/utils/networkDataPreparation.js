@@ -635,6 +635,7 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         shift_mv_degree: { name: 'shift_mv_degree', optional: true },
                         shift_lv_degree: { name: 'shift_lv_degree', optional: true },
                         tap_step_percent: { name: 'tap_step_percent', optional: true },
+                        tap_step_degree: { name: 'tap_step_degree', optional: true },
                         tap_side: { name: 'tap_side', optional: true },
                         tap_neutral: { name: 'tap_neutral', optional: true },
                         tap_min: { name: 'tap_min', optional: true },
@@ -642,7 +643,12 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         tap_pos: { name: 'tap_pos', optional: true },
                         tap_at_star_point: { name: 'tap_at_star_point', optional: true },
                         tap_changer_type: { name: 'tap_changer_type', optional: true },
-                        in_service: { name: 'in_service', optional: true }
+                        tap_phase_shifter: { name: 'tap_phase_shifter', optional: true },
+                        in_service: { name: 'in_service', optional: true },
+                        discrete_tap_control: { name: 'discrete_tap_control', optional: true },
+                        control_side: { name: 'control_side', optional: true },
+                        vm_lower_pu: { name: 'vm_lower_pu', optional: true },
+                        vm_upper_pu: { name: 'vm_upper_pu', optional: true }
                     })
                 };
                 componentArrays.threeWindingTransformer.push(threeWindingTransformer);

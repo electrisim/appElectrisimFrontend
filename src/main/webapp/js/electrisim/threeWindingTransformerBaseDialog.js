@@ -31,10 +31,16 @@ export const defaultThreeWindingTransformerData = {
     tap_min: -10.0,
     tap_max: 10.0,
     tap_step_percent: 1.0,
+    tap_step_degree: 0.0,
     tap_pos: 0.0,
     tap_phase_shifter: false,
     tap_changer_type: "Ratio",  // New in pandapower 3.0+: "Ratio" or "Symmetrical"
     in_service: true,
+    discrete_tap_control: false,
+    // Which winding's bus voltage DiscreteTapControl monitors (pandapower: hv | mv | lv for trafo3w)
+    control_side: "lv",
+    vm_lower_pu: 0.99,
+    vm_upper_pu: 1.01,
     // Zero sequence parameters (optional)
     vk0_hv_percent: 0.0,
     vk0_mv_percent: 0.0,
@@ -273,6 +279,14 @@ export class ThreeWindingTransformerDialog extends Dialog {
                 min: '0'
             },
             {
+                id: 'tap_step_degree',
+                label: 'Tap Step Angle (tap_step_degree)',
+                description: 'Tap step for voltage angle in degrees; used when calculate_voltage_angles is True (pandapower trafo3w)',
+                type: 'number',
+                value: this.data.tap_step_degree.toString(),
+                step: '0.1'
+            },
+            {
                 id: 'tap_pos',
                 label: 'Current Tap Position (tap_pos)',
                 description: 'Current tap position of the transformer. Defaults to tap_neutral if not set',
@@ -294,6 +308,39 @@ export class ThreeWindingTransformerDialog extends Dialog {
                 type: 'select',
                 value: this.data.tap_changer_type,
                 options: ['Ratio', 'Symmetrical']
+            },
+            {
+                id: 'discrete_tap_control',
+                label: 'Discrete Tap Control (discrete_tap_control)',
+                description: 'Enable pandapower DiscreteTapControl on this three-winding transformer (requires Include controller in Load Flow dialog)',
+                type: 'checkbox',
+                value: this.data.discrete_tap_control
+            },
+            {
+                id: 'control_side',
+                label: 'Control Side (control_side)',
+                description: 'Winding whose bus voltage is kept within the deadband: hv, mv, or lv (pandapower trafo3w DiscreteTapControl)',
+                type: 'select',
+                value: this.data.control_side,
+                options: ['hv', 'mv', 'lv']
+            },
+            {
+                id: 'vm_lower_pu',
+                label: 'Voltage Lower Limit (vm_lower_pu) [pu]',
+                description: 'Lower bound of permissible voltage band for discrete tap control (e.g. 0.99)',
+                type: 'number',
+                value: this.data.vm_lower_pu.toString(),
+                step: '0.01',
+                min: '0.9'
+            },
+            {
+                id: 'vm_upper_pu',
+                label: 'Voltage Upper Limit (vm_upper_pu) [pu]',
+                description: 'Upper bound of permissible voltage band for discrete tap control (e.g. 1.01)',
+                type: 'number',
+                value: this.data.vm_upper_pu.toString(),
+                step: '0.01',
+                min: '0.9'
             }
         ];
         
@@ -934,10 +981,15 @@ export class ThreeWindingTransformerDialog extends Dialog {
             'tap_min': transformerData.tap_min || -10,
             'tap_max': transformerData.tap_max || 10,
             'tap_step_percent': transformerData.tap_step_percent || 1,
+            'tap_step_degree': transformerData.tap_step_degree != null ? parseFloat(transformerData.tap_step_degree) : 0,
             'tap_pos': transformerData.tap_pos || 0,
             'tap_phase_shifter': transformerData.tap_phase_shifter === 'True' || transformerData.tap_phase_shifter === true,
             'tap_changer_type': transformerData.tap_changer_type || 'Ratio',
             'in_service': true,
+            'discrete_tap_control': transformerData.discrete_tap_control === 'True' || transformerData.discrete_tap_control === true,
+            'control_side': transformerData.control_side || 'lv',
+            'vm_lower_pu': transformerData.vm_lower_pu != null ? parseFloat(transformerData.vm_lower_pu) : 0.99,
+            'vm_upper_pu': transformerData.vm_upper_pu != null ? parseFloat(transformerData.vm_upper_pu) : 1.01,
             // Optional zero sequence parameters
             'vk0_hv_percent': transformerData.vk0_hv_percent || 0,
             'vk0_mv_percent': transformerData.vk0_mv_percent || 0,

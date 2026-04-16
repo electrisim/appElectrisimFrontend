@@ -52,20 +52,30 @@ const createTableSeparator = (widths) => {
     return widths.map(w => '-'.repeat(w)).join('-+-');
 };
 
-/** Attach backend tap_control_results to matching transformers (by cell_id or internal name). */
+/** Attach backend tap_control_results to matching 2w/3w transformers (by cell_id or internal name). */
 const mergeTapControlIntoTransformers = (dataJson) => {
     const rows = dataJson.tap_control_results;
-    if (!Array.isArray(rows) || rows.length === 0 || !dataJson.transformers?.length) return;
+    if (!Array.isArray(rows) || rows.length === 0) return;
     const byCellId = new Map();
     const byInternalName = new Map();
     for (const row of rows) {
         if (row && row.cell_id) byCellId.set(String(row.cell_id), row);
         if (row && row.id != null) byInternalName.set(String(row.id), row);
     }
-    for (const tr of dataJson.transformers) {
+    const attach = (tr, requireTrafo3w) => {
         let m = tr.id != null ? byCellId.get(String(tr.id)) : null;
         if (!m && tr.name != null) m = byInternalName.get(String(tr.name));
-        if (m) tr.tap_control_result = m;
+        if (!m) return;
+        const is3w = m.element === 'trafo3w';
+        if (requireTrafo3w && !is3w) return;
+        if (!requireTrafo3w && is3w) return;
+        tr.tap_control_result = m;
+    };
+    if (dataJson.transformers?.length) {
+        for (const tr of dataJson.transformers) attach(tr, false);
+    }
+    if (dataJson.transformers3W?.length) {
+        for (const tr of dataJson.transformers3W) attach(tr, true);
     }
 };
 
@@ -1448,11 +1458,12 @@ ${tapBlock}`;
                 const resultCell = getResultGraphCell(cell);
                 if (!resultCell) return;
                 const trafoLabel = formatResultNameHeader(resultCell, cell.name, 'Trafo3W');
+                const tapBlock = formatTapControlOnTrafo(cell);
                 const resultString = `${trafoLabel}
             i_HV[kA]: ${formatNumber(cell.i_hv_ka)}
             i_MV[kA]: ${formatNumber(cell.i_mv_ka)}
             i_LV[kA]: ${formatNumber(cell.i_lv_ka)}
-            loading[%]: ${formatNumber(cell.loading_percent)}`;
+            loading[%]: ${formatNumber(cell.loading_percent)}${tapBlock}`;
 
                 const findCompFn = typeof window !== 'undefined' && window.findResultPlaceholderForComponent;
                 let existing = findCompFn ? findCompFn(b, resultCell) : null;
@@ -1462,14 +1473,16 @@ ${tapBlock}`;
                     existing = findResultPlaceholder(parent);
                 }
                 const parent = existing ? b.getModel().getParent(existing) : ((b.getEdges && b.getEdges(resultCell))?.[0] || resultCell);
+                const boxW = tapBlock ? 74 : 60;
+                const boxH = tapBlock ? 58 : 50;
                 if (existing) {
                     b.getModel().setValue(existing, resultString);
                     processCellStyles(b, existing);
                     processLoadingColor(grafka, resultCell, cell.loading_percent);
                 } else {
                     const labelka = insertResultPlaceholder(parent, resultString, {
-                        width: 60,
-                        height: 50,
+                        width: boxW,
+                        height: boxH,
                         positionX: -0.3,
                         connectedToId: resultCell.id
                     });
@@ -2329,13 +2342,20 @@ ${tapBlock}`;
                                     shift_mv_degree: { name: 'shift_mv_degree', optional: true },
                                     shift_lv_degree: { name: 'shift_lv_degree', optional: true },
                                     tap_step_percent: { name: 'tap_step_percent', optional: true },
+                                    tap_step_degree: { name: 'tap_step_degree', optional: true },
                                     tap_side: { name: 'tap_side', optional: true },
                                     tap_neutral: { name: 'tap_neutral', optional: true },
                                     tap_min: { name: 'tap_min', optional: true },
                                     tap_max: { name: 'tap_max', optional: true },
                                     tap_pos: { name: 'tap_pos', optional: true },
                                     tap_at_star_point: { name: 'tap_at_star_point', optional: true },
-                                    in_service: { name: 'in_service', optional: true }
+                                    tap_changer_type: { name: 'tap_changer_type', optional: true },
+                                    tap_phase_shifter: { name: 'tap_phase_shifter', optional: true },
+                                    in_service: { name: 'in_service', optional: true },
+                                    discrete_tap_control: { name: 'discrete_tap_control', optional: true },
+                                    control_side: { name: 'control_side', optional: true },
+                                    vm_lower_pu: { name: 'vm_lower_pu', optional: true },
+                                    vm_upper_pu: { name: 'vm_upper_pu', optional: true }
                                 })
                             };
                             componentArrays.threeWindingTransformer.push(threeWindingTransformer);
