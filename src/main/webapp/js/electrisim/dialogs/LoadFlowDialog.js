@@ -67,7 +67,7 @@ export class LoadFlowDialog extends Dialog {
             {
                 id: 'run_control',
                 label: 'Include controller',
-                checkboxLabel: 'DiscreteTapControl for transformers with discrete tap control enabled',
+                checkboxLabel: 'DiscreteTapControl / DiscreteShuntController where enabled on diagram',
                 type: 'checkbox',
                 value: false
             },

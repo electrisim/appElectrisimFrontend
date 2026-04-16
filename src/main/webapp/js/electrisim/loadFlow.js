@@ -52,20 +52,48 @@ const createTableSeparator = (widths) => {
     return widths.map(w => '-'.repeat(w)).join('-+-');
 };
 
-/** Attach backend tap_control_results to matching transformers (by cell_id or internal name). */
+/** Attach backend tap_control_results to matching 2w/3w transformers (by cell_id or internal name). */
 const mergeTapControlIntoTransformers = (dataJson) => {
     const rows = dataJson.tap_control_results;
-    if (!Array.isArray(rows) || rows.length === 0 || !dataJson.transformers?.length) return;
+    if (!Array.isArray(rows) || rows.length === 0) return;
     const byCellId = new Map();
     const byInternalName = new Map();
     for (const row of rows) {
         if (row && row.cell_id) byCellId.set(String(row.cell_id), row);
         if (row && row.id != null) byInternalName.set(String(row.id), row);
     }
-    for (const tr of dataJson.transformers) {
+    const attach = (tr, requireTrafo3w) => {
         let m = tr.id != null ? byCellId.get(String(tr.id)) : null;
         if (!m && tr.name != null) m = byInternalName.get(String(tr.name));
-        if (m) tr.tap_control_result = m;
+        if (!m) return;
+        const is3w = m.element === 'trafo3w';
+        if (requireTrafo3w && !is3w) return;
+        if (!requireTrafo3w && is3w) return;
+        tr.tap_control_result = m;
+    };
+    if (dataJson.transformers?.length) {
+        for (const tr of dataJson.transformers) attach(tr, false);
+    }
+    if (dataJson.transformers3W?.length) {
+        for (const tr of dataJson.transformers3W) attach(tr, true);
+    }
+};
+
+/** Attach backend shunt_control_results to shunt reactor rows in dataJson.shunts */
+const mergeShuntControlIntoShunts = (dataJson) => {
+    const rows = dataJson.shunt_control_results;
+    if (!Array.isArray(rows) || rows.length === 0 || !dataJson.shunts?.length) return;
+    const byCellId = new Map();
+    const byInternalName = new Map();
+    for (const row of rows) {
+        if (row && row.element !== 'shunt') continue;
+        if (row && row.cell_id) byCellId.set(String(row.cell_id), row);
+        if (row && row.id != null) byInternalName.set(String(row.id), row);
+    }
+    for (const s of dataJson.shunts) {
+        let m = s.id != null ? byCellId.get(String(s.id)) : null;
+        if (!m && s.name != null) m = byInternalName.get(String(s.name));
+        if (m) s.shunt_control_result = m;
     }
 };
 
@@ -75,6 +103,7 @@ const downloadPandapowerResults = (dataJson, graph) => {
     
     try {
         mergeTapControlIntoTransformers(dataJson);
+        mergeShuntControlIntoShunts(dataJson);
         const dialogNameFor = createDialogNameResolver(graph);
         let resultsText = '========================================\n';
         resultsText += '   Pandapower Load Flow Results\n';
@@ -183,6 +212,16 @@ const downloadPandapowerResults = (dataJson, graph) => {
                 const ti = t.tap_pos_initial != null ? t.tap_pos_initial : '?';
                 const tf = t.tap_pos != null ? t.tap_pos : '?';
                 resultsText += `${t.name || t.id}: tap_pos ${ti} → ${tf}  (range [${t.tap_min}, ${t.tap_max}], ${t.control_side || ''} U=${t.controlled_vm_pu} pu)\n`;
+            });
+            resultsText += '\n';
+        }
+
+        if (dataJson.shunt_control_results && dataJson.shunt_control_results.length > 0) {
+            resultsText += '--- DISCRETE SHUNT CONTROL (summary) ---\n';
+            dataJson.shunt_control_results.forEach((s) => {
+                const si = s.step_initial != null ? s.step_initial : '?';
+                const sf = s.step != null ? s.step : '?';
+                resultsText += `${s.name || s.id}: step ${si} → ${sf}  (max_step ${s.max_step}, vm_set=${s.vm_set_pu} pu, U=${s.vm_pu} pu)\n`;
             });
             resultsText += '\n';
         }
@@ -431,7 +470,8 @@ const getAttributesAsObject = (cell, attributeMap) => {
         vkr0_lv_percent: '0',
         step: '1',
         max_step: '1',
-        scaling: '1.0'
+        scaling: '1.0',
+        in_service: 'true'
     };
 
     // Process attributes efficiently
@@ -802,7 +842,7 @@ const COMPONENT_TYPES = {
 
 import { DIALOG_STYLES } from './utils/dialogStyles.js';
 import { LoadFlowDialog } from './dialogs/LoadFlowDialog.js';
-import { formatResultNameHeader, createDialogNameResolver } from './utils/attributeUtils.js';
+import { formatResultNameHeader, createDialogNameResolver, buildGraphCellLookupMap, resolveGraphCellForResult } from './utils/attributeUtils.js';
 import ENV from './config/environment.js';
 
 // Advanced payload compression function to reduce data transfer size
@@ -927,6 +967,25 @@ function loadFlowPandaPower(a, b, c) {
         cellCache.set(cellId, cell);
         return cell;
     };
+
+    /** Set in processNetworkData before applying results; cleared after. Uses map + vertex scan (attributeUtils). */
+    let resultCellLookupMap = null;
+    let resultCellLookupGraph = null;
+
+    const getResultGraphCell = (resultRow) => {
+        if (!resultRow) return null;
+        if (resultCellLookupMap) {
+            const mapped = resolveGraphCellForResult(resultCellLookupMap, resultRow, resultCellLookupGraph);
+            if (mapped) return mapped;
+        }
+        let c = getCachedCell(resultRow.id);
+        if (c) return c;
+        if (resultRow.name != null && String(resultRow.name) !== String(resultRow.id)) {
+            c = getCachedCell(resultRow.name);
+            if (c) return c;
+        }
+        return null;
+    };
     
     // Optimized userFriendlyName function with caching
     const getUserFriendlyName = (cell) => {
@@ -995,10 +1054,13 @@ function loadFlowPandaPower(a, b, c) {
     let cellsArray = model.getDescendants();   
        
     function setCellStyle(cell, styles) {
-        let currentStyle = modelCache.getStyle(cell);
-        let newStyle = Object.entries(styles).reduce((style, [key, value]) => {
-            return mxUtils.setStyle(style, `mxConstants.STYLE_${key.toUpperCase()}`, value);
-        }, currentStyle);
+        let newStyle = modelCache.getStyle(cell);
+        if (styles.strokeColor !== undefined) {
+            newStyle = mxUtils.setStyle(newStyle, mxConstants.STYLE_STROKECOLOR, styles.strokeColor);
+        }
+        if (styles.strokeOpacity !== undefined) {
+            newStyle = mxUtils.setStyle(newStyle, mxConstants.STYLE_STROKE_OPACITY, String(styles.strokeOpacity));
+        }
         b.setCellStyle(newStyle, [cell]);
     }
 
@@ -1044,6 +1106,18 @@ function loadFlowPandaPower(a, b, c) {
             return `\n            tap_pos: ${formatNumber(ti, 0)} → ${formatNumber(tf, 0)} ${range} (DiscreteTapControl)`;
         }
         return `\n            tap_pos (after control): ${formatNumber(tf, 0)} ${range}`;
+    };
+
+    const formatShuntControlOnShunt = (cell) => {
+        const sc = cell.shunt_control_result;
+        if (!sc) return '';
+        const si = sc.step_initial;
+        const sf = sc.step;
+        const range = `[0…${formatNumber(sc.max_step, 0)}]`;
+        if (si !== undefined && si !== null && Number(si) !== Number(sf)) {
+            return `\n            step: ${formatNumber(si, 0)} → ${formatNumber(sf, 0)} ${range} (DiscreteShuntController)`;
+        }
+        return `\n            step (after control): ${formatNumber(sf, 0)} ${range}`;
     };
 
     const replaceUnderscores = name => name.replace('_', '#');
@@ -1095,7 +1169,13 @@ function loadFlowPandaPower(a, b, c) {
         const isLineMiddle = (px === 0.5 || px === 0.2);
         const offsetY = isLineMiddle ? -h / 2 - 10 + offsetYDelta : -h / 2 - 5 + offsetYDelta;
         const offsetX = -w / 2 + offsetXDelta;
-        const cell = b.insertVertex(parent, null, resultString, px, py, w, h, RESULT_BOX_STYLE, true);
+        let boxStyle = RESULT_BOX_STYLE;
+        if (opts && opts.connectedToId != null && opts.connectedToId !== '') {
+            boxStyle = typeof mxUtils !== 'undefined' && mxUtils.setStyle
+                ? mxUtils.setStyle(boxStyle, 'connectedTo', String(opts.connectedToId))
+                : `${boxStyle};connectedTo=${String(opts.connectedToId)}`;
+        }
+        const cell = b.insertVertex(parent, null, resultString, px, py, w, h, boxStyle, true);
         if (cell && typeof mxPoint !== 'undefined') {
             const model = b.getModel();
             const geo = model.getGeometry(cell);
@@ -1375,7 +1455,8 @@ Q/P: ${formatNumber(cell.q_p)}`,
         },
         transformers: (data, b) => {
             data.forEach(cell => {
-                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
+                const resultCell = getResultGraphCell(cell);
+                if (!resultCell) return;
                 const trafoLabel = formatResultNameHeader(resultCell, cell.name, 'Trafo');
                 const tapBlock = formatTapControlOnTrafo(cell);
 
@@ -1400,7 +1481,12 @@ ${tapBlock}`;
                     processCellStyles(b, existing);
                     processLoadingColor(grafka, resultCell, cell.loading_percent);
                 } else {
-                    const labelka = insertResultPlaceholder(parent, resultString, { width: boxW, height: boxH, positionX: -0.3 });
+                    const labelka = insertResultPlaceholder(parent, resultString, {
+                        width: boxW,
+                        height: boxH,
+                        positionX: -0.3,
+                        connectedToId: resultCell.id
+                    });
                     if (labelka) {
                         processCellStyles(b, labelka);
                         processLoadingColor(grafka, resultCell, cell.loading_percent);
@@ -1410,13 +1496,15 @@ ${tapBlock}`;
         },
         transformers3W: (data, b) => {
             data.forEach(cell => {
-                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
+                const resultCell = getResultGraphCell(cell);
+                if (!resultCell) return;
                 const trafoLabel = formatResultNameHeader(resultCell, cell.name, 'Trafo3W');
+                const tapBlock = formatTapControlOnTrafo(cell);
                 const resultString = `${trafoLabel}
             i_HV[kA]: ${formatNumber(cell.i_hv_ka)}
             i_MV[kA]: ${formatNumber(cell.i_mv_ka)}
             i_LV[kA]: ${formatNumber(cell.i_lv_ka)}
-            loading[%]: ${formatNumber(cell.loading_percent)}`;
+            loading[%]: ${formatNumber(cell.loading_percent)}${tapBlock}`;
 
                 const findCompFn = typeof window !== 'undefined' && window.findResultPlaceholderForComponent;
                 let existing = findCompFn ? findCompFn(b, resultCell) : null;
@@ -1426,12 +1514,19 @@ ${tapBlock}`;
                     existing = findResultPlaceholder(parent);
                 }
                 const parent = existing ? b.getModel().getParent(existing) : ((b.getEdges && b.getEdges(resultCell))?.[0] || resultCell);
+                const boxW = tapBlock ? 74 : 60;
+                const boxH = tapBlock ? 58 : 50;
                 if (existing) {
                     b.getModel().setValue(existing, resultString);
                     processCellStyles(b, existing);
                     processLoadingColor(grafka, resultCell, cell.loading_percent);
                 } else {
-                    const labelka = insertResultPlaceholder(parent, resultString, { width: 60, height: 50, positionX: -0.3 });
+                    const labelka = insertResultPlaceholder(parent, resultString, {
+                        width: boxW,
+                        height: boxH,
+                        positionX: -0.3,
+                        connectedToId: resultCell.id
+                    });
                     if (labelka) {
                         processCellStyles(b, labelka);
                         processLoadingColor(grafka, resultCell, cell.loading_percent);
@@ -1443,19 +1538,22 @@ ${tapBlock}`;
             data.forEach(cell => {
                 const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
                 const label = formatResultNameHeader(resultCell, cell.name, 'Shunt');
+                const scBlock = formatShuntControlOnShunt(cell);
                 const resultString = `${label}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}
-            Um[pu]: ${formatNumber(cell.vm_pu)}`;
+            Um[pu]: ${formatNumber(cell.vm_pu)}${scBlock}`;
 
                 const edge = (b.getEdges && b.getEdges(resultCell))?.[0];
                 const parent = edge || resultCell;
                 const existing = findResultPlaceholder(parent);
+                const boxW = scBlock ? 74 : 60;
+                const boxH = scBlock ? 58 : 50;
                 if (existing) {
                     b.getModel().setValue(existing, resultString);
                     processCellStyles(b, existing);
                 } else {
-                    const labelka = insertResultPlaceholder(parent, resultString, { width: 60, height: 50, positionX: -0.3 });
+                    const labelka = insertResultPlaceholder(parent, resultString, { width: boxW, height: boxH, positionX: -0.3 });
                     if (labelka) processCellStyles(b, labelka);
                 }
             });
@@ -1781,9 +1879,16 @@ ${tapBlock}`;
             }
 
             mergeTapControlIntoTransformers(dataJson);
+            mergeShuntControlIntoShunts(dataJson);
             if (dataJson.tap_control_results?.length) {
                 console.log('DiscreteTapControl summary:', dataJson.tap_control_results);
             }
+            if (dataJson.shunt_control_results?.length) {
+                console.log('DiscreteShuntController summary:', dataJson.shunt_control_results);
+            }
+
+            resultCellLookupMap = buildGraphCellLookupMap(b);
+            resultCellLookupGraph = b;
 
             // Handle Python code export if requested
             if (dataJson.pandapower_python) {
@@ -1851,9 +1956,13 @@ ${tapBlock}`;
                 const resultProcessingTime = performance.now() - resultProcessingStart;
                 console.log(`Total result visualization: ${resultProcessingTime.toFixed(2)}ms`);
                 if (b.getView && b.getView().refresh) b.getView().refresh();
+                resultCellLookupMap = null;
+                resultCellLookupGraph = null;
             }
 
         } catch (err) {
+            resultCellLookupMap = null;
+            resultCellLookupGraph = null;
             if (err.message === "server") return;
            // alert('Error processing network data.' + err+'\n \nCheck input data or contact electrisim@electrisim.com', );
         } finally {
@@ -2181,6 +2290,7 @@ ${tapBlock}`;
                         break;
 
                     case COMPONENT_TYPES.TRANSFORMER:
+                    case 'Two Winding Transformer':
                         const { hv_bus, lv_bus } = getTransformerConnections(cell);
                         const transformer = {
                             typ: `Transformer${counters.transformer++}`,
@@ -2280,13 +2390,20 @@ ${tapBlock}`;
                                     shift_mv_degree: { name: 'shift_mv_degree', optional: true },
                                     shift_lv_degree: { name: 'shift_lv_degree', optional: true },
                                     tap_step_percent: { name: 'tap_step_percent', optional: true },
+                                    tap_step_degree: { name: 'tap_step_degree', optional: true },
                                     tap_side: { name: 'tap_side', optional: true },
                                     tap_neutral: { name: 'tap_neutral', optional: true },
                                     tap_min: { name: 'tap_min', optional: true },
                                     tap_max: { name: 'tap_max', optional: true },
                                     tap_pos: { name: 'tap_pos', optional: true },
                                     tap_at_star_point: { name: 'tap_at_star_point', optional: true },
-                                    in_service: { name: 'in_service', optional: true }
+                                    tap_changer_type: { name: 'tap_changer_type', optional: true },
+                                    tap_phase_shifter: { name: 'tap_phase_shifter', optional: true },
+                                    in_service: { name: 'in_service', optional: true },
+                                    discrete_tap_control: { name: 'discrete_tap_control', optional: true },
+                                    control_side: { name: 'control_side', optional: true },
+                                    vm_lower_pu: { name: 'vm_lower_pu', optional: true },
+                                    vm_upper_pu: { name: 'vm_upper_pu', optional: true }
                                 })
                             };
                             componentArrays.threeWindingTransformer.push(threeWindingTransformer);
@@ -2324,7 +2441,12 @@ ${tapBlock}`;
                                 // Optional parameters
                                 step: { name: 'step', optional: true },
                                 max_step: { name: 'max_step', optional: true },
-                                in_service: { name: 'in_service', optional: true }
+                                in_service: { name: 'in_service', optional: true },
+                                discrete_shunt_control: { name: 'discrete_shunt_control', optional: true },
+                                vm_set_pu: { name: 'vm_set_pu', optional: true },
+                                shunt_control_increment: { name: 'shunt_control_increment', optional: true },
+                                shunt_control_tol: { name: 'shunt_control_tol', optional: true },
+                                shunt_reset_at_init: { name: 'shunt_reset_at_init', optional: true }
                             })
                         };
                         componentArrays.shuntReactor.push(shuntReactor);
@@ -2762,7 +2884,7 @@ ${tapBlock}`;
                             setCellStyle(cell, { strokeColor: 'black' });
                         } catch (error) {
                             console.error(error.message);
-                            setCellStyle(cell, { strokeColor: 'red' });
+                            setCellStyle(cell, { strokeColor: 'red', strokeOpacity: 100 });
                             alert('The line is not connected to the bus. Please check the line highlighted in red and connect it to the appropriate bus.');
                         }
 

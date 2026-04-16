@@ -958,6 +958,17 @@ window.shortCircuitPandaPower = function(a, b, c) {
             const cellProcessingTime = performance.now() - cellProcessingStart;
             console.log(`Cell processing: ${cellProcessingTime.toFixed(2)}ms (found ${validCells.length} valid cells)`);
 
+            const setCellStyle = (cell, styles) => {
+                let newStyle = model.getStyle(cell);
+                if (styles.strokeColor !== undefined) {
+                    newStyle = mxUtils.setStyle(newStyle, mxConstants.STYLE_STROKECOLOR, styles.strokeColor);
+                }
+                if (styles.strokeOpacity !== undefined) {
+                    newStyle = mxUtils.setStyle(newStyle, mxConstants.STYLE_STROKE_OPACITY, String(styles.strokeOpacity));
+                }
+                b.setCellStyle(newStyle, [cell]);
+            };
+
             // Process valid cells with optimized attribute extraction
             const componentProcessingStart = performance.now();
             let processedComponents = 0;
@@ -1159,12 +1170,20 @@ window.shortCircuitPandaPower = function(a, b, c) {
                                 shift_mv_degree: { name: 'shift_mv_degree', optional: true },
                                 shift_lv_degree: { name: 'shift_lv_degree', optional: true },
                                 tap_step_percent: { name: 'tap_step_percent', optional: true },
+                                tap_step_degree: { name: 'tap_step_degree', optional: true },
                                 tap_side: { name: 'tap_side', optional: true },
                                 tap_neutral: { name: 'tap_neutral', optional: true },
                                 tap_min: { name: 'tap_min', optional: true },
                                 tap_max: { name: 'tap_max', optional: true },
                                 tap_pos: { name: 'tap_pos', optional: true },
-                                tap_at_star_point: { name: 'tap_at_star_point', optional: true }
+                                tap_at_star_point: { name: 'tap_at_star_point', optional: true },
+                                tap_changer_type: { name: 'tap_changer_type', optional: true },
+                                tap_phase_shifter: { name: 'tap_phase_shifter', optional: true },
+                                in_service: { name: 'in_service', optional: true },
+                                discrete_tap_control: { name: 'discrete_tap_control', optional: true },
+                                control_side: { name: 'control_side', optional: true },
+                                vm_lower_pu: { name: 'vm_lower_pu', optional: true },
+                                vm_upper_pu: { name: 'vm_upper_pu', optional: true }
                             })
                         };
                         componentArrays.threeWindingTransformer.push(threeWindingTransformer);
@@ -1183,7 +1202,13 @@ window.shortCircuitPandaPower = function(a, b, c) {
                                 vn_kv: 'vn_kv',
                                 // Optional parameters
                                 step: { name: 'step', optional: true },
-                                max_step: { name: 'max_step', optional: true }
+                                max_step: { name: 'max_step', optional: true },
+                                in_service: { name: 'in_service', optional: true },
+                                discrete_shunt_control: { name: 'discrete_shunt_control', optional: true },
+                                vm_set_pu: { name: 'vm_set_pu', optional: true },
+                                shunt_control_increment: { name: 'shunt_control_increment', optional: true },
+                                shunt_control_tol: { name: 'shunt_control_tol', optional: true },
+                                shunt_reset_at_init: { name: 'shunt_reset_at_init', optional: true }
                             })
                         };
                         componentArrays.shuntReactor.push(shuntReactor);
@@ -1469,10 +1494,10 @@ window.shortCircuitPandaPower = function(a, b, c) {
                             // Validate bus connections
                             try {
                                 validateBusConnections(cell);
-                                //setCellStyle(cell, { strokeColor: 'black' });
+                                setCellStyle(cell, { strokeColor: 'black' });
                             } catch (error) {
                                 console.error(error.message);
-                                //setCellStyle(cell, { strokeColor: 'red' });
+                                setCellStyle(cell, { strokeColor: 'red', strokeOpacity: 100 });
                                 alert('The line is not connected to the bus. Please check the line highlighted in red and connect it to the appropriate bus.');
                             }
 

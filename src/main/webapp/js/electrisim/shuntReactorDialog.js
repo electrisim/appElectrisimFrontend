@@ -7,9 +7,14 @@ export const defaultShuntReactorData = {
     p_mw: 0.0,
     q_mvar: 0.0,
     vn_kv: 0.0,
-    step: 0.0,
-    max_step: 0.0,
+    step: 1.0,
+    max_step: 1.0,
     in_service: true,
+    discrete_shunt_control: false,
+    vm_set_pu: 1.0,
+    shunt_control_increment: 1,
+    shunt_control_tol: 0.001,
+    shunt_reset_at_init: false,
     cost_per_unit_by_currency: "0"
 };
 
@@ -89,6 +94,47 @@ export class ShuntReactorDialog extends Dialog {
                 description: 'Specifies if the shunt reactor is in service (True/False)',
                 type: 'checkbox',
                 value: this.data.in_service
+            },
+            {
+                id: 'discrete_shunt_control',
+                label: 'Discrete shunt control (DiscreteShuntController)',
+                description: 'Regulate voltage at the shunt bus toward vm_set_pu by changing step (requires Include controller in Load Flow). See pandapower DiscreteShuntController.',
+                type: 'checkbox',
+                value: this.data.discrete_shunt_control
+            },
+            {
+                id: 'vm_set_pu',
+                label: 'Voltage setpoint (vm_set_pu) [pu]',
+                description: 'Target bus voltage in per unit for DiscreteShuntController (pandapower)',
+                type: 'number',
+                value: this.data.vm_set_pu.toString(),
+                step: '0.01',
+                min: '0.8'
+            },
+            {
+                id: 'shunt_control_increment',
+                label: 'Controller step increment',
+                description: 'How many shunt step positions to move per control iteration (integer ≥ 1)',
+                type: 'number',
+                value: String(this.data.shunt_control_increment),
+                step: '1',
+                min: '1'
+            },
+            {
+                id: 'shunt_control_tol',
+                label: 'Voltage tolerance (tol) [pu]',
+                description: 'Band around vm_set_pu where no control action is taken (pandapower default 1e-3)',
+                type: 'number',
+                value: String(this.data.shunt_control_tol),
+                step: '0.0005',
+                min: '0'
+            },
+            {
+                id: 'shunt_reset_at_init',
+                label: 'Reset step at controller init',
+                description: 'If enabled, DiscreteShuntController sets shunt step to 0 when initializing (pandapower reset_at_init)',
+                type: 'checkbox',
+                value: this.data.shunt_reset_at_init
             }
         ];
 
@@ -504,7 +550,12 @@ export class ShuntReactorDialog extends Dialog {
                 if (param.id === 'cost_per_unit_by_currency') {
                     values[param.id] = input.value || '0';
                 } else if (param.type === 'number') {
-                    values[param.id] = parseFloat(input.value) || 0;
+                    const raw = parseFloat(input.value);
+                    if (param.id === 'shunt_control_increment') {
+                        values[param.id] = Number.isFinite(raw) ? Math.max(1, Math.round(raw)) : 1;
+                    } else {
+                        values[param.id] = Number.isFinite(raw) ? raw : 0;
+                    }
                 } else if (param.type === 'checkbox') {
                     values[param.id] = input.checked;
                 } else {
