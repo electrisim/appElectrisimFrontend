@@ -19,6 +19,27 @@ const formatBusId = (busId) => {
     return busId.replace('#', '_');
 };
 
+/**
+ * Verbose load-flow client logging (default off).
+ * Enable: `localStorage.setItem('electrisimDebugOpenDss','1')` then reload.
+ */
+const electrisimDebugOpenDss = () => {
+    try {
+        const v =
+            typeof localStorage !== 'undefined' &&
+            String(localStorage.getItem('electrisimDebugOpenDss') || '');
+        return ['1', 'true', 'yes'].includes(v.toLowerCase());
+    } catch {
+        return false;
+    }
+};
+const dssLog = (...a) => {
+    if (electrisimDebugOpenDss()) dssLog('[Electrisim PF]', ...a);
+};
+const dssWarn = (...a) => {
+    if (electrisimDebugOpenDss()) dssWarn('[Electrisim PF]', ...a);
+};
+
 /** All string keys we may need to map OpenDSS/backend result `id` back to a graph cell. */
 const getMxIdLookupKeys = (mxObjectId) => {
     if (!mxObjectId) return [];
@@ -65,7 +86,7 @@ const downloadOpenDSSCommands = (commands) => {
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
         
-        console.log('OpenDSS commands file downloaded successfully');
+        dssLog('OpenDSS commands file downloaded successfully');
     } catch (error) {
         console.error('Error downloading OpenDSS commands:', error);
         alert('Failed to download OpenDSS commands file. Please check the console for details.');
@@ -325,7 +346,7 @@ const downloadOpenDSSResults = (dataJson, graph) => {
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
         
-        console.log('OpenDSS results file downloaded successfully');
+        dssLog('OpenDSS results file downloaded successfully');
     } catch (error) {
         console.error('Error downloading OpenDSS results:', error);
         alert('Failed to download OpenDSS results file. Please check the console for details.');
@@ -375,7 +396,7 @@ const downloadOpenDSSShortCircuitResults = (dataJson, graph) => {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-        console.log('OpenDSS short circuit results file downloaded successfully');
+        dssLog('OpenDSS short circuit results file downloaded successfully');
     } catch (error) {
         console.error('Error downloading OpenDSS short circuit results:', error);
         alert('Failed to download OpenDSS short circuit results file. Please check the console for details.');
@@ -478,7 +499,7 @@ const parseCellStyle = (style) => {
 const getAttributesAsObject = (cell, attributeMap) => {
     const result = {};
     if (!cell || !cell.value || !cell.value.attributes) {
-        console.warn('Cell is missing required properties');
+        dssWarn('Cell is missing required properties');
         return result;
     }
     const attributes = cell.value.attributes;
@@ -494,7 +515,7 @@ const getAttributesAsObject = (cell, attributeMap) => {
             }
         }
         if (!found && !isOptional) {
-            console.warn(`Missing required attribute ${key} with name ${attributeName}`);
+            dssWarn(`Missing required attribute ${key} with name ${attributeName}`);
             result[key] = null;
         }
     }
@@ -553,10 +574,10 @@ function loadFlowOpenDss(a, b, c) {
 
 
     if (window.LoadFlowDialog && window.LoadFlowDialog.prototype && window.LoadFlowDialog.prototype.createTabHeader && typeof a.showLoadFlowDialog === 'function') {
-        console.log('✓ Using new tabbed dialog');
+        dssLog('✓ Using new tabbed dialog');
         // Use the new tabbed dialog
         b.isEnabled() && !b.isCellLocked(b.getDefaultParent()) && a.showLoadFlowDialog("", "Calculate", function (values) {
-            console.log('New tabbed LoadFlowDialog callback received:', values);
+            dssLog('New tabbed LoadFlowDialog callback received:', values);
             
             // Check which engine was selected
             if (values.engine === 'opendss') {
@@ -564,27 +585,27 @@ function loadFlowOpenDss(a, b, c) {
                 executeOpenDSSLoadFlow(values, apka, grafka);
             } else {
                 // Pandapower calculation - execute directly with collected parameters
-                console.log('Processing Pandapower calculation with values:', values);
-                console.log('exportPython value received:', values.exportPython);
+                dssLog('Processing Pandapower calculation with values:', values);
+                dssLog('exportPython value received:', values.exportPython);
                 
                 // Pass the values object directly to preserve all parameters including exportPython
                 // DO NOT convert to array as that loses the exportPython flag!
-                console.log('Passing values object directly to executePandapowerLoadFlow');
+                dssLog('Passing values object directly to executePandapowerLoadFlow');
                 
                 // Execute pandapower load flow directly with the full values object
                 executePandapowerLoadFlow(values, apka, grafka);
             }
         });
     } else {
-        console.log('✗ Falling back to direct dialog creation');
+        dssLog('✗ Falling back to direct dialog creation');
         
         // Check if we can create the dialog directly
         if (window.LoadFlowDialog) {
-            console.log('Creating LoadFlowDialog directly...');
+            dssLog('Creating LoadFlowDialog directly...');
             try {
                 const dialog = new window.LoadFlowDialog(a);
                 dialog.show(function (values) {
-                    console.log('Direct LoadFlowDialog callback received:', values);
+                    dssLog('Direct LoadFlowDialog callback received:', values);
                     
                     // Check which engine was selected
                     if (values.engine === 'opendss') {
@@ -592,12 +613,12 @@ function loadFlowOpenDss(a, b, c) {
                         executeOpenDSSLoadFlow(values, apka, grafka);
                     } else {
                         // Pandapower calculation - execute directly with collected parameters
-                        console.log('Processing Pandapower calculation with values:', values);
-                        console.log('exportPython value received:', values.exportPython);
+                        dssLog('Processing Pandapower calculation with values:', values);
+                        dssLog('exportPython value received:', values.exportPython);
                         
                         // Pass the values object directly to preserve all parameters including exportPython
                         // DO NOT convert to array as that loses the exportPython flag!
-                        console.log('Passing values object directly to executePandapowerLoadFlow');
+                        dssLog('Passing values object directly to executePandapowerLoadFlow');
                         
                         // Execute pandapower load flow directly with the full values object
                         executePandapowerLoadFlow(values, apka, grafka);
@@ -607,9 +628,9 @@ function loadFlowOpenDss(a, b, c) {
                 console.error('Error creating LoadFlowDialog directly:', error);
                 // Final fallback to OpenDSS dialog if available
                 if (typeof a.showLoadFlowDialogOpenDSS === 'function') {
-                    console.log('Final fallback to OpenDSS dialog');
+                    dssLog('Final fallback to OpenDSS dialog');
                     b.isEnabled() && !b.isCellLocked(b.getDefaultParent()) && a.showLoadFlowDialogOpenDSS("", "Calculate", function (a, c) {
-                        console.log('Legacy OpenDSS dialog callback received');
+                        dssLog('Legacy OpenDSS dialog callback received');
                         executeOpenDSSLoadFlow(a, apka, grafka);
                     });
                 } else {
@@ -617,12 +638,12 @@ function loadFlowOpenDss(a, b, c) {
                 }
             }
         } else {
-            console.log('LoadFlowDialog not available, checking for OpenDSS dialog...');
+            dssLog('LoadFlowDialog not available, checking for OpenDSS dialog...');
             // Final fallback to OpenDSS dialog if available
             if (typeof a.showLoadFlowDialogOpenDSS === 'function') {
-                console.log('Using OpenDSS dialog as fallback');
+                dssLog('Using OpenDSS dialog as fallback');
                 b.isEnabled() && !b.isCellLocked(b.getDefaultParent()) && a.showLoadFlowDialogOpenDSS("", "Calculate", function (a, c) {
-                    console.log('Legacy OpenDSS dialog callback received');
+                    dssLog('Legacy OpenDSS dialog callback received');
                     executeOpenDSSLoadFlow(a, apka, grafka);
                 });
             } else {
@@ -639,7 +660,7 @@ function loadFlowOpenDss(a, b, c) {
 const elementProcessors = {
     busbars: (data, b, grafka, cellIdMap) => {
         if (!Array.isArray(data)) {
-            console.warn('busbars data is not an array:', data);
+            dssWarn('busbars data is not an array:', data);
             return;
         }
         
@@ -649,7 +670,7 @@ const elementProcessors = {
                 const resultCell = cellIdMap ? cellIdMap.get(cell.id) : null;
                 
                 if (!resultCell) {
-                    console.warn(`Could not find cell with mxObjectId: ${cell.id}`);
+                    dssWarn(`Could not find cell with mxObjectId: ${cell.id}`);
                     return;
                 }
                 
@@ -678,7 +699,7 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
 
     lines: (data, b, grafka, cellIdMap) => {
         if (!Array.isArray(data)) {
-            console.warn('lines data is not an array:', data);
+            dssWarn('lines data is not an array:', data);
             return;
         }
         
@@ -688,7 +709,7 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
                 const resultCell = cellIdMap ? cellIdMap.get(cell.id) : null;
                 
                 if (!resultCell) {
-                    console.warn(`Could not find cell with mxObjectId: ${cell.id}`);
+                    dssWarn(`Could not find cell with mxObjectId: ${cell.id}`);
                     return;
                 }
                 
@@ -725,7 +746,7 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
 
     externalgrids: (data, b, cellIdMap) => {
         if (!Array.isArray(data)) {
-            console.warn('externalgrids data is not an array:', data);
+            dssWarn('externalgrids data is not an array:', data);
             return;
         }
         
@@ -735,7 +756,7 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
                 const resultCell = cellIdMap ? cellIdMap.get(cell.id) : null;
                 
                 if (!resultCell) {
-                    console.warn(`Could not find cell with mxObjectId: ${cell.id}`);
+                    dssWarn(`Could not find cell with mxObjectId: ${cell.id}`);
                     return;
                 }
                 
@@ -771,7 +792,7 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
 
     generators: (data, b, cellIdMap) => {
         if (!Array.isArray(data)) {
-            console.warn('generators data is not an array:', data);
+            dssWarn('generators data is not an array:', data);
             return;
         }
         
@@ -781,7 +802,7 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
                 const resultCell = cellIdMap ? cellIdMap.get(cell.id) : null;
                 
                 if (!resultCell) {
-                    console.warn(`Could not find cell with mxObjectId: ${cell.id}`);
+                    dssWarn(`Could not find cell with mxObjectId: ${cell.id}`);
                     return;
                 }
                 
@@ -812,7 +833,7 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
 
     loads: (data, b, cellIdMap) => {
         if (!Array.isArray(data)) {
-            console.warn('loads data is not an array:', data);
+            dssWarn('loads data is not an array:', data);
             return;
         }
         
@@ -822,7 +843,7 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
                 const resultCell = cellIdMap ? cellIdMap.get(cell.id) : null;
                 
                 if (!resultCell) {
-                    console.warn(`Could not find cell with mxObjectId: ${cell.id}`);
+                    dssWarn(`Could not find cell with mxObjectId: ${cell.id}`);
                     return;
                 }
                 
@@ -851,7 +872,7 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
 
     transformers: (data, b, grafka, cellIdMap) => {
         if (!Array.isArray(data)) {
-            console.warn('transformers data is not an array:', data);
+            dssWarn('transformers data is not an array:', data);
             return;
         }
         
@@ -861,7 +882,7 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
                 const resultCell = cellIdMap ? cellIdMap.get(cell.id) : null;
                 
                 if (!resultCell) {
-                    console.warn(`Could not find cell with mxObjectId: ${cell.id}`);
+                    dssWarn(`Could not find cell with mxObjectId: ${cell.id}`);
                     return;
                 }
                 
@@ -904,14 +925,14 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
 
     transformers3w: (data, b, grafka, cellIdMap) => {
         if (!Array.isArray(data)) {
-            console.warn('transformers3w data is not an array:', data);
+            dssWarn('transformers3w data is not an array:', data);
             return;
         }
         data.forEach(cell => {
             try {
                 const resultCell = cellIdMap ? cellIdMap.get(cell.id) : null;
                 if (!resultCell) {
-                    console.warn(`Could not find cell with mxObjectId: ${cell.id}`);
+                    dssWarn(`Could not find cell with mxObjectId: ${cell.id}`);
                     return;
                 }
                 const cellName = formatResultNameHeader(resultCell, cell.name, 'Trafo3W');
@@ -946,7 +967,7 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
     // Add support for additional element types that might be returned by the simplified backend
     shunts: (data, b, cellIdMap) => {
         if (!Array.isArray(data)) {
-            console.warn('shunts data is not an array:', data);
+            dssWarn('shunts data is not an array:', data);
             return;
         }
         
@@ -956,7 +977,7 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
                 const resultCell = cellIdMap ? cellIdMap.get(cell.id) : null;
                 
                 if (!resultCell) {
-                    console.warn(`Could not find cell with mxObjectId: ${cell.id}`);
+                    dssWarn(`Could not find cell with mxObjectId: ${cell.id}`);
                     return;
                 }
                 
@@ -986,7 +1007,7 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
 
     capacitors: (data, b, cellIdMap) => {
         if (!Array.isArray(data)) {
-            console.warn('capacitors data is not an array:', data);
+            dssWarn('capacitors data is not an array:', data);
             return;
         }
         
@@ -996,7 +1017,7 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
                 const resultCell = cellIdMap ? cellIdMap.get(cell.id) : null;
                 
                 if (!resultCell) {
-                    console.warn(`Could not find cell with mxObjectId: ${cell.id}`);
+                    dssWarn(`Could not find cell with mxObjectId: ${cell.id}`);
                     return;
                 }
                 
@@ -1026,7 +1047,7 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
 
     storages: (data, b, cellIdMap) => {
         if (!Array.isArray(data)) {
-            console.warn('storages data is not an array:', data);
+            dssWarn('storages data is not an array:', data);
             return;
         }
         
@@ -1036,7 +1057,7 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
                 const resultCell = cellIdMap ? cellIdMap.get(cell.id) : null;
                 
                 if (!resultCell) {
-                    console.warn(`Could not find cell with mxObjectId: ${cell.id}`);
+                    dssWarn(`Could not find cell with mxObjectId: ${cell.id}`);
                     return;
                 }
                 
@@ -1065,7 +1086,7 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
 
     pvsystems: (data, b, cellIdMap) => {
         if (!Array.isArray(data)) {
-            console.warn('pvsystems data is not an array:', data);
+            dssWarn('pvsystems data is not an array:', data);
             return;
         }
 
@@ -1075,7 +1096,7 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
                 const resultCell = cellIdMap ? cellIdMap.get(cell.id) : null;
 
                 if (!resultCell) {
-                    console.warn(`Could not find cell with mxObjectId: ${cell.id}`);
+                    dssWarn(`Could not find cell with mxObjectId: ${cell.id}`);
                     return;
                 }
 
@@ -1191,7 +1212,7 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
             dataDict["0"] = obj;
         }
         
-        console.log('Sending to OpenDSS backend:', dataDict);
+        dssLog('Sending to OpenDSS backend:', dataDict);
 
         // Performance optimization: Request gzip compression
         const requestStart = performance.now();
@@ -1211,8 +1232,8 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
 
         const dataJson = await response.json();
         const requestTime = performance.now() - requestStart;
-        console.log(`OpenDSS backend response received in ${requestTime.toFixed(0)}ms`);
-        console.log('OpenDSS backend response:', dataJson);
+        dssLog(`OpenDSS backend response received in ${requestTime.toFixed(0)}ms`);
+        dssLog('OpenDSS backend response:', dataJson);
 
         // Handle errors first
         if (handleNetworkErrors(dataJson)) {
@@ -1221,7 +1242,7 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
 
         // The simplified backend now returns data directly without output classes
         // Process each type of network element that might be present in the response
-        console.log('Processing OpenDSS results...');
+        dssLog('Processing OpenDSS results...');
         const processingStart = performance.now();
         
         // PERFORMANCE OPTIMIZATION: Create cell ID lookup map once
@@ -1238,7 +1259,7 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
             }
         }
         const mapBuildTime = performance.now() - mapBuildStart;
-        console.log(`Built cell ID map with ${cellIdMap.size} entries in ${mapBuildTime.toFixed(1)}ms`);
+        dssLog(`Built cell ID map with ${cellIdMap.size} entries in ${mapBuildTime.toFixed(1)}ms`);
         
         // Check for different possible response formats
         let processedCount = 0;
@@ -1250,77 +1271,77 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
         try {
             // Process busbars if present
             if (dataJson.busbars && Array.isArray(dataJson.busbars)) {
-                console.log(`Processing ${dataJson.busbars.length} busbars`);
+                dssLog(`Processing ${dataJson.busbars.length} busbars`);
                 elementProcessors.busbars(dataJson.busbars, b, grafka, cellIdMap);
                 processedCount += dataJson.busbars.length;
             }
             
             // Process lines if present
             if (dataJson.lines && Array.isArray(dataJson.lines)) {
-                console.log(`Processing ${dataJson.lines.length} lines`);
+                dssLog(`Processing ${dataJson.lines.length} lines`);
                 elementProcessors.lines(dataJson.lines, b, grafka, cellIdMap);
                 processedCount += dataJson.lines.length;
             }
             
             // Process loads if present
             if (dataJson.loads && Array.isArray(dataJson.loads)) {
-                console.log(`Processing ${dataJson.loads.length} loads`);
+                dssLog(`Processing ${dataJson.loads.length} loads`);
                 elementProcessors.loads(dataJson.loads, b, cellIdMap);
                 processedCount += dataJson.loads.length;
             }
             
             // Process generators if present
             if (dataJson.generators && Array.isArray(dataJson.generators)) {
-                console.log(`Processing ${dataJson.generators.length} generators`);
+                dssLog(`Processing ${dataJson.generators.length} generators`);
                 elementProcessors.generators(dataJson.generators, b, cellIdMap);
                 processedCount += dataJson.generators.length;
             }
             
             // Process transformers if present
             if (dataJson.transformers && Array.isArray(dataJson.transformers)) {
-                console.log(`Processing ${dataJson.transformers.length} transformers`);
+                dssLog(`Processing ${dataJson.transformers.length} transformers`);
                 elementProcessors.transformers(dataJson.transformers, b, grafka, cellIdMap);
                 processedCount += dataJson.transformers.length;
             }
 
             // Process 3-winding transformers if present
             if (dataJson.transformers3w && Array.isArray(dataJson.transformers3w)) {
-                console.log(`Processing ${dataJson.transformers3w.length} 3-winding transformers`);
+                dssLog(`Processing ${dataJson.transformers3w.length} 3-winding transformers`);
                 elementProcessors.transformers3w(dataJson.transformers3w, b, grafka, cellIdMap);
                 processedCount += dataJson.transformers3w.length;
             }
             
             // Process external grids if present
             if (dataJson.externalgrids && Array.isArray(dataJson.externalgrids)) {
-                console.log(`Processing ${dataJson.externalgrids.length} external grids`);
+                dssLog(`Processing ${dataJson.externalgrids.length} external grids`);
                 elementProcessors.externalgrids(dataJson.externalgrids, b, cellIdMap);
                 processedCount += dataJson.externalgrids.length;
             }
             
             // Process shunts if present
             if (dataJson.shunts && Array.isArray(dataJson.shunts)) {
-                console.log(`Processing ${dataJson.shunts.length} shunts`);
+                dssLog(`Processing ${dataJson.shunts.length} shunts`);
                 elementProcessors.shunts(dataJson.shunts, b, cellIdMap);
                 processedCount += dataJson.shunts.length;
             }
             
             // Process capacitors if present
             if (dataJson.capacitors && Array.isArray(dataJson.capacitors)) {
-                console.log(`Processing ${dataJson.capacitors.length} capacitors`);
+                dssLog(`Processing ${dataJson.capacitors.length} capacitors`);
                 elementProcessors.capacitors(dataJson.capacitors, b, cellIdMap);
                 processedCount += dataJson.capacitors.length;
             }
             
             // Process storages if present
             if (dataJson.storages && Array.isArray(dataJson.storages)) {
-                console.log(`Processing ${dataJson.storages.length} storages`);
+                dssLog(`Processing ${dataJson.storages.length} storages`);
                 elementProcessors.storages(dataJson.storages, b, cellIdMap);
                 processedCount += dataJson.storages.length;
             }
 
             // Process pvsystems if present
             if (dataJson.pvsystems && Array.isArray(dataJson.pvsystems)) {
-                console.log(`Processing ${dataJson.pvsystems.length} PVSystems`);
+                dssLog(`Processing ${dataJson.pvsystems.length} PVSystems`);
                 elementProcessors.pvsystems(dataJson.pvsystems, b, cellIdMap);
                 processedCount += dataJson.pvsystems.length;
             }
@@ -1329,20 +1350,20 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
         }
         
         const processingTime = performance.now() - processingStart;
-        console.log(`Processed ${processedCount} elements in ${processingTime.toFixed(0)}ms (${(processingTime/processedCount).toFixed(1)}ms per element)`);
-        console.log(`Total round-trip time: ${(requestTime + processingTime).toFixed(0)}ms`);
+        dssLog(`Processed ${processedCount} elements in ${processingTime.toFixed(0)}ms (${(processingTime/processedCount).toFixed(1)}ms per element)`);
+        dssLog(`Total round-trip time: ${(requestTime + processingTime).toFixed(0)}ms`);
         
         // Check if we processed any results
         if (processedCount === 0) {
-            console.warn('No results were processed from the OpenDSS backend response');
-            console.log('Available keys in response:', Object.keys(dataJson));
+            dssWarn('No results were processed from the OpenDSS backend response');
+            dssLog('Available keys in response:', Object.keys(dataJson));
 
             // No results processed - log but don't show alert
-            console.log('OpenDSS calculation completed but no results were processed');
+            dssLog('OpenDSS calculation completed but no results were processed');
         } else {
-            console.log(`Successfully processed ${processedCount} OpenDSS results`);
+            dssLog(`Successfully processed ${processedCount} OpenDSS results`);
             // Results processed successfully - log but don't show alert
-            console.log(`OpenDSS calculation completed successfully! Processed ${processedCount} results.`);
+            dssLog(`OpenDSS calculation completed successfully! Processed ${processedCount} results.`);
         }
 
         if (
@@ -1356,27 +1377,27 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
 
         // Handle OpenDSS commands export if requested
         if (exportCommands && dataJson.opendss_commands) {
-            console.log('Exporting OpenDSS commands to file...');
+            dssLog('Exporting OpenDSS commands to file...');
             downloadOpenDSSCommands(dataJson.opendss_commands);
         }
         
         // Handle OpenDSS results export if requested
         // Note: exportOpenDSSResults flag should be passed through from parameters
-        console.log('🔍 Checking for OpenDSS results export...');
-        console.log('  - obj exists:', !!obj);
-        console.log('  - obj[0] exists:', !!(obj && obj[0]));
-        console.log('  - obj[0]:', obj ? obj[0] : 'obj is null');
-        console.log('  - exportOpenDSSResults value:', obj && obj[0] ? obj[0].exportOpenDSSResults : 'N/A');
+        dssLog('🔍 Checking for OpenDSS results export...');
+        dssLog('  - obj exists:', !!obj);
+        dssLog('  - obj[0] exists:', !!(obj && obj[0]));
+        dssLog('  - obj[0]:', obj ? obj[0] : 'obj is null');
+        dssLog('  - exportOpenDSSResults value:', obj && obj[0] ? obj[0].exportOpenDSSResults : 'N/A');
         
         if (obj && obj[0] && obj[0].exportOpenDSSResults) {
-            console.log('✅ Exporting OpenDSS results to file...');
+            dssLog('✅ Exporting OpenDSS results to file...');
             downloadOpenDSSResults(dataJson, b);
         } else {
-            console.log('ℹ️ OpenDSS results export not requested or flag not set');
-            console.log('  Condition breakdown:');
-            console.log('    - obj:', !!obj);
-            console.log('    - obj[0]:', !!(obj && obj[0]));
-            console.log('    - obj[0].exportOpenDSSResults:', !!(obj && obj[0] && obj[0].exportOpenDSSResults));
+            dssLog('ℹ️ OpenDSS results export not requested or flag not set');
+            dssLog('  Condition breakdown:');
+            dssLog('    - obj:', !!obj);
+            dssLog('    - obj[0]:', !!(obj && obj[0]));
+            dssLog('    - obj[0].exportOpenDSSResults:', !!(obj && obj[0] && obj[0].exportOpenDSSResults));
         }
 
     } catch (err) {
@@ -1395,14 +1416,14 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
         alert('Error processing OpenDSS network data: ' + err + '\n\nCheck input data or contact electrisim@electrisim.com');
     } finally {
         // Always try to stop the spinner
-        console.log('Stopping spinner in finally block...');
+        dssLog('Stopping spinner in finally block...');
         try {
             if (app && app.spinner) {
-                console.log('Spinner found, stopping...');
+                dssLog('Spinner found, stopping...');
                 app.spinner.stop();
-                console.log('Spinner stopped successfully');
+                dssLog('Spinner stopped successfully');
             } else {
-                console.warn('Spinner not found on app parameter');
+                dssWarn('Spinner not found on app parameter');
             }
         } catch (spinnerErr) {
             console.error('Error stopping spinner:', spinnerErr);
@@ -1455,7 +1476,7 @@ function executeOpenDSSLoadFlow(parameters, app, graph) {
         ];
     }
     
-    console.log('OpenDSS parameters (converted to array):', opendssParams);
+    dssLog('OpenDSS parameters (converted to array):', opendssParams);
     
     // Get current user email
     function getUserEmail() {
@@ -1474,7 +1495,7 @@ function executeOpenDSSLoadFlow(parameters, app, graph) {
     }
     
     const userEmail = getUserEmail();
-    console.log('OpenDSS - User email:', userEmail);
+    dssLog('OpenDSS - User email:', userEmail);
     
     // Create the data structure for OpenDSS
     // Reference: https://opendss.epri.com/PowerFlow.html
@@ -1492,27 +1513,27 @@ function executeOpenDSSLoadFlow(parameters, app, graph) {
         user_email: userEmail
     };
     
-    console.log('OpenDSS data object:', opendssData);
+    dssLog('OpenDSS data object:', opendssData);
     
     // Collect network model data from the graph using the new structure
     let networkData = collectNetworkDataStructured(graph);
-    console.log('Network data collected:', networkData);
+    dssLog('Network data collected:', networkData);
 
     // If no network data collected, try using global graph
     if (networkData.length === 0 && window.App && window.App.editor && window.App.editor.graph) {
-        console.log('Trying global graph as fallback...');
+        dssLog('Trying global graph as fallback...');
         networkData = collectNetworkDataStructured(window.App.editor.graph);
-        console.log('Global graph network data:', networkData);
+        dssLog('Global graph network data:', networkData);
     }
 
     // Combine parameters with network data
     const completeData = [opendssData, ...networkData];
-    console.log('Complete OpenDSS data:', completeData);
+    dssLog('Complete OpenDSS data:', completeData);
     
     // Call the new processNetworkData function
     // Pass the exportCommands flag (opendssParams[7])
     const exportCommands = opendssParams[7] || false;
-    console.log('🌐 Using backend URL:', ENV.backendUrl);
+    dssLog('🌐 Using backend URL:', ENV.backendUrl);
     processNetworkData(ENV.backendUrl + "/", completeData, graph, graph, app, exportCommands);
 }
 
@@ -1643,7 +1664,7 @@ function executeOpenDSSShortCircuit(parameters, app, graph) {
             if (response.status !== 200) throw new Error("server");
 
             const dataJson = await response.json();
-            console.log('OpenDSS short circuit response:', dataJson);
+            dssLog('OpenDSS short circuit response:', dataJson);
 
             if (handleNetworkErrors(dataJson)) return;
 
@@ -1689,7 +1710,7 @@ function executeOpenDSSShortCircuit(parameters, app, graph) {
                     dataJson.busbars.forEach(cell => {
                         const resultCell = resolveCell(cell);
                         if (!resultCell) {
-                            console.warn('OpenDSS short circuit: could not find busbar cell for id=', cell.id, 'name=', cell.name);
+                            dssWarn('OpenDSS short circuit: could not find busbar cell for id=', cell.id, 'name=', cell.name);
                             return;
                         }
                         cell.name = replaceUnderscores(cell.name);
@@ -1735,14 +1756,14 @@ function collectNetworkDataStructured(graph) {
     globalThis.openDssRunCount++;
     const runNumber = globalThis.openDssRunCount;
     const startTime = performance.now();
-    console.log(`=== OPENDSS DATA COLLECTION #${runNumber} STARTED ===`);
+    dssLog(`=== OPENDSS DATA COLLECTION #${runNumber} STARTED ===`);
     
     // Initialize performance optimization caches
     const modelCache = new Map();
     const cellCache = new Map();
     const nameCache = new Map();
     const attributeCache = new Map();
-    console.log('Starting fresh data collection with clean caches');
+    dssLog('Starting fresh data collection with clean caches');
     
     const networkData = [];
     let index = 1; // Start from 1 since 0 is parameters    
@@ -1754,16 +1775,16 @@ function collectNetworkDataStructured(graph) {
     // Method 1: Try getModel().cells
     if (graph && graph.getModel && graph.getModel().cells) {
         cells = graph.getModel().cells;
-        console.log('Method 1 - getModel().cells:', cells);
+        dssLog('Method 1 - getModel().cells:', cells);
     }
     
     // Method 2: Try getModel().getChildCells()
     if (!cells && graph && graph.getModel && graph.getModel().getChildCells) {
         try {
             cells = graph.getModel().getChildCells(graph.getDefaultParent());
-            console.log('Method 2 - getChildCells():', cells);
+            dssLog('Method 2 - getChildCells():', cells);
         } catch (e) {
-            console.log('Method 2 failed:', e);
+            dssLog('Method 2 failed:', e);
         }
     }
     
@@ -1771,9 +1792,9 @@ function collectNetworkDataStructured(graph) {
     if (!cells && graph && graph.getSelectionCells) {
         try {
             cells = graph.getSelectionCells();
-            console.log('Method 3 - getSelectionCells():', cells);
+            dssLog('Method 3 - getSelectionCells():', cells);
         } catch (e) {
-            console.log('Method 3 failed:', e);
+            dssLog('Method 3 failed:', e);
         }
     }
     
@@ -1781,9 +1802,9 @@ function collectNetworkDataStructured(graph) {
     if (!cells && graph && graph.getAllCells) {
         try {
             cells = graph.getAllCells();
-            console.log('Method 4 - getAllCells():', cells);
+            dssLog('Method 4 - getAllCells():', cells);
         } catch (e) {
-            console.log('Method 4 failed:', e);
+            dssLog('Method 4 failed:', e);
         }
     }
     
@@ -1794,7 +1815,7 @@ function collectNetworkDataStructured(graph) {
     
     // Process the cells using the proper structured approach similar to loadFlow.js
     const cellProcessingStart = performance.now();
-    console.log(`Processing ${Object.keys(cells).length} cells for OpenDSS...`);
+    dssLog(`Processing ${Object.keys(cells).length} cells for OpenDSS...`);
     
     // No result cleanup - update placeholders in place (same approach as pandapower load flow)
     let processedComponents = 0;
@@ -1808,7 +1829,7 @@ function collectNetworkDataStructured(graph) {
         }
     }
     
-    console.log(`Found ${validCells.length} valid cells to process`);
+    dssLog(`Found ${validCells.length} valid cells to process`);
     
     // Process valid cells with optimized approach
     const componentProcessingStart = performance.now();
@@ -1897,10 +1918,10 @@ function collectNetworkDataStructured(graph) {
                     
                     // Validate bus connections
                     if (cellData.busFrom && cellData.busTo) {
-                        console.log(`Line ${cellData.name}: busFrom=${cellData.busFrom}, busTo=${cellData.busTo}`);
-                        console.log(`Line parameters: R1=${cellData.r_ohm_per_km}, X1=${cellData.x_ohm_per_km}, Length=${cellData.length_km}km`);
+                        dssLog(`Line ${cellData.name}: busFrom=${cellData.busFrom}, busTo=${cellData.busTo}`);
+                        dssLog(`Line parameters: R1=${cellData.r_ohm_per_km}, X1=${cellData.x_ohm_per_km}, Length=${cellData.length_km}km`);
                     } else {
-                        console.warn(`Line ${cellData.name} missing bus connections: busFrom=${cellData.busFrom}, busTo=${cellData.busTo}`);
+                        dssWarn(`Line ${cellData.name} missing bus connections: busFrom=${cellData.busFrom}, busTo=${cellData.busTo}`);
                     }
                 } else if (styleObj && styleObj.shapeELXXX === 'Transformer') {
                     // This is a transformer element
@@ -1961,9 +1982,9 @@ function collectNetworkDataStructured(graph) {
                     
                     // Validate bus connections
                     if (cellData.busFrom && cellData.busTo) {
-                        console.log(`Transformer ${cellData.name}: busFrom=${cellData.busFrom}, busTo=${cellData.busTo}`);
+                        dssLog(`Transformer ${cellData.name}: busFrom=${cellData.busFrom}, busTo=${cellData.busTo}`);
                     } else {
-                        console.warn(`Transformer ${cellData.name} missing bus connections: busFrom=${cellData.busFrom}, busTo=${cellData.busTo}`);
+                        dssWarn(`Transformer ${cellData.name} missing bus connections: busFrom=${cellData.busFrom}, busTo=${cellData.busTo}`);
                     }
                 } else if (styleObj && styleObj.shapeELXXX === 'Generator') {
                     // This is a generator element
@@ -2029,9 +2050,9 @@ function collectNetworkDataStructured(graph) {
                     
                     // Validate bus connection
                     if (cellData.bus) {
-                        console.log(`Generator ${cellData.name}: bus=${cellData.bus}, P=${cellData.p_mw}MW, Q=${cellData.q_mvar}MVar`);
+                        dssLog(`Generator ${cellData.name}: bus=${cellData.bus}, P=${cellData.p_mw}MW, Q=${cellData.q_mvar}MVar`);
                     } else {
-                        console.warn(`Generator ${cellData.name} missing bus connection`);
+                        dssWarn(`Generator ${cellData.name} missing bus connection`);
                     }
                 } else if (styleObj && styleObj.shapeELXXX === 'Load') {
                     // This is a load element
@@ -2107,9 +2128,9 @@ function collectNetworkDataStructured(graph) {
                     
                     // Validate bus connection
                     if (cellData.bus) {
-                        console.log(`Load ${cellData.name}: bus=${cellData.bus}, P=${cellData.p_mw}MW, Q=${cellData.q_mvar}MVar`);
+                        dssLog(`Load ${cellData.name}: bus=${cellData.bus}, P=${cellData.p_mw}MW, Q=${cellData.q_mvar}MVar`);
                     } else {
-                        console.warn(`Load ${cellData.name} missing bus connection`);
+                        dssWarn(`Load ${cellData.name} missing bus connection`);
                     }
                 } else if (styleObj && styleObj.shapeELXXX === 'Shunt Reactor') {
                     // This is a shunt reactor element
@@ -2159,9 +2180,9 @@ function collectNetworkDataStructured(graph) {
                     
                     // Validate bus connection
                     if (cellData.bus) {
-                        console.log(`Shunt Reactor ${cellData.name}: bus=${cellData.bus}, Q=${cellData.q_mvar}MVar`);
+                        dssLog(`Shunt Reactor ${cellData.name}: bus=${cellData.bus}, Q=${cellData.q_mvar}MVar`);
                     } else {
-                        console.warn(`Shunt Reactor ${cellData.name} missing bus connection`);
+                        dssWarn(`Shunt Reactor ${cellData.name} missing bus connection`);
                     }
                 } else if (styleObj && styleObj.shapeELXXX === 'Capacitor') {
                     // This is a capacitor element
@@ -2209,9 +2230,9 @@ function collectNetworkDataStructured(graph) {
                     
                     // Validate bus connection
                     if (cellData.bus) {
-                        console.log(`Capacitor ${cellData.name}: bus=${cellData.bus}, Q=${cellData.q_mvar}MVar`);
+                        dssLog(`Capacitor ${cellData.name}: bus=${cellData.bus}, Q=${cellData.q_mvar}MVar`);
                     } else {
-                        console.warn(`Capacitor ${cellData.name} missing bus connection`);
+                        dssWarn(`Capacitor ${cellData.name} missing bus connection`);
                     }
                 } else if (styleObj && styleObj.shapeELXXX === 'Storage') {
                     // This is a storage element
@@ -2265,9 +2286,9 @@ function collectNetworkDataStructured(graph) {
                     
                     // Validate bus connection
                     if (cellData.bus) {
-                        console.log(`Storage ${cellData.name}: bus=${cellData.bus}, P=${cellData.p_mw}MW, Q=${cellData.q_mvar}MVar`);
+                        dssLog(`Storage ${cellData.name}: bus=${cellData.bus}, P=${cellData.p_mw}MW, Q=${cellData.q_mvar}MVar`);
                     } else {
-                        console.warn(`Storage ${cellData.name} missing bus connection`);
+                        dssWarn(`Storage ${cellData.name} missing bus connection`);
                     }
                 } else if (styleObj && styleObj.shapeELXXX === 'PVSystem') {
                     // This is a PVSystem element
@@ -2391,9 +2412,9 @@ function collectNetworkDataStructured(graph) {
 
                     // Validate bus connection
                     if (cellData.bus) {
-                        console.log(`PVSystem ${cellData.name}: bus=${cellData.bus}, Pmpp=${cellData.pmpp}kW, Irradiance=${cellData.irradiance}kW/m²`);
+                        dssLog(`PVSystem ${cellData.name}: bus=${cellData.bus}, Pmpp=${cellData.pmpp}kW, Irradiance=${cellData.irradiance}kW/m²`);
                     } else {
-                        console.warn(`PVSystem ${cellData.name} missing bus connection`);
+                        dssWarn(`PVSystem ${cellData.name} missing bus connection`);
                     }
                 } else if (styleObj && styleObj.shapeELXXX === 'External Grid') {
                     // This is an external grid element
@@ -2440,9 +2461,9 @@ function collectNetworkDataStructured(graph) {
                     
                     // Validate bus connection
                     if (cellData.bus) {
-                        console.log(`External Grid ${cellData.name}: bus=${cellData.bus}, vm_pu=${cellData.vm_pu}, va_degree=${cellData.va_degree}`);
+                        dssLog(`External Grid ${cellData.name}: bus=${cellData.bus}, vm_pu=${cellData.vm_pu}, va_degree=${cellData.va_degree}`);
                     } else {
-                        console.warn(`External Grid ${cellData.name} missing bus connection`);
+                        dssWarn(`External Grid ${cellData.name} missing bus connection`);
                     }
                 } else if (styleObj && styleObj.shapeELXXX === 'Three Winding Transformer') {
                     // Get 3 bus connections and sort by voltage (HV=highest, MV=middle, LV=lowest) for correct backend mapping
@@ -2459,7 +2480,7 @@ function collectNetworkDataStructured(graph) {
                         mv_bus = busList[1]?.name;
                         lv_bus = busList[2]?.name;
                     } catch (e) {
-                        console.warn(`Three Winding Transformer ${cell.mxObjectId || cellId}: ${e.message}`);
+                        dssWarn(`Three Winding Transformer ${cell.mxObjectId || cellId}: ${e.message}`);
                         hv_bus = mv_bus = lv_bus = null;
                     }
                     
@@ -2495,9 +2516,9 @@ function collectNetworkDataStructured(graph) {
                     
                     // Validate bus connections
                     if (cellData.hv_bus && cellData.mv_bus && cellData.lv_bus) {
-                        console.log(`Three Winding Transformer ${cellData.name}: hv_bus=${cellData.hv_bus}, mv_bus=${cellData.mv_bus}, lv_bus=${cellData.lv_bus}`);
+                        dssLog(`Three Winding Transformer ${cellData.name}: hv_bus=${cellData.hv_bus}, mv_bus=${cellData.mv_bus}, lv_bus=${cellData.lv_bus}`);
                     } else {
-                        console.warn(`Three Winding Transformer ${cellData.name} missing bus connections: hv_bus=${cellData.hv_bus}, mv_bus=${cellData.mv_bus}, lv_bus=${cellData.lv_bus}`);
+                        dssWarn(`Three Winding Transformer ${cellData.name} missing bus connections: hv_bus=${cellData.hv_bus}, mv_bus=${cellData.mv_bus}, lv_bus=${cellData.lv_bus}`);
                     }
                 } else if (styleObj && styleObj.shapeELXXX === 'Impedance') {
                     // This is an impedance element
@@ -2531,9 +2552,9 @@ function collectNetworkDataStructured(graph) {
                     
                     // Validate bus connection
                     if (cellData.bus) {
-                        console.log(`Impedance ${cellData.name}: bus=${cellData.bus}, R=${cellData.r_ohm}Ω, X=${cellData.x_ohm}Ω`);
+                        dssLog(`Impedance ${cellData.name}: bus=${cellData.bus}, R=${cellData.r_ohm}Ω, X=${cellData.x_ohm}Ω`);
                     } else {
-                        console.warn(`Impedance ${cellData.name} missing bus connection`);
+                        dssWarn(`Impedance ${cellData.name} missing bus connection`);
                     }
                 } else if (styleObj && styleObj.shapeELXXX === 'Ward') {
                     // This is a ward element
@@ -2571,9 +2592,9 @@ function collectNetworkDataStructured(graph) {
                     
                     // Validate bus connection
                     if (cellData.bus) {
-                        console.log(`Ward ${cellData.name}: bus=${cellData.bus}, PZ=${cellData.pz_mw}MW, QZ=${cellData.qz_mvar}MVar`);
+                        dssLog(`Ward ${cellData.name}: bus=${cellData.bus}, PZ=${cellData.pz_mw}MW, QZ=${cellData.qz_mvar}MVar`);
                             } else {
-                        console.warn(`Ward ${cellData.name} missing bus connection`);
+                        dssWarn(`Ward ${cellData.name} missing bus connection`);
                     }
                 } else if (styleObj && styleObj.shapeELXXX === 'Extended Ward') {
                     // This is an extended ward element
@@ -2615,9 +2636,9 @@ function collectNetworkDataStructured(graph) {
                     
                     // Validate bus connection
                     if (cellData.bus) {
-                        console.log(`Extended Ward ${cellData.name}: bus=${cellData.bus}, PZ=${cellData.pz_mw}MW, QZ=${cellData.qz_mvar}MVar`);
+                        dssLog(`Extended Ward ${cellData.name}: bus=${cellData.bus}, PZ=${cellData.pz_mw}MW, QZ=${cellData.qz_mvar}MVar`);
                         } else {
-                        console.warn(`Extended Ward ${cellData.name} missing bus connection`);
+                        dssWarn(`Extended Ward ${cellData.name} missing bus connection`);
                     }
                 } else if (styleObj && styleObj.shapeELXXX === 'Motor') {
                     // This is a motor element
@@ -2661,9 +2682,9 @@ function collectNetworkDataStructured(graph) {
                     
                     // Validate bus connection
                     if (cellData.bus) {
-                        console.log(`Motor ${cellData.name}: bus=${cellData.bus}, Pn=${cellData.pn_mw}MW, cos_phi=${cellData.cos_phi_n}`);
+                        dssLog(`Motor ${cellData.name}: bus=${cellData.bus}, Pn=${cellData.pn_mw}MW, cos_phi=${cellData.cos_phi_n}`);
                     } else {
-                        console.warn(`Motor ${cellData.name} missing bus connection`);
+                        dssWarn(`Motor ${cellData.name} missing bus connection`);
                     }
                 } else if (styleObj && styleObj.shapeELXXX === 'SVC') {
                     // This is an SVC element
@@ -2703,9 +2724,9 @@ function collectNetworkDataStructured(graph) {
                     
                     // Validate bus connection
                     if (cellData.bus) {
-                        console.log(`SVC ${cellData.name}: bus=${cellData.bus}, Q=${cellData.q_mvar}MVar, vm_set_pu=${cellData.vm_set_pu}`);
+                        dssLog(`SVC ${cellData.name}: bus=${cellData.bus}, Q=${cellData.q_mvar}MVar, vm_set_pu=${cellData.vm_set_pu}`);
                     } else {
-                        console.warn(`SVC ${cellData.name} missing bus connection`);
+                        dssWarn(`SVC ${cellData.name} missing bus connection`);
                     }
                 } else if (styleObj && styleObj.shapeELXXX === 'TCSC') {
                     // This is a TCSC element
@@ -2741,9 +2762,9 @@ function collectNetworkDataStructured(graph) {
                     
                     // Validate bus connection
                     if (cellData.bus) {
-                        console.log(`TCSC ${cellData.name}: bus=${cellData.bus}, XL=${cellData.x_l_ohm}Ω, XC=${cellData.x_c_ohm}Ω`);
+                        dssLog(`TCSC ${cellData.name}: bus=${cellData.bus}, XL=${cellData.x_l_ohm}Ω, XC=${cellData.x_c_ohm}Ω`);
     } else {
-                        console.warn(`TCSC ${cellData.name} missing bus connection`);
+                        dssWarn(`TCSC ${cellData.name} missing bus connection`);
                     }
                 } else if (styleObj && styleObj.shapeELXXX === 'SSC') {
                     // This is an SSC element
@@ -2777,9 +2798,9 @@ function collectNetworkDataStructured(graph) {
                     
                     // Validate bus connection
                     if (cellData.bus) {
-                        console.log(`SSC ${cellData.name}: bus=${cellData.bus}, P=${cellData.p_mw}MW, Q=${cellData.q_mvar}MVar`);
+                        dssLog(`SSC ${cellData.name}: bus=${cellData.bus}, P=${cellData.p_mw}MW, Q=${cellData.q_mvar}MVar`);
                     } else {
-                        console.warn(`SSC ${cellData.name} missing bus connection`);
+                        dssWarn(`SSC ${cellData.name} missing bus connection`);
                     }
                 } else if (styleObj && styleObj.shapeELXXX === 'DC Line') {
                     // This is a DC line element
@@ -2826,9 +2847,9 @@ function collectNetworkDataStructured(graph) {
                     
                     // Validate bus connections
                     if (cellData.busFrom && cellData.busTo) {
-                        console.log(`DC Line ${cellData.name}: busFrom=${cellData.busFrom}, busTo=${cellData.busTo}, P=${cellData.p_mw}MW`);
+                        dssLog(`DC Line ${cellData.name}: busFrom=${cellData.busFrom}, busTo=${cellData.busTo}, P=${cellData.p_mw}MW`);
                     } else {
-                        console.warn(`DC Line ${cellData.name} missing bus connections: busFrom=${cellData.busFrom}, busTo=${cellData.busTo}`);
+                        dssWarn(`DC Line ${cellData.name} missing bus connections: busFrom=${cellData.busFrom}, busTo=${cellData.busTo}`);
                     }
                 } else if (styleObj && styleObj.shapeELXXX === 'Static Generator') {
                     // This is a static generator element
@@ -2906,9 +2927,9 @@ function collectNetworkDataStructured(graph) {
                     
                     // Validate bus connection
                     if (cellData.bus) {
-                        console.log(`Static Generator ${cellData.name}: bus=${cellData.bus}, P=${cellData.p_mw}MW, Q=${cellData.q_mvar}MVar`);
+                        dssLog(`Static Generator ${cellData.name}: bus=${cellData.bus}, P=${cellData.p_mw}MW, Q=${cellData.q_mvar}MVar`);
                     } else {
-                        console.warn(`Static Generator ${cellData.name} missing bus connection`);
+                        dssWarn(`Static Generator ${cellData.name} missing bus connection`);
                     }
                 } else if (styleObj && styleObj.shapeELXXX === 'Asymmetric Static Generator') {
                     // This is an asymmetric static generator element
@@ -2980,9 +3001,9 @@ function collectNetworkDataStructured(graph) {
                     
                     // Validate bus connection
                     if (cellData.bus) {
-                        console.log(`Asymmetric Static Generator ${cellData.name}: bus=${cellData.bus}, P_A=${cellData.p_a_mw}MW, P_B=${cellData.p_b_mw}MW, P_C=${cellData.p_c_mw}MW`);
+                        dssLog(`Asymmetric Static Generator ${cellData.name}: bus=${cellData.bus}, P_A=${cellData.p_a_mw}MW, P_B=${cellData.p_b_mw}MW, P_C=${cellData.p_c_mw}MW`);
                     } else {
-                        console.warn(`Asymmetric Static Generator ${cellData.name} missing bus connection`);
+                        dssWarn(`Asymmetric Static Generator ${cellData.name} missing bus connection`);
                     }
                 }
             }
@@ -2997,21 +3018,21 @@ function collectNetworkDataStructured(graph) {
     const cellProcessingTime = performance.now() - cellProcessingStart;
     const totalProcessingTime = performance.now() - startTime;
     
-    console.log(`=== OPENDSS DATA COLLECTION PERFORMANCE SUMMARY ===`);
-    console.log(`Run #${runNumber} - Cell processing: ${cellProcessingTime.toFixed(2)}ms`);
-    console.log(`Component processing: ${componentProcessingTime.toFixed(2)}ms`);
-    console.log(`Total processing: ${totalProcessingTime.toFixed(2)}ms`);
-    console.log(`Components processed: ${processedComponents}`);
-    console.log(`Network elements collected: ${networkData.length}`);
+    dssLog(`=== OPENDSS DATA COLLECTION PERFORMANCE SUMMARY ===`);
+    dssLog(`Run #${runNumber} - Cell processing: ${cellProcessingTime.toFixed(2)}ms`);
+    dssLog(`Component processing: ${componentProcessingTime.toFixed(2)}ms`);
+    dssLog(`Total processing: ${totalProcessingTime.toFixed(2)}ms`);
+    dssLog(`Components processed: ${processedComponents}`);
+    dssLog(`Network elements collected: ${networkData.length}`);
     
     // Clean up caches to prevent memory accumulation
-    console.log(`Data collection completed. Cache sizes - cells: ${cellCache.size}, names: ${nameCache.size}, attributes: ${attributeCache.size}`);
+    dssLog(`Data collection completed. Cache sizes - cells: ${cellCache.size}, names: ${nameCache.size}, attributes: ${attributeCache.size}`);
     cellCache.clear();
     nameCache.clear();
     attributeCache.clear();
-    console.log('Caches cleared for next data collection');
+    dssLog('Caches cleared for next data collection');
     
-    console.log(`Collected ${networkData.length} network elements:`, networkData);
+    dssLog(`Collected ${networkData.length} network elements:`, networkData);
     return networkData;
 }
 
@@ -3051,9 +3072,9 @@ function getBusVoltage(cellValue) {
 
 // Function to execute Pandapower load flow calculation
 function executePandapowerLoadFlow(parameters, app, graph) {
-    console.log('✅ executePandapowerLoadFlow called with parameters:', parameters);
-    console.log('✅ exportPython value:', parameters.exportPython);
-    console.log('✅ exportPandapowerResults value:', parameters.exportPandapowerResults);
+    dssLog('✅ executePandapowerLoadFlow called with parameters:', parameters);
+    dssLog('✅ exportPython value:', parameters.exportPython);
+    dssLog('✅ exportPandapowerResults value:', parameters.exportPandapowerResults);
     
     // Start the spinner
     app.spinner.spin(document.body, "Waiting for Pandapower results...");
@@ -3061,12 +3082,12 @@ function executePandapowerLoadFlow(parameters, app, graph) {
     // If parameters is already an object with all properties, pass it directly
     // This preserves exportPython and other flags!
     if (typeof parameters === 'object' && !Array.isArray(parameters) && parameters.frequency) {
-        console.log('✅ Parameters is already an object, passing directly to core logic');
-        console.log('✅ Preserving exportPython:', parameters.exportPython);
+        dssLog('✅ Parameters is already an object, passing directly to core logic');
+        dssLog('✅ Preserving exportPython:', parameters.exportPython);
         executePandapowerCoreLogic(parameters, app, graph);
     } else {
         // Legacy array format support
-        console.log('⚠️ Converting array format to object (legacy path)');
+        dssLog('⚠️ Converting array format to object (legacy path)');
         const pandapowerParams = [
             parameters.frequency || parameters[0] || '50',
             parameters.algorithm || parameters[1] || 'nr',
@@ -3074,16 +3095,16 @@ function executePandapowerLoadFlow(parameters, app, graph) {
             parameters.initialization || parameters[3] || 'auto'
         ];
         
-        console.log('Converted pandapower parameters:', pandapowerParams);
+        dssLog('Converted pandapower parameters:', pandapowerParams);
         executePandapowerCoreLogic(pandapowerParams, app, graph);
     }
 }
 
 // Function to execute pandapower core logic without showing dialog
 function executePandapowerCoreLogic(parameters, app, graph) {
-    console.log('⚠️ executePandapowerCoreLogic called - THIS SHOULD NOT BE USED FOR NORMAL LOAD FLOW!');
-    console.log('Executing pandapower core logic with parameters:', parameters);
-    console.log('exportPython in parameters:', parameters.exportPython);
+    dssLog('⚠️ executePandapowerCoreLogic called - THIS SHOULD NOT BE USED FOR NORMAL LOAD FLOW!');
+    dssLog('Executing pandapower core logic with parameters:', parameters);
+    dssLog('exportPython in parameters:', parameters.exportPython);
 
     const coercePandapowerBool = (v) =>
         v === true ||
@@ -3093,7 +3114,7 @@ function executePandapowerCoreLogic(parameters, app, graph) {
     // Convert old array format to new object format
     let paramObject;
     if (Array.isArray(parameters)) {
-        console.log('⚠️ Array format detected - converting to object (exportPython will be false)');
+        dssLog('⚠️ Array format detected - converting to object (exportPython will be false)');
         paramObject = {
             frequency: parameters[0] || '50',
             algorithm: parameters[1] || 'nr',
@@ -3105,10 +3126,10 @@ function executePandapowerCoreLogic(parameters, app, graph) {
             engine: 'pandapower'
         };
     } else if (typeof parameters === 'object' && parameters !== null) {
-        console.log('✅ Object format detected - preserving all properties including exportPython');
-        console.log('✅ exportPython value:', parameters.exportPython);
-        console.log('✅ exportPandapowerResults value:', parameters.exportPandapowerResults);
-        console.log('✅ run_control value:', parameters.run_control);
+        dssLog('✅ Object format detected - preserving all properties including exportPython');
+        dssLog('✅ exportPython value:', parameters.exportPython);
+        dssLog('✅ exportPandapowerResults value:', parameters.exportPandapowerResults);
+        dssLog('✅ run_control value:', parameters.run_control);
         // Parameters is already an object, use it directly (preserves exportPython!)
         paramObject = {
             frequency: parameters.frequency || '50',
@@ -3121,11 +3142,11 @@ function executePandapowerCoreLogic(parameters, app, graph) {
             run_control: coercePandapowerBool(parameters.run_control),
             engine: parameters.engine || 'pandapower'
         };
-        console.log('✅ Final paramObject.exportPython:', paramObject.exportPython);
-        console.log('✅ Final paramObject.exportPandapowerResults:', paramObject.exportPandapowerResults);
-        console.log('✅ Final paramObject.run_control:', paramObject.run_control);
+        dssLog('✅ Final paramObject.exportPython:', paramObject.exportPython);
+        dssLog('✅ Final paramObject.exportPandapowerResults:', paramObject.exportPandapowerResults);
+        dssLog('✅ Final paramObject.run_control:', paramObject.run_control);
     } else {
-        console.warn('⚠️ Unexpected parameters format:', typeof parameters);
+        dssWarn('⚠️ Unexpected parameters format:', typeof parameters);
         paramObject = {
             frequency: '50',
             algorithm: 'nr',
@@ -3140,24 +3161,24 @@ function executePandapowerCoreLogic(parameters, app, graph) {
     
     // Store the original show method
     const originalShow = window.LoadFlowDialog.prototype.show;
-    console.log('Original LoadFlowDialog.prototype.show:', originalShow);
+    dssLog('Original LoadFlowDialog.prototype.show:', originalShow);
     
     try {
         // Temporarily override the show method on the prototype
         window.LoadFlowDialog.prototype.show = function(callback) {
-            console.log('Overridden LoadFlowDialog.show called, immediately calling callback with param OBJECT:', paramObject);
-            console.log('✅ exportPython in paramObject being passed to callback:', paramObject.exportPython);
-            console.log('✅ exportPandapowerResults in paramObject being passed to callback:', paramObject.exportPandapowerResults);
+            dssLog('Overridden LoadFlowDialog.show called, immediately calling callback with param OBJECT:', paramObject);
+            dssLog('✅ exportPython in paramObject being passed to callback:', paramObject.exportPython);
+            dssLog('✅ exportPandapowerResults in paramObject being passed to callback:', paramObject.exportPandapowerResults);
             // Call the callback with the object format
             callback(paramObject);
         };
         
-        console.log('Replaced LoadFlowDialog.prototype.show with dummy version');
+        dssLog('Replaced LoadFlowDialog.prototype.show with dummy version');
         
         // Now call the original loadFlowPandaPower function - any dialog created will use our overridden show method
-        console.log('Calling original loadFlowPandaPower with overridden show method');
+        dssLog('Calling original loadFlowPandaPower with overridden show method');
         globalThis.loadFlowPandaPower(app, graph, null);
-        console.log('loadFlowPandaPower called successfully');
+        dssLog('loadFlowPandaPower called successfully');
         
     } catch (error) {
         console.error('Error executing pandapower load flow:', error);
@@ -3165,7 +3186,7 @@ function executePandapowerCoreLogic(parameters, app, graph) {
         alert('Error executing Pandapower load flow: ' + error.message);
     } finally {
         // Restore the original show method
-        console.log('Restoring original LoadFlowDialog.prototype.show:', originalShow);
+        dssLog('Restoring original LoadFlowDialog.prototype.show:', originalShow);
         window.LoadFlowDialog.prototype.show = originalShow;
     }
 }
@@ -3173,7 +3194,7 @@ function executePandapowerCoreLogic(parameters, app, graph) {
 // Function to process pandapower backend call
 async function processPandapowerBackend(obj, graph) {
     try {
-        console.log('🌐 Using backend URL:', ENV.backendUrl);
+        dssLog('🌐 Using backend URL:', ENV.backendUrl);
         const response = await fetch(ENV.backendUrl + "/", {
             mode: "cors",
             method: "post",
@@ -3188,7 +3209,7 @@ async function processPandapowerBackend(obj, graph) {
         }
         
         const dataJson = await response.json();
-        console.log('Pandapower backend response:', dataJson);
+        dssLog('Pandapower backend response:', dataJson);
         
         // Process the response - you may need to add visualization logic here
         alert('Pandapower calculation completed successfully!');
