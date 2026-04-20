@@ -3123,6 +3123,9 @@ function executePandapowerCoreLogic(parameters, app, graph) {
             exportPython: false,  // Default to false for this legacy path
             exportPandapowerResults: false,
             run_control: false,
+            run_control_trafo2w: false,
+            run_control_trafo3w: false,
+            run_control_shunt: false,
             engine: 'pandapower'
         };
     } else if (typeof parameters === 'object' && parameters !== null) {
@@ -3139,7 +3142,14 @@ function executePandapowerCoreLogic(parameters, app, graph) {
             exportPython: parameters.exportPython || false,  // PRESERVE the user's choice!
             exportPandapowerResults: parameters.exportPandapowerResults || false,  // PRESERVE results export choice!
             enforceLimits: parameters.enforceLimits || false,  // Also preserve other checkboxes
-            run_control: coercePandapowerBool(parameters.run_control),
+            run_control_trafo2w: coercePandapowerBool(parameters.run_control_trafo2w),
+            run_control_trafo3w: coercePandapowerBool(parameters.run_control_trafo3w),
+            run_control_shunt: coercePandapowerBool(parameters.run_control_shunt),
+            run_control:
+                coercePandapowerBool(parameters.run_control) ||
+                coercePandapowerBool(parameters.run_control_trafo2w) ||
+                coercePandapowerBool(parameters.run_control_trafo3w) ||
+                coercePandapowerBool(parameters.run_control_shunt),
             engine: parameters.engine || 'pandapower'
         };
         dssLog('✅ Final paramObject.exportPython:', paramObject.exportPython);
@@ -3155,6 +3165,9 @@ function executePandapowerCoreLogic(parameters, app, graph) {
             exportPython: false,
             exportPandapowerResults: false,
             run_control: false,
+            run_control_trafo2w: false,
+            run_control_trafo3w: false,
+            run_control_shunt: false,
             engine: 'pandapower'
         };
     }

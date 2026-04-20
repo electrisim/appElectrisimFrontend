@@ -2067,10 +2067,28 @@ ${tapBlock}`;
                 (typeof v === 'string' && ['true', '1', 'yes', 'on'].includes(v.toLowerCase()));
             const exportPythonValue = isObjectFormat ? coerceBool(a.exportPython) : false;
             const exportPandapowerResultsValue = isObjectFormat ? coerceBool(a.exportPandapowerResults) : false;
-            const runControlValue = isObjectFormat ? coerceBool(a.run_control) : false;
+            const runControlTrafo2w = isObjectFormat ? coerceBool(a.run_control_trafo2w) : false;
+            const runControlTrafo3w = isObjectFormat ? coerceBool(a.run_control_trafo3w) : false;
+            const runControlShunt = isObjectFormat ? coerceBool(a.run_control_shunt) : false;
+            const runControlValue =
+                isObjectFormat
+                    ? coerceBool(a.run_control) ||
+                      runControlTrafo2w ||
+                      runControlTrafo3w ||
+                      runControlShunt
+                    : false;
             console.log('🔍 Final exportPython value being sent:', exportPythonValue);
             console.log('🔍 Final exportPandapowerResults value being sent:', exportPandapowerResultsValue);
-            console.log('🔍 Final run_control value being sent:', runControlValue);
+            console.log(
+                '🔍 Controller flags — 2w:',
+                runControlTrafo2w,
+                '3w:',
+                runControlTrafo3w,
+                'shunt:',
+                runControlShunt,
+                'run_control (OR, legacy):',
+                runControlValue
+            );
             
             componentArrays.simulationParameters.push({
                 typ: "PowerFlowPandaPower Parameters",
@@ -2080,7 +2098,10 @@ ${tapBlock}`;
                 initialization: isObjectFormat ? a.initialization : a[3],
                 exportPython: exportPythonValue,  // Use explicitly converted boolean
                 exportPandapowerResults: exportPandapowerResultsValue,  // Results export flag
-                run_control: runControlValue,  // Pandapower runpp(run_control=...) + DiscreteTapControl
+                run_control: runControlValue,
+                run_control_trafo2w: runControlTrafo2w,
+                run_control_trafo3w: runControlTrafo3w,
+                run_control_shunt: runControlShunt,
                 user_email: userEmail  // Add user email to simulation data
             });
 
