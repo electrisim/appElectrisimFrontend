@@ -1,5 +1,6 @@
 import { Dialog } from './Dialog.js';
 import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
+import { createDialogBracketGroup } from './utils/dialogBracketGroup.js';
 
 // Default values for shunt reactor parameters (based on pandapower documentation)
 export const defaultShuntReactorData = {
@@ -100,7 +101,9 @@ export class ShuntReactorDialog extends Dialog {
                 label: 'Discrete shunt control (DiscreteShuntController)',
                 description: 'Regulate voltage at the shunt bus toward vm_set_pu by changing step (requires Include controller in Load Flow). See pandapower DiscreteShuntController.',
                 type: 'checkbox',
-                value: this.data.discrete_shunt_control
+                value: this.data.discrete_shunt_control,
+                bracketGroup: 'discreteShuntControl',
+                bracketGroupTitle: 'Discrete shunt control (DiscreteShuntController)'
             },
             {
                 id: 'vm_set_pu',
@@ -109,7 +112,8 @@ export class ShuntReactorDialog extends Dialog {
                 type: 'number',
                 value: this.data.vm_set_pu.toString(),
                 step: '0.01',
-                min: '0.8'
+                min: '0.8',
+                bracketGroup: 'discreteShuntControl'
             },
             {
                 id: 'shunt_control_increment',
@@ -118,7 +122,8 @@ export class ShuntReactorDialog extends Dialog {
                 type: 'number',
                 value: String(this.data.shunt_control_increment),
                 step: '1',
-                min: '1'
+                min: '1',
+                bracketGroup: 'discreteShuntControl'
             },
             {
                 id: 'shunt_control_tol',
@@ -127,14 +132,16 @@ export class ShuntReactorDialog extends Dialog {
                 type: 'number',
                 value: String(this.data.shunt_control_tol),
                 step: '0.0005',
-                min: '0'
+                min: '0',
+                bracketGroup: 'discreteShuntControl'
             },
             {
                 id: 'shunt_reset_at_init',
                 label: 'Reset step at controller init',
                 description: 'If enabled, DiscreteShuntController sets shunt step to 0 when initializing (pandapower reset_at_init)',
                 type: 'checkbox',
-                value: this.data.shunt_reset_at_init
+                value: this.data.shunt_reset_at_init,
+                bracketGroup: 'discreteShuntControl'
             }
         ];
 
@@ -348,7 +355,18 @@ export class ShuntReactorDialog extends Dialog {
             gap: '16px'
         });
 
-        parameters.forEach(param => {
+        let bracketWrap = null;
+
+        parameters.forEach((param, paramIndex) => {
+            const prev = paramIndex > 0 ? parameters[paramIndex - 1] : null;
+            if (param.bracketGroup && (!prev || prev.bracketGroup !== param.bracketGroup)) {
+                bracketWrap = createDialogBracketGroup(param.bracketGroupTitle || '');
+                form.appendChild(bracketWrap);
+            }
+            if (!param.bracketGroup) {
+                bracketWrap = null;
+            }
+
             const parameterRow = document.createElement('div');
             Object.assign(parameterRow.style, {
                 display: 'grid',
@@ -361,6 +379,9 @@ export class ShuntReactorDialog extends Dialog {
                 borderRadius: '8px',
                 minHeight: '80px'
             });
+            if (param.bracketGroup) {
+                Object.assign(parameterRow.style, { marginBottom: '0' });
+            }
 
             // Left column: Label and description
             const leftColumn = document.createElement('div');
@@ -477,7 +498,14 @@ export class ShuntReactorDialog extends Dialog {
 
             parameterRow.appendChild(leftColumn);
             parameterRow.appendChild(rightColumn);
-            form.appendChild(parameterRow);
+
+            const appendTarget = param.bracketGroup && bracketWrap ? bracketWrap : form;
+            appendTarget.appendChild(parameterRow);
+
+            const next = parameters[paramIndex + 1];
+            if (param.bracketGroup && (!next || next.bracketGroup !== param.bracketGroup)) {
+                bracketWrap = null;
+            }
         });
 
         content.appendChild(form);

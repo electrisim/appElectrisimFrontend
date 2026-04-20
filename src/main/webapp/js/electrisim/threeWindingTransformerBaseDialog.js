@@ -1,5 +1,6 @@
 import { Dialog } from './Dialog.js';
 import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
+import { createDialogBracketGroup } from './utils/dialogBracketGroup.js';
 import { rowDefsThreeWindingTransformerLibrary, gridOptionsThreeWindingTransformerLibrary, columnDefsThreeWindingTransformerLibrary } from './threeWindingTransformerLibraryDialog.js';
 import { LibraryDialogManager } from './LibraryDialogManager.js';
 
@@ -314,7 +315,9 @@ export class ThreeWindingTransformerDialog extends Dialog {
                 label: 'Discrete Tap Control (discrete_tap_control)',
                 description: 'Enable pandapower DiscreteTapControl on this three-winding transformer (requires Include controller in Load Flow dialog)',
                 type: 'checkbox',
-                value: this.data.discrete_tap_control
+                value: this.data.discrete_tap_control,
+                bracketGroup: 'discreteTapControl',
+                bracketGroupTitle: 'Discrete tap control (DiscreteTapControl)'
             },
             {
                 id: 'control_side',
@@ -322,7 +325,8 @@ export class ThreeWindingTransformerDialog extends Dialog {
                 description: 'Winding whose bus voltage is kept within the deadband: hv, mv, or lv (pandapower trafo3w DiscreteTapControl)',
                 type: 'select',
                 value: this.data.control_side,
-                options: ['hv', 'mv', 'lv']
+                options: ['hv', 'mv', 'lv'],
+                bracketGroup: 'discreteTapControl'
             },
             {
                 id: 'vm_lower_pu',
@@ -331,7 +335,8 @@ export class ThreeWindingTransformerDialog extends Dialog {
                 type: 'number',
                 value: this.data.vm_lower_pu.toString(),
                 step: '0.01',
-                min: '0.9'
+                min: '0.9',
+                bracketGroup: 'discreteTapControl'
             },
             {
                 id: 'vm_upper_pu',
@@ -340,7 +345,8 @@ export class ThreeWindingTransformerDialog extends Dialog {
                 type: 'number',
                 value: this.data.vm_upper_pu.toString(),
                 step: '0.01',
-                min: '0.9'
+                min: '0.9',
+                bracketGroup: 'discreteTapControl'
             }
         ];
         
@@ -665,7 +671,18 @@ export class ThreeWindingTransformerDialog extends Dialog {
             gap: '16px'
         });
 
-        parameters.forEach(param => {
+        let bracketWrap = null;
+
+        parameters.forEach((param, paramIndex) => {
+            const prev = paramIndex > 0 ? parameters[paramIndex - 1] : null;
+            if (param.bracketGroup && (!prev || prev.bracketGroup !== param.bracketGroup)) {
+                bracketWrap = createDialogBracketGroup(param.bracketGroupTitle || '');
+                form.appendChild(bracketWrap);
+            }
+            if (!param.bracketGroup) {
+                bracketWrap = null;
+            }
+
             const parameterRow = document.createElement('div');
             Object.assign(parameterRow.style, {
                 display: 'grid',
@@ -678,6 +695,9 @@ export class ThreeWindingTransformerDialog extends Dialog {
                 borderRadius: '8px',
                 minHeight: '80px'
             });
+            if (param.bracketGroup) {
+                Object.assign(parameterRow.style, { marginBottom: '0' });
+            }
 
             // Left column: Label and description
             const leftColumn = document.createElement('div');
@@ -816,7 +836,14 @@ export class ThreeWindingTransformerDialog extends Dialog {
 
             parameterRow.appendChild(leftColumn);
             parameterRow.appendChild(rightColumn);
-            form.appendChild(parameterRow);
+
+            const appendTarget = param.bracketGroup && bracketWrap ? bracketWrap : form;
+            appendTarget.appendChild(parameterRow);
+
+            const next = parameters[paramIndex + 1];
+            if (param.bracketGroup && (!next || next.bracketGroup !== param.bracketGroup)) {
+                bracketWrap = null;
+            }
         });
 
         content.appendChild(form);
