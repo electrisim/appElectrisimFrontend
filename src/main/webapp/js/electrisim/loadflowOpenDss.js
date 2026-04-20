@@ -490,6 +490,41 @@ const getTransformerConnections = (cell, graph) => {
     };
 };
 
+/**
+ * Assign HV/MV/LV from actual bus nominal voltages (same logic as loadFlow.js
+ * updateThreeWindingTransformerConnections). Graph edge order is not always
+ * [LV,MV,HV]; without this, OpenDSS can tie e.g. 400 kV to the LV winding.
+ */
+const orderThreeWindingBusesByVoltage = (hv_bus, mv_bus, lv_bus, graph) => {
+    const busbars = [
+        { name: hv_bus, vn_kv: getBusVoltageLevel(hv_bus, graph) },
+        { name: mv_bus, vn_kv: getBusVoltageLevel(mv_bus, graph) },
+        { name: lv_bus, vn_kv: getBusVoltageLevel(lv_bus, graph) }
+    ];
+    if (busbars.length !== 3 || !busbars.every((b) => b.name)) {
+        return { hv_bus, mv_bus, lv_bus };
+    }
+    const busbarWithHighestVoltage = busbars.reduce((prev, current) =>
+        parseFloat(prev.vn_kv) > parseFloat(current.vn_kv) ? prev : current
+    );
+    const busbarWithLowestVoltage = busbars.reduce((prev, current) =>
+        parseFloat(prev.vn_kv) < parseFloat(current.vn_kv) ? prev : current
+    );
+    const busbarWithMiddleVoltage = busbars.find(
+        (element) =>
+            element.name !== busbarWithHighestVoltage.name &&
+            element.name !== busbarWithLowestVoltage.name
+    );
+    if (!busbarWithMiddleVoltage) {
+        return { hv_bus, mv_bus, lv_bus };
+    }
+    return {
+        hv_bus: busbarWithHighestVoltage.name,
+        mv_bus: busbarWithMiddleVoltage.name,
+        lv_bus: busbarWithLowestVoltage.name
+    };
+};
+
 const parseCellStyle = (style) => {
     if (!style) return null;
     const pairs = style.split(';').map(pair => pair.split('='));
@@ -2466,24 +2501,54 @@ function collectNetworkDataStructured(graph) {
                         dssWarn(`External Grid ${cellData.name} missing bus connection`);
                     }
                 } else if (styleObj && styleObj.shapeELXXX === 'Three Winding Transformer') {
-                    // Get 3 bus connections and sort by voltage (HV=highest, MV=middle, LV=lowest) for correct backend mapping
+                    // Graph edge order is not always stencil [LV,MV,HV]. Pandapower reorders with
+                    // updateThreeWindingTransformerConnections (hv = highest vn_kv, lv = lowest, mv = remaining).
                     let hv_bus, mv_bus, lv_bus;
                     try {
                         const connections = getThreeWindingConnections(cell);
-                        const busList = [
-                            { name: connections.hv_bus, v: getBusVoltageLevel(connections.hv_bus, graph) },
-                            { name: connections.mv_bus, v: getBusVoltageLevel(connections.mv_bus, graph) },
-                            { name: connections.lv_bus, v: getBusVoltageLevel(connections.lv_bus, graph) }
-                        ];
-                        busList.sort((a, b) => (b.v || 0) - (a.v || 0));
-                        hv_bus = busList[0]?.name;
-                        mv_bus = busList[1]?.name;
-                        lv_bus = busList[2]?.name;
+                        const ordered = orderThreeWindingBusesByVoltage(
+                            connections.hv_bus,
+                            connections.mv_bus,
+                            connections.lv_bus,
+                            graph
+                        );
+                        hv_bus = ordered.hv_bus;
+                        mv_bus = ordered.mv_bus;
+                        lv_bus = ordered.lv_bus;
                     } catch (e) {
                         dssWarn(`Three Winding Transformer ${cell.mxObjectId || cellId}: ${e.message}`);
                         hv_bus = mv_bus = lv_bus = null;
                     }
                     
+                    const threeWindingParams = getAttributesAsObject(cell, {
+                        sn_hv_mva: 'sn_hv_mva',
+                        sn_mv_mva: 'sn_mv_mva',
+                        sn_lv_mva: 'sn_lv_mva',
+                        vn_hv_kv: 'vn_hv_kv',
+                        vn_mv_kv: 'vn_mv_kv',
+                        vn_lv_kv: 'vn_lv_kv',
+                        vk_hv_percent: 'vk_hv_percent',
+                        vk_mv_percent: 'vk_mv_percent',
+                        vk_lv_percent: 'vk_lv_percent',
+                        vkr_hv_percent: 'vkr_hv_percent',
+                        vkr_mv_percent: 'vkr_mv_percent',
+                        vkr_lv_percent: 'vkr_lv_percent',
+                        pfe_kw: 'pfe_kw',
+                        i0_percent: 'i0_percent',
+                        vector_group: 'vector_group',
+                        shift_mv_degree: 'shift_mv_degree',
+                        shift_lv_degree: 'shift_lv_degree',
+                        tap_side: { name: 'tap_side', optional: true },
+                        tap_neutral: { name: 'tap_neutral', optional: true },
+                        tap_min: { name: 'tap_min', optional: true },
+                        tap_max: { name: 'tap_max', optional: true },
+                        tap_step_percent: { name: 'tap_step_percent', optional: true },
+                        tap_step_degree: { name: 'tap_step_degree', optional: true },
+                        tap_pos: { name: 'tap_pos', optional: true },
+                        tap_changer_type: { name: 'tap_changer_type', optional: true },
+                        in_service: { name: 'in_service', optional: true }
+                    });
+
                     cellData = {
                         typ: 'Three Winding Transformer',
                         name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
@@ -2491,27 +2556,15 @@ function collectNetworkDataStructured(graph) {
                         hv_bus,
                         mv_bus,
                         lv_bus,
-                        // Add three winding transformer parameters
-                        ...getAttributesAsObject(cell, {
-                            sn_hv_mva: 'sn_hv_mva',
-                            sn_mv_mva: 'sn_mv_mva',
-                            sn_lv_mva: 'sn_lv_mva',
-                            vn_hv_kv: 'vn_hv_kv',
-                            vn_mv_kv: 'vn_mv_kv',
-                            vn_lv_kv: 'vn_lv_kv',
-                            vk_hv_percent: 'vk_hv_percent',
-                            vk_mv_percent: 'vk_mv_percent',
-                            vk_lv_percent: 'vk_lv_percent',
-                            vkr_hv_percent: 'vkr_hv_percent',
-                            vkr_mv_percent: 'vkr_mv_percent',
-                            vkr_lv_percent: 'vkr_lv_percent',
-                            pfe_kw: 'pfe_kw',
-                            i0_percent: 'i0_percent',
-                            vector_group: 'vector_group',
-                            shift_mv_degree: 'shift_mv_degree',
-                            shift_lv_degree: 'shift_lv_degree',
-                            in_service: { name: 'in_service', optional: true }
-                        })
+                        ...threeWindingParams,
+                        tap_side: threeWindingParams.tap_side || 'hv',
+                        tap_neutral: threeWindingParams.tap_neutral !== undefined ? threeWindingParams.tap_neutral : 0,
+                        tap_min: threeWindingParams.tap_min !== undefined ? threeWindingParams.tap_min : -10,
+                        tap_max: threeWindingParams.tap_max !== undefined ? threeWindingParams.tap_max : 10,
+                        tap_step_percent: threeWindingParams.tap_step_percent !== undefined ? threeWindingParams.tap_step_percent : 1.5,
+                        tap_step_degree: threeWindingParams.tap_step_degree !== undefined ? threeWindingParams.tap_step_degree : 0.0,
+                        tap_pos: threeWindingParams.tap_pos !== undefined ? threeWindingParams.tap_pos : 0,
+                        tap_changer_type: threeWindingParams.tap_changer_type || 'Ratio'
                     };
                     
                     // Validate bus connections
