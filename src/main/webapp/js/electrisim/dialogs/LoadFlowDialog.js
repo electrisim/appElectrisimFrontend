@@ -326,6 +326,9 @@ export class LoadFlowDialog extends Dialog {
             boxSizing: 'border-box'
         });
 
+        /** Pandapower-only: wraps "Include controller" + three controller checkboxes */
+        let includeControllerGroup = null;
+
         // Create form fields from current parameters
         this.parameters.forEach((param, index) => {
             console.log(`🔥 Creating form field ${index}:`, param.id, param.label);
@@ -333,6 +336,39 @@ export class LoadFlowDialog extends Dialog {
             Object.assign(formGroup.style, {
                 marginBottom: '4px'
             });
+
+            if (param.type === 'sectionTitle' && param.id === 'include_controller_section') {
+                includeControllerGroup = document.createElement('div');
+                includeControllerGroup.setAttribute('data-include-controller-group', 'true');
+                Object.assign(includeControllerGroup.style, {
+                    boxSizing: 'border-box',
+                    border: '1px solid #dee2e6',
+                    borderLeft: '4px solid #007bff',
+                    borderRadius: '6px',
+                    padding: '12px 14px 14px',
+                    marginTop: index > 0 ? '8px' : '0',
+                    marginBottom: '4px',
+                    backgroundColor: '#f8f9fa',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px'
+                });
+
+                const heading = document.createElement('div');
+                Object.assign(heading.style, {
+                    display: 'block',
+                    margin: '0',
+                    paddingBottom: '2px',
+                    fontWeight: '600',
+                    fontSize: '13px',
+                    color: '#343a40',
+                    borderBottom: '1px solid #e9ecef'
+                });
+                heading.textContent = param.text;
+                includeControllerGroup.appendChild(heading);
+                form.appendChild(includeControllerGroup);
+                return;
+            }
 
             if (param.type === 'sectionTitle') {
                 const heading = document.createElement('div');
@@ -371,7 +407,21 @@ export class LoadFlowDialog extends Dialog {
             }
 
             formGroup.appendChild(input);
-            form.appendChild(formGroup);
+
+            const inControllerGroup =
+                includeControllerGroup &&
+                (param.id === 'run_control_trafo2w' ||
+                    param.id === 'run_control_trafo3w' ||
+                    param.id === 'run_control_shunt');
+            if (inControllerGroup) {
+                Object.assign(formGroup.style, { marginBottom: '0' });
+                includeControllerGroup.appendChild(formGroup);
+                if (param.id === 'run_control_shunt') {
+                    includeControllerGroup = null;
+                }
+            } else {
+                form.appendChild(formGroup);
+            }
         });
 
         return form;
