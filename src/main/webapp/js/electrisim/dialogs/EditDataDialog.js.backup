@@ -2826,7 +2826,8 @@ export class EditDataDialog {
                     throw new Error('Grid configuration is invalid or missing. Please check the grid options.');
                 }
                 
-                const grid = new window.agGrid.Grid(gridDiv, gridOptions);
+                void window.agGrid.createGrid(gridDiv, gridOptions);
+                // gridOptions.api is a read-only getter after createGrid; do not assign to it
                 
                 // Populate grid with cell data
                 this.populateGridData(gridOptions, rowDefs);

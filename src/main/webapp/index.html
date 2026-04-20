@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://unpkg.com" crossorigin>
     <link rel="dns-prefetch" href="https://web-sdk.smartlook.com">
     <link rel="preload" href="js/app.min.js" as="script">
-    <link rel="preload" href="js/ag-grid-community.min.js" as="script">
+    <link rel="preload" href="https://unpkg.com/ag-grid-community@31.3.2/dist/ag-grid-community.min.js" as="script">
 
     <link rel="stylesheet" type="text/css" href="mxgraph/css/common.css">
     <link rel="stylesheet" type="text/css" href="styles/resizable-dialogs.css">
@@ -125,6 +125,8 @@
     <meta name="msapplication-config" content="images/browserconfig.xml">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#48d800">
+    <!-- Early favicon avoids an extra GET /favicon.ico (often 404 on static servers) -->
+    <link rel="icon" type="image/png" href="images/logo_Electrisim_removebg-preview.png">
 
     <script type="text/javascript">
         // URL Parameters handling
@@ -236,7 +238,7 @@
 
         // Define utility scripts
         const utilScripts = [
-            { src: 'js/ag-grid-community.min.js' }
+            { src: 'https://unpkg.com/ag-grid-community@31.3.2/dist/ag-grid-community.min.js' }
         ];
 
         // Define auth and subscription scripts (ES modules)
@@ -549,7 +551,7 @@
 					// XLSX deferred - loaded on demand via requestIdleCallback (see end of loadElectrisimScripts)
 
 					// Load AG Grid library before app.min.js
-					mxscript('js/ag-grid-community.min.js', function()
+					mxscript('https://unpkg.com/ag-grid-community@31.3.2/dist/ag-grid-community.min.js', function()
 					{
                         // Load auth-globals.js BEFORE app.min.js
                     mxscript('js/electrisim/auth-globals.js', function()

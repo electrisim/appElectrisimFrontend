@@ -14,7 +14,7 @@
     
     <!-- Preload Critical Scripts -->
     <link rel="preload" href="js/app.min.js" as="script">
-    <link rel="preload" href="js/ag-grid-community.min.js" as="script">
+    <link rel="preload" href="https://unpkg.com/ag-grid-community@31.3.2/dist/ag-grid-community.min.js" as="script">
     <link rel="preload" href="mxgraph/mxClient.js" as="script">
     
     <script type="text/javascript">
@@ -391,7 +391,7 @@
 					}
 
 					// Load AG Grid library before app.min.js
-					mxscript('js/ag-grid-community.min.js', function()
+					mxscript('https://unpkg.com/ag-grid-community@31.3.2/dist/ag-grid-community.min.js', function()
 					{
                         // Load auth-globals.js BEFORE app.min.js
                     mxscript('js/electrisim/auth-globals.js', function()

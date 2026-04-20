@@ -50,15 +50,15 @@ export const gridOptionsTransformerLibrary = {
         sortable: true,
         filter: true,
         resizable: true,
-        minWidth: 80
+        minWidth: 80,
+        enableCellChangeFlash: true
     },
     rowData: rowDefsTransformerLibrary,
     singleClickEdit: false,
-    stopEditingWhenGridLosesFocus: true,
+    stopEditingWhenCellsLoseFocus: true,
     rowHeight: 35,
     headerHeight: 45,
     animateRows: true,
-    enableCellChangeFlash: true,
     
     // Row styling
     getRowStyle: (params) => {
