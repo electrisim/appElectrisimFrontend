@@ -696,7 +696,7 @@ export const gridOptionsTCSC = {
     },
     rowData: rowDefsTCSC,
     singleClickEdit: true,
-    stopEditingWhenGridLosesFocus: true
+    stopEditingWhenCellsLoseFocus: true
 };     
 
 export function negativeNumberParser(params) {

@@ -690,7 +690,7 @@ export const gridOptionsExtendedWard = {
     },
     rowData: rowDefsExtendedWard,
     singleClickEdit: true,
-    stopEditingWhenGridLosesFocus: true
+    stopEditingWhenCellsLoseFocus: true
 };     
 
 // Make all necessary variables globally available

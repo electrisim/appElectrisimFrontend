@@ -675,7 +675,7 @@ export const gridOptionsSSC = {
     },
     rowData: rowDefsSSC,
     singleClickEdit: true,
-    stopEditingWhenGridLosesFocus: true
+    stopEditingWhenCellsLoseFocus: true
 };     
 
 // Make all necessary variables globally available

@@ -1228,7 +1228,7 @@ export const gridOptionsThreeWindingTransformerBase = {
     },
     rowData: rowDefsThreeWindingTransformerBase,
     singleClickEdit: true,
-    stopEditingWhenGridLosesFocus: true, //musi być żeby przy naciśnięciu Apply zapisywała się wartość 
+    stopEditingWhenCellsLoseFocus: true, //musi być żeby przy naciśnięciu Apply zapisywała się wartość 
   };     
 
 // Make them globally available
