@@ -1469,7 +1469,7 @@ export const gridOptionsPVSystem = {
     },
     rowData: rowDefsPVSystem,
     singleClickEdit: true,
-    stopEditingWhenGridLosesFocus: true
+    stopEditingWhenCellsLoseFocus: true
 };
 
 // Make all necessary variables globally available

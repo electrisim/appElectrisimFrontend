@@ -1,6 +1,6 @@
 /**
  * MapEditor - Embedded map for placing nodes and drawing cables with automatic distance calculation
- * Uses Leaflet with OpenStreetMap
+ * Uses Leaflet; raster tiles from Carto CDN (OSM data, reliable global delivery)
  */
 
 import { haversineDistanceKm, polylineLengthKm, generateMapId, placeTurbinesInPolygon, computeOffshoreCableRouting } from './mapUtils.js';
@@ -177,8 +177,11 @@ export class MapEditor {
             this.options.defaultZoom
         );
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        // Carto basemaps (OSM-derived, Fastly CDN) — fewer failed tiles than tile.openstreetmap.org under load / recording tools
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+            subdomains: 'abcd',
+            maxZoom: 20
         }).addTo(this.map);
 
         // Measure control for distance

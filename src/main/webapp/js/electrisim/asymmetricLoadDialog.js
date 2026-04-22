@@ -737,7 +737,7 @@ export const gridOptionsAsymmetricLoad = {
     },
     rowData: rowDefsAsymmetricLoad,
     singleClickEdit: true,
-    stopEditingWhenGridLosesFocus: true
+    stopEditingWhenCellsLoseFocus: true
 };     
 
 // Make all necessary variables globally available

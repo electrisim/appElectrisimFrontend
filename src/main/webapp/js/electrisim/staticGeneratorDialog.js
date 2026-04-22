@@ -1646,7 +1646,7 @@ export const gridOptionsStaticGenerator = {
     },
     rowData: rowDefsStaticGenerator,
     singleClickEdit: true,
-    stopEditingWhenGridLosesFocus: true
+    stopEditingWhenCellsLoseFocus: true
 };     
 
 // Make all necessary variables globally available

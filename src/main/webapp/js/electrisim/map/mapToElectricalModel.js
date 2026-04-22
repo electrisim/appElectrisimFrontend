@@ -6,6 +6,11 @@
 import { NODE_TYPES } from './MapEditor.js';
 import { OFFSHORE_66KV_AL_CABLES } from '../lineLibraryDialog.js';
 import { ELECTRICAL_SYMBOLS } from '../electricalSymbols.js';
+
+function symWh(symbolKey) {
+    const o = ELECTRICAL_SYMBOLS[symbolKey];
+    return [o.w, o.h];
+}
 import {
     configureBusAttributes,
     configureExternalGridAttributes,
@@ -34,7 +39,7 @@ import {
 
 // ── Styles using electrical_symbols.svg from website ────────────────────────
 
-const IMG_BASE = 'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;imageAspect=0;';
+const IMG_BASE = 'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;';
 
 const BUS_STYLE    = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-bus'].url + ';shapeELXXX=Bus';
 const DC_BUS_STYLE = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-dc-bus'].url + ';shapeELXXX=DC Bus';
@@ -451,7 +456,7 @@ export function mapToElectricalModel(graph, mapData, point = { x: 100, y: 100 })
 
                     // Static gen above LV bus, rotated 180° so output faces down
                     const pMw = String(node.p_mw || 15);
-                    const sgenW = 45, sgenH = 45;
+                    const [sgenW, sgenH] = symWh('sym-static-gen');
                     const sgenX = centerX - sgenW / 2;
                     const sgenY = lvBusY - 70 - sgenH;
                     const sgenStyle = STATIC_GEN_STYLE + ';rotation=180';
@@ -460,7 +465,7 @@ export function mapToElectricalModel(graph, mapData, point = { x: 100, y: 100 })
                     graph.insertEdge(parent, null, '', staticGen, lvBus, WT_EDGE_UP);
 
                     // Transformer rotated 180° so LV winding at top, HV winding at bottom
-                    const trafoW = 40, trafoH = 60;
+                    const [trafoW, trafoH] = symWh('sym-transformer');
                     const trafoX = centerX - trafoW / 2;
                     const trafoY = lvBusY + BUS_H + (by - lvBusY - BUS_H - trafoH) / 2;
                     const trafoStyleRotated = TRANSFORMER_STYLE + 'rotation=180;';
@@ -478,20 +483,20 @@ export function mapToElectricalModel(graph, mapData, point = { x: 100, y: 100 })
 
                 // ── Sources (above bus) ──
                 case NODE_TYPES.ONSHORE_GRID:
-                    insertComp(EXTERNAL_GRID_STYLE, 70, 58, configureExternalGridAttributes, { vm_pu: '1', va_degree: '0' });
+                    insertComp(EXTERNAL_GRID_STYLE, ...symWh('sym-ext-grid'), configureExternalGridAttributes, { vm_pu: '1', va_degree: '0' });
                     break;
                 case NODE_TYPES.WIND_TURBINE:
-                    insertComp(GENERATOR_STYLE, 45, 45, configureGeneratorAttributes, {
+                    insertComp(GENERATOR_STYLE, ...symWh('sym-generator'), configureGeneratorAttributes, {
                         p_mw: String(node.p_mw || 15), vm_pu: '1', sn_mva: String((node.p_mw || 15) * 1.2)
                     });
                     break;
                 case NODE_TYPES.STATIC_GENERATOR:
-                    insertComp(STATIC_GEN_STYLE, 45, 45, configureStaticGeneratorAttributes, {
+                    insertComp(STATIC_GEN_STYLE, ...symWh('sym-static-gen'), configureStaticGeneratorAttributes, {
                         p_mw: String(node.p_mw || 0), q_mvar: '0', sn_mva: '0'
                     });
                     break;
                 case NODE_TYPES.SOURCE_DC:
-                    insertComp(SOURCE_DC_STYLE, 20, 20, configureSourceDcAttributes, { vm_pu: '1.0' });
+                    insertComp(SOURCE_DC_STYLE, ...symWh('sym-source-dc'), configureSourceDcAttributes, { vm_pu: '1.0' });
                     break;
 
                 // ── Offshore Substation: 275 kV bus (top) + Transformer (66/275 kV) + 66 kV bus (bottom) ──
@@ -500,7 +505,7 @@ export function mapToElectricalModel(graph, mapData, point = { x: 100, y: 100 })
                     const centerX = bx + bw / 2;
 
                     // Transformer 66/275 kV below 275 kV bus
-                    const trafoW = 40, trafoH = 60;
+                    const [trafoW, trafoH] = symWh('sym-transformer');
                     const trafoX = centerX - trafoW / 2;
                     const trafoY = by + BUS_H + COMP_GAP;
                     const trafo = graph.insertVertex(parent, null, '', trafoX, trafoY, trafoW, trafoH, TRANSFORMER_STYLE);
@@ -529,75 +534,75 @@ export function mapToElectricalModel(graph, mapData, point = { x: 100, y: 100 })
 
                 // ── Transformers (below bus) ──
                 case NODE_TYPES.TRANSFORMER_3W:
-                    insertComp(TRANSFORMER_3W_STYLE, 67, 96, configureThreeWindingTransformerAttributes);
+                    insertComp(TRANSFORMER_3W_STYLE, ...symWh('sym-3w-transformer'), configureThreeWindingTransformerAttributes);
                     break;
 
                 // ── Compensation (below bus) ──
                 case NODE_TYPES.SHUNT_REACTOR:
-                    insertComp(SHUNT_REACTOR_STYLE, 30, 60, configureShuntReactorAttributes, { q_mvar: String(node.q_mvar || 0), vn_kv: vn });
+                    insertComp(SHUNT_REACTOR_STYLE, ...symWh('sym-shunt'), configureShuntReactorAttributes, { q_mvar: String(node.q_mvar || 0), vn_kv: vn });
                     break;
                 case NODE_TYPES.CAPACITOR:
-                    insertComp(CAPACITOR_STYLE, 50, 80, configureCapacitorAttributes, { q_mvar: String(node.q_mvar || 0), vn_kv: vn });
+                    insertComp(CAPACITOR_STYLE, ...symWh('sym-capacitor'), configureCapacitorAttributes, { q_mvar: String(node.q_mvar || 0), vn_kv: vn });
                     break;
                 case NODE_TYPES.GROUND:
-                    insertComp(GROUND_STYLE, 30, 20, null);
+                    insertComp(GROUND_STYLE, ...symWh('sym-load'), null);
                     break;
 
                 // ── Load / Impedance / Ward (below bus) ──
                 case NODE_TYPES.LOAD:
-                    insertComp(LOAD_STYLE, 30, 20, configureLoadAttributes, { p_mw: String(node.p_mw || 0), q_mvar: '0', sn_mva: '0' });
+                    insertComp(LOAD_STYLE, ...symWh('sym-load'), configureLoadAttributes, { p_mw: String(node.p_mw || 0), q_mvar: '0', sn_mva: '0' });
                     break;
                 case NODE_TYPES.LOAD_ASYMMETRIC:
-                    insertComp(ALOAD_STYLE, 20, 20, configureAsymmetricLoadAttributes);
+                    insertComp(ALOAD_STYLE, ...symWh('sym-asym-load'), configureAsymmetricLoadAttributes);
                     break;
                 case NODE_TYPES.IMPEDANCE:
-                    insertComp(IMPEDANCE_STYLE, 20, 20, configureImpedanceAttributes);
+                    insertComp(IMPEDANCE_STYLE, ...symWh('sym-impedance'), configureImpedanceAttributes);
                     break;
                 case NODE_TYPES.WARD:
-                    insertComp(WARD_STYLE, 20, 20, configureWardAttributes);
+                    insertComp(WARD_STYLE, ...symWh('sym-ward'), configureWardAttributes);
                     break;
                 case NODE_TYPES.EXTENDED_WARD:
-                    insertComp(EXWARD_STYLE, 20, 20, configureExtendedWardAttributes);
+                    insertComp(EXWARD_STYLE, ...symWh('sym-ext-ward'), configureExtendedWardAttributes);
                     break;
 
                 // ── Rotating (below bus) ──
                 case NODE_TYPES.MOTOR:
-                    insertComp(MOTOR_STYLE, 45, 45, configureMotorAttributes, { pn_mech_mw: String(node.p_mw || 0), vn_kv: vn });
+                    insertComp(MOTOR_STYLE, ...symWh('sym-motor'), configureMotorAttributes, { pn_mech_mw: String(node.p_mw || 0), vn_kv: vn });
                     break;
 
                 // ── Storage (below bus) ──
                 case NODE_TYPES.STORAGE:
-                    insertComp(STORAGE_STYLE, 60, 30, configureStorageAttributes, { p_mw: String(node.p_mw || 0) });
+                    insertComp(STORAGE_STYLE, ...symWh('sym-storage'), configureStorageAttributes, { p_mw: String(node.p_mw || 0) });
                     break;
 
                 // ── Pandapower-only (below bus) ──
                 case NODE_TYPES.SVC:
-                    insertComp(SVC_STYLE, 20, 20, configureSVCAttributes);
+                    insertComp(SVC_STYLE, ...symWh('sym-svc'), configureSVCAttributes);
                     break;
                 case NODE_TYPES.SSC:
-                    insertComp(SSC_STYLE, 20, 20, configureSSCAttributes);
+                    insertComp(SSC_STYLE, ...symWh('sym-ssc'), configureSSCAttributes);
                     break;
                 case NODE_TYPES.TCSC:
-                    insertComp(TCSC_STYLE, 20, 20, null);
+                    insertComp(TCSC_STYLE, ...symWh('sym-tcsc'), null);
                     break;
                 case NODE_TYPES.SWITCH:
-                    insertComp(SWITCH_STYLE, 20, 20, null);
+                    insertComp(SWITCH_STYLE, ...symWh('sym-switch'), null);
                     break;
                 case NODE_TYPES.DC_LINE:
                     break;
                 case NODE_TYPES.LOAD_DC:
-                    insertComp(LOAD_DC_STYLE, 20, 20, configureLoadDcAttributes, { p_mw: String(node.p_mw || 0) });
+                    insertComp(LOAD_DC_STYLE, ...symWh('sym-load-dc'), configureLoadDcAttributes, { p_mw: String(node.p_mw || 0) });
                     break;
                 case NODE_TYPES.VSC:
-                    insertComp(VSC_STYLE, 20, 20, configureVscAttributes);
+                    insertComp(VSC_STYLE, ...symWh('sym-vsc'), configureVscAttributes);
                     break;
                 case NODE_TYPES.B2B_VSC:
-                    insertComp(B2B_VSC_STYLE, 20, 20, configureB2bVscAttributes);
+                    insertComp(B2B_VSC_STYLE, ...symWh('sym-b2b-vsc'), configureB2bVscAttributes);
                     break;
 
                 // ── OpenDSS (below bus) ──
                 case NODE_TYPES.PVSYSTEM:
-                    insertComp(PVSYSTEM_STYLE, 20, 20, null);
+                    insertComp(PVSYSTEM_STYLE, ...symWh('sym-pv'), null);
                     break;
 
                 // ── Bus-only types ──

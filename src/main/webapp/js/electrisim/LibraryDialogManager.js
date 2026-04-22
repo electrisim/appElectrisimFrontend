@@ -159,6 +159,8 @@ export class LibraryDialogManager {
 
         // Initialize AG-Grid with improved options
         if (window.agGrid && rowDefs && columnDefs) {
+            // AG Grid v31 sets gridOptions.api as read-only; use a ref for callbacks
+            let gridApiRef = null;
             const enhancedGridOptions = {
                 ...gridOptions,
                 rowData: rowDefs,
@@ -167,8 +169,11 @@ export class LibraryDialogManager {
                 rowHeight: 40,
                 headerHeight: 50,
                 animateRows: true,
-                enableCellChangeFlash: true,
                 suppressRowClickSelection: false,
+                defaultColDef: {
+                    ...(gridOptions.defaultColDef || {}),
+                    enableCellChangeFlash: true
+                },
                 
                 // Enhanced styling
                 getRowStyle: (params) => {
@@ -182,23 +187,10 @@ export class LibraryDialogManager {
                     return null;
                 },
                 
-                // Row hover effect
-                onRowMouseOver: (event) => {
-                    if (!event.node.isSelected()) {
-                        event.node.setRowHeight(42);
-                        event.api.onRowHeightChanged();
-                    }
-                },
-                
-                onRowMouseLeave: (event) => {
-                    if (!event.node.isSelected()) {
-                        event.node.setRowHeight(40);
-                        event.api.onRowHeightChanged();
-                    }
-                },
-                
                 onSelectionChanged: () => {
-                    const selectedRows = enhancedGridOptions.api.getSelectedRows();
+                    const api = gridApiRef;
+                    if (!api) return;
+                    const selectedRows = api.getSelectedRows();
                     const hasSelection = selectedRows.length > 0;
                     
                     // Update footer buttons
@@ -252,16 +244,16 @@ export class LibraryDialogManager {
                 }
             };
 
-            // Create grid
-            const grid = new window.agGrid.Grid(gridContainer, enhancedGridOptions);
-            gridContainer._agGridInstance = grid;
-            this.currentGrid = grid;
+            const gridApi = window.agGrid.createGrid(gridContainer, enhancedGridOptions);
+            gridApiRef = gridApi;
+            gridContainer._agGridApi = gridApi;
+            this.currentGrid = { gridOptions: enhancedGridOptions, api: gridApi };
         }
 
         // Button event handlers
         selectButton.onclick = (e) => {
             e.preventDefault();
-            const selectedRows = this.currentGrid.gridOptions.api.getSelectedRows();
+            const selectedRows = this.currentGrid.api.getSelectedRows();
             if (selectedRows.length > 0 && onSelect) {
                 onSelect(selectedRows[0]);
             }
@@ -282,7 +274,7 @@ export class LibraryDialogManager {
 
         editButton.onclick = (e) => {
             e.preventDefault();
-            const selectedRows = this.currentGrid.gridOptions.api.getSelectedRows();
+            const selectedRows = this.currentGrid.api.getSelectedRows();
             if (selectedRows.length > 0) {
                 this.handleEdit(selectedRows[0]);
             }
@@ -290,7 +282,7 @@ export class LibraryDialogManager {
 
         deleteButton.onclick = (e) => {
             e.preventDefault();
-            const selectedRows = this.currentGrid.gridOptions.api.getSelectedRows();
+            const selectedRows = this.currentGrid.api.getSelectedRows();
             if (selectedRows.length > 0) {
                 this.handleDelete(selectedRows[0]);
             }
@@ -373,17 +365,17 @@ export class LibraryDialogManager {
 
     handleAdd() {
         // Create a new empty row for editing
-        if (this.currentGrid && this.currentGrid.gridOptions.api) {
+        if (this.currentGrid && this.currentGrid.api) {
             const newRow = { name: "New Item", /* other default values */ };
-            this.currentGrid.gridOptions.api.applyTransaction({ add: [newRow] });
+            this.currentGrid.api.applyTransaction({ add: [newRow] });
             
             // Select the new row and start editing
-            const rowNode = this.currentGrid.gridOptions.api.getDisplayedRowAtIndex(
-                this.currentGrid.gridOptions.api.getDisplayedRowCount() - 1
+            const rowNode = this.currentGrid.api.getDisplayedRowAtIndex(
+                this.currentGrid.api.getDisplayedRowCount() - 1
             );
             if (rowNode) {
                 rowNode.setSelected(true);
-                this.currentGrid.gridOptions.api.startEditingCell({
+                this.currentGrid.api.startEditingCell({
                     rowIndex: rowNode.rowIndex,
                     colKey: 'name'
                 });
@@ -393,10 +385,10 @@ export class LibraryDialogManager {
 
     handleEdit(selectedItem) {
         // Start editing the selected row
-        if (this.currentGrid && this.currentGrid.gridOptions.api) {
-            const rowNode = this.currentGrid.gridOptions.api.getSelectedNodes()[0];
+        if (this.currentGrid && this.currentGrid.api) {
+            const rowNode = this.currentGrid.api.getSelectedNodes()[0];
             if (rowNode) {
-                this.currentGrid.gridOptions.api.startEditingCell({
+                this.currentGrid.api.startEditingCell({
                     rowIndex: rowNode.rowIndex,
                     colKey: 'name'
                 });
@@ -407,10 +399,10 @@ export class LibraryDialogManager {
     handleDelete(selectedItem) {
         // Show confirmation dialog
         const confirmed = confirm(`Are you sure you want to delete "${selectedItem.name}"?`);
-        if (confirmed && this.currentGrid && this.currentGrid.gridOptions.api) {
-            const selectedNodes = this.currentGrid.gridOptions.api.getSelectedNodes();
+        if (confirmed && this.currentGrid && this.currentGrid.api) {
+            const selectedNodes = this.currentGrid.api.getSelectedNodes();
             if (selectedNodes.length > 0) {
-                this.currentGrid.gridOptions.api.applyTransaction({ 
+                this.currentGrid.api.applyTransaction({ 
                     remove: [selectedNodes[0].data] 
                 });
                 
@@ -426,8 +418,8 @@ export class LibraryDialogManager {
     }
 
     destroy() {
-        if (this.currentGrid) {
-            this.currentGrid.destroy();
+        if (this.currentGrid && this.currentGrid.api) {
+            this.currentGrid.api.destroy();
             this.currentGrid = null;
         }
         this.currentDialog = null;

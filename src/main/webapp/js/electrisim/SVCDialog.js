@@ -696,7 +696,7 @@ export const gridOptionsSVC = {
     },
     rowData: rowDefsSVC,
     singleClickEdit: true,
-    stopEditingWhenGridLosesFocus: true
+    stopEditingWhenCellsLoseFocus: true
 };     
 
 export function negativeNumberParser(params) {

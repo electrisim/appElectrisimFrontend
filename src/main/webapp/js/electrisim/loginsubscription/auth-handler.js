@@ -264,7 +264,7 @@ function createLoginForm(container) {
         </p>
         <div class="divider">or</div>
         <button type="button" class="google-btn">
-            <img src="https://www.google.com/favicon.ico" alt="Google" />
+            <img src="images/google-g-logo.svg" alt="Google" />
             Sign in with Google
         </button>
         <button type="button" class="linkedin-btn">
@@ -421,7 +421,7 @@ function createRegisterForm(container) {
         <button type="submit">Register</button>
         <div class="divider">or</div>
         <button type="button" class="google-btn">
-            <img src="https://www.google.com/favicon.ico" alt="Google" />
+            <img src="images/google-g-logo.svg" alt="Google" />
             Sign up with Google
         </button>
         <button type="button" class="linkedin-btn">

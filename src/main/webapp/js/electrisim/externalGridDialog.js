@@ -714,7 +714,7 @@ export const gridOptionsExternalGrid = {
     defaultColDef: { minWidth: 100, editable: true },
     rowData: rowDefsExternalGrid,
     singleClickEdit: true,
-    stopEditingWhenGridLosesFocus: true
+    stopEditingWhenCellsLoseFocus: true
 };     
 
 // Make all necessary variables globally available

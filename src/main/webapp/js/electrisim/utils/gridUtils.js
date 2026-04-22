@@ -77,14 +77,34 @@ export const getTransformerConnections = (cell) => {
 };
 
 // Get three winding transformer connections
+// Stencil / graph: cell.edges order is [LV, MV, HV] (see abstract.xml, Graph.js).
 export const getThreeWindingConnections = (cell) => {
-    const hvEdge = cell.edges[0];
-    const mvEdge = cell.edges[1];
-    const lvEdge = cell.edges[2];
-
-    const getConnectedBus = (edge) =>
-        (edge.target.mxObjectId !== cell.mxObjectId ?
-            edge.target.mxObjectId : edge.source.mxObjectId).replace('#', '_');
+    if (!cell.edges || cell.edges.length < 3) {
+        throw new Error(
+            `Three Winding Transformer "${cell.id}" must be connected to exactly 3 buses (HV, MV, and LV). ` +
+            `Found ${cell.edges ? cell.edges.length : 0} connection(s).`
+        );
+    }
+    const [lvEdge, mvEdge, hvEdge] = cell.edges;
+    const getConnectedBus = (edge) => {
+        if (!edge) {
+            throw new Error(`Three Winding Transformer "${cell.id}" has an undefined edge connection.`);
+        }
+        const target = edge.target;
+        const source = edge.source;
+        if (!target && !source) {
+            throw new Error(
+                `Three Winding Transformer "${cell.id}" has an edge that is not connected on either side.`
+            );
+        }
+        const connectedCell = (target && target.mxObjectId !== cell.mxObjectId) ? target : source;
+        if (!connectedCell || !connectedCell.mxObjectId) {
+            throw new Error(
+                `Three Winding Transformer "${cell.id}" has an edge not properly connected to a bus.`
+            );
+        }
+        return connectedCell.mxObjectId.replace('#', '_');
+    };
 
     return {
         hv_bus: getConnectedBus(hvEdge),

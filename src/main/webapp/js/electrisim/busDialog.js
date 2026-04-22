@@ -653,7 +653,7 @@ export const gridOptionsBus = {
     },
     rowData: rowDefsBus,
     singleClickEdit: true,
-    stopEditingWhenGridLosesFocus: true,
+    stopEditingWhenCellsLoseFocus: true,
 };
 
 // Make them globally available for backward compatibility
