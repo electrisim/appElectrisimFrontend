@@ -259,10 +259,11 @@ export class MeasurementDialog extends Dialog {
         });
 
         parameters.forEach(param => {
+            const isNameField = param.id === 'name';
             const parameterRow = document.createElement('div');
             Object.assign(parameterRow.style, {
                 display: 'grid',
-                gridTemplateColumns: '1fr 200px',
+                gridTemplateColumns: isNameField ? 'minmax(0, 1fr) minmax(300px, 1.2fr)' : '1fr 200px',
                 gap: '20px',
                 alignItems: 'start',
                 padding: '16px',
@@ -317,7 +318,8 @@ export class MeasurementDialog extends Dialog {
                 alignItems: 'center',
                 justifyContent: 'flex-end',
                 minHeight: '60px',
-                width: '200px'
+                width: isNameField ? '100%' : '200px',
+                ...(isNameField ? { minWidth: '0' } : {})
             });
             
             let input;
@@ -338,7 +340,8 @@ export class MeasurementDialog extends Dialog {
                 input.type = param.type;
                 input.value = param.value;
                 Object.assign(input.style, {
-                    width: '180px',
+                    width: isNameField ? '100%' : '180px',
+                    ...(isNameField ? { minWidth: '0' } : {}),
                     padding: '10px 14px',
                     border: '2px solid #ced4da',
                     borderRadius: '6px',

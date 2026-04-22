@@ -740,9 +740,10 @@ export class StaticGeneratorDialog extends Dialog {
             const parameterRow = document.createElement('div');
             const isTextarea = param.type === 'textarea';
             const isTriHarm = param.type === 'harmonicSpectrumTriState';
+            const isNameField = param.id === 'name';
             Object.assign(parameterRow.style, {
                 display: 'grid',
-                gridTemplateColumns: isTextarea ? '1fr' : (isTriHarm ? '1fr minmax(300px, 1.25fr)' : '1fr 200px'),
+                gridTemplateColumns: isTextarea ? '1fr' : (isTriHarm ? '1fr minmax(300px, 1.25fr)' : (isNameField ? 'minmax(0, 1fr) minmax(300px, 1.2fr)' : '1fr 200px')),
                 gap: '20px',
                 alignItems: 'start',
                 padding: '16px',
@@ -807,7 +808,8 @@ export class StaticGeneratorDialog extends Dialog {
                     alignItems: isTextarea ? 'stretch' : 'center',
                     justifyContent: isTextarea ? 'stretch' : 'flex-end',
                     minHeight: '60px',
-                    width: isTextarea ? '100%' : '200px'
+                    width: isTextarea ? '100%' : (isNameField ? '100%' : '200px'),
+                    ...((!isTextarea && isNameField) ? { minWidth: '0' } : {})
                 });
             }
             
@@ -855,7 +857,8 @@ export class StaticGeneratorDialog extends Dialog {
                     input.appendChild(optionElement);
                 });
                 Object.assign(input.style, {
-                    width: '180px',
+                    width: isNameField ? '100%' : '180px',
+                    ...(isNameField ? { minWidth: '0' } : {}),
                     padding: '10px 14px',
                     border: '2px solid #ced4da',
                     borderRadius: '6px',
@@ -888,7 +891,8 @@ export class StaticGeneratorDialog extends Dialog {
                 input.type = param.type;
                 input.value = param.value;
                 Object.assign(input.style, {
-                    width: '180px',
+                    width: isNameField ? '100%' : '180px',
+                    ...(isNameField ? { minWidth: '0' } : {}),
                     padding: '10px 14px',
                     border: '2px solid #ced4da',
                     borderRadius: '6px',
