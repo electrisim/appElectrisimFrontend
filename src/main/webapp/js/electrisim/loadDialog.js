@@ -257,7 +257,7 @@ export class LoadDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure Load Parameters</strong><br>Set parameters for electrical load with power values and load characteristics. See the <a href="https://electrisim.com/documentation#load" target="_blank">Electrisim documentation</a>.';
+        return '<strong>Configure Load Parameters</strong><br>Set parameters for electrical load with power values and load characteristics. See the <a href="https://electrisim.com/documentation.html#load" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
     
     show(callback) {

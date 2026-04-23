@@ -60,7 +60,7 @@ export class SourceDcDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure Source DC Parameters</strong><br>Set parameters for DC source (similar to External Grid but for DC networks). See the <a href="https://pandapower.readthedocs.io/en/latest/elements/source_dc.html" target="_blank">Pandapower documentation</a>.';
+        return '<strong>Configure Source DC Parameters</strong><br>Set parameters for DC source (similar to External Grid but for DC networks). See the <a href="https://electrisim.com/documentation.html#source-dc" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
     
     show(callback) {

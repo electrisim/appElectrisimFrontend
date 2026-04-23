@@ -29,6 +29,11 @@
             title.style.cssText = 'margin: 0 0 20px 0; color: #333;';
             dialog.appendChild(title);
 
+            const blurb = document.createElement('div');
+            blurb.style.cssText = 'margin: -12px 0 16px 0; padding: 8px 10px; background: #e3f2fd; border: 1px solid #bbdefb; border-radius: 4px; font-size: 12px; color: #1565c0;';
+            blurb.innerHTML = 'Run sequential load flows with time-varying load and generation profiles. See the <a href="https://electrisim.com/documentation.html#time-series-simulation" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
+            dialog.appendChild(blurb);
+
             // Form
             const form = document.createElement('form');
             form.style.cssText = 'display: flex; flex-direction: column; gap: 16px;';

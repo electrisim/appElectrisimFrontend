@@ -603,7 +603,7 @@ export class PVSystemDialog extends Dialog {
     }
 
     getDescription() {
-        return '<strong>Configure PVSystem Parameters</strong><br>Set comprehensive parameters for photovoltaic system with inverter control and power management capabilities organized into tabs for different analysis types. See the <a href="https://electrisim.com/documentation#pvsystem" target="_blank">Electrisim documentation</a>.';
+        return '<strong>Configure PVSystem Parameters</strong><br>Set comprehensive parameters for photovoltaic system with inverter control and power management capabilities organized into tabs for different analysis types. See the <a href="https://electrisim.com/documentation.html#pvsystem" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
 
     show(callback) {

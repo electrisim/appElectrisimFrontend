@@ -101,7 +101,7 @@ export class CapacitorDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure Capacitor Parameters</strong><br>Set parameters for shunt capacitor bank. See the <a href="https://electrisim.com/documentation#shunt" target="_blank">Electrisim documentation</a>.';
+        return '<strong>Configure Capacitor Parameters</strong><br>Set parameters for shunt capacitor bank. See the <a href="https://electrisim.com/documentation.html#shunt" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
     
     show(callback) {

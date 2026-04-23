@@ -410,7 +410,7 @@ export class StaticGeneratorDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure Static Generator Parameters</strong><br>Set parameters for static generator with power flow and short-circuit capabilities. See the <a href="https://electrisim.com/documentation#static-generator" target="_blank">Electrisim documentation</a>.';
+        return '<strong>Configure Static Generator Parameters</strong><br>Set parameters for static generator with power flow and short-circuit capabilities. See the <a href="https://electrisim.com/documentation.html#static-generator" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
     
     show(callback) {

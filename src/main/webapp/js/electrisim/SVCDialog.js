@@ -122,7 +122,7 @@ export class SVCDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure SVC Parameters</strong><br>Set parameters for Static Var Compensator with thyristor-controlled reactive power compensation. See the <a href="https://electrisim.com/documentation#static-var-compensator-svc" target="_blank">Electrisim documentation</a>.';
+        return '<strong>Configure SVC Parameters</strong><br>Set parameters for Static Var Compensator with thyristor-controlled reactive power compensation. See the <a href="https://electrisim.com/documentation.html#svc" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
     
     show(callback) {

@@ -133,7 +133,7 @@ export class AsymmetricStaticGeneratorDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure Asymmetric Static Generator Parameters</strong><br>Set parameters for three-phase asymmetric static generator with individual phase power values. See the <a href="https://electrisim.com/documentation#asymmetric-static-generator" target="_blank">Electrisim documentation</a>.';
+        return '<strong>Configure Asymmetric Static Generator Parameters</strong><br>Set parameters for three-phase asymmetric static generator with individual phase power values. See the <a href="https://electrisim.com/documentation.html#asymmetric-static-generator" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
     
     show(callback) {

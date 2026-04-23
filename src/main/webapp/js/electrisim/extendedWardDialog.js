@@ -115,7 +115,7 @@ export class ExtendedWardDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure Extended Ward Parameters</strong><br>Set parameters for extended ward equivalent with PQ load, impedance load, and voltage source. See the <a href="https://electrisim.com/documentation#extended-ward" target="_blank">Electrisim documentation</a>.';
+        return '<strong>Configure Extended Ward Parameters</strong><br>Set parameters for extended ward equivalent with PQ load, impedance load, and voltage source. See the <a href="https://electrisim.com/documentation.html#extended-ward" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
     
     show(callback) {

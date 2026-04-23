@@ -100,7 +100,7 @@ export class BusDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure Bus Parameters</strong><br>Set parameters for network bus/node. See the <a href="https://electrisim.com/documentation#bus" target="_blank">Electrisim documentation</a>.';
+        return '<strong>Configure Bus Parameters</strong><br>Set parameters for network bus/node. See the <a href="https://electrisim.com/documentation.html#bus" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
     
     show(callback) {

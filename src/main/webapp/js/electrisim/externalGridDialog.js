@@ -209,7 +209,7 @@ export class ExternalGridDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure External Grid Parameters</strong><br>Set parameters for Load Flow, Short Circuit, and Optimal Power Flow calculations. See the <a href="https://electrisim.com/documentation#external-grid" target="_blank">Electrisim documentation</a>.';
+        return '<strong>Configure External Grid Parameters</strong><br>Set parameters for Load Flow, Short Circuit, and Optimal Power Flow calculations. See the <a href="https://electrisim.com/documentation.html#external-grid" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
     
     show(callback) {

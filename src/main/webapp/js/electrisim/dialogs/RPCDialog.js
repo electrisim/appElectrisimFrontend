@@ -303,7 +303,8 @@ export class RPCDialog extends Dialog {
             'Sweeps active power of the power plant and determines the reactive power capability envelope at the PCC bus across multiple voltage levels. ' +
             'Optionally compares against grid code requirements. ' +
             'To use manufacturer-style limits per unit, enable <em>Use Q capability curve</em> on each static generator and pick <strong>From static generator P–Q curve</strong> below. ' +
-            'Use <strong>Include controller</strong> to run each power flow with pandapower DiscreteTapControl (transformers) and DiscreteShuntController (shunt reactors) where enabled in the diagram.';
+            'Use <strong>Include controller</strong> to run each power flow with pandapower DiscreteTapControl (transformers) and DiscreteShuntController (shunt reactors) where enabled in the diagram. ' +
+            'See the <a href="https://electrisim.com/documentation.html#reactive-power-capability" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
 
     populateOptions() {

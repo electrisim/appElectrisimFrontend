@@ -137,7 +137,7 @@ export class AsymmetricLoadDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure Asymmetric Load Parameters</strong><br>Set parameters for three-phase asymmetric load with individual phase power values. See the <a href="https://electrisim.com/documentation#asymmetric-load" target="_blank">Electrisim documentation</a>.';
+        return '<strong>Configure Asymmetric Load Parameters</strong><br>Set parameters for three-phase asymmetric load with individual phase power values. See the <a href="https://electrisim.com/documentation.html#asymmetric-load" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
     
     show(callback) {

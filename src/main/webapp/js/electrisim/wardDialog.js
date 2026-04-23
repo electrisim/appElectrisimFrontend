@@ -83,7 +83,7 @@ export class WardDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure Ward Parameters</strong><br>Set parameters for ward equivalent with PQ load and impedance load components. See the <a href="https://electrisim.com/documentation#ward" target="_blank">Electrisim documentation</a>.';
+        return '<strong>Configure Ward Parameters</strong><br>Set parameters for ward equivalent with PQ load and impedance load components. See the <a href="https://electrisim.com/documentation.html#ward" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
     
     show(callback) {

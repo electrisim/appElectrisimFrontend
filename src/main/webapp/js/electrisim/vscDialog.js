@@ -126,7 +126,7 @@ export class VscDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure VSC Parameters</strong><br>Set parameters for Voltage Source Converter connecting AC and DC systems. See the <a href="https://pandapower.readthedocs.io/en/latest/elements/vsc.html" target="_blank">Pandapower documentation</a>.';
+        return '<strong>Configure VSC Parameters</strong><br>Set parameters for Voltage Source Converter connecting AC and DC systems. See the <a href="https://electrisim.com/documentation.html#vsc" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
     
     show(callback) {

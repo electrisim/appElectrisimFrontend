@@ -68,7 +68,7 @@ export class MeasurementDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure Measurement Parameters</strong><br>Set parameters for measurement elements used in state estimation. See the <a href="https://pandapower.readthedocs.io/en/latest/elements/measurement.html" target="_blank">Pandapower documentation</a>.';
+        return '<strong>Configure Measurement Parameters</strong><br>Set parameters for measurement elements used in state estimation. See the <a href="https://electrisim.com/documentation.html#datastructure" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
     
     show(callback) {

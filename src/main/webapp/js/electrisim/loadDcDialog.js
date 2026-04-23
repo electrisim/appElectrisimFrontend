@@ -60,7 +60,7 @@ export class LoadDcDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure Load DC Parameters</strong><br>Set parameters for DC load. See the <a href="https://pandapower.readthedocs.io/en/latest/elements/load_dc.html" target="_blank">Pandapower documentation</a>.';
+        return '<strong>Configure Load DC Parameters</strong><br>Set parameters for DC load. See the <a href="https://electrisim.com/documentation.html#load-dc" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
     
     show(callback) {

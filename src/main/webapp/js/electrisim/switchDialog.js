@@ -96,7 +96,7 @@ export class SwitchDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure Switch Parameters</strong><br>Set parameters for switch elements that can connect/disconnect lines or transformers. See the <a href="https://pandapower.readthedocs.io/en/latest/elements/switch.html" target="_blank">Pandapower documentation</a>.';
+        return '<strong>Configure Switch Parameters</strong><br>Set parameters for switch elements that can connect/disconnect lines or transformers. See the <a href="https://electrisim.com/documentation.html#switch" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
     
     show(callback) {

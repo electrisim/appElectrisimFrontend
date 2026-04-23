@@ -158,7 +158,7 @@ export class MotorDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure Motor Parameters</strong><br>Set parameters for asynchronous motor with mechanical, electrical, and short-circuit characteristics. See the <a href="https://electrisim.com/documentation#motor" target="_blank">Electrisim documentation</a>.';
+        return '<strong>Configure Motor Parameters</strong><br>Set parameters for asynchronous motor with mechanical, electrical, and short-circuit characteristics. See the <a href="https://electrisim.com/documentation.html#motor" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
     
     show(callback) {

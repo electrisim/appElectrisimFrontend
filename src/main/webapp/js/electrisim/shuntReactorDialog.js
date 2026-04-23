@@ -152,7 +152,7 @@ export class ShuntReactorDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure Shunt Reactor Parameters</strong><br>Set parameters for shunt reactor with power values and step control. See the <a href="https://electrisim.com/documentation#shunt" target="_blank">Electrisim documentation</a>.';
+        return '<strong>Configure Shunt Reactor Parameters</strong><br>Set parameters for shunt reactor with power values and step control. See the <a href="https://electrisim.com/documentation.html#shunt" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
     
     show(callback) {

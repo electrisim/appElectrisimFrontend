@@ -100,7 +100,7 @@ export class DCLineDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure DC Line Parameters</strong><br>Set parameters for DC transmission line. See the <a href="https://electrisim.com/documentation#dc-line" target="_blank">Electrisim documentation</a>.';
+        return '<strong>Configure DC Line Parameters</strong><br>Set parameters for DC transmission line. See the <a href="https://electrisim.com/documentation.html#dc-line" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
     
     show(callback) {

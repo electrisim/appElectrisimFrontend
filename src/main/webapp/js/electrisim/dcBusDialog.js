@@ -63,7 +63,7 @@ export class DcBusDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure DC Bus Parameters</strong><br>Set parameters for DC network bus/node. See the <a href="https://pandapower.readthedocs.io/en/latest/elements/dc_bus.html" target="_blank">Pandapower documentation</a>.';
+        return '<strong>Configure DC Bus Parameters</strong><br>Set parameters for DC network bus/node. See the <a href="https://electrisim.com/documentation.html#dc-bus" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
     
     show(callback) {

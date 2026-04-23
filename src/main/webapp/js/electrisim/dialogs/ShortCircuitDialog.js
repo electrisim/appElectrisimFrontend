@@ -104,7 +104,8 @@ export class ShortCircuitDialog extends Dialog {
     }
 
     getDescription() {
-        return '<strong>Configure short circuit calculation parameters</strong><br>Choose between Pandapower and OpenDSS engines.';
+        return '<strong>Configure short circuit calculation parameters</strong><br>Choose between Pandapower and OpenDSS engines. ' +
+            'See the <a href="https://electrisim.com/documentation.html#short-circuit" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
 
     createTabInterface() {

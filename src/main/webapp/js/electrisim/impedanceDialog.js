@@ -75,7 +75,7 @@ export class ImpedanceDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure Impedance Parameters</strong><br>Set parameters for impedance element with real and imaginary components. See the <a href="https://electrisim.com/documentation#impedance" target="_blank">Electrisim documentation</a>.';
+        return '<strong>Configure Impedance Parameters</strong><br>Set parameters for impedance element with real and imaginary components. See the <a href="https://electrisim.com/documentation.html#impedance" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
     
     show(callback) {
