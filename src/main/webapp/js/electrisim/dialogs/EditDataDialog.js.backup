@@ -2867,112 +2867,112 @@ export class EditDataDialog {
             'External Grid': () => ({ 
                 gridOptions: null, // Modern dialog handles this
                 rowDefs: null,
-                helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/ext_grid.html'
+                helpUrl: 'https://pandapower.readthedocs.io/en/v3.4.0/elements/ext_grid.html'
             }),
             'Generator': () => ({ 
                 gridOptions: null, // Modern dialog handles this
                 rowDefs: null,
-                helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/gen.html'
+                helpUrl: 'https://pandapower.readthedocs.io/en/v3.4.0/elements/gen.html'
             }),
             'Static Generator': () => ({ 
                 gridOptions: window.gridOptionsStaticGenerator, 
                 rowDefs: window.rowDefsStaticGenerator,
-                helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/sgen.html'
+                helpUrl: 'https://pandapower.readthedocs.io/en/v3.4.0/elements/sgen.html'
             }),
             'Asymmetric Static Generator': () => ({ 
                 gridOptions: null, // Modern dialog handles this
                 rowDefs: null,
-                helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/asymmetric_sgen.html'
+                helpUrl: 'https://pandapower.readthedocs.io/en/v3.4.0/elements/asymmetric_sgen.html'
             }),
             'Bus': () => ({ 
                 gridOptions: null, // Modern dialog handles this
                 rowDefs: null,
-                helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/bus.html'
+                helpUrl: 'https://pandapower.readthedocs.io/en/v3.4.0/elements/bus.html'
             }),
             'Shunt Reactor': () => ({ 
                 gridOptions: window.gridOptionsShuntReactor, 
                 rowDefs: window.rowDefsShuntReactor,
-                helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/shunt.html'
+                helpUrl: 'https://pandapower.readthedocs.io/en/v3.4.0/elements/shunt.html'
             }),
             'Capacitor': () => ({ 
                 gridOptions: null, // Modern dialog handles this
                 rowDefs: null,
-                helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/shunt.html'
+                helpUrl: 'https://pandapower.readthedocs.io/en/v3.4.0/elements/shunt.html'
             }),
             'Load': () => ({ 
                 gridOptions: null, // Modern dialog handles this
                 rowDefs: null,
-                helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/load.html'
+                helpUrl: 'https://pandapower.readthedocs.io/en/v3.4.0/elements/load.html'
             }),
             'Asymmetric Load': () => ({ 
                 gridOptions: null, // Modern dialog handles this
                 rowDefs: null,
-                helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/asymmetric_load.html'
+                helpUrl: 'https://pandapower.readthedocs.io/en/v3.4.0/elements/asymmetric_load.html'
             }),
             'Impedance': () => ({ 
                 gridOptions: null, // Modern dialog handles this
                 rowDefs: null,
-                helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/impedance.html'
+                helpUrl: 'https://pandapower.readthedocs.io/en/v3.4.0/elements/impedance.html'
             }),
             'Ward': () => ({ 
                 gridOptions: null, // Modern dialog handles this
                 rowDefs: null,
-                helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/ward.html'
+                helpUrl: 'https://pandapower.readthedocs.io/en/v3.4.0/elements/ward.html'
             }),
             'Extended Ward': () => ({ 
                 gridOptions: null, // Modern dialog handles this
                 rowDefs: null,
-                helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/xward.html'
+                helpUrl: 'https://pandapower.readthedocs.io/en/v3.4.0/elements/xward.html'
             }),
             'Motor': () => ({ 
                 gridOptions: null, // Modern dialog handles this
                 rowDefs: null,
-                helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/motor.html'
+                helpUrl: 'https://pandapower.readthedocs.io/en/v3.4.0/elements/motor.html'
             }),
             'Storage': () => ({ 
                 gridOptions: null, // Modern dialog handles this
                 rowDefs: null,
-                helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/storage.html'
+                helpUrl: 'https://pandapower.readthedocs.io/en/v3.4.0/elements/storage.html'
             }),
             'DC Line': () => ({ 
                 gridOptions: null, // Modern dialog handles this
                 rowDefs: null,
-                helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/dcline.html'
+                helpUrl: 'https://pandapower.readthedocs.io/en/v3.4.0/elements/dcline.html'
             }),
             'Transformer': () => ({ 
                 gridOptions: null, // Modern dialog handles this
                 rowDefs: null,
-                helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/trafo.html',
+                helpUrl: 'https://pandapower.readthedocs.io/en/v3.4.0/elements/trafo.html',
                 hasLibrary: true
             }),
             'Three Winding Transformer': () => ({ 
                 gridOptions: null, // Modern dialog handles this
                 rowDefs: null,
-                helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/trafo3w.html',
+                helpUrl: 'https://pandapower.readthedocs.io/en/v3.4.0/elements/trafo3w.html',
                 hasLibrary: true
             }),
             'Line': () => ({ 
                 gridOptions: window.gridOptionsLineBaseDialog, 
                 rowDefs: window.rowDefsDataLineBaseDialog,
-                helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/line.html',
+                helpUrl: 'https://pandapower.readthedocs.io/en/v3.4.0/elements/line.html',
                 hasLibrary: true
             }),
             'SVC': () => ({ 
                 gridOptions: null, // Modern dialog handles this
                 rowDefs: null,
-                helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/svc.html',
+                helpUrl: 'https://pandapower.readthedocs.io/en/v3.4.0/elements/svc.html',
                 hasLibrary: true
             }),
             'TCSC': () => ({ 
                 gridOptions: null, // Modern dialog handles this
                 rowDefs: null,
-                helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/tcsc.html',
+                helpUrl: 'https://pandapower.readthedocs.io/en/v3.4.0/elements/tcsc.html',
                 hasLibrary: true
             }),
             'SSC': () => ({ 
                 gridOptions: null, // Modern dialog handles this
                 rowDefs: null,
-                helpUrl: 'https://pandapower.readthedocs.io/en/latest/elements/ssc.html',
+                helpUrl: 'https://pandapower.readthedocs.io/en/v3.4.0/elements/ssc.html',
                 hasLibrary: true
             })
         };
@@ -3829,7 +3829,7 @@ export class EditDataDialog {
 }
 
 // Set default help link
-EditDataDialog.placeholderHelpLink = 'https://pandapower.readthedocs.io/en/latest/elements.html';
+EditDataDialog.placeholderHelpLink = 'https://pandapower.readthedocs.io/en/v3.4.0/elements.html';
 
 // Prevent EditDataDialog from being encoded by mxCodec
 EditDataDialog.prototype.encode = function() {

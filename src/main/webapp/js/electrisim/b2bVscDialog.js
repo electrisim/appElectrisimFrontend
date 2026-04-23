@@ -126,7 +126,7 @@ export class B2bVscDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure B2B VSC Parameters</strong><br>Set parameters for Back-to-Back Voltage Source Converter connecting asynchronous grids. See the <a href="https://electrisim.com/documentation.html#b2b-vsc" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
+        return '<strong>Configure B2B VSC Parameters</strong><br>Dual DC&ndash;bus stacked VSC (pandapower <code>vsc_stacked</code>). See <a href="https://pandapower.readthedocs.io/en/v3.4.0/elements/vsc_stacked.html" target="_blank" rel="noopener noreferrer">pandapower VSC Stacked</a> and <a href="https://electrisim.com/documentation.html#b2b-vsc" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
     
     show(callback) {

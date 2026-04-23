@@ -381,7 +381,7 @@ export class StaticGeneratorDialog extends Dialog {
             {
                 id: 'reactive_capability_curve',
                 label: 'Use Q capability curve',
-                description: 'If enabled, Qmin/Qmax vs active power follow the table below (pandapower static generator reactive capability). Power flow uses this when reactive limits are enforced. See <a href="https://pandapower.readthedocs.io/en/latest/elements/sgen.html#static-generator-reactive-power-capability-curve-characteristics" target="_blank" rel="noopener">pandapower sgen Q curve</a>.',
+                description: 'If enabled, Qmin/Qmax vs active power follow the table below (pandapower static generator reactive capability). Power flow uses this when reactive limits are enforced. See <a href="https://pandapower.readthedocs.io/en/v3.4.0/elements/sgen.html#static-generator-reactive-power-capability-curve-characteristics" target="_blank" rel="noopener">pandapower sgen Q curve</a>.',
                 type: 'checkbox',
                 value: this.data.reactive_capability_curve
             },
