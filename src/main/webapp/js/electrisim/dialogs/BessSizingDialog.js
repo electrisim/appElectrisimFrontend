@@ -102,7 +102,8 @@ export class BessSizingDialog extends Dialog {
     }
 
     getDescription() {
-        return '<strong>Battery Energy Storage System (BESS) Sizing</strong><br>Calculate required BESS power to achieve target P and Q at Point of Coupling (POC).';
+        return '<strong>Battery Energy Storage System (BESS) Sizing</strong><br>Calculate required BESS power to achieve target P and Q at Point of Coupling (POC). ' +
+            'See the <a href="https://electrisim.com/documentation.html#battery-sizing" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
 
     // Note: createForm() is NOT used by the base Dialog class

@@ -83,7 +83,8 @@ export class OpenDSSLoadFlowDialog extends Dialog {
     }
 
     getDescription() {
-        return '<strong>Configure OpenDSS load flow calculation parameters</strong><br>OpenDSS provides robust power flow analysis with advanced control capabilities.';
+        return '<strong>Configure OpenDSS load flow calculation parameters</strong><br>OpenDSS provides robust power flow analysis with advanced control capabilities. ' +
+            'See the <a href="https://electrisim.com/documentation.html#load-flow" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
 
     show(callback) {

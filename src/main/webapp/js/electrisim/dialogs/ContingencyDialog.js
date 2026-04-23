@@ -113,7 +113,8 @@ export class ContingencyDialog extends Dialog {
     getDescription() {
         return '<strong>Configure contingency analysis parameters</strong><br>' +
                'Contingency analysis evaluates system security by simulating outages of network elements. ' +
-               'N-1 analysis is the most common standard for power system security assessment.';
+               'N-1 analysis is the most common standard for power system security assessment. ' +
+               'See the <a href="https://electrisim.com/documentation.html#contingency-analysis" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
 
     show(callback) {

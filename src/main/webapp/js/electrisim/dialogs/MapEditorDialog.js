@@ -36,7 +36,7 @@ export class MapEditorDialog extends Dialog {
 
         const desc = document.createElement('div');
         desc.style.cssText = 'padding:6px 8px;background:#e8f5e9;border-radius:4px;font-size:11px;color:#2e7d32;flex-shrink:0;';
-        desc.innerHTML = '<b>Map Editor</b> – Place nodes from the palette on the map, draw cables between them. Cable lengths are calculated automatically from coordinates. Click <b>Generate Electrical Model</b> to create the schematic.';
+        desc.innerHTML = '<b>Map Editor</b> – Place nodes from the palette on the map, draw cables between them. Cable lengths are calculated automatically from coordinates. Click <b>Generate Electrical Model</b> to create the schematic. See the <a href="https://electrisim.com/documentation.html#maps" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
         container.appendChild(desc);
 
         const toolbar = document.createElement('div');

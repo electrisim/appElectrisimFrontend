@@ -162,7 +162,8 @@
                 return '<strong>Configure Optimal Power Flow calculation parameters</strong><br>' +
                        'AC OPF uses pandapower.runopp for full AC optimal power flow.<br>' +
                        'DC OPF uses pandapower.rundcopp for linearized DC optimal power flow.<br>' +
-                       '<em>Note: Cost functions should be defined on generators for meaningful optimization.</em>';
+                       '<em>Note: Cost functions should be defined on generators for meaningful optimization.</em> ' +
+                       'See the <a href="https://electrisim.com/documentation.html#optimal-power-flow" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
             }
 
             show(callback) {

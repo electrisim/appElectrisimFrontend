@@ -188,7 +188,8 @@ export class LoadFlowDialog extends Dialog {
     }
 
     getDescription() {
-        return '<strong>Configure load flow calculation parameters</strong><br>Choose between Pandapower and OpenDSS engines.';
+        return '<strong>Configure load flow calculation parameters</strong><br>Choose between Pandapower and OpenDSS engines. ' +
+            'See the <a href="https://electrisim.com/documentation.html#load-flow" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
 
     createTabInterface() {

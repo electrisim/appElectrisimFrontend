@@ -331,7 +331,7 @@ export class StorageDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure Storage Parameters</strong><br>Set parameters for energy storage (BESS). <b>Power</b> &amp; <b>Energy</b> – shared pandapower/OpenDSS parameters. <b>Configuration</b> – naming, phases, connection. <b>Optimization (OPF)</b> – pandapower optimal power flow limits. <b>OpenDSS Parameters</b> – dispatch, efficiency, idling losses, triggers &amp; harmonics. See the <a href="https://electrisim.com/documentation#storage" target="_blank">Electrisim documentation</a>.';
+        return '<strong>Configure Storage Parameters</strong><br>Set parameters for energy storage (BESS). <b>Power</b> &amp; <b>Energy</b> – shared pandapower/OpenDSS parameters. <b>Configuration</b> – naming, phases, connection. <b>Optimization (OPF)</b> – pandapower optimal power flow limits. <b>OpenDSS Parameters</b> – dispatch, efficiency, idling losses, triggers &amp; harmonics. See the <a href="https://electrisim.com/documentation.html#storage" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
     
     show(callback) {
@@ -547,10 +547,11 @@ export class StorageDialog extends Dialog {
         });
 
         parameters.forEach(param => {
+            const isNameField = param.id === 'name';
             const parameterRow = document.createElement('div');
             Object.assign(parameterRow.style, {
                 display: 'grid',
-                gridTemplateColumns: '1fr 200px',
+                gridTemplateColumns: isNameField ? 'minmax(0, 1fr) minmax(300px, 1.2fr)' : '1fr 200px',
                 gap: '20px',
                 alignItems: 'start',
                 padding: '16px',
@@ -600,7 +601,8 @@ export class StorageDialog extends Dialog {
                 alignItems: 'center',
                 justifyContent: 'flex-end',
                 minHeight: '60px',
-                width: '200px'
+                width: isNameField ? '100%' : '200px',
+                ...(isNameField ? { minWidth: '0' } : {})
             });
             
             let input;
@@ -631,7 +633,8 @@ export class StorageDialog extends Dialog {
                     });
                 }
                 Object.assign(input.style, {
-                    width: '180px',
+                    width: isNameField ? '100%' : '180px',
+                    ...(isNameField ? { minWidth: '0' } : {}),
                     padding: '10px 14px',
                     border: '2px solid #ced4da',
                     borderRadius: '6px',
@@ -658,7 +661,8 @@ export class StorageDialog extends Dialog {
                 input.type = param.type;
                 input.value = param.value;
                 Object.assign(input.style, {
-                    width: '180px',
+                    width: isNameField ? '100%' : '180px',
+                    ...(isNameField ? { minWidth: '0' } : {}),
                     padding: '10px 14px',
                     border: '2px solid #ced4da',
                     borderRadius: '6px',

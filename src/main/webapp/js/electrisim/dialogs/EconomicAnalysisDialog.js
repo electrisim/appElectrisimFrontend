@@ -91,7 +91,8 @@ export class EconomicAnalysisDialog extends Dialog {
     }
 
     getDescription() {
-        return '<strong>Economic Analysis</strong><br>Calculate total CAPEX (capital expenditure) from element costs and power losses from load flow. Use time series with generation profiles (solar, onshore/offshore wind) for electrical energy loss estimates. Set cost per unit in the Economic tab of each element dialog.';
+        return '<strong>Economic Analysis</strong><br>Calculate total CAPEX (capital expenditure) from element costs and power losses from load flow. Use time series with generation profiles (solar, onshore/offshore wind) for electrical energy loss estimates. Set cost per unit in the Economic tab of each element dialog. ' +
+            'See the <a href="https://electrisim.com/documentation.html#economic-analysis" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
 
     show(callback) {

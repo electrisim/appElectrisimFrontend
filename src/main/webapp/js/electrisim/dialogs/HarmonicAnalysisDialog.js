@@ -111,7 +111,8 @@ export class HarmonicAnalysisDialog extends Dialog {
     getDescription() {
         return '<strong>Configure OpenDSS harmonic analysis parameters.</strong><br>' +
                'A snapshot power flow will be solved first, then <code>Solve mode=harmonics</code> ' +
-               'will be executed for the selected harmonic orders.';
+               'will be executed for the selected harmonic orders. ' +
+               'See the <a href="https://electrisim.com/documentation.html#harmonic-analysis" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
 
     createForm() {
