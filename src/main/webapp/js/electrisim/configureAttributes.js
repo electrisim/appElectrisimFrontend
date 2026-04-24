@@ -355,6 +355,8 @@ export function configureShuntReactorAttributes(grafka, vertex, options = {}) {
     
     g.setAttribute("step", options.step || "1");
     g.setAttribute("max_step", options.max_step || "1");
+    g.setAttribute("step_dependency_table", options.step_dependency_table != null ? String(options.step_dependency_table) : "false");
+    g.setAttribute("shunt_characteristic_table_json", options.shunt_characteristic_table_json || "[]");
     // g.setAttribute("in_service", "True"); //in_service nie działa
 
     // Economic parameters

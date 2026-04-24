@@ -294,7 +294,7 @@ export class RPCDialog extends Dialog {
             {
                 id: 'run_control_shunt',
                 label: 'Shunt reactor tap changer',
-                checkboxLabel: 'DiscreteShuntController — step control on shunt reactors (when enabled on diagram)',
+                checkboxLabel: 'DiscreteShuntController — step control on shunt reactors (when enabled on diagram; optional P/Q per step table on the shunt)',
                 type: 'checkbox',
                 value: false
             },
@@ -322,7 +322,7 @@ export class RPCDialog extends Dialog {
             'Sweeps active power of the power plant and determines the reactive power capability envelope at the PCC bus across multiple voltage levels. ' +
             'Optionally compares against grid code requirements. ' +
             'To use manufacturer-style limits per unit, enable <em>Use Q capability curve</em> on each static generator and pick <strong>From static generator P–Q curve</strong> below. ' +
-            'Use <strong>Include controller</strong> to run each power flow with pandapower controls where enabled in the diagram: DiscreteTapControl on 2- or 3-winding transformers and DiscreteShuntController on shunt reactors, independently. ' +
+            'Use <strong>Include controller</strong> to run each power flow with pandapower controls where enabled in the diagram: DiscreteTapControl on 2- or 3-winding transformers and DiscreteShuntController on shunt reactors, independently (shunt reactors can use a per-step P/Q characteristic table in the shunt dialog). ' +
             'See the <a href="https://electrisim.com/documentation.html#reactive-power-capability" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
 

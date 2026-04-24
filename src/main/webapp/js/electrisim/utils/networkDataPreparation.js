@@ -677,6 +677,8 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         step: { name: 'step', optional: true },
                         max_step: { name: 'max_step', optional: true },
                         in_service: { name: 'in_service', optional: true },
+                        step_dependency_table: { name: 'step_dependency_table', optional: true },
+                        shunt_characteristic_table_json: { name: 'shunt_characteristic_table_json', optional: true },
                         discrete_shunt_control: { name: 'discrete_shunt_control', optional: true },
                         vm_set_pu: { name: 'vm_set_pu', optional: true },
                         shunt_control_increment: { name: 'shunt_control_increment', optional: true },

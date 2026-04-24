@@ -11,6 +11,10 @@ export const defaultShuntReactorData = {
     step: 1.0,
     max_step: 1.0,
     in_service: true,
+    /** If true, P and Q at v=1 p.u. come from the shunt characteristic table per step (pandapower step_dependency_table). */
+    step_dependency_table: false,
+    /** JSON string: [{ step, p_mw, q_mvar }, ...] for net.shunt_characteristic_table */
+    shunt_characteristic_table_json: "[]",
     discrete_shunt_control: false,
     vm_set_pu: 1.0,
     shunt_control_increment: 1,
@@ -18,6 +22,27 @@ export const defaultShuntReactorData = {
     shunt_reset_at_init: false,
     cost_per_unit_by_currency: "0"
 };
+
+export function parseShuntCharacteristicTableJson(s) {
+    if (s == null || s === "") return [];
+    try {
+        const v = typeof s === "string" ? JSON.parse(s) : s;
+        return Array.isArray(v) ? v : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+function normalizeShuntCharRows(rows) {
+    if (!Array.isArray(rows) || rows.length === 0) {
+        return [{ step: 0, p_mw: 0, q_mvar: 0 }];
+    }
+    return rows.map((r) => ({
+        step: Number.isFinite(parseInt(r.step, 10)) ? parseInt(r.step, 10) : 0,
+        p_mw: parseFloat(r.p_mw) || 0,
+        q_mvar: parseFloat(r.q_mvar) || 0
+    })).sort((a, b) => a.step - b.step);
+}
 
 export class ShuntReactorDialog extends Dialog {
     constructor(editorUi) {
@@ -28,28 +53,31 @@ export class ShuntReactorDialog extends Dialog {
         this.currentTab = 'power';
         this.data = { ...defaultShuntReactorData };
         this.inputs = new Map(); // Initialize inputs map for form elements
+        this._charTableBody = null;
+        this._charTableSection = null;
+        this._charTableRows = normalizeShuntCharRows([]);
         
         // Power parameters (necessary for executing a power flow calculation)
         this.powerParameters = [
             {
                 id: 'name',
-                label: 'Shunt Reactor Name',
-                description: 'Name identifier for the shunt reactor',
+                label: 'Shunt Reactor Name (name)',
+                description: 'Name identifier for the shunt reactor (diagram / export attribute: name).',
                 type: 'text',
                 value: this.data.name
             },
             {
                 id: 'p_mw',
-                label: 'Active Power (MW)',
-                description: 'Shunt active power in MW at v= 1.0 p.u.',
+                label: 'Active Power (MW) (p_mw)',
+                description: 'Shunt active power in MW at v = 1.0 p.u. (p_mw).',
                 type: 'number',
                 value: this.data.p_mw.toString(),
                 step: '0.1'
             },
             {
                 id: 'q_mvar',
-                label: 'Reactive Power (MVar)',
-                description: 'Shunt reactive power in MVAr at v= 1.0 p.u.',
+                label: 'Reactive Power (MVar) (q_mvar)',
+                description: 'Shunt reactive power in MVAr at v = 1.0 p.u. (q_mvar).',
                 type: 'number',
                 value: this.data.q_mvar.toString(),
                 step: '0.1'
@@ -60,8 +88,8 @@ export class ShuntReactorDialog extends Dialog {
         this.electricalParameters = [
             {
                 id: 'vn_kv',
-                label: 'Rated Voltage (kV)',
-                description: 'Rated voltage of the shunt. Defaults to rated voltage of connected bus',
+                label: 'Rated Voltage (kV) (vn_kv)',
+                description: 'Rated voltage of the shunt; defaults to the connected bus if appropriate (vn_kv).',
                 type: 'number',
                 value: this.data.vn_kv.toString(),
                 step: '0.1',
@@ -73,8 +101,8 @@ export class ShuntReactorDialog extends Dialog {
         this.controlParameters = [
             {
                 id: 'step',
-                label: 'Step Position',
-                description: 'Step of shunt with which power values are multiplied',
+                label: 'Step Position (step)',
+                description: 'Current shunt step; with the characteristic table off, P/Q scale with this step (step).',
                 type: 'number',
                 value: this.data.step.toString(),
                 step: '1',
@@ -82,8 +110,8 @@ export class ShuntReactorDialog extends Dialog {
             },
             {
                 id: 'max_step',
-                label: 'Maximum Step',
-                description: 'Maximum step position of the shunt',
+                label: 'Maximum Step (max_step)',
+                description: 'Maximum step index for the shunt; used with the table and “Fill 0…max” (max_step).',
                 type: 'number',
                 value: this.data.max_step.toString(),
                 step: '1',
@@ -91,24 +119,31 @@ export class ShuntReactorDialog extends Dialog {
             },
             {
                 id: 'in_service',
-                label: 'In Service',
-                description: 'Specifies if the shunt reactor is in service (True/False)',
+                label: 'In Service (in_service)',
+                description: 'Whether the shunt is in service in the model (in_service).',
                 type: 'checkbox',
                 value: this.data.in_service
             },
             {
+                id: 'step_dependency_table',
+                label: 'Shunt characteristic table — step-dependent P/Q (step_dependency_table)',
+                description: 'If enabled, P and Q at v = 1.0 p.u. per step follow the table below; stored in pandapower as step_dependency_table + shunt characteristic data (see shunt_characteristic_table_json).',
+                type: 'checkbox',
+                value: this.data.step_dependency_table
+            },
+            {
                 id: 'discrete_shunt_control',
-                label: 'Discrete shunt control (DiscreteShuntController)',
-                description: 'Regulate voltage at the shunt bus toward vm_set_pu by changing step (requires Include controller in Load Flow). See pandapower DiscreteShuntController.',
+                label: 'Discrete shunt control (discrete_shunt_control)',
+                description: 'Enable DiscreteShuntController: move step toward vm_set_pu (requires shunt in Include controller in Load Flow).',
                 type: 'checkbox',
                 value: this.data.discrete_shunt_control,
                 bracketGroup: 'discreteShuntControl',
-                bracketGroupTitle: 'Discrete shunt control (DiscreteShuntController)'
+                bracketGroupTitle: 'Discrete shunt control (discrete_shunt_control)'
             },
             {
                 id: 'vm_set_pu',
-                label: 'Voltage setpoint (vm_set_pu) [pu]',
-                description: 'Target bus voltage in per unit for DiscreteShuntController (pandapower)',
+                label: 'Voltage setpoint [pu] (vm_set_pu)',
+                description: 'Target shunt bus voltage in p.u. for DiscreteShuntController (vm_set_pu).',
                 type: 'number',
                 value: this.data.vm_set_pu.toString(),
                 step: '0.01',
@@ -117,8 +152,8 @@ export class ShuntReactorDialog extends Dialog {
             },
             {
                 id: 'shunt_control_increment',
-                label: 'Controller step increment',
-                description: 'How many shunt step positions to move per control iteration (integer ≥ 1)',
+                label: 'Controller step increment (shunt_control_increment)',
+                description: 'Step positions to move per control iteration, integer ≥ 1 (shunt_control_increment).',
                 type: 'number',
                 value: String(this.data.shunt_control_increment),
                 step: '1',
@@ -127,8 +162,8 @@ export class ShuntReactorDialog extends Dialog {
             },
             {
                 id: 'shunt_control_tol',
-                label: 'Voltage tolerance (tol) [pu]',
-                description: 'Band around vm_set_pu where no control action is taken (pandapower default 1e-3)',
+                label: 'Voltage tolerance [pu] (shunt_control_tol)',
+                description: 'No control action if voltage is within this band around vm_set_pu (shunt_control_tol).',
                 type: 'number',
                 value: String(this.data.shunt_control_tol),
                 step: '0.0005',
@@ -137,8 +172,8 @@ export class ShuntReactorDialog extends Dialog {
             },
             {
                 id: 'shunt_reset_at_init',
-                label: 'Reset step at controller init',
-                description: 'If enabled, DiscreteShuntController sets shunt step to 0 when initializing (pandapower reset_at_init)',
+                label: 'Reset step at controller init (shunt_reset_at_init)',
+                description: 'If enabled, reset shunt step at controller init in pandapower (shunt_reset_at_init / reset_at_init).',
                 type: 'checkbox',
                 value: this.data.shunt_reset_at_init,
                 bracketGroup: 'discreteShuntControl'
@@ -147,12 +182,13 @@ export class ShuntReactorDialog extends Dialog {
 
         // Economic parameters (for Economic Analysis)
         this.economicParameters = [
-            { id: 'cost_per_unit_by_currency', label: 'Cost per unit', description: 'Cost per unit for Economic Analysis CAPEX calculation', type: 'text', value: '' }
+            { id: 'cost_per_unit_by_currency', label: 'Cost per unit (cost_per_unit_by_currency)', description: 'Economic analysis CAPEX input as JSON or scalar string (cost_per_unit_by_currency).', type: 'text', value: '' }
         ];
     }
     
     getDescription() {
-        return '<strong>Configure Shunt Reactor Parameters</strong><br>Set parameters for shunt reactor with power values and step control. See the <a href="https://electrisim.com/documentation.html#shunt" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
+        return '<strong>Configure Shunt Reactor Parameters</strong><br>Set parameters for shunt reactor with power values and step control. ' +
+            'See the <a href="https://electrisim.com/documentation.html#shunt" target="_blank" rel="noopener noreferrer">Electrisim documentation</a> for how steps, the characteristic table, and discrete shunt control fit together.';
     }
     
     show(callback) {
@@ -333,6 +369,202 @@ export class ShuntReactorDialog extends Dialog {
         return tab;
     }
     
+    _appendShuntCharacteristicSection(form) {
+        const wrap = document.createElement('div');
+        this._charTableSection = wrap;
+        Object.assign(wrap.style, {
+            marginTop: '8px',
+            padding: '12px',
+            backgroundColor: '#f1f3f5',
+            border: '1px solid #dee2e6',
+            borderRadius: '8px',
+            borderLeft: '4px solid #0d6efd'
+        });
+
+        const title = document.createElement('div');
+        Object.assign(title.style, { fontWeight: '600', fontSize: '14px', color: '#343a40', marginBottom: '6px' });
+        title.textContent = 'Shunt characteristic table (shunt_characteristic_table_json)';
+        wrap.appendChild(title);
+
+        const hint = document.createElement('div');
+        Object.assign(hint.style, { fontSize: '12px', color: '#6c757d', lineHeight: '1.45', marginBottom: '10px' });
+        hint.innerHTML = 'Diagram / export attribute: <code>shunt_characteristic_table_json</code> (JSON array of ' +
+            '<code>{ step, p_mw, q_mvar }</code>). In pandapower this becomes <code>net.shunt_characteristic_table</code> ' +
+            'when <code>step_dependency_table</code> is on. One row per step; cover 0 … <code>max_step</code> as needed.';
+        wrap.appendChild(hint);
+
+        const table = document.createElement('table');
+        Object.assign(table.style, { width: '100%', borderCollapse: 'collapse', fontSize: '13px', marginBottom: '8px' });
+        const thead = document.createElement('thead');
+        const hr = document.createElement('tr');
+        ['Step', 'P (MW) at v=1 p.u.', 'Q (Mvar) at v=1 p.u.', ''].forEach((h) => {
+            const th = document.createElement('th');
+            th.textContent = h;
+            Object.assign(th.style, {
+                textAlign: 'left',
+                padding: '6px 8px',
+                borderBottom: '1px solid #ced4da',
+                color: '#495057',
+                fontSize: '12px'
+            });
+            hr.appendChild(th);
+        });
+        thead.appendChild(hr);
+        table.appendChild(thead);
+        const tbody = document.createElement('tbody');
+        this._charTableBody = tbody;
+        table.appendChild(tbody);
+        wrap.appendChild(table);
+
+        const btnRow = document.createElement('div');
+        Object.assign(btnRow.style, { display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' });
+
+        const addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.textContent = '+ Add row';
+        Object.assign(addBtn.style, {
+            padding: '5px 12px',
+            fontSize: '12px',
+            border: '1px solid #0d6efd',
+            borderRadius: '4px',
+            backgroundColor: '#fff',
+            color: '#0d6efd',
+            cursor: 'pointer'
+        });
+        addBtn.onclick = () => {
+            const rows = this._readCharRowsFromDom();
+            const nextStep = rows.length ? Math.max(...rows.map((r) => r.step)) + 1 : 0;
+            rows.push({ step: nextStep, p_mw: 0, q_mvar: 0 });
+            this._charTableRows = rows;
+            this._renderCharTableBody();
+        };
+
+        const fillBtn = document.createElement('button');
+        fillBtn.type = 'button';
+        fillBtn.textContent = 'Fill steps 0…max step';
+        Object.assign(fillBtn.style, {
+            padding: '5px 12px',
+            fontSize: '12px',
+            border: '1px solid #6c757d',
+            borderRadius: '4px',
+            backgroundColor: '#fff',
+            color: '#495057',
+            cursor: 'pointer'
+        });
+        fillBtn.onclick = () => {
+            const maxEl = this.inputs.get('max_step');
+            const mx = maxEl ? parseInt(maxEl.value, 10) : 1;
+            const n = Number.isFinite(mx) && mx >= 0 ? mx : 1;
+            const rows = [];
+            for (let s = 0; s <= n; s++) {
+                rows.push({ step: s, p_mw: 0, q_mvar: 0 });
+            }
+            this._charTableRows = rows;
+            this._renderCharTableBody();
+        };
+
+        btnRow.appendChild(addBtn);
+        btnRow.appendChild(fillBtn);
+        wrap.appendChild(btnRow);
+
+        form.appendChild(wrap);
+
+        this._renderCharTableBody();
+
+        const dep = this.inputs.get('step_dependency_table');
+        const sync = () => {
+            const on = !!(dep && dep.checked);
+            wrap.style.opacity = on ? '1' : '0.55';
+            wrap.style.pointerEvents = on ? 'auto' : 'none';
+            table.querySelectorAll('input').forEach((inp) => { inp.disabled = !on; });
+            addBtn.disabled = !on;
+            fillBtn.disabled = !on;
+        };
+        if (dep) dep.addEventListener('change', sync);
+        sync();
+    }
+
+    _renderCharTableBody() {
+        if (!this._charTableBody) return;
+        this._charTableBody.innerHTML = '';
+        const rows = normalizeShuntCharRows(this._charTableRows);
+        this._charTableRows = rows;
+        rows.forEach((row, idx) => {
+            const tr = document.createElement('tr');
+            const mk = (val, key) => {
+                const td = document.createElement('td');
+                Object.assign(td.style, { padding: '4px 6px' });
+                const inp = document.createElement('input');
+                inp.type = 'number';
+                inp.step = 'any';
+                inp.value = row[key];
+                inp.dataset.rowIndex = String(idx);
+                inp.dataset.field = key;
+                Object.assign(inp.style, {
+                    width: '100%',
+                    maxWidth: '140px',
+                    padding: '6px 8px',
+                    border: '1px solid #ced4da',
+                    borderRadius: '4px',
+                    fontSize: '13px',
+                    boxSizing: 'border-box'
+                });
+                inp.addEventListener('input', () => {
+                    const i = parseInt(inp.dataset.rowIndex, 10);
+                    const f = inp.dataset.field;
+                    if (!this._charTableRows[i]) return;
+                    const num = parseFloat(inp.value);
+                    this._charTableRows[i][f] = f === 'step' ? (parseInt(inp.value, 10) || 0) : (Number.isFinite(num) ? num : 0);
+                });
+                td.appendChild(inp);
+                tr.appendChild(td);
+            };
+            mk(row.step, 'step');
+            mk(row.p_mw, 'p_mw');
+            mk(row.q_mvar, 'q_mvar');
+
+            const tdDel = document.createElement('td');
+            Object.assign(tdDel.style, { padding: '4px 6px', textAlign: 'center' });
+            const del = document.createElement('button');
+            del.type = 'button';
+            del.textContent = '\u00d7';
+            Object.assign(del.style, {
+                border: 'none',
+                background: 'transparent',
+                color: '#dc3545',
+                fontSize: '16px',
+                cursor: 'pointer',
+                fontWeight: '700'
+            });
+            del.onclick = () => {
+                this._charTableRows = this._readCharRowsFromDom().filter((_, j) => j !== idx);
+                if (this._charTableRows.length === 0) {
+                    this._charTableRows = [{ step: 0, p_mw: 0, q_mvar: 0 }];
+                }
+                this._renderCharTableBody();
+            };
+            tdDel.appendChild(del);
+            tr.appendChild(tdDel);
+
+            this._charTableBody.appendChild(tr);
+        });
+    }
+
+    _readCharRowsFromDom() {
+        if (!this._charTableBody) return normalizeShuntCharRows(this._charTableRows);
+        const out = [];
+        this._charTableBody.querySelectorAll('tr').forEach((tr) => {
+            const cells = tr.querySelectorAll('input[type="number"]');
+            if (cells.length < 3) return;
+            out.push({
+                step: parseInt(cells[0].value, 10) || 0,
+                p_mw: parseFloat(cells[1].value) || 0,
+                q_mvar: parseFloat(cells[2].value) || 0
+            });
+        });
+        return normalizeShuntCharRows(out);
+    }
+
     createTabContent(tabId, parameters) {
         if (tabId === 'economic' && parameters.length > 0 && parameters[0]?.id === 'cost_per_unit_by_currency') {
             const content = document.createElement('div');
@@ -505,6 +737,10 @@ export class ShuntReactorDialog extends Dialog {
             const appendTarget = param.bracketGroup && bracketWrap ? bracketWrap : form;
             appendTarget.appendChild(parameterRow);
 
+            if (tabId === 'control' && param.id === 'step_dependency_table') {
+                this._appendShuntCharacteristicSection(form);
+            }
+
             const next = parameters[paramIndex + 1];
             if (param.bracketGroup && (!next || next.bracketGroup !== param.bracketGroup)) {
                 bracketWrap = null;
@@ -594,6 +830,9 @@ export class ShuntReactorDialog extends Dialog {
                 }
             }
         });
+
+        this._charTableRows = this._readCharRowsFromDom();
+        values.shunt_characteristic_table_json = JSON.stringify(this._charTableRows);
         
         return values;
     }
@@ -635,6 +874,11 @@ export class ShuntReactorDialog extends Dialog {
                     this.data[attributeName] = attributeValue;
                     const ep = this.economicParameters?.find(p => p.id === attributeName);
                     if (ep) ep.value = attributeValue.toString();
+                }
+
+                if (attributeName === 'shunt_characteristic_table_json') {
+                    this._charTableRows = normalizeShuntCharRows(parseShuntCharacteristicTableJson(attributeValue));
+                    this.data.shunt_characteristic_table_json = typeof attributeValue === 'string' ? attributeValue : JSON.stringify(this._charTableRows);
                 }
                 
                 // Update the dialog's parameter values (not DOM inputs)
@@ -685,6 +929,11 @@ export class ShuntReactorDialog extends Dialog {
             console.log(`  ${param.id}: ${param.value} (${param.type})`);
         });
         
+        this._charTableRows = normalizeShuntCharRows(this._charTableRows);
+        if (this._charTableBody) {
+            this._renderCharTableBody();
+        }
+
         console.log('=== ShuntReactorDialog.populateDialog completed ===');
     }
 }
@@ -692,7 +941,7 @@ export class ShuntReactorDialog extends Dialog {
 // Legacy exports for backward compatibility (maintaining AG-Grid structure for existing code)
 export const rowDefsShuntReactor = [defaultShuntReactorData];
 
-export const columnDefsShuntReactor = [  
+export const columnDefsShuntReactor = [
     {
         field: "name",
         headerTooltip: "Name of the shunt reactor",
@@ -727,6 +976,16 @@ export const columnDefsShuntReactor = [
         headerTooltip: "Maximum step position of the shunt",
         maxWidth: 120,
         valueParser: 'numberParser'
+    },
+    {
+        field: "step_dependency_table",
+        headerTooltip: "Use shunt characteristic table for P/Q per step (pandapower)",
+        maxWidth: 100
+    },
+    {
+        field: "shunt_characteristic_table_json",
+        headerTooltip: "JSON array: [{ step, p_mw, q_mvar }, ...]",
+        maxWidth: 200
     },
     {
         field: "in_service",
