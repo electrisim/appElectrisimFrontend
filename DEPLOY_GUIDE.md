@@ -16,20 +16,18 @@ Your app now automatically detects whether it's running in **development** or **
 
 ### Frontend (`appElectrisim`)  
 - ✅ `config/environment.js` - Environment detection
-- ✅ `*.backup` files - All simulation files updated to use ENV config
+- ✅ `src/main/webapp/js/electrisim` — Electrisim scripts (minified in deploy via `npm run minify`)
 
 ## How to Deploy Changes
 
 ### Step 1: Minify Frontend Code
 
-The `.backup` files are your source files. Run this to generate production `.js` files:
+`npm run minify` runs Terser on the listed Electrisim `.js` files in place. Commit **readable** sources first; the minified output overwrites those files until you restore from git.
 
 ```bash
 cd C:\Users\DELL\.vscode\appElectrisim\appElectrisim
 npm run minify
 ```
-
-This will minify all `*.backup` files into `*.js` files.
 
 ### Step 2: Commit & Push Frontend
 
@@ -105,13 +103,9 @@ No manual switching needed - environment is detected automatically! 🎉
 ```bash
 # Minify frontend code
 npm run minify
-
-# Restore from backup (if needed)
-npm run minify:restore
-
-# Clean backup files
-npm run minify:clean
 ```
+
+To recover unminified sources after minifying, use `git checkout -- <path>` (or your previous commit) for the files under `src/main/webapp/js/electrisim/` that the minify script updates.
 
 ## Cost Monitoring
 

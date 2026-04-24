@@ -273,9 +273,28 @@ export class RPCDialog extends Dialog {
                 value: false
             },
             {
-                id: 'rpc_run_control',
-                label: 'Include controller',
-                checkboxLabel: 'DiscreteTapControl / DiscreteShuntController where enabled on diagram',
+                id: 'include_controller_section',
+                type: 'sectionTitle',
+                text: 'Include controller'
+            },
+            {
+                id: 'run_control_trafo2w',
+                label: 'Two-winding transformer tap changer',
+                checkboxLabel: 'DiscreteTapControl on two-winding transformers (when enabled on diagram)',
+                type: 'checkbox',
+                value: false
+            },
+            {
+                id: 'run_control_trafo3w',
+                label: 'Three-winding transformer tap changer',
+                checkboxLabel: 'DiscreteTapControl on three-winding transformers (when enabled on diagram)',
+                type: 'checkbox',
+                value: false
+            },
+            {
+                id: 'run_control_shunt',
+                label: 'Shunt reactor tap changer',
+                checkboxLabel: 'DiscreteShuntController — step control on shunt reactors (when enabled on diagram)',
                 type: 'checkbox',
                 value: false
             },
@@ -303,7 +322,7 @@ export class RPCDialog extends Dialog {
             'Sweeps active power of the power plant and determines the reactive power capability envelope at the PCC bus across multiple voltage levels. ' +
             'Optionally compares against grid code requirements. ' +
             'To use manufacturer-style limits per unit, enable <em>Use Q capability curve</em> on each static generator and pick <strong>From static generator P–Q curve</strong> below. ' +
-            'Use <strong>Include controller</strong> to run each power flow with pandapower DiscreteTapControl (transformers) and DiscreteShuntController (shunt reactors) where enabled in the diagram. ' +
+            'Use <strong>Include controller</strong> to run each power flow with pandapower controls where enabled in the diagram: DiscreteTapControl on 2- or 3-winding transformers and DiscreteShuntController on shunt reactors, independently. ' +
             'See the <a href="https://electrisim.com/documentation.html#reactive-power-capability" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
 
@@ -839,6 +858,9 @@ export class RPCDialog extends Dialog {
     getFormValues() {
         const values = {};
         this.parameters.forEach(param => {
+            if (param.type === 'sectionTitle') {
+                return;
+            }
             if (param.type === 'radio') {
                 let checked = null;
                 if (this.container) {
@@ -894,7 +916,21 @@ export class RPCDialog extends Dialog {
                 }
             };
             syncCb('limitOverloads');
-            syncCb('rpc_run_control');
+            syncCb('run_control_trafo2w');
+            syncCb('run_control_trafo3w');
+            syncCb('run_control_shunt');
+        }
+
+        if (
+            values.run_control_trafo2w !== undefined ||
+            values.run_control_trafo3w !== undefined ||
+            values.run_control_shunt !== undefined
+        ) {
+            values.run_control = !!(
+                values.run_control_trafo2w ||
+                values.run_control_trafo3w ||
+                values.run_control_shunt
+            );
         }
 
         return values;
@@ -947,9 +983,47 @@ export class RPCDialog extends Dialog {
             display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', boxSizing: 'border-box'
         });
 
-        this.parameters.forEach(param => {
+        let includeControllerGroup = null;
+
+        this.parameters.forEach((param, index) => {
+            if (param.type === 'sectionTitle' && param.id === 'include_controller_section') {
+                includeControllerGroup = document.createElement('div');
+                includeControllerGroup.setAttribute('data-include-controller-group', 'true');
+                Object.assign(includeControllerGroup.style, {
+                    boxSizing: 'border-box',
+                    border: '1px solid #dee2e6',
+                    borderLeft: '4px solid #007bff',
+                    borderRadius: '6px',
+                    padding: '12px 14px 14px',
+                    marginTop: index > 0 ? '8px' : '0',
+                    marginBottom: '4px',
+                    backgroundColor: '#f8f9fa',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px'
+                });
+                const heading = document.createElement('div');
+                Object.assign(heading.style, {
+                    display: 'block',
+                    margin: '0',
+                    paddingBottom: '2px',
+                    fontWeight: '600',
+                    fontSize: '13px',
+                    color: '#343a40',
+                    borderBottom: '1px solid #e9ecef'
+                });
+                heading.textContent = param.text;
+                includeControllerGroup.appendChild(heading);
+                form.appendChild(includeControllerGroup);
+                return;
+            }
+
             const formGroup = document.createElement('div');
             Object.assign(formGroup.style, { marginBottom: '4px' });
+
+            if (param.type === 'sectionTitle') {
+                return;
+            }
 
             if (param.type !== 'checkbox' || param.checkboxLabel != null) {
                 const label = document.createElement('label');
@@ -969,7 +1043,21 @@ export class RPCDialog extends Dialog {
             else input = this.createTextInput(param);
 
             if (input instanceof Node) formGroup.appendChild(input);
-            form.appendChild(formGroup);
+
+            const inControllerGroup =
+                includeControllerGroup &&
+                (param.id === 'run_control_trafo2w' ||
+                    param.id === 'run_control_trafo3w' ||
+                    param.id === 'run_control_shunt');
+            if (inControllerGroup) {
+                Object.assign(formGroup.style, { marginBottom: '0' });
+                includeControllerGroup.appendChild(formGroup);
+                if (param.id === 'run_control_shunt') {
+                    includeControllerGroup = null;
+                }
+            } else {
+                form.appendChild(formGroup);
+            }
         });
 
         form.appendChild(this._createRequirementsSection());

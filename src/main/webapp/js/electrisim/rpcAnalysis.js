@@ -203,6 +203,9 @@ function rpcAnalysis(a, b, c) {
                 return !!v;
             };
 
+            const runControl2w = coerceBool(values.run_control_trafo2w);
+            const runControl3w = coerceBool(values.run_control_trafo3w);
+            const runControlSh = coerceBool(values.run_control_shunt);
             const rpcParams = {
                 typ: 'RPCAnalysisPandaPower Parameters',
                 pcc_bus_name: pccBusName,
@@ -214,7 +217,10 @@ function rpcAnalysis(a, b, c) {
                 p_steps: parseInt(values.pSteps, 10) || 10,
                 q_capability_mode: values.qCapabilityMode || 'from_rating',
                 limit_overloads: values.limitOverloads || false,
-                run_control: coerceBool(values.rpc_run_control),
+                run_control: runControl2w || runControl3w || runControlSh,
+                run_control_trafo2w: runControl2w,
+                run_control_trafo3w: runControl3w,
+                run_control_shunt: runControlSh,
                 max_loading_percent: parseFloat(values.maxLoadingPercent) || 100,
                 requirements: requirements,
                 grid_code_template_key: tplKey !== 'none' ? tplKey : null,
