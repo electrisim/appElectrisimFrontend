@@ -1210,7 +1210,12 @@ window.shortCircuitPandaPower = function(a, b, c) {
                                 vm_set_pu: { name: 'vm_set_pu', optional: true },
                                 shunt_control_increment: { name: 'shunt_control_increment', optional: true },
                                 shunt_control_tol: { name: 'shunt_control_tol', optional: true },
-                                shunt_reset_at_init: { name: 'shunt_reset_at_init', optional: true }
+                                shunt_reset_at_init: { name: 'shunt_reset_at_init', optional: true },
+                                line_flow_step_control: { name: 'line_flow_step_control', optional: true },
+                                line_flow_reference_line_id: { name: 'line_flow_reference_line_id', optional: true },
+                                line_flow_step_table_json: { name: 'line_flow_step_table_json', optional: true },
+                                line_flow_p_use_abs: { name: 'line_flow_p_use_abs', optional: true },
+                                line_flow_p_reference: { name: 'line_flow_p_reference', optional: true }
                             })
                         };
                         componentArrays.shuntReactor.push(shuntReactor);
