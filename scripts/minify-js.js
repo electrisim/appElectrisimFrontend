@@ -23,7 +23,6 @@ const FILES_TO_MINIFY = [
     'src/main/webapp/js/electrisim/supportingFunctions.js',
     'src/main/webapp/js/electrisim/contingencyAnalysis.js',
     'src/main/webapp/js/electrisim/optimalPowerFlow.js',
-    'src/main/webapp/js/electrisim/controllerSimulation.js',
     'src/main/webapp/js/electrisim/timeSeriesSimulation.js',
     // Dialog files
     'src/main/webapp/js/electrisim/dialogs/LoadFlowDialog.js',

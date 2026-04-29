@@ -33,8 +33,6 @@
         
         // Simulation dialogs - loaded when user accesses simulation menu
         simulation: [
-            'dialogs/ControllerSimulationDialog',
-            'dialogs/ControllerSimulationResultsDialog',
             'dialogs/TimeSeriesSimulationDialog',
             'dialogs/TimeSeriesSimulationResultsDialog'
         ],
@@ -76,7 +74,6 @@
             'optimalPowerFlow',
             'shortCircuit',
             'contingencyAnalysis',
-            'controllerSimulation',
             'timeSeriesSimulation'
         ],
         

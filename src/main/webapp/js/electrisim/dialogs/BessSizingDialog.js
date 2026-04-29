@@ -479,7 +479,7 @@ export class BessSizingDialog extends Dialog {
         return values;
     }
 
-    // Function to check subscription status (same pattern as ControllerSimulationDialog)
+    // Function to check subscription status (same pattern as other subscription-gated dialogs)
     async checkSubscriptionStatus() {
         console.log('BessSizingDialog.checkSubscriptionStatus() called');
         try {
@@ -701,7 +701,7 @@ export class BessSizingDialog extends Dialog {
         applyButton.onclick = async (e) => {
             e.preventDefault();
             
-            // Check subscription status before proceeding (same pattern as ControllerSimulationDialog)
+            // Check subscription status before proceeding (same pattern as other subscription-gated dialogs)
             try {
                 console.log('BessSizingDialog: Starting subscription check...');
                 const hasSubscription = await this.checkSubscriptionStatus();
