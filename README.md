@@ -29,7 +29,7 @@ This repository contains the frontend code for **[Electrisim](https://app.electr
 
 ## Technology Stack
 
-- **Frontend Framework**: Custom JavaScript with mxGraph library
+- **Frontend Framework**: Custom JavaScript with mxGraph library 
 - **Graphics Engine**: mxGraph for diagramming capabilities
 - **Build System**: Node.js with custom deployment scripts
 - **Authentication**: OAuth integration
