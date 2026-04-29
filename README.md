@@ -11,7 +11,7 @@ This repository contains the frontend code for **[Electrisim](https://app.electr
 - **Optimal Power Flow (OPF)** 
 - **Short-Circuit Analysis** 
 - **Contingency Analysis** 
-- **Controller Simulation** 
+- **Discrete controllers in load flow** 
 - **Time Series Simulation** 
 
 🌐 **Live Application**: [app.electrisim.com](https://app.electrisim.com/)

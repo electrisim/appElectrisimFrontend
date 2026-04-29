@@ -1,9 +1,13 @@
 /**
- * JavaScript Minification Script for Electrisim
- * Minifies unminified JS files identified by Lighthouse
- * Reduces payload by ~413KB according to the Lighthouse report
- * 
+ * JavaScript minification for Electrisim (Terser).
+ * Reads each listed `.js` file, writes minified output back to the same path.
+ *
  * Usage: node scripts/minify-js.js
+ * Single file: node scripts/minify-js.js --target <path>
+ *
+ * Unminified source is expected in git. After `npm run minify`, use git to
+ * restore readable sources (e.g. `git checkout -- <file>`) if you need to edit
+ * without losing history.
  */
 
 const fs = require('fs');
@@ -19,7 +23,6 @@ const FILES_TO_MINIFY = [
     'src/main/webapp/js/electrisim/supportingFunctions.js',
     'src/main/webapp/js/electrisim/contingencyAnalysis.js',
     'src/main/webapp/js/electrisim/optimalPowerFlow.js',
-    'src/main/webapp/js/electrisim/controllerSimulation.js',
     'src/main/webapp/js/electrisim/timeSeriesSimulation.js',
     // Dialog files
     'src/main/webapp/js/electrisim/dialogs/LoadFlowDialog.js',
@@ -71,42 +74,35 @@ const TERSER_OPTIONS = {
  */
 async function minifyFile(filePath) {
     const absolutePath = path.resolve(process.cwd(), filePath);
-    
+
     if (!fs.existsSync(absolutePath)) {
         console.warn(`⚠️  File not found: ${filePath}`);
         return { success: false, error: 'File not found' };
     }
-    
+
     try {
         const code = fs.readFileSync(absolutePath, 'utf8');
         const originalSize = Buffer.byteLength(code, 'utf8');
-        
+
         const result = await minify(code, TERSER_OPTIONS);
-        
+
         if (result.error) {
             console.error(`❌ Error minifying ${filePath}:`, result.error);
             return { success: false, error: result.error };
         }
-        
+
         const minifiedCode = result.code;
         const minifiedSize = Buffer.byteLength(minifiedCode, 'utf8');
         const savings = originalSize - minifiedSize;
         const savingsPercent = ((savings / originalSize) * 100).toFixed(1);
-        
-        // Create backup of original file
-        const backupPath = absolutePath + '.backup';
-        if (!fs.existsSync(backupPath)) {
-            fs.copyFileSync(absolutePath, backupPath);
-        }
-        
-        // Write minified file
+
         fs.writeFileSync(absolutePath, minifiedCode, 'utf8');
-        
+
         console.log(`✅ ${filePath}`);
         console.log(`   Original: ${(originalSize / 1024).toFixed(2)}KB`);
         console.log(`   Minified: ${(minifiedSize / 1024).toFixed(2)}KB`);
         console.log(`   Savings:  ${(savings / 1024).toFixed(2)}KB (${savingsPercent}%)`);
-        
+
         return {
             success: true,
             originalSize,
@@ -121,64 +117,10 @@ async function minifyFile(filePath) {
 }
 
 /**
- * Restore original files from backups
- */
-function restoreBackups() {
-    console.log('\n🔄 Restoring original files from backups...\n');
-    
-    let restored = 0;
-    FILES_TO_MINIFY.forEach(filePath => {
-        const absolutePath = path.resolve(process.cwd(), filePath);
-        const backupPath = absolutePath + '.backup';
-        
-        if (fs.existsSync(backupPath)) {
-            fs.copyFileSync(backupPath, absolutePath);
-            console.log(`✅ Restored: ${filePath}`);
-            restored++;
-        }
-    });
-    
-    console.log(`\n✅ Restored ${restored} files from backups`);
-}
-
-/**
- * Delete backup files
- */
-function deleteBackups() {
-    console.log('\n🗑️  Deleting backup files...\n');
-    
-    let deleted = 0;
-    FILES_TO_MINIFY.forEach(filePath => {
-        const absolutePath = path.resolve(process.cwd(), filePath);
-        const backupPath = absolutePath + '.backup';
-        
-        if (fs.existsSync(backupPath)) {
-            fs.unlinkSync(backupPath);
-            console.log(`✅ Deleted: ${filePath}.backup`);
-            deleted++;
-        }
-    });
-    
-    console.log(`\n✅ Deleted ${deleted} backup files`);
-}
-
-/**
  * Main function
  */
 async function main() {
     const args = process.argv.slice(2);
-
-    // Handle restore command
-    if (args.includes('--restore')) {
-        restoreBackups();
-        return;
-    }
-
-    // Handle delete-backups command
-    if (args.includes('--delete-backups')) {
-        deleteBackups();
-        return;
-    }
 
     // Handle single file minification
     const targetIndex = args.findIndex(arg => arg === '--target');
@@ -208,7 +150,6 @@ async function main() {
     let successCount = 0;
     let failCount = 0;
 
-    // Minify all files
     for (const filePath of FILES_TO_MINIFY) {
         const result = await minifyFile(filePath);
         results.push({ filePath, ...result });
@@ -223,11 +164,12 @@ async function main() {
 
         console.log(''); // Empty line between files
     }
-    
-    // Print summary
+
     const totalSavings = totalOriginal - totalMinified;
-    const totalSavingsPercent = ((totalSavings / totalOriginal) * 100).toFixed(1);
-    
+    const totalSavingsPercent = totalOriginal > 0
+        ? ((totalSavings / totalOriginal) * 100).toFixed(1)
+        : '0.0';
+
     console.log('═══════════════════════════════════════════');
     console.log('📊 MINIFICATION SUMMARY');
     console.log('═══════════════════════════════════════════');
@@ -238,10 +180,7 @@ async function main() {
     console.log(`Minified Size:     ${(totalMinified / 1024).toFixed(2)}KB`);
     console.log(`Total Savings:     ${(totalSavings / 1024).toFixed(2)}KB (${totalSavingsPercent}%)`);
     console.log('═══════════════════════════════════════════\n');
-    
-    console.log('💡 Backups created with .backup extension');
-    console.log('💡 To restore originals: node scripts/minify-js.js --restore');
-    console.log('💡 To delete backups:    node scripts/minify-js.js --delete-backups\n');
+    console.log('💡 Unminified source: keep in git. To undo minify locally: git checkout -- <file>\n');
 }
 
 // Run if called directly
@@ -252,5 +191,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { minifyFile, restoreBackups, deleteBackups };
-
+module.exports = { minifyFile, FILES_TO_MINIFY };

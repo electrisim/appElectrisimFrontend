@@ -643,7 +643,7 @@
 							
 							// Load Electrisim custom scripts after app.min.js
 							// PERFORMANCE: Load performance utils first, then other modules
-                            // NOTE: For local dev use `npm run minify:restore` so the .js files contain unminified code; avoid loading .backup files directly to prevent MIME/404 issues.
+                            // Load published .js paths only; keep readable source in git and use git checkout to undo local minify if needed.
                             var electrisimScripts = [
 								// Load SAFE performance optimizer FIRST
 								'js/electrisim/safe-performance-optimizer.js',
@@ -671,8 +671,6 @@
 								'js/electrisim/dialogs/DiagnosticReportDialog.js',
 								'js/electrisim/dialogs/OptimalPowerFlowDialog.js',
 								'js/electrisim/dialogs/OptimalPowerFlowResultsDialog.js',
-								'js/electrisim/dialogs/ControllerSimulationDialog.js',
-								'js/electrisim/dialogs/ControllerSimulationResultsDialog.js',
 								'js/electrisim/dialogs/TimeSeriesSimulationDialog.js',
 								'js/electrisim/dialogs/TimeSeriesSimulationResultsDialog.js',
 								'js/electrisim/dialogs/ContingencyDialog.js',
@@ -712,7 +710,6 @@
 								'js/electrisim/bessSizing.js',
 								'js/electrisim/rpcAnalysis.js',
 								'js/electrisim/optimalPowerFlow.js',
-								'js/electrisim/controllerSimulation.js',
 								'js/electrisim/timeSeriesSimulation.js',
 								'js/electrisim/contingencyAnalysis.js'
                             ];

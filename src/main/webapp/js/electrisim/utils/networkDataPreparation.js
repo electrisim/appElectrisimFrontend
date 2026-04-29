@@ -677,12 +677,19 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         step: { name: 'step', optional: true },
                         max_step: { name: 'max_step', optional: true },
                         in_service: { name: 'in_service', optional: true },
+                        step_dependency_table: { name: 'step_dependency_table', optional: true },
+                        shunt_characteristic_table_json: { name: 'shunt_characteristic_table_json', optional: true },
                         discrete_shunt_control: { name: 'discrete_shunt_control', optional: true },
                         vm_set_pu: { name: 'vm_set_pu', optional: true },
                         shunt_control_increment: { name: 'shunt_control_increment', optional: true },
                         shunt_control_tol: { name: 'shunt_control_tol', optional: true },
                         shunt_reset_at_init: { name: 'shunt_reset_at_init', optional: true },
-                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
+                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true },
+                        line_flow_step_control: { name: 'line_flow_step_control', optional: true },
+                        line_flow_reference_line_id: { name: 'line_flow_reference_line_id', optional: true },
+                        line_flow_step_table_json: { name: 'line_flow_step_table_json', optional: true },
+                        line_flow_p_use_abs: { name: 'line_flow_p_use_abs', optional: true },
+                        line_flow_p_reference: { name: 'line_flow_p_reference', optional: true }
                     })
                 };
                 componentArrays.shuntReactor.push(shuntReactor);

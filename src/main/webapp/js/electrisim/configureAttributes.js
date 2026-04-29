@@ -355,6 +355,13 @@ export function configureShuntReactorAttributes(grafka, vertex, options = {}) {
     
     g.setAttribute("step", options.step || "1");
     g.setAttribute("max_step", options.max_step || "1");
+    g.setAttribute("step_dependency_table", options.step_dependency_table != null ? String(options.step_dependency_table) : "false");
+    g.setAttribute("shunt_characteristic_table_json", options.shunt_characteristic_table_json || "[]");
+    g.setAttribute("line_flow_step_control", options.line_flow_step_control != null ? String(options.line_flow_step_control) : "false");
+    g.setAttribute("line_flow_reference_line_id", options.line_flow_reference_line_id != null ? String(options.line_flow_reference_line_id) : "");
+    g.setAttribute("line_flow_step_table_json", options.line_flow_step_table_json || "[]");
+    g.setAttribute("line_flow_p_use_abs", options.line_flow_p_use_abs != null ? String(options.line_flow_p_use_abs) : "true");
+    g.setAttribute("line_flow_p_reference", options.line_flow_p_reference || "p_from_mw");
     // g.setAttribute("in_service", "True"); //in_service nie działa
 
     // Economic parameters
