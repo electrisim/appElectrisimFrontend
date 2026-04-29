@@ -85,13 +85,24 @@ const mergeShuntControlIntoShunts = (dataJson) => {
     if (!Array.isArray(rows) || rows.length === 0 || !dataJson.shunts?.length) return;
     const byCellId = new Map();
     const byInternalName = new Map();
+    const byIdSuffix = new Map();
+    const suffixOf = (v) => {
+        if (v == null) return null;
+        const s = String(v);
+        const idx = s.lastIndexOf('-');
+        return idx >= 0 ? s.slice(idx + 1) : s;
+    };
     for (const row of rows) {
         if (row && row.element !== 'shunt') continue;
         if (row && row.cell_id) byCellId.set(String(row.cell_id), row);
+        if (row && row.cell_id) byIdSuffix.set(suffixOf(row.cell_id), row);
         if (row && row.id != null) byInternalName.set(String(row.id), row);
+        if (row && row.id != null) byIdSuffix.set(suffixOf(row.id), row);
+        if (row && row.name != null) byInternalName.set(String(row.name), row);
     }
     for (const s of dataJson.shunts) {
         let m = s.id != null ? byCellId.get(String(s.id)) : null;
+        if (!m && s.id != null) m = byIdSuffix.get(suffixOf(s.id));
         if (!m && s.name != null) m = byInternalName.get(String(s.name));
         if (m) s.shunt_control_result = m;
     }
@@ -288,17 +299,21 @@ const downloadPandapowerResults = (dataJson, graph) => {
         // Shunts
         if (dataJson.shunts && dataJson.shunts.length > 0) {
             resultsText += '--- SHUNT REACTORS ---\n';
-            const widths = [18, 18, 12, 12, 10];
-            const headers = ['Object id', 'Dialog name', 'P [MW]', 'Q [MVAr]', 'U [pu]'];
+            const widths = [18, 18, 12, 12, 10, 8];
+            const headers = ['Object id', 'Dialog name', 'P [MW]', 'Q [MVAr]', 'U [pu]', 'step'];
             resultsText += createTableRow(headers, widths) + '\n';
             resultsText += createTableSeparator(widths) + '\n';
             dataJson.shunts.forEach(shunt => {
+                const stepCol = (shunt.step !== undefined && shunt.step !== null && !Number.isNaN(Number(shunt.step)))
+                    ? String(Math.round(Number(shunt.step)))
+                    : '—';
                 const row = [
                     shunt.name || 'N/A',
                     dialogNameFor(shunt) || '—',
                     shunt.p_mw ? shunt.p_mw.toFixed(3) : 'N/A',
                     shunt.q_mvar ? shunt.q_mvar.toFixed(3) : 'N/A',
-                    shunt.vm_pu ? shunt.vm_pu.toFixed(3) : 'N/A'
+                    shunt.vm_pu ? shunt.vm_pu.toFixed(3) : 'N/A',
+                    stepCol
                 ];
                 resultsText += createTableRow(row, widths) + '\n';
             });
@@ -1110,14 +1125,28 @@ function loadFlowPandaPower(a, b, c) {
 
     const formatShuntControlOnShunt = (cell) => {
         const sc = cell.shunt_control_result;
-        if (!sc) return '';
-        const si = sc.step_initial;
-        const sf = sc.step;
-        const range = `[0…${formatNumber(sc.max_step, 0)}]`;
-        if (si !== undefined && si !== null && Number(si) !== Number(sf)) {
-            return `\n            step: ${formatNumber(si, 0)} → ${formatNumber(sf, 0)} ${range} (DiscreteShuntController)`;
+        if (sc) {
+            const si = sc.step_initial;
+            const sf = sc.step;
+            const range = `[0…${formatNumber(sc.max_step, 0)}]`;
+            const isLineFlow = sc.control_type === 'line_flow';
+            const ctlLabel = isLineFlow ? 'Line P → step' : 'DiscreteShuntController';
+            const linePextra = isLineFlow && sc.line_p_mw_used != null && Number(sc.line_p_mw_used) === Number(sc.line_p_mw_used)
+                ? `\n            P[line][MW]: ${formatNumber(Number(sc.line_p_mw_used), 3)} (${sc.line_p_column || '—'})`
+                : '';
+            if (si !== undefined && si !== null && Number(si) !== Number(sf)) {
+                return `\n            step: ${formatNumber(si, 0)} → ${formatNumber(sf, 0)} ${range} (${ctlLabel})${linePextra}`;
+            }
+            return `\n            step (after control): ${formatNumber(sf, 0)} ${range} (${ctlLabel})${linePextra}`;
         }
-        return `\n            step (after control): ${formatNumber(sf, 0)} ${range}`;
+        // No discrete-voltage controller summary: show final shunt step from net.shunt (CharacteristicControl, open-loop, etc.)
+        if (cell.step != null && cell.step !== '' && !Number.isNaN(Number(cell.step))) {
+            const mx = (cell.max_step != null && cell.max_step !== '' && !Number.isNaN(Number(cell.max_step)))
+                ? formatNumber(cell.max_step, 0)
+                : '—';
+            return `\n            step: ${formatNumber(cell.step, 0)} [0…${mx}]`;
+        }
+        return '';
     };
 
     const replaceUnderscores = name => name.replace('_', '#');

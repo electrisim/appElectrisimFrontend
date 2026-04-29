@@ -883,17 +883,26 @@ export class ShuntReactorDialog extends Dialog {
         return lines;
     }
 
+    /**
+     * Id sent to PandaPower matches network export (loadFlow/networkDataPreparation): `cell.id`.
+     * `mxCell.getId()` can differ (layer-prefixed / hierarchical mxGraph ids) and broke resolving the reference line.
+     */
+    _lineDiagramIdForBackend(cell) {
+        if (!cell || cell.id == null) return '';
+        return String(cell.id);
+    }
+
     _lineRefOptionLabel(cell) {
-        const id = cell.getId != null ? String(cell.getId()) : String(cell.id);
+        const bid = this._lineDiagramIdForBackend(cell);
         const name = this._getCellNameAttribute(cell);
-        return name ? `${name}  —  id: ${id}` : `Line  —  id: ${id}`;
+        return name ? `${name}  —  id: ${bid}` : `Line  —  id: ${bid}`;
     }
 
     _getLineReferenceSelectItems() {
         const list = this._collectDiagramLineCells();
         return list
             .map((cell) => {
-                const value = cell.getId != null ? String(cell.getId()) : String(cell.id);
+                const value = this._lineDiagramIdForBackend(cell);
                 return { value, label: this._lineRefOptionLabel(cell), cell };
             })
             .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
@@ -1140,7 +1149,11 @@ export class ShuntReactorDialog extends Dialog {
                         window.alert('The selected element is not a Line.');
                         return;
                     }
-                    const id = c.getId != null ? String(c.getId()) : String(c.id);
+                    const id = this._lineDiagramIdForBackend(c);
+                    if (!id) {
+                        window.alert('Selected line has no diagram id.');
+                        return;
+                    }
                     this._renderLineReferenceSelect(input, id);
                 });
                 const stack = document.createElement('div');

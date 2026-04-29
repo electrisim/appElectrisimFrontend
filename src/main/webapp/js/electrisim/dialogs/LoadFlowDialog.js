@@ -86,7 +86,7 @@ export class LoadFlowDialog extends Dialog {
             {
                 id: 'run_control_shunt',
                 label: 'Shunt reactor tap changer',
-                checkboxLabel: 'DiscreteShuntController — step control on shunt reactors (when enabled on diagram; optional P/Q per step via shunt characteristic table on the element)',
+                checkboxLabel: 'DiscreteShuntController (voltage/target step control). Line P→shunt step from bands runs automatically when turned on on the shunt dialog — no tick here.',
                 type: 'checkbox',
                 value: false
             },

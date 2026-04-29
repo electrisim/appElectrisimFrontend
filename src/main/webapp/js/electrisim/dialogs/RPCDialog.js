@@ -294,7 +294,7 @@ export class RPCDialog extends Dialog {
             {
                 id: 'run_control_shunt',
                 label: 'Shunt reactor tap changer',
-                checkboxLabel: 'DiscreteShuntController — step control on shunt reactors (when enabled on diagram; optional P/Q per step table on the shunt)',
+                checkboxLabel: 'DiscreteShuntController (voltage/target step). Line P→shunt step runs automatically when enabled on the shunt — no tick required here.',
                 type: 'checkbox',
                 value: false
             },
