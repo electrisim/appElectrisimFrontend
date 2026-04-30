@@ -9,6 +9,14 @@
     <link rel="preload" href="js/app.min.js" as="script">
     <link rel="preload" href="https://unpkg.com/ag-grid-community@31.3.2/dist/ag-grid-community.min.js" as="script">
 
+    <!-- Module preload hints for analysis engines: makes browser fetch them earlier (HTTP/2 prioritized)
+         and shrinks the window for transient script-load failures (see Smartlook error reports). -->
+    <link rel="modulepreload" href="js/electrisim/shortCircuit.js">
+    <link rel="modulepreload" href="js/electrisim/loadFlow.js">
+    <link rel="modulepreload" href="js/electrisim/loadflowOpenDss.js">
+    <link rel="modulepreload" href="js/electrisim/optimalPowerFlow.js">
+    <link rel="modulepreload" href="js/electrisim/contingencyAnalysis.js">
+
     <link rel="stylesheet" type="text/css" href="mxgraph/css/common.css">
     <link rel="stylesheet" type="text/css" href="styles/resizable-dialogs.css">
     <!-- Leaflet for Map Editor - loaded on demand when Map Editor opens (see showMapEditorDialog) -->
@@ -92,7 +100,15 @@
                     region: 'eu',
                     interceptors: {
                         error: (data, context) => {
-                            if (data && data.message && /MetaMask|metamask|Failed to connect to MetaMask/i.test(data.message)) {
+                            if (!data || !data.message) {
+                                return true;
+                            }
+                            const msg = String(data.message);
+                            if (/MetaMask|metamask|Failed to connect to MetaMask/i.test(msg)) {
+                                return false;
+                            }
+                            // Benign Chromium resize noise (toolbar responsive layout — not an app defect)
+                            if (/^ResizeObserver loop/i.test(msg)) {
                                 return false;
                             }
                             return true;
@@ -661,6 +677,7 @@
 								'js/electrisim/dialogs/EditDataDialog.js',
                                 'js/electrisim/results/resultBoxes.js?v=4',
                                 'js/electrisim/results/networkHealthDashboard.js?v=1',
+                                'js/electrisim/results/engineeringReport.js?v=5',
                                 'js/electrisim/dialogs/ComponentsDataDialog.js',
 								'js/electrisim/utils/cellUtils.js',
 								'js/electrisim/utils/networkPreparation.js',
@@ -757,41 +774,66 @@
 							}
 							
 							// Improved Electrisim script loading with better error handling and batching
-							// Load scripts in parallel batches to prevent UI blocking
+							// Load scripts in parallel batches to prevent UI blocking.
+							// Each script is retried up to 2× with backoff on transient load failures
+							// (network hiccup / brief 5xx). ES modules cache fetch failures by URL,
+							// so retries append a unique query string to force a fresh fetch.
+							var ELECTRISIM_MAX_ATTEMPTS = 3; // 1 initial + 2 retries
+							var ELECTRISIM_RETRY_DELAYS_MS = [300, 1000];
 							function loadElectrisimScripts(index) {
 								if (index < electrisimScripts.length) {
 									// Load critical scripts first (performance utils, then others)
 									const batchSize = index === 0 ? 1 : (index === 1 ? 2 : 5); // Load performanceUtils first, then visibility manager and monitor together
 									const batch = electrisimScripts.slice(index, index + batchSize);
-									let loaded = 0;
+									let settled = 0;
 									
-									batch.forEach(function(scriptSrc) {
+									function onScriptSettled() {
+										settled++;
+										if (settled === batch.length) {
+											// Use setTimeout to yield to UI thread between batches
+											setTimeout(function() {
+												loadElectrisimScripts(index + batch.length);
+											}, 0);
+										}
+									}
+									
+									function loadOne(scriptSrc, attempt) {
 										var script = document.createElement('script');
 										script.type = 'module';
-										script.src = scriptSrc;
 										script.async = true; // Allow parallel loading
+										// First attempt: clean URL so HTTP cache and <link rel="modulepreload"> hits work.
+										// Retries: cache-bust to bypass the module fetch-failure cache for that URL.
+										if (attempt > 0) {
+											var sep = scriptSrc.indexOf('?') === -1 ? '?' : '&';
+											script.src = scriptSrc + sep + '_r=' + attempt + '_' + Date.now();
+										} else {
+											script.src = scriptSrc;
+										}
 										
 										script.onload = function() {
-											loaded++;
-											if (loaded === batch.length) {
-												// Use setTimeout to yield to UI thread between batches
-												setTimeout(function() {
-													loadElectrisimScripts(index + batch.length);
-												}, 0);
+											if (attempt > 0) {
+												console.log('Script recovered after retry:', scriptSrc, 'attempt', attempt);
 											}
+											onScriptSettled();
 										};
 										
 										script.onerror = function(e) {
-											console.warn('Failed to load script:', scriptSrc, e);
-											loaded++;
-											if (loaded === batch.length) {
-												setTimeout(function() {
-													loadElectrisimScripts(index + batch.length);
-												}, 0);
+											var nextAttempt = attempt + 1;
+											if (nextAttempt < ELECTRISIM_MAX_ATTEMPTS) {
+												var delay = ELECTRISIM_RETRY_DELAYS_MS[attempt] || 1000;
+												console.warn('Script load failed, retrying (' + nextAttempt + '/' + (ELECTRISIM_MAX_ATTEMPTS - 1) + ') in ' + delay + 'ms:', scriptSrc);
+												setTimeout(function() { loadOne(scriptSrc, nextAttempt); }, delay);
+											} else {
+												console.error('Script load failed after ' + ELECTRISIM_MAX_ATTEMPTS + ' attempts:', scriptSrc, e);
+												onScriptSettled();
 											}
 										};
 										
 										document.head.appendChild(script);
+									}
+									
+									batch.forEach(function(scriptSrc) {
+										loadOne(scriptSrc, 0);
 									});
 								} else {
 									// Electrisim scripts done - now load deferred auth (Stripe) for faster initial load

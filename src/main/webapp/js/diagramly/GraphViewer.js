@@ -1374,12 +1374,16 @@ GraphViewer.prototype.addToolbar = function()
 	
 	if (this.responsive && typeof ResizeObserver !== 'undefined')
 	{
+		// Defer resize work to next frame — avoids Chromium "ResizeObserver loop completed with undelivered notifications"
 		new ResizeObserver(function()
 		{
-			if (toolbar.parentNode != null)
+			window.requestAnimationFrame(function()
 			{
-				enter();
-			}
+				if (toolbar.parentNode != null)
+				{
+					enter();
+				}
+			});
 		}).observe(container)
 	}
 };

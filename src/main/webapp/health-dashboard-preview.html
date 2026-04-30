@@ -66,6 +66,20 @@
             background: rgba(255,255,255,0.85); padding: 8px 12px; border-radius: 8px;
             border: 1px solid #e2e8f0;
         }
+        .actions {
+            position: absolute; right: 22px; top: 22px;
+            display: flex; gap: 8px; flex-wrap: wrap;
+        }
+        .actions button {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #fff;
+            border: 0; border-radius: 10px;
+            padding: 9px 16px; font-size: 13px; font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 8px 18px -8px rgba(37,99,235,0.55);
+            transition: all 0.15s ease;
+        }
+        .actions button:hover { transform: translateY(-1px); box-shadow: 0 12px 22px -8px rgba(37,99,235,0.6); }
+        .actions button[disabled] { opacity: 0.6; cursor: progress; transform: none; }
     </style>
 </head>
 <body>
@@ -92,10 +106,17 @@
             <button data-scenario="asym30">30 asym sgens × 15 MW</button>
         </div>
 
+        <div class="actions">
+            <button id="generateReportBtn" title="Generate a multi-page Engineering Report PDF from the current scenario">
+                Generate PDF Report
+            </button>
+        </div>
+
         <div class="meta">Synthetic data · no backend required</div>
     </div>
 
     <script src="js/electrisim/results/networkHealthDashboard.js"></script>
+    <script src="js/electrisim/results/engineeringReport.js"></script>
     <script>
         const SCENARIOS = {
             healthy: {
@@ -217,7 +238,10 @@
             },
         };
 
+        let currentScenario = 'healthy';
+
         function render(name) {
+            currentScenario = name;
             window.showNetworkHealthDashboard(SCENARIOS[name], null);
         }
 
@@ -238,6 +262,40 @@
             initialBtn.classList.add('active');
         }
         render(SCENARIOS[initial] ? initial : 'healthy');
+
+        // Generate PDF Report — independent of the dashboard panel.
+        // Pre-fills metadata so the dialog isn't blocking when capturing
+        // screenshots from headless browser sessions.
+        const reportBtn = document.getElementById('generateReportBtn');
+        reportBtn.addEventListener('click', () => {
+            if (typeof window.exportEngineeringReport !== 'function') {
+                alert('engineeringReport.js failed to load.');
+                return;
+            }
+            const original = reportBtn.textContent;
+            reportBtn.disabled = true;
+            reportBtn.textContent = 'Building PDF…';
+            const skipDialog = params.get('autoreport') === '1';
+            const opts = skipDialog
+                ? {
+                    skipDialog: true,
+                    project:  'Electrisim demo — ' + currentScenario,
+                    engineer: 'demo@electrisim.com',
+                    company:  'Electrisim',
+                    notes:    'Auto-generated preview report for the ' + currentScenario + ' scenario.',
+                  }
+                : {
+                    prefill: {
+                        project:  'Electrisim demo — ' + currentScenario,
+                        engineer: 'demo@electrisim.com',
+                        company:  'Electrisim',
+                        notes:    'Preview report generated from synthetic ' + currentScenario + ' scenario.',
+                    },
+                  };
+            Promise.resolve(window.exportEngineeringReport(SCENARIOS[currentScenario], null, opts))
+                .catch(err => console.warn('Report failed:', err))
+                .finally(() => { reportBtn.disabled = false; reportBtn.textContent = original; });
+        });
     </script>
 </body>
 </html>

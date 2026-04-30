@@ -549,14 +549,16 @@
             }
 
             #${PANEL_ID} .ehd-cta-row {
-                display: flex; gap: 8px; margin-top: 14px;
+                display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px;
             }
             #${PANEL_ID} .ehd-btn {
-                flex: 1; padding: 8px 10px;
+                flex: 1 1 calc(50% - 4px); min-width: 110px;
+                padding: 8px 10px;
                 font-size: 12px; font-weight: 600;
                 border-radius: 8px; border: 1px solid ${COLOR_BORDER};
                 background: #ffffff; color: ${COLOR_TEXT};
                 cursor: pointer; transition: all 0.15s ease;
+                display: inline-flex; align-items: center; justify-content: center; gap: 6px;
             }
             #${PANEL_ID} .ehd-btn:hover { background: #f1f5f9; transform: translateY(-1px); }
             #${PANEL_ID} .ehd-btn.primary {
@@ -564,6 +566,15 @@
                 color: #fff; border-color: transparent;
             }
             #${PANEL_ID} .ehd-btn.primary:hover { box-shadow: 0 6px 14px -4px rgba(37,99,235,0.45); }
+            #${PANEL_ID} .ehd-btn[disabled] {
+                opacity: 0.6; cursor: progress; transform: none !important;
+            }
+            #${PANEL_ID} .ehd-spinner {
+                width: 11px; height: 11px; border-radius: 50%;
+                border: 2px solid rgba(15,23,42,0.18); border-top-color: ${COLOR_TEXT};
+                animation: ehd-spin 0.8s linear infinite; display: inline-block;
+            }
+            @keyframes ehd-spin { to { transform: rotate(360deg); } }
 
             .ehd-flash-pulse {
                 animation: ehd-flash 1.6s ease-in-out;
@@ -1027,6 +1038,7 @@
 
                     <div class="ehd-cta-row">
                         <button class="ehd-btn primary ehd-flash-btn">Highlight Hot Spots</button>
+                        <button class="ehd-btn ehd-report-btn" title="Generate a multi-page PDF engineering report from this run">Export Report</button>
                         <button class="ehd-btn ehd-copy-btn">Copy Summary</button>
                     </div>
                 </div>
@@ -1064,6 +1076,43 @@
             panel.querySelector('.ehd-flash-btn').addEventListener('click', () => {
                 flashAllHotSpots(graph, metrics);
             });
+
+            // Export Report button — generates a multi-page PDF
+            const reportBtn = panel.querySelector('.ehd-report-btn');
+            if (reportBtn) {
+                reportBtn.addEventListener('click', () => {
+                    if (typeof window.exportEngineeringReport !== 'function') {
+                        console.warn('[NetworkHealthDashboard] exportEngineeringReport is not loaded.');
+                        return;
+                    }
+                    if (reportBtn.hasAttribute('disabled')) return;
+                    // Resolve the live graph from the editor if the caller's
+                    // graph reference is missing (e.g. preview page).
+                    let liveGraph = graph;
+                    if (!liveGraph || typeof liveGraph.getGraphBounds !== 'function') {
+                        try {
+                            // Electrisim assigns App._editorUi / App._instance in
+                            // index.html (App.main callback). See also App.main.editor.
+                            const ui = (window.App && (window.App._editorUi || window.App._instance)) ||
+                                       window.editorUi || window.ui || null;
+                            if (ui && ui.editor && ui.editor.graph) {
+                                liveGraph = ui.editor.graph;
+                            } else if (window.App && window.App.main && window.App.main.editor && window.App.main.editor.graph) {
+                                liveGraph = window.App.main.editor.graph;
+                            }
+                        } catch (e) { /* keep original */ }
+                    }
+                    const original = reportBtn.innerHTML;
+                    reportBtn.setAttribute('disabled', 'true');
+                    reportBtn.innerHTML = '<span class="ehd-spinner"></span> Building…';
+                    Promise.resolve(window.exportEngineeringReport(dataJson, liveGraph))
+                        .catch((err) => console.error('[NetworkHealthDashboard] report failed:', err))
+                        .finally(() => {
+                            reportBtn.removeAttribute('disabled');
+                            reportBtn.innerHTML = original;
+                        });
+                });
+            }
 
             // Copy summary
             panel.querySelector('.ehd-copy-btn').addEventListener('click', () => {

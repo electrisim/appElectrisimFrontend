@@ -2958,14 +2958,16 @@ App.prototype.start = function()
 		
 		window.onerror = function(message, url, linenumber, colno, err)
 		{
-			// Ignores Grammarly error [1344]
-			if (message != 'ResizeObserver loop limit exceeded')
+			// ResizeObserver benign noise (Chrome/Chromium variants; no user impact — see GraphViewer ResizeObserver+rAF fix)
+			if (typeof message === 'string' && message.indexOf('ResizeObserver loop') === 0)
 			{
-				EditorUi.logError('Uncaught: ' + ((message != null) ? message : ''),
-					url, linenumber, colno, err, null, true);
-				ui.handleError({message: message}, mxResources.get('unknownError'),
-					null, null, null, null, true);
+				return true;
 			}
+
+			EditorUi.logError('Uncaught: ' + ((message != null) ? message : ''),
+				url, linenumber, colno, err, null, true);
+			ui.handleError({message: message}, mxResources.get('unknownError'),
+				null, null, null, null, true);
 		};
 		
 		// Listens to changes of the hash if not in embed or client mode

@@ -1999,6 +1999,28 @@ ${tapBlock}`;
                 console.warn('Network Health Dashboard render skipped:', dashErr);
             }
 
+            // Optional one-click PDF Engineering Report. Triggered when the user
+            // ticked "Export PDF Report" in the Load Flow dialog. Skips the
+            // metadata dialog only if values are already cached in localStorage.
+            try {
+                if (obj && obj[0] && obj[0].exportPdfReport &&
+                    typeof window !== 'undefined' && typeof window.exportEngineeringReport === 'function') {
+                    console.log('📄 Triggering Engineering Report (PDF) export...');
+                    let reportGraph = b;
+                    if (!reportGraph || typeof reportGraph.getGraphBounds !== 'function') {
+                        const ui = (window.App && (window.App._editorUi || window.App._instance)) ||
+                                   window.editorUi || window.ui || null;
+                        if (ui && ui.editor && ui.editor.graph) {
+                            reportGraph = ui.editor.graph;
+                        }
+                    }
+                    Promise.resolve(window.exportEngineeringReport(dataJson, reportGraph))
+                        .catch((err) => console.warn('Engineering Report export failed:', err));
+                }
+            } catch (rptErr) {
+                console.warn('Engineering Report export skipped:', rptErr);
+            }
+
         } catch (err) {
             resultCellLookupMap = null;
             resultCellLookupGraph = null;
@@ -2106,6 +2128,7 @@ ${tapBlock}`;
                 (typeof v === 'string' && ['true', '1', 'yes', 'on'].includes(v.toLowerCase()));
             const exportPythonValue = isObjectFormat ? coerceBool(a.exportPython) : false;
             const exportPandapowerResultsValue = isObjectFormat ? coerceBool(a.exportPandapowerResults) : false;
+            const exportPdfReportValue = isObjectFormat ? coerceBool(a.exportPdfReport) : false;
             const runControlTrafo2w = isObjectFormat ? coerceBool(a.run_control_trafo2w) : false;
             const runControlTrafo3w = isObjectFormat ? coerceBool(a.run_control_trafo3w) : false;
             const runControlShunt = isObjectFormat ? coerceBool(a.run_control_shunt) : false;
@@ -2137,6 +2160,7 @@ ${tapBlock}`;
                 initialization: isObjectFormat ? a.initialization : a[3],
                 exportPython: exportPythonValue,  // Use explicitly converted boolean
                 exportPandapowerResults: exportPandapowerResultsValue,  // Results export flag
+                exportPdfReport: exportPdfReportValue,  // One-click PDF engineering report
                 run_control: runControlValue,
                 run_control_trafo2w: runControlTrafo2w,
                 run_control_trafo3w: runControlTrafo3w,

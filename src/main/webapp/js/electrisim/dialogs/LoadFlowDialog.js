@@ -101,6 +101,12 @@ export class LoadFlowDialog extends Dialog {
                 label: 'Export Pandapower Results (download .txt file)',
                 type: 'checkbox',
                 value: false
+            },
+            {
+                id: 'exportPdfReport',
+                label: 'Export PDF Engineering Report (multi-page, client-ready)',
+                type: 'checkbox',
+                value: false
             }
         ];
 
@@ -176,6 +182,12 @@ export class LoadFlowDialog extends Dialog {
             {
                 id: 'exportOpenDSSResults',
                 label: 'Export OpenDSS Results (download .txt file)',
+                type: 'checkbox',
+                value: false
+            },
+            {
+                id: 'exportPdfReport',
+                label: 'Export PDF Engineering Report (multi-page, client-ready)',
                 type: 'checkbox',
                 value: false
             }
@@ -651,6 +663,7 @@ export class LoadFlowDialog extends Dialog {
             syncCheckbox('run_control_shunt');
             syncCheckbox('exportPython');
             syncCheckbox('exportPandapowerResults');
+            syncCheckbox('exportPdfReport');
         }
 
         if (this.currentTab === 'pandapower' && values.run_control_trafo2w !== undefined) {

@@ -177,11 +177,15 @@ export class MapEditor {
             this.options.defaultZoom
         );
 
-        // Carto basemaps (OSM-derived, Fastly CDN) — fewer failed tiles than tile.openstreetmap.org under load / recording tools
+        // Carto basemaps (OSM-derived, Fastly CDN) — fewer failed tiles than tile.openstreetmap.org under load / recording tools.
+        // Transparent errorTileUrl avoids broken-image icons when a tile transiently fails (ad blockers / flaky networks).
+        var transparentPx = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
             subdomains: 'abcd',
-            maxZoom: 20
+            maxZoom: 20,
+            crossOrigin: true,
+            errorTileUrl: transparentPx
         }).addTo(this.map);
 
         // Measure control for distance

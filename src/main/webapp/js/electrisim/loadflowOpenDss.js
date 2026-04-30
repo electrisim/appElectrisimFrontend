@@ -1445,6 +1445,27 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
             dssWarn('Network Health Dashboard render skipped:', dashErr);
         }
 
+        // Optional one-click PDF Engineering Report. Triggered when the user
+        // ticked "Export PDF Report" in the OpenDSS Load Flow dialog.
+        try {
+            if (obj && obj[0] && obj[0].exportPdfReport &&
+                typeof window !== 'undefined' && typeof window.exportEngineeringReport === 'function') {
+                dssLog('📄 Triggering Engineering Report (PDF) export...');
+                let reportGraph = b;
+                if (!reportGraph || typeof reportGraph.getGraphBounds !== 'function') {
+                    const ui = (window.App && (window.App._editorUi || window.App._instance)) ||
+                               window.editorUi || window.ui || null;
+                    if (ui && ui.editor && ui.editor.graph) {
+                        reportGraph = ui.editor.graph;
+                    }
+                }
+                Promise.resolve(window.exportEngineeringReport(dataJson, reportGraph))
+                    .catch((err) => dssWarn('Engineering Report export failed:', err));
+            }
+        } catch (rptErr) {
+            dssWarn('Engineering Report export skipped:', rptErr);
+        }
+
     } catch (err) {
         if (err.message === "server") {
             // Still stop spinner on server error
@@ -1555,6 +1576,7 @@ function executeOpenDSSLoadFlow(parameters, app, graph) {
         controlmode: opendssParams[6],         // Control mode (Static, Event, Time)
         exportCommands: opendssParams[7] || false,  // Export OpenDSS commands to file
         exportOpenDSSResults: parameters.exportOpenDSSResults || false,  // Export OpenDSS results to file
+        exportPdfReport: parameters.exportPdfReport || false,  // One-click PDF engineering report
         user_email: userEmail
     };
     
