@@ -284,4 +284,9 @@ window.getAttributesAsObject = getAttributesAsObject;
 window.getDisplayName = getDisplayName;
 window.formatResultNameHeader = formatResultNameHeader;
 window.getDialogNameFromCell = getDialogNameFromCell;
-window.createDialogNameResolver = createDialogNameResolver; 
+window.createDialogNameResolver = createDialogNameResolver;
+// Exposed so non-module scripts (e.g. results/networkHealthDashboard.js) can
+// resolve backend result rows back to graph cells with the same robustness
+// loadFlow.js uses internally.
+window.buildGraphCellLookupMap = buildGraphCellLookupMap;
+window.resolveGraphCellForResult = resolveGraphCellForResult;

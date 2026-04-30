@@ -1989,6 +1989,16 @@ ${tapBlock}`;
                 resultCellLookupGraph = null;
             }
 
+            // Render the Network Health Dashboard (post-simulation analytics panel).
+            // Self-contained, non-blocking, and silently no-ops if unavailable.
+            try {
+                if (typeof window !== 'undefined' && typeof window.showNetworkHealthDashboard === 'function') {
+                    window.showNetworkHealthDashboard(dataJson, b);
+                }
+            } catch (dashErr) {
+                console.warn('Network Health Dashboard render skipped:', dashErr);
+            }
+
         } catch (err) {
             resultCellLookupMap = null;
             resultCellLookupGraph = null;

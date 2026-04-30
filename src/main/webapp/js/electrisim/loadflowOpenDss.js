@@ -1435,6 +1435,16 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
             dssLog('    - obj[0].exportOpenDSSResults:', !!(obj && obj[0] && obj[0].exportOpenDSSResults));
         }
 
+        // Render the Network Health Dashboard for OpenDSS results too.
+        // Self-contained, non-blocking, silently no-ops if not loaded.
+        try {
+            if (typeof window !== 'undefined' && typeof window.showNetworkHealthDashboard === 'function') {
+                window.showNetworkHealthDashboard(dataJson, b);
+            }
+        } catch (dashErr) {
+            dssWarn('Network Health Dashboard render skipped:', dashErr);
+        }
+
     } catch (err) {
         if (err.message === "server") {
             // Still stop spinner on server error
