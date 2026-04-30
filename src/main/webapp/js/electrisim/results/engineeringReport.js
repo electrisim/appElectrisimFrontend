@@ -1266,6 +1266,200 @@
     }
 
     /* ---------------------------------------------------------------------
+     *  Comparison vs Baseline page (stretch goal).
+     *
+     *  Resolves a pinned baseline (window.getBaselineSnapshot) and the
+     *  compare helper (window.computeScenarioDelta) and appends a single
+     *  landscape page with KPI deltas + top movers tables. No-op silently
+     *  when no baseline is pinned or the compare module is missing.
+     * ------------------------------------------------------------------- */
+    async function renderComparisonPage(doc, dataJson, graph, meta, helpers) {
+        if (!doc || typeof doc.addPage !== 'function') return;
+        if (typeof window === 'undefined') return;
+        if (typeof window.getBaselineSnapshot !== 'function' ||
+            typeof window.computeScenarioDelta !== 'function') {
+            return;
+        }
+        let baseline = null;
+        try { baseline = await window.getBaselineSnapshot(); }
+        catch (e) { console.warn('[Report] baseline lookup failed:', e); }
+        if (!baseline || !baseline.dataJson) return;
+
+        const { drawHeaderBand, setFill, setText, setStroke, hexToRgb } = helpers;
+        const delta = window.computeScenarioDelta(baseline.dataJson, dataJson, graph);
+
+        doc.addPage('a4', 'portrait');
+        const baseLabel = baseline.label || 'Baseline';
+        const baseTs    = baseline.ts ? new Date(baseline.ts).toLocaleString() : '';
+        drawHeaderBand('Comparison vs Baseline', `${baseLabel}${baseTs ? ` · ${baseTs}` : ''} → Current run`);
+
+        // ---- Sub-header summary line ----
+        setText(COLOR.MUTED);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        const migCount = (delta.statusMigrations || []).length;
+        const summary =
+            `${migCount} status migration${migCount === 1 ? '' : 's'} · ` +
+            `${(delta.perBus || []).length} bus deltas · ` +
+            `${(delta.perBranch || []).length} branch deltas` +
+            ((delta.addedRemoved.added.length || delta.addedRemoved.removed.length)
+                ? ` · ${delta.addedRemoved.added.length} added · ${delta.addedRemoved.removed.length} removed`
+                : '');
+        doc.text(summary, PAGE.margin, 28);
+
+        // ---- KPI delta table ----
+        const kpiBody = [];
+        const kpiRow = (label, kpi, decimals, unit) => {
+            if (!kpi) return;
+            const base = (kpi.baseline === null || kpi.baseline === undefined) ? '—' : Number(kpi.baseline).toFixed(decimals);
+            const curr = (kpi.current  === null || kpi.current  === undefined) ? '—' : Number(kpi.current ).toFixed(decimals);
+            const sign = (kpi.delta > 0) ? '+' : '';
+            const dlt  = (kpi.delta === null || kpi.delta === undefined) ? '—' : `${sign}${Number(kpi.delta).toFixed(decimals)}`;
+            const dir  = kpi.direction === 'improved' ? 'IMPROVED'
+                       : kpi.direction === 'worsened' ? 'WORSENED'
+                       : 'NEUTRAL';
+            kpiBody.push([label, `${base}${unit}`, `${curr}${unit}`, `${dlt}${unit}`, dir]);
+        };
+        kpiRow('Health Score',     delta.kpiDelta.healthScore, 0, '');
+        kpiRow('Total Generation', delta.kpiDelta.totalGen,    2, ' MW');
+        kpiRow('Total Load',       delta.kpiDelta.totalLoad,   2, ' MW');
+        kpiRow('Total Losses',     delta.kpiDelta.totalLosses, 3, ' MW');
+        kpiRow('Loss %',           delta.kpiDelta.lossPct,     2, ' %');
+        kpiRow('Violations',       delta.kpiDelta.violations,  0, '');
+        kpiRow('Min Bus Voltage',  delta.kpiDelta.minV,        3, ' pu');
+        kpiRow('Max Bus Voltage',  delta.kpiDelta.maxV,        3, ' pu');
+        kpiRow('Max Loading',      delta.kpiDelta.maxLoading,  1, ' %');
+
+        if (doc.autoTable && kpiBody.length) {
+            doc.autoTable({
+                startY: 33,
+                margin: { left: PAGE.margin, right: PAGE.margin },
+                head: [['Metric', 'Baseline', 'Current', 'Δ', 'Direction']],
+                body: kpiBody,
+                theme: 'grid',
+                styles: { font: 'helvetica', fontSize: 9, cellPadding: 1.4 },
+                headStyles: { fillColor: hexToRgb(COLOR.TEXT), textColor: [255,255,255] },
+                columnStyles: {
+                    1: { halign: 'right' },
+                    2: { halign: 'right' },
+                    3: { halign: 'right', fontStyle: 'bold' },
+                    4: { halign: 'center', cellWidth: 24, fontStyle: 'bold' },
+                },
+                didParseCell: (d) => {
+                    if (d.section !== 'body' || d.column.index !== 4) return;
+                    const v = String(d.cell.raw || '').toUpperCase();
+                    if      (v === 'IMPROVED') { d.cell.styles.fillColor = [220, 252, 231]; d.cell.styles.textColor = hexToRgb(COLOR.GOOD); }
+                    else if (v === 'WORSENED') { d.cell.styles.fillColor = [254, 226, 226]; d.cell.styles.textColor = hexToRgb(COLOR.DANGER); }
+                    else                       { d.cell.styles.textColor = hexToRgb(COLOR.MUTED); }
+                },
+            });
+        }
+
+        let cursorY = (doc.lastAutoTable && doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY : 60) + 8;
+
+        // ---- Status migrations callout ----
+        if (migCount && cursorY < PAGE.h - 40) {
+            const lines = (delta.statusMigrations || []).slice(0, 6);
+            const blockH = 8 + lines.length * 5 + 4;
+            setFill('#fff7ed');
+            setStroke('#fed7aa');
+            doc.setLineWidth(0.4);
+            doc.roundedRect(PAGE.margin, cursorY, CONTENT_W, blockH, 2, 2, 'FD');
+            setText(COLOR.TEXT);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(10);
+            doc.text(`${migCount} band migration${migCount === 1 ? '' : 's'}`, PAGE.margin + 3, cursorY + 5);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8);
+            for (let i = 0; i < lines.length; i++) {
+                const m = lines[i];
+                const sign = (typeof m.delta === 'number' && m.delta > 0) ? '+' : '';
+                const dn = (typeof m.delta === 'number')
+                    ? `${sign}${Number(m.delta).toFixed(m.unit === 'pu' ? 3 : 1)} ${m.unit}`
+                    : '';
+                const text = `${m.kind} · ${m.name}: ${m.from} → ${m.to}${dn ? '   (' + dn + ')' : ''}`;
+                doc.text(text, PAGE.margin + 4, cursorY + 11 + i * 5);
+            }
+            cursorY += blockH + 8;
+        }
+
+        // ---- Top bus movers table ----
+        if (doc.autoTable && (delta.perBus || []).length && cursorY < PAGE.h - 60) {
+            setText(COLOR.TEXT);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(11);
+            doc.text('Top Bus Voltage Movers', PAGE.margin, cursorY);
+            const busRows = (delta.perBus || []).slice(0, 8).map(r => [
+                r.dialogName || r.name || r.id || '—',
+                Number(r.vm_pu_base).toFixed(3),
+                Number(r.vm_pu_curr).toFixed(3),
+                `${r.delta > 0 ? '+' : ''}${Number(r.delta).toFixed(3)}`,
+                `${r.band_base} → ${r.band_curr}`,
+                r.severity.toUpperCase(),
+            ]);
+            doc.autoTable({
+                startY: cursorY + 3,
+                margin: { left: PAGE.margin, right: PAGE.margin },
+                head: [['Bus', 'Base [pu]', 'Current [pu]', 'Δ [pu]', 'Status', 'Direction']],
+                body: busRows,
+                theme: 'striped',
+                styles: { font: 'helvetica', fontSize: 8, cellPadding: 1.1 },
+                headStyles: { fillColor: hexToRgb(COLOR.BRAND), textColor: [255,255,255] },
+                columnStyles: {
+                    1: { halign: 'right' }, 2: { halign: 'right' },
+                    3: { halign: 'right', fontStyle: 'bold' },
+                    5: { halign: 'center', cellWidth: 22 },
+                },
+                didParseCell: (d) => {
+                    if (d.section !== 'body' || d.column.index !== 5) return;
+                    const v = String(d.cell.raw || '').toUpperCase();
+                    if      (v === 'IMPROVED') { d.cell.styles.textColor = hexToRgb(COLOR.GOOD);   d.cell.styles.fontStyle = 'bold'; }
+                    else if (v === 'WORSENED') { d.cell.styles.textColor = hexToRgb(COLOR.DANGER); d.cell.styles.fontStyle = 'bold'; }
+                },
+            });
+            cursorY = (doc.lastAutoTable && doc.lastAutoTable.finalY) + 8;
+        }
+
+        // ---- Top branch movers table ----
+        if (doc.autoTable && (delta.perBranch || []).length && cursorY < PAGE.h - 30) {
+            setText(COLOR.TEXT);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(11);
+            doc.text('Top Branch Loading Movers', PAGE.margin, cursorY);
+            const brRows = (delta.perBranch || []).slice(0, 8).map(r => [
+                r.kind === 'transformer' ? 'Trafo' : r.kind === 'transformer3w' ? '3W' : 'Line',
+                r.dialogName || r.name || r.id || '—',
+                Number(r.loading_base).toFixed(1) + ' %',
+                Number(r.loading_curr).toFixed(1) + ' %',
+                `${r.delta > 0 ? '+' : ''}${Number(r.delta).toFixed(1)} %`,
+                `${r.band_base} → ${r.band_curr}`,
+                r.severity.toUpperCase(),
+            ]);
+            doc.autoTable({
+                startY: cursorY + 3,
+                margin: { left: PAGE.margin, right: PAGE.margin },
+                head: [['Type', 'Element', 'Base', 'Current', 'Δ', 'Status', 'Direction']],
+                body: brRows,
+                theme: 'striped',
+                styles: { font: 'helvetica', fontSize: 8, cellPadding: 1.1 },
+                headStyles: { fillColor: hexToRgb(COLOR.BRAND), textColor: [255,255,255] },
+                columnStyles: {
+                    0: { halign: 'center', cellWidth: 14, fontStyle: 'bold' },
+                    2: { halign: 'right' }, 3: { halign: 'right' },
+                    4: { halign: 'right', fontStyle: 'bold' },
+                    6: { halign: 'center', cellWidth: 22 },
+                },
+                didParseCell: (d) => {
+                    if (d.section !== 'body' || d.column.index !== 6) return;
+                    const v = String(d.cell.raw || '').toUpperCase();
+                    if      (v === 'IMPROVED') { d.cell.styles.textColor = hexToRgb(COLOR.GOOD);   d.cell.styles.fontStyle = 'bold'; }
+                    else if (v === 'WORSENED') { d.cell.styles.textColor = hexToRgb(COLOR.DANGER); d.cell.styles.fontStyle = 'bold'; }
+                },
+            });
+        }
+    }
+
+    /* ---------------------------------------------------------------------
      *  PDF generation
      * ------------------------------------------------------------------- */
     async function generatePdf(dataJson, graph, meta) {
@@ -1722,6 +1916,20 @@
                     else if (v === 'WARN') { d.cell.styles.fillColor = [254, 240, 199]; d.cell.styles.textColor = hexToRgb(COLOR.WARN); }
                 },
             });
+        }
+
+        // ============= COMPARISON VS BASELINE (optional) =============
+        // Appended only when a baseline snapshot is pinned and the compare
+        // helper is available. Reuses the exact same delta engine the
+        // Compare panel uses, so the numbers always agree with the UI.
+        try {
+            await renderComparisonPage(doc, dataJson, graph, meta, {
+                drawHeaderBand,
+                setFill, setText, setStroke,
+                hexToRgb,
+            });
+        } catch (cmpErr) {
+            console.warn('[Report] Comparison page skipped:', cmpErr);
         }
 
         // ============= PAGES 7+: DETAILED RESULTS =============

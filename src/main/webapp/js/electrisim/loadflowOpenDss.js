@@ -1445,6 +1445,17 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
             dssWarn('Network Health Dashboard render skipped:', dashErr);
         }
 
+        // Auto-snapshot every successful OpenDSS run for Scenario Compare.
+        // Fire-and-forget; failures must never affect the UI.
+        try {
+            if (typeof window !== 'undefined' && typeof window.saveSnapshot === 'function') {
+                Promise.resolve(window.saveSnapshot(dataJson, { engine: 'opendss' }))
+                    .catch((err) => dssWarn('Scenario snapshot skipped:', err));
+            }
+        } catch (snapErr) {
+            dssWarn('Scenario snapshot skipped:', snapErr);
+        }
+
         // Optional one-click PDF Engineering Report. Triggered when the user
         // ticked "Export PDF Report" in the OpenDSS Load Flow dialog.
         try {

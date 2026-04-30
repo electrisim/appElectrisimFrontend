@@ -1999,6 +1999,17 @@ ${tapBlock}`;
                 console.warn('Network Health Dashboard render skipped:', dashErr);
             }
 
+            // Auto-snapshot every successful run so the user can compare A↔B
+            // later. Fire-and-forget; failures must never affect the UI.
+            try {
+                if (typeof window !== 'undefined' && typeof window.saveSnapshot === 'function') {
+                    Promise.resolve(window.saveSnapshot(dataJson, { engine: 'pandapower' }))
+                        .catch((err) => console.warn('Scenario snapshot skipped:', err));
+                }
+            } catch (snapErr) {
+                console.warn('Scenario snapshot skipped:', snapErr);
+            }
+
             // Optional one-click PDF Engineering Report. Triggered when the user
             // ticked "Export PDF Report" in the Load Flow dialog. Skips the
             // metadata dialog only if values are already cached in localStorage.

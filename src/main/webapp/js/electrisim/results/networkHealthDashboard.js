@@ -1041,6 +1041,12 @@
                         <button class="ehd-btn ehd-report-btn" title="Generate a multi-page PDF engineering report from this run">Export Report</button>
                         <button class="ehd-btn ehd-copy-btn">Copy Summary</button>
                     </div>
+                    <div class="ehd-cta-row ehd-compare-row">
+                        <button class="ehd-btn ehd-baseline-btn"
+                                title="Pin this run as the Baseline so future runs can be compared against it">Save as Baseline</button>
+                        <button class="ehd-btn primary ehd-compare-btn"
+                                title="Open Scenario Compare against the pinned Baseline">Compare to Baseline</button>
+                    </div>
                 </div>
             `;
 
@@ -1134,6 +1140,89 @@ Violations:  ${metrics.issues.length}`;
                 btn.textContent = 'Copied ✓';
                 setTimeout(() => { btn.textContent = old; }, 1400);
             });
+
+            // ---------- Scenario Compare buttons ---------------------------
+            // Resolve a usable graph reference once for both buttons; same
+            // fallback the report button uses (preview pages, lazy editor).
+            const resolveLiveGraphForCompare = () => {
+                let liveGraph = graph;
+                if (!liveGraph || typeof liveGraph.getGraphBounds !== 'function') {
+                    try {
+                        const ui = (window.App && (window.App._editorUi || window.App._instance)) ||
+                                   window.editorUi || window.ui || null;
+                        if (ui && ui.editor && ui.editor.graph) {
+                            liveGraph = ui.editor.graph;
+                        } else if (window.App && window.App.main && window.App.main.editor && window.App.main.editor.graph) {
+                            liveGraph = window.App.main.editor.graph;
+                        }
+                    } catch (e) { /* keep original */ }
+                }
+                return liveGraph;
+            };
+
+            // Reflect baseline state in the Compare button (enabled / disabled).
+            const compareBtn  = panel.querySelector('.ehd-compare-btn');
+            const baselineBtn = panel.querySelector('.ehd-baseline-btn');
+            const refreshCompareState = async () => {
+                if (!compareBtn) return;
+                if (typeof window.getBaselineSnapshot !== 'function') {
+                    compareBtn.setAttribute('disabled', 'true');
+                    compareBtn.title = 'Snapshot store is not loaded.';
+                    return;
+                }
+                try {
+                    const base = await window.getBaselineSnapshot();
+                    if (base) {
+                        compareBtn.removeAttribute('disabled');
+                        compareBtn.title = `Compare to baseline: ${base.label || base.id}`;
+                    } else {
+                        compareBtn.setAttribute('disabled', 'true');
+                        compareBtn.title = 'No baseline pinned yet — click Save as Baseline first.';
+                    }
+                } catch (e) { /* leave as-is */ }
+            };
+            refreshCompareState();
+
+            if (baselineBtn) {
+                baselineBtn.addEventListener('click', async () => {
+                    if (typeof window.saveSnapshot !== 'function' ||
+                        typeof window.setBaselineSnapshot !== 'function') {
+                        console.warn('[NetworkHealthDashboard] Snapshot store unavailable.');
+                        return;
+                    }
+                    if (baselineBtn.hasAttribute('disabled')) return;
+                    const original = baselineBtn.innerHTML;
+                    baselineBtn.setAttribute('disabled', 'true');
+                    baselineBtn.innerHTML = '<span class="ehd-spinner"></span> Saving…';
+                    try {
+                        const id = await window.saveSnapshot(dataJson, {
+                            label: 'Baseline ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        });
+                        await window.setBaselineSnapshot(id);
+                        baselineBtn.innerHTML = 'Pinned ✓';
+                        setTimeout(() => { baselineBtn.innerHTML = original; }, 1400);
+                        refreshCompareState();
+                    } catch (e) {
+                        console.error('[NetworkHealthDashboard] save baseline failed:', e);
+                        baselineBtn.innerHTML = 'Failed';
+                        setTimeout(() => { baselineBtn.innerHTML = original; }, 1400);
+                    } finally {
+                        baselineBtn.removeAttribute('disabled');
+                    }
+                });
+            }
+
+            if (compareBtn) {
+                compareBtn.addEventListener('click', () => {
+                    if (compareBtn.hasAttribute('disabled')) return;
+                    if (typeof window.openScenarioCompare !== 'function') {
+                        console.warn('[NetworkHealthDashboard] openScenarioCompare is not loaded.');
+                        return;
+                    }
+                    Promise.resolve(window.openScenarioCompare(dataJson, resolveLiveGraphForCompare()))
+                        .catch((err) => console.error('[NetworkHealthDashboard] compare failed:', err));
+                });
+            }
 
             return panel;
         } catch (e) {
