@@ -1909,6 +1909,11 @@ ${tapBlock}`;
 
             mergeTapControlIntoTransformers(dataJson);
             mergeShuntControlIntoShunts(dataJson);
+            try {
+                window.__electrisimLastLoadFlowResultJson = dataJson;
+            } catch (_) {
+                /* non-browser */
+            }
             if (dataJson.tap_control_results?.length) {
                 console.log('DiscreteTapControl summary:', dataJson.tap_control_results);
             }

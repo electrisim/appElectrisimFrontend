@@ -1275,6 +1275,12 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
             return;
         }
 
+        try {
+            window.__electrisimLastLoadFlowResultJson = dataJson;
+        } catch (_) {
+            /* non-browser */
+        }
+
         // The simplified backend now returns data directly without output classes
         // Process each type of network element that might be present in the response
         dssLog('Processing OpenDSS results...');

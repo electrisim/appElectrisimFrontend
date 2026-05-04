@@ -1038,6 +1038,8 @@
 
                     <div class="ehd-cta-row">
                         <button class="ehd-btn primary ehd-flash-btn">Highlight Hot Spots</button>
+                        <button class="ehd-btn ehd-line-i-btn"
+                                title="Select one or more series Line edges first, then open this chart (|I| vs km from pandapower i_from / i_to)">Line current vs km…</button>
                         <button class="ehd-btn ehd-report-btn" title="Generate a multi-page PDF engineering report from this run">Export Report</button>
                         <button class="ehd-btn ehd-copy-btn">Copy Summary</button>
                     </div>
@@ -1082,6 +1084,21 @@
             panel.querySelector('.ehd-flash-btn').addEventListener('click', () => {
                 flashAllHotSpots(graph, metrics);
             });
+
+            const lineIBtn = panel.querySelector('.ehd-line-i-btn');
+            if (lineIBtn) {
+                lineIBtn.addEventListener('click', () => {
+                    if (typeof window.showLineCurrentCharacteristicPanel !== 'function') {
+                        console.warn('[NetworkHealthDashboard] line current panel script missing.');
+                        return;
+                    }
+                    try {
+                        window.showLineCurrentCharacteristicPanel(graph);
+                    } catch (e) {
+                        console.warn('[NetworkHealthDashboard] Line current chart failed:', e);
+                    }
+                });
+            }
 
             // Export Report button — generates a multi-page PDF
             const reportBtn = panel.querySelector('.ehd-report-btn');
