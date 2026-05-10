@@ -1,5 +1,39 @@
 // Dependencies will be resolved from global scope when needed
 import ENV from './config/environment.js';
+import { resolveStudyOpfCostCurrency } from './utils/opfCostCurrency.js';
+import {
+    getTransformerConnections,
+    getThreeWindingConnections,
+    updateTransformerBusConnections,
+    updateThreeWindingTransformerConnections,
+} from './loadFlow.js';
+
+/**
+ * OPF runs from the lazy "engines" bundle; results/diagnostic dialogs live in "analysis".
+ * Load them on demand so window.* constructors exist before showing UI.
+ */
+async function ensureElectrisimModule(modulePath) {
+    const ll = window.ElectrisimLazyLoader;
+    if (ll?.isLoaded?.(modulePath)) {
+        return;
+    }
+    if (ll?.loadModule) {
+        try {
+            await ll.loadModule(modulePath);
+            return;
+        } catch (e) {
+            console.warn(`LazyLoader could not load ${modulePath}:`, e);
+        }
+    }
+    const rel = modulePath.startsWith('dialogs/')
+        ? `./dialogs/${modulePath.slice('dialogs/'.length)}.js`
+        : `./${modulePath}.js`;
+    try {
+        await import(rel);
+    } catch (e2) {
+        console.warn(`Dynamic import failed for ${modulePath}:`, e2);
+    }
+}
 
 //define buses to which the cell is connected
 const getConnectedBusId = (cell, isLine = false) => {
@@ -95,7 +129,12 @@ const COMPONENT_TYPES = {
     GENERATOR: 'Generator',
     BUS: 'Bus',
     LOAD: 'Load',
-    LINE: 'Line'
+    LINE: 'Line',
+    TRANSFORMER: 'Transformer',
+    THREE_WINDING_TRANSFORMER: 'Three Winding Transformer',
+    STORAGE: 'Storage',
+    STATIC_GENERATOR: 'Static Generator',
+    DC_LINE: 'DC Line',
 };
 
 function optimalPowerFlowPandaPower(a, b, c) {
@@ -104,8 +143,13 @@ function optimalPowerFlowPandaPower(a, b, c) {
         externalGrid: 0,
         generator: 0,
         busbar: 0,
+        transformer: 0,
+        threeWindingTransformer: 0,
         load: 0,
-        line: 0
+        line: 0,
+        storage: 0,
+        staticGenerator: 0,
+        dcLine: 0,
     };
 
     const componentArrays = {
@@ -113,8 +157,13 @@ function optimalPowerFlowPandaPower(a, b, c) {
         externalGrid: [],
         generator: [],
         busbar: [],
+        transformer: [],
+        threeWindingTransformer: [],
         load: [],
-        line: []
+        line: [],
+        storage: [],
+        staticGenerator: [],
+        dcLine: [],
     };    
 
     // Cache commonly used functions and values
@@ -142,9 +191,7 @@ function optimalPowerFlowPandaPower(a, b, c) {
             }
             
             const dialog = new DialogClass(a);
-            dialog.show(function (params, perGenLimits) {
-                
-                // Global simulation counter for performance tracking
+            dialog.show(function (params) {
                 if (!globalThis.opfRunCount) {
                     globalThis.opfRunCount = 0;
                 }
@@ -161,11 +208,6 @@ function optimalPowerFlowPandaPower(a, b, c) {
                 console.log('Starting fresh simulation with clean caches');
                 
                 apka.spinner.spin(document.body, "Waiting for optimal power flow results...");
-
-                // Extract min/max from params (find their indices)
-                // Assuming min_p_mw is at index 13, max_p_mw at index 14
-                const min_p_mw_user = parseFloat(params[13]);
-                const max_p_mw_user = parseFloat(params[14]);
 
                 if (params.length > 0) {
                     // Get current user email with robust fallback
@@ -214,24 +256,6 @@ function optimalPowerFlowPandaPower(a, b, c) {
                     
                     const userEmail = getUserEmail();
                     console.log('Optimal Power Flow - User email:', userEmail); // Debug log
-                    
-                    componentArrays.simulationParameters.push({
-                        typ: "OptimalPowerFlowPandaPower Parameters",
-                        opf_type: params[0],
-                        frequency: params[1],
-                        ac_algorithm: params[2],
-                        dc_algorithm: params[3],
-                        calculate_voltage_angles: params[4],
-                        init: params[5],
-                        delta: params[6],
-                        trafo_model: params[7],
-                        trafo_loading: params[8],
-                        ac_line_model: params[9],
-                        numba: params[10],
-                        suppress_warnings: params[11],
-                        cost_function: params[12],
-                        user_email: userEmail  // Add user email to simulation data
-                    });
 
                         // Process cells with performance optimization
                         const cellProcessingStart = performance.now();
@@ -400,12 +424,48 @@ function optimalPowerFlowPandaPower(a, b, c) {
                                         }
                                     }
                                 }
+                                else if (componentType === COMPONENT_TYPES.EXTERNAL_GRID && window.gridOptionsExternalGrid && window.gridOptionsExternalGrid.api) {
+                                    const extData = window.gridOptionsExternalGrid.api.getRenderedNodes();
+                                    if (extData && extData.length > 0) {
+                                        const hit = extData.find(node => node.data && node.data.id === cell.id);
+                                        if (hit && hit.data && hit.data.name) {
+                                            userFriendlyName = hit.data.name;
+                                        }
+                                    }
+                                }
+                                else if (componentType === COMPONENT_TYPES.STORAGE && window.gridOptionsStorage && window.gridOptionsStorage.api) {
+                                    const stData = window.gridOptionsStorage.api.getRenderedNodes();
+                                    if (stData && stData.length > 0) {
+                                        const hit = stData.find(node => node.data && node.data.id === cell.id);
+                                        if (hit && hit.data && hit.data.name) {
+                                            userFriendlyName = hit.data.name;
+                                        }
+                                    }
+                                }
+                                else if (componentType === COMPONENT_TYPES.STATIC_GENERATOR && window.gridOptionsStaticGenerator && window.gridOptionsStaticGenerator.api) {
+                                    const sgData = window.gridOptionsStaticGenerator.api.getRenderedNodes();
+                                    if (sgData && sgData.length > 0) {
+                                        const hit = sgData.find(node => node.data && node.data.id === cell.id);
+                                        if (hit && hit.data && hit.data.name) {
+                                            userFriendlyName = hit.data.name;
+                                        }
+                                    }
+                                }
+                                else if (componentType === COMPONENT_TYPES.DC_LINE && window.gridOptionsDCLine && window.gridOptionsDCLine.api) {
+                                    const dcData = window.gridOptionsDCLine.api.getRenderedNodes();
+                                    if (dcData && dcData.length > 0) {
+                                        const hit = dcData.find(node => node.data && node.data.id === cell.id);
+                                        if (hit && hit.data && hit.data.name) {
+                                            userFriendlyName = hit.data.name;
+                                        }
+                                    }
+                                }
                             } catch (error) {
                                 console.warn('Could not get user-friendly name for', componentType, cell.id, error);
                             }
                             
                             let baseData;
-                            if(componentType === 'Line' || componentType === 'DCLine'){
+                            if(componentType === 'Line' || componentType === 'DC Line'){
                                 baseData = {
                                     name: cell.mxObjectId.replace('#', '_'), // technical ID
                                     userFriendlyName: userFriendlyName, // user-friendly name
@@ -435,7 +495,15 @@ function optimalPowerFlowPandaPower(a, b, c) {
                                             rx_max: 'rx_max',
                                             rx_min: 'rx_min',
                                             r0x0_max: 'r0x0_max',
-                                            x0x_max: 'x0x_max'
+                                            x0x_max: 'x0x_max',
+                                            max_p_mw: { name: 'max_p_mw', optional: true },
+                                            min_p_mw: { name: 'min_p_mw', optional: true },
+                                            max_q_mvar: { name: 'max_q_mvar', optional: true },
+                                            min_q_mvar: { name: 'min_q_mvar', optional: true },
+                                            controllable: { name: 'controllable', optional: true },
+                                            opf_marginal_cost_eur_per_mwh: { name: 'opf_marginal_cost_eur_per_mwh', optional: true },
+                                            opf_cp2_eur_per_mw2: { name: 'opf_cp2_eur_per_mw2', optional: true },
+                                            opf_cost_currency: { name: 'opf_cost_currency', optional: true },
                                         })
                                     };
                                     componentArrays.externalGrid.push(externalGrid);
@@ -443,23 +511,36 @@ function optimalPowerFlowPandaPower(a, b, c) {
 
                                 case COMPONENT_TYPES.GENERATOR:
                                     const p_mw_val = parseFloat(getAttributesAsObject(cell, {p_mw: 'p_mw'}).p_mw) || 10;
+                                    const genOpfAttr = getAttributesAsObject(cell, {
+                                        p_mw: 'p_mw',
+                                        vm_pu: 'vm_pu',
+                                        sn_mva: 'sn_mva',
+                                        scaling: 'scaling',
+                                        vn_kv: 'vn_kv',
+                                        xdss_pu: 'xdss_pu',
+                                        rdss_ohm: 'rdss_ohm',
+                                        cos_phi: 'cos_phi',
+                                        pg_percent: 'pg_percent',
+                                        power_station_trafo: 'power_station_trafo',
+                                        opf_marginal_cost_eur_per_mwh: 'opf_marginal_cost_eur_per_mwh',
+                                        opf_cp2_eur_per_mw2: 'opf_cp2_eur_per_mw2',
+                                        opf_cost_currency: { name: 'opf_cost_currency', optional: true },
+                                        min_p_mw: { name: 'min_p_mw', optional: true },
+                                        max_p_mw: { name: 'max_p_mw', optional: true },
+                                    });
+                                    const genMinP = parseFloat(genOpfAttr.min_p_mw);
+                                    const genMaxP = parseFloat(genOpfAttr.max_p_mw);
+                                    const minPResolved = Number.isFinite(genMinP) ? genMinP : 0;
+                                    let maxPResolved = Number.isFinite(genMaxP) ? genMaxP : p_mw_val;
+                                    if (maxPResolved <= minPResolved) {
+                                        maxPResolved = Math.max(p_mw_val, minPResolved + 1e-6);
+                                    }
                                     const generator = {
                                         ...baseData,
                                         typ: "Generator",
-                                        ...getAttributesAsObject(cell, {
-                                            p_mw: 'p_mw',
-                                            vm_pu: 'vm_pu',
-                                            sn_mva: 'sn_mva',
-                                            scaling: 'scaling',
-                                            vn_kv: 'vn_kv',
-                                            xdss_pu: 'xdss_pu',
-                                            rdss_ohm: 'rdss_ohm',
-                                            cos_phi: 'cos_phi',
-                                            pg_percent: 'pg_percent',
-                                            power_station_trafo: 'power_station_trafo'
-                                        }),
-                                        min_p_mw: perGenLimits[cell.id]?.min ?? 0,
-                                        max_p_mw: perGenLimits[cell.id]?.max ?? p_mw_val
+                                        ...genOpfAttr,
+                                        min_p_mw: minPResolved,
+                                        max_p_mw: maxPResolved,
                                     };
                                     componentArrays.generator.push(generator);
                                     counters.generator++;
@@ -470,26 +551,39 @@ function optimalPowerFlowPandaPower(a, b, c) {
                                         typ: `Bus${counters.busbar++}`,
                                         name: cell.mxObjectId.replace('#', '_'),
                                         id: cell.id,
-                                        vn_kv: cell.value.attributes[2].nodeValue
+                                        vn_kv: cell.value.attributes[2].nodeValue,
+                                        ...getAttributesAsObject(cell, {
+                                            min_vm_pu: { name: 'min_vm_pu', optional: true },
+                                            max_vm_pu: { name: 'max_vm_pu', optional: true },
+                                        }),
                                     };
                                     componentArrays.busbar.push(busbar);
                                     break;
 
                                 case COMPONENT_TYPES.LOAD:
+                                    const loadOpf = getAttributesAsObject(cell, {
+                                        p_mw: 'p_mw',
+                                        q_mvar: 'q_mvar',
+                                        const_z_percent: 'const_z_percent',
+                                        const_i_percent: 'const_i_percent',
+                                        sn_mva: 'sn_mva',
+                                        scaling: 'scaling',
+                                        type: 'type',
+                                        controllable: { name: 'controllable', optional: true },
+                                        min_p_mw: { name: 'min_p_mw', optional: true },
+                                        max_p_mw: { name: 'max_p_mw', optional: true },
+                                        min_q_mvar: { name: 'min_q_mvar', optional: true },
+                                        max_q_mvar: { name: 'max_q_mvar', optional: true },
+                                        opf_marginal_cost_eur_per_mwh: { name: 'opf_marginal_cost_eur_per_mwh', optional: true },
+                                        opf_cp2_eur_per_mw2: { name: 'opf_cp2_eur_per_mw2', optional: true },
+                                        opf_cost_currency: { name: 'opf_cost_currency', optional: true },
+                                    });
                                     const load = {
                                         typ: `Load${counters.load++}`,
                                         name: cell.mxObjectId.replace('#', '_'),
                                         id: cell.id,
                                         bus: getConnectedBusId(cell),
-                                        ...getAttributesAsObject(cell, {
-                                            p_mw: 'p_mw',
-                                            q_mvar: 'q_mvar',
-                                            const_z_percent: 'const_z_percent',
-                                            const_i_percent: 'const_i_percent',
-                                            sn_mva: 'sn_mva',
-                                            scaling: 'scaling',
-                                            type: 'type'
-                                        })
+                                        ...loadOpf,
                                     };
                                     componentArrays.load.push(load);
                                     break;
@@ -510,24 +604,382 @@ function optimalPowerFlowPandaPower(a, b, c) {
                                             c_nf_per_km: 'c_nf_per_km',
                                             g_us_per_km: 'g_us_per_km',
                                             max_i_ka: 'max_i_ka',
-                                            type: 'type'
+                                            type: 'type',
+                                            max_loading_percent: { name: 'max_loading_percent', optional: true },
                                         })
                                     };
                                     componentArrays.line.push(line);
                                     break;
+
+                                case COMPONENT_TYPES.STORAGE: {
+                                    const storageObj = {
+                                        typ: `Storage${counters.storage++}`,
+                                        name: cell.mxObjectId.replace('#', '_'),
+                                        id: cell.id,
+                                        userFriendlyName: userFriendlyName,
+                                        bus: getConnectedBusId(cell),
+                                        ...getAttributesAsObject(cell, {
+                                            p_mw: 'p_mw',
+                                            max_e_mwh: 'max_e_mwh',
+                                            q_mvar: 'q_mvar',
+                                            sn_mva: 'sn_mva',
+                                            soc_percent: 'soc_percent',
+                                            min_e_mwh: 'min_e_mwh',
+                                            scaling: 'scaling',
+                                            type: 'type',
+                                            in_service: { name: 'in_service', optional: true },
+                                            controllable: { name: 'controllable', optional: true },
+                                            max_p_mw: { name: 'max_p_mw', optional: true },
+                                            min_p_mw: { name: 'min_p_mw', optional: true },
+                                            max_q_mvar: { name: 'max_q_mvar', optional: true },
+                                            min_q_mvar: { name: 'min_q_mvar', optional: true },
+                                            opf_marginal_cost_eur_per_mwh: { name: 'opf_marginal_cost_eur_per_mwh', optional: true },
+                                            opf_cp2_eur_per_mw2: { name: 'opf_cp2_eur_per_mw2', optional: true },
+                                            opf_cost_currency: { name: 'opf_cost_currency', optional: true },
+                                        }),
+                                    };
+                                    componentArrays.storage.push(storageObj);
+                                    break;
+                                }
+
+                                case COMPONENT_TYPES.TRANSFORMER:
+                                case 'Two Winding Transformer': {
+                                    const { hv_bus, lv_bus } = getTransformerConnections(cell);
+                                    const transformer = {
+                                        typ: `Transformer${counters.transformer++}`,
+                                        name: cell.mxObjectId.replace('#', '_'),
+                                        id: cell.id,
+                                        userFriendlyName: (() => {
+                                            if (cell.value && cell.value.attributes) {
+                                                for (let i = 0; i < cell.value.attributes.length; i++) {
+                                                    if (cell.value.attributes[i].nodeName === 'name') {
+                                                        return cell.value.attributes[i].nodeValue;
+                                                    }
+                                                }
+                                            }
+                                            return cell.mxObjectId.replace('#', '_');
+                                        })(),
+                                        hv_bus,
+                                        lv_bus,
+                                        ...getAttributesAsObject(cell, {
+                                            sn_mva: 'sn_mva',
+                                            vn_hv_kv: 'vn_hv_kv',
+                                            vn_lv_kv: 'vn_lv_kv',
+                                            vkr_percent: 'vkr_percent',
+                                            vk_percent: 'vk_percent',
+                                            pfe_kw: 'pfe_kw',
+                                            i0_percent: 'i0_percent',
+                                            vector_group: { name: 'vector_group', optional: true },
+                                            vk0_percent: { name: 'vk0_percent', optional: true },
+                                            vkr0_percent: { name: 'vkr0_percent', optional: true },
+                                            mag0_percent: { name: 'mag0_percent', optional: true },
+                                            si0_hv_partial: { name: 'si0_hv_partial', optional: true },
+                                            parallel: { name: 'parallel', optional: true },
+                                            shift_degree: { name: 'shift_degree', optional: true },
+                                            tap_side: { name: 'tap_side', optional: true },
+                                            tap_pos: { name: 'tap_pos', optional: true },
+                                            tap_neutral: { name: 'tap_neutral', optional: true },
+                                            tap_max: { name: 'tap_max', optional: true },
+                                            tap_min: { name: 'tap_min', optional: true },
+                                            tap_step_percent: { name: 'tap_step_percent', optional: true },
+                                            tap_step_degree: { name: 'tap_step_degree', optional: true },
+                                            tap_phase_shifter: { name: 'tap_phase_shifter', optional: true },
+                                            in_service: { name: 'in_service', optional: true },
+                                            max_loading_percent: { name: 'max_loading_percent', optional: true },
+                                        })
+                                    };
+                                    componentArrays.transformer.push(transformer);
+                                    break;
+                                }
+
+                                case COMPONENT_TYPES.THREE_WINDING_TRANSFORMER:
+                                    try {
+                                        const connections = getThreeWindingConnections(cell);
+                                        const threeWindingTransformer = {
+                                            typ: `Three Winding Transformer${counters.threeWindingTransformer++}`,
+                                            name: cell.mxObjectId.replace('#', '_'),
+                                            id: cell.id,
+                                            userFriendlyName: (() => {
+                                                if (cell.value && cell.value.attributes) {
+                                                    for (let i = 0; i < cell.value.attributes.length; i++) {
+                                                        if (cell.value.attributes[i].nodeName === 'name') {
+                                                            return cell.value.attributes[i].nodeValue;
+                                                        }
+                                                    }
+                                                }
+                                                return cell.mxObjectId.replace('#', '_');
+                                            })(),
+                                            ...connections,
+                                            ...getAttributesAsObject(cell, {
+                                                sn_hv_mva: 'sn_hv_mva',
+                                                sn_mv_mva: 'sn_mv_mva',
+                                                sn_lv_mva: 'sn_lv_mva',
+                                                vn_hv_kv: 'vn_hv_kv',
+                                                vn_mv_kv: 'vn_mv_kv',
+                                                vn_lv_kv: 'vn_lv_kv',
+                                                vk_hv_percent: 'vk_hv_percent',
+                                                vk_mv_percent: 'vk_mv_percent',
+                                                vk_lv_percent: 'vk_lv_percent',
+                                                vkr_hv_percent: 'vkr_hv_percent',
+                                                vkr_mv_percent: 'vkr_mv_percent',
+                                                vkr_lv_percent: 'vkr_lv_percent',
+                                                pfe_kw: 'pfe_kw',
+                                                i0_percent: 'i0_percent',
+                                                vk0_hv_percent: { name: 'vk0_hv_percent', optional: true },
+                                                vk0_mv_percent: { name: 'vk0_mv_percent', optional: true },
+                                                vk0_lv_percent: { name: 'vk0_lv_percent', optional: true },
+                                                vkr0_hv_percent: { name: 'vkr0_hv_percent', optional: true },
+                                                vkr0_mv_percent: { name: 'vkr0_mv_percent', optional: true },
+                                                vkr0_lv_percent: { name: 'vkr0_lv_percent', optional: true },
+                                                vector_group: 'vector_group',
+                                                shift_mv_degree: { name: 'shift_mv_degree', optional: true },
+                                                shift_lv_degree: { name: 'shift_lv_degree', optional: true },
+                                                tap_step_percent: { name: 'tap_step_percent', optional: true },
+                                                tap_step_degree: { name: 'tap_step_degree', optional: true },
+                                                tap_side: { name: 'tap_side', optional: true },
+                                                tap_neutral: { name: 'tap_neutral', optional: true },
+                                                tap_min: { name: 'tap_min', optional: true },
+                                                tap_max: { name: 'tap_max', optional: true },
+                                                tap_pos: { name: 'tap_pos', optional: true },
+                                                tap_at_star_point: { name: 'tap_at_star_point', optional: true },
+                                                tap_changer_type: { name: 'tap_changer_type', optional: true },
+                                                tap_phase_shifter: { name: 'tap_phase_shifter', optional: true },
+                                                in_service: { name: 'in_service', optional: true },
+                                                max_loading_percent: { name: 'max_loading_percent', optional: true },
+                                            })
+                                        };
+                                        componentArrays.threeWindingTransformer.push(threeWindingTransformer);
+                                    } catch (e) {
+                                        console.error(e.message);
+                                        const tw3CurrentStyle = b.getModel().getStyle(cell);
+                                        const tw3NewStyle = mxUtils.setStyle(tw3CurrentStyle, mxConstants.STYLE_STROKECOLOR, 'red');
+                                        b.setCellStyle(tw3NewStyle, [cell]);
+                                        alert(e.message);
+                                    }
+                                    break;
+
+                                case COMPONENT_TYPES.STATIC_GENERATOR: {
+                                    const sgP = parseFloat(getAttributesAsObject(cell, { p_mw: 'p_mw' }).p_mw) || 0;
+                                    const sgOpf = getAttributesAsObject(cell, {
+                                        p_mw: 'p_mw',
+                                        q_mvar: 'q_mvar',
+                                        sn_mva: 'sn_mva',
+                                        scaling: 'scaling',
+                                        type: 'type',
+                                        k: 'k',
+                                        rx: 'rx',
+                                        generator_type: 'generator_type',
+                                        lrc_pu: 'lrc_pu',
+                                        max_ik_ka: 'max_ik_ka',
+                                        kappa: 'kappa',
+                                        current_source: 'current_source',
+                                        reactive_capability_curve: { name: 'reactive_capability_curve', optional: true },
+                                        curve_style: { name: 'curve_style', optional: true },
+                                        q_capability_curve_json: { name: 'q_capability_curve_json', optional: true },
+                                        in_service: { name: 'in_service', optional: true },
+                                        controllable: { name: 'controllable', optional: true },
+                                        min_p_mw: { name: 'min_p_mw', optional: true },
+                                        max_p_mw: { name: 'max_p_mw', optional: true },
+                                        min_q_mvar: { name: 'min_q_mvar', optional: true },
+                                        max_q_mvar: { name: 'max_q_mvar', optional: true },
+                                        opf_marginal_cost_eur_per_mwh: { name: 'opf_marginal_cost_eur_per_mwh', optional: true },
+                                        opf_cp2_eur_per_mw2: { name: 'opf_cp2_eur_per_mw2', optional: true },
+                                        opf_cost_currency: { name: 'opf_cost_currency', optional: true },
+                                    });
+                                    const sgMinP = parseFloat(sgOpf.min_p_mw);
+                                    const sgMaxP = parseFloat(sgOpf.max_p_mw);
+                                    const sgMinResolved = Number.isFinite(sgMinP) ? sgMinP : 0;
+                                    let sgMaxResolved = Number.isFinite(sgMaxP) ? sgMaxP : sgP;
+                                    if (sgMaxResolved <= sgMinResolved) {
+                                        sgMaxResolved = Math.max(sgP, sgMinResolved + 1e-6);
+                                    }
+                                    componentArrays.staticGenerator.push({
+                                        ...baseData,
+                                        typ: 'Static Generator',
+                                        ...sgOpf,
+                                        min_p_mw: sgMinResolved,
+                                        max_p_mw: sgMaxResolved,
+                                    });
+                                    counters.staticGenerator++;
+                                    break;
+                                }
+
+                                case COMPONENT_TYPES.DC_LINE: {
+                                    const dcOpf = getAttributesAsObject(cell, {
+                                        p_mw: 'p_mw',
+                                        loss_percent: 'loss_percent',
+                                        loss_mw: 'loss_mw',
+                                        vm_from_pu: 'vm_from_pu',
+                                        vm_to_pu: 'vm_to_pu',
+                                        in_service: { name: 'in_service', optional: true },
+                                        max_p_mw: { name: 'max_p_mw', optional: true },
+                                        min_q_from_mvar: { name: 'min_q_from_mvar', optional: true },
+                                        max_q_from_mvar: { name: 'max_q_from_mvar', optional: true },
+                                        min_q_to_mvar: { name: 'min_q_to_mvar', optional: true },
+                                        max_q_to_mvar: { name: 'max_q_to_mvar', optional: true },
+                                        opf_marginal_cost_eur_per_mwh: { name: 'opf_marginal_cost_eur_per_mwh', optional: true },
+                                        opf_cp2_eur_per_mw2: { name: 'opf_cp2_eur_per_mw2', optional: true },
+                                        opf_cost_currency: { name: 'opf_cost_currency', optional: true },
+                                    });
+                                    componentArrays.dcLine.push({
+                                        typ: `DC Line${counters.dcLine++}`,
+                                        name: cell.mxObjectId.replace('#', '_'),
+                                        id: cell.id,
+                                        userFriendlyName: baseData.userFriendlyName,
+                                        bus: getConnectedBusId(cell, true),
+                                        ...dcOpf,
+                                    });
+                                    break;
+                                }
                             }
+                        });
+
+                        if (componentArrays.transformer.length > 0) {
+                            componentArrays.transformer = updateTransformerBusConnections(
+                                componentArrays.transformer,
+                                componentArrays.busbar,
+                                b
+                            );
+                        }
+                        if (componentArrays.threeWindingTransformer.length > 0) {
+                            componentArrays.threeWindingTransformer = updateThreeWindingTransformerConnections(
+                                componentArrays.threeWindingTransformer,
+                                componentArrays.busbar,
+                                b
+                            );
+                        }
+
+                        // Only attach cp2 when cp1 is set — avoids orphan quadratic terms (e.g. load with cp2 but empty marginal).
+                        const genCostCp1 = {};
+                        const genCostCp2 = {};
+                        componentArrays.generator.forEach((g) => {
+                            const gid = String(g.id);
+                            const m = parseFloat(g.opf_marginal_cost_eur_per_mwh);
+                            const c2 = parseFloat(g.opf_cp2_eur_per_mw2);
+                            if (Number.isFinite(m)) {
+                                genCostCp1[gid] = m;
+                                if (Number.isFinite(c2) && c2 >= 0) {
+                                    genCostCp2[gid] = c2;
+                                }
+                            }
+                        });
+
+                        const extCostCp1 = {};
+                        const extCostCp2 = {};
+                        componentArrays.externalGrid.forEach((eg) => {
+                            const gid = String(eg.id);
+                            const m = parseFloat(eg.opf_marginal_cost_eur_per_mwh);
+                            const c2 = parseFloat(eg.opf_cp2_eur_per_mw2);
+                            if (Number.isFinite(m)) {
+                                extCostCp1[gid] = m;
+                                if (Number.isFinite(c2) && c2 >= 0) {
+                                    extCostCp2[gid] = c2;
+                                }
+                            }
+                        });
+
+                        const storCostCp1 = {};
+                        const storCostCp2 = {};
+                        componentArrays.storage.forEach((st) => {
+                            const gid = String(st.id);
+                            const m = parseFloat(st.opf_marginal_cost_eur_per_mwh);
+                            const c2 = parseFloat(st.opf_cp2_eur_per_mw2);
+                            if (Number.isFinite(m)) {
+                                storCostCp1[gid] = m;
+                                if (Number.isFinite(c2) && c2 >= 0) {
+                                    storCostCp2[gid] = c2;
+                                }
+                            }
+                        });
+
+                        const sgenCostCp1 = {};
+                        const sgenCostCp2 = {};
+                        componentArrays.staticGenerator.forEach((sg) => {
+                            const gid = String(sg.id);
+                            const m = parseFloat(sg.opf_marginal_cost_eur_per_mwh);
+                            const c2 = parseFloat(sg.opf_cp2_eur_per_mw2);
+                            if (Number.isFinite(m)) {
+                                sgenCostCp1[gid] = m;
+                                if (Number.isFinite(c2) && c2 >= 0) {
+                                    sgenCostCp2[gid] = c2;
+                                }
+                            }
+                        });
+
+                        const loadCostCp1 = {};
+                        const loadCostCp2 = {};
+                        componentArrays.load.forEach((ld) => {
+                            const gid = String(ld.id);
+                            const m = parseFloat(ld.opf_marginal_cost_eur_per_mwh);
+                            const c2 = parseFloat(ld.opf_cp2_eur_per_mw2);
+                            if (Number.isFinite(m)) {
+                                loadCostCp1[gid] = m;
+                                if (Number.isFinite(c2) && c2 >= 0) {
+                                    loadCostCp2[gid] = c2;
+                                }
+                            }
+                        });
+
+                        const dclineCostCp1 = {};
+                        const dclineCostCp2 = {};
+                        componentArrays.dcLine.forEach((dc) => {
+                            const gid = String(dc.id);
+                            const m = parseFloat(dc.opf_marginal_cost_eur_per_mwh);
+                            const c2 = parseFloat(dc.opf_cp2_eur_per_mw2);
+                            if (Number.isFinite(m)) {
+                                dclineCostCp1[gid] = m;
+                                if (Number.isFinite(c2) && c2 >= 0) {
+                                    dclineCostCp2[gid] = c2;
+                                }
+                            }
+                        });
+
+                        componentArrays.simulationParameters.push({
+                            typ: 'OptimalPowerFlowPandaPower Parameters',
+                            opf_type: params[0],
+                            frequency: params[1],
+                            ac_algorithm: params[2],
+                            dc_algorithm: params[3],
+                            calculate_voltage_angles: params[4],
+                            init: params[5],
+                            delta: params[6],
+                            trafo_model: params[7],
+                            trafo_loading: params[8],
+                            ac_line_model: params[9],
+                            numba: params[10],
+                            suppress_warnings: params[11],
+                            cost_function: params[12],
+                            cost_currency: resolveStudyOpfCostCurrency(componentArrays),
+                            generator_cost_cp1: genCostCp1,
+                            generator_cost_cp2: genCostCp2,
+                            ext_grid_cost_cp1: extCostCp1,
+                            ext_grid_cost_cp2: extCostCp2,
+                            storage_cost_cp1: storCostCp1,
+                            storage_cost_cp2: storCostCp2,
+                            sgen_cost_cp1: sgenCostCp1,
+                            sgen_cost_cp2: sgenCostCp2,
+                            load_cost_cp1: loadCostCp1,
+                            load_cost_cp2: loadCostCp2,
+                            dcline_cost_cp1: dclineCostCp1,
+                            dcline_cost_cp2: dclineCostCp2,
+                            user_email: userEmail,
                         });
                         
                         const componentProcessingTime = performance.now() - componentProcessingStart;
                         console.log(`Component processing: ${componentProcessingTime.toFixed(2)}ms (${processedComponents} components)`);
 
-                        // Combine all arrays
+                        // Combine all arrays (order matches load-flow payload for create_other_elements)
                         const array = [
                             ...componentArrays.simulationParameters,
                             ...componentArrays.externalGrid,
                             ...componentArrays.generator,
+                            ...componentArrays.staticGenerator,
                             ...componentArrays.busbar,
+                            ...componentArrays.transformer,
+                            ...componentArrays.threeWindingTransformer,
                             ...componentArrays.load,
+                            ...componentArrays.storage,
+                            ...componentArrays.dcLine,
                             ...componentArrays.line
                         ];
 
@@ -582,10 +1034,19 @@ async function processNetworkData(url, obj, b, grafka) {
         // Check for diagnostic response format
         if (dataJson.error && dataJson.diagnostic) {
             console.log('Optimal Power Flow failed with diagnostic information:', dataJson);
-            
+
+            await ensureElectrisimModule('dialogs/DiagnosticReportDialog');
+
             // Show diagnostic dialog if available
             if (window.DiagnosticReportDialog) {
-                const diagnosticDialog = new window.DiagnosticReportDialog(dataJson.diagnostic);
+                const diagPayload = { ...dataJson.diagnostic };
+                if (dataJson.solver_verbose_log) {
+                    diagPayload.solver_verbose_log = dataJson.solver_verbose_log;
+                }
+                const diagnosticDialog = new window.DiagnosticReportDialog(diagPayload, {
+                    message: dataJson.message,
+                    exception: dataJson.exception,
+                });
                 diagnosticDialog.show();
             } else {
                 // Fallback to alert if dialog is not available
@@ -599,6 +1060,8 @@ async function processNetworkData(url, obj, b, grafka) {
             alert('Optimal Power Flow Error: ' + dataJson.error);
             return;
         }
+
+        await ensureElectrisimModule('dialogs/OptimalPowerFlowResultsDialog');
 
         // Show results in a modal dialog
         if (window.OptimalPowerFlowResultsDialog) {

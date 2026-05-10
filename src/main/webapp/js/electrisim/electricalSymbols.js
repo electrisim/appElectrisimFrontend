@@ -52,3 +52,36 @@ export function symbolStyle(symbolKey, baseStyle = '') {
   const imgPart = `shape=image;image=${s.url};aspect=fixed;imageAspect=1;`;
   return (baseStyle ? baseStyle + ';' : '') + imgPart;
 }
+
+/** Same visual language as sidebar / map editor: SVG symbol + shapeELXXX (used by Pandapower import). */
+export const ELECTRISIM_SYMBOL_VERTEX_BASE =
+  'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;';
+
+export function vertexStyleFromElectrisimSymbol(symbolKey, shapeELXXX) {
+  const sym = ELECTRICAL_SYMBOLS[symbolKey];
+  if (!sym) {
+    return `shapeELXXX=${shapeELXXX}`;
+  }
+  return `${ELECTRISIM_SYMBOL_VERTEX_BASE}shape=image;image=${sym.url};shapeELXXX=${shapeELXXX}`;
+}
+
+export function vertexSizeFromElectrisimSymbol(symbolKey, fallbackW = 56, fallbackH = 56) {
+  const sym = ELECTRICAL_SYMBOLS[symbolKey];
+  if (!sym) return [fallbackW, fallbackH];
+  return [sym.w, sym.h];
+}
+
+/** Horizontal busbar for import: stretch SVG to cell (avoid aspect=fixed shrinking the line). */
+export function vertexStyleImportedBusbar(shapeELXXX = 'Bus') {
+  const sym = ELECTRICAL_SYMBOLS['sym-bus'];
+  const pts = [[0, 0.5]];
+  for (let x = 0.05; x < 1; x += 0.05) {
+    pts.push([Math.round(x * 100) / 100, 0.5, 0]);
+  }
+  pts.push([1, 0.5]);
+  const pointsJson = JSON.stringify(pts);
+  return (
+    'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;' +
+    `shape=image;image=${sym.url};imageAspect=0;points=${pointsJson};shapeELXXX=${shapeELXXX}`
+  );
+}

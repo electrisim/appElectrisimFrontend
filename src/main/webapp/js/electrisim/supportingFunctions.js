@@ -1,3 +1,15 @@
+import {
+    vertexStyleFromElectrisimSymbol,
+    vertexSizeFromElectrisimSymbol,
+    vertexStyleImportedBusbar,
+} from './electricalSymbols.js';
+
+/** Horizontal busbar geometry aligned with map-generated diagrams (sym-bus.svg). */
+const IMPORT_BUSBAR_W = 260;
+const IMPORT_BUSBAR_H = 16;
+
+/** sym-transformer.svg viewBox -45..45, -30..28 → winding axis at y = 0 → (30/58) from top */
+const TRANSFORMER_EDGE_PIN_Y = 30 / 58;
 // Use existing globalPandaPowerData if it exists, otherwise create it
 if (typeof globalPandaPowerData === 'undefined') {
     window.globalPandaPowerData = null;
@@ -442,8 +454,8 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 const vertexX = busPositions[index].x;
                 const vertexY = busPositions[index].y;
 
-                // Bus style definition with 20 connection points
-                const busStyle = "line;strokeWidth=2;html=1;shapeELXXX=Bus;points=[[0,0.5],[0.05,0.5,0],[0.1,0.5,0],[0.15,0.5,0],[0.2,0.5,0],[0.25,0.5,0],[0.3,0.5,0],[0.35,0.5,0],[0.4,0.5,0],[0.45,0.5,0],[0.5,0.5,0],[0.55,0.5,0],[0.6,0.5,0],[0.65,0.5,0],[0.7,0.5,0],[0.75,0.5,0],[0.8,0.5,0],[0.85,0.5,0],[0.9,0.5,0],[0.95,0.5,0]]";
+                // Svg busbar stretched to cell; points= restore edge docking along the bar (Graph.js)
+                const busStyle = vertexStyleImportedBusbar('Bus');
 
                 const vertex = grafka.insertVertex(
                     parent,
@@ -451,9 +463,9 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                     ``,
                     vertexX,
                     vertexY,
-                    160,   // width 
-                    10,    // height
-                    busStyle  // style parameter
+                    IMPORT_BUSBAR_W,
+                    IMPORT_BUSBAR_H,
+                    busStyle
                 );
 
                 configureBusAttributes(grafka, vertex, {
@@ -493,22 +505,24 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                     const lvX = lvBusVertex.geometry.x;
                     const lvY = lvBusVertex.geometry.y;
 
-                    // Place transformer exactly between the HV and LV buses
-                    const vertexX = (hvX + lvX) / 2;
-                    const vertexY = (hvY + lvY) / 2;
+                    const hvCx = hvX + IMPORT_BUSBAR_W / 2;
+                    const lvCx = lvX + IMPORT_BUSBAR_W / 2;
 
-                    // Use transformer symbol style
-                    const trafoStyle = "shapeELXXX=Transformer; verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;strokeWidth=1;shape=mxgraph.electrical.signal_sources.current_source;";
+                    // Place transformer between busbar centers (palette SVG)
+                    const vertexCenterX = (hvCx + lvCx) / 2;
+                    const vertexCenterY = (hvY + lvY) / 2;
 
-                    // Insert the transformer vertex
+                    const trafoStyle = vertexStyleFromElectrisimSymbol('sym-transformer', 'Transformer');
+                    const [trafoW, trafoH] = vertexSizeFromElectrisimSymbol('sym-transformer', 40, 60);
+
                     const vertex = grafka.insertVertex(
                         parent,
                         null,
                         ``,
-                        vertexX,
-                        vertexY,
-                        40,  // width
-                        60,  // height
+                        vertexCenterX - trafoW / 2,
+                        vertexCenterY - trafoH / 2,
+                        trafoW,
+                        trafoH,
                         trafoStyle
                     );
 
@@ -538,11 +552,10 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                     });
 
                     // Create edges connecting transformer to buses
-                    const edgeStyleHV = "edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.3;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=NotEditableLine";
-                    const edgeStyleLV = "edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.4;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=NotEditableLine";
-
-                    grafka.insertEdge(parent, null, "", vertex, hvBusVertex, edgeStyleHV);
-                    grafka.insertEdge(parent, null, "", vertex, lvBusVertex, edgeStyleLV);
+                    grafka.insertEdge(parent, null, "", vertex, hvBusVertex,
+                        `edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=${TRANSFORMER_EDGE_PIN_Y};exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=NotEditableLine`);
+                    grafka.insertEdge(parent, null, "", vertex, lvBusVertex,
+                        `edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=${TRANSFORMER_EDGE_PIN_Y};exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=NotEditableLine`);
                 } else {
                     console.warn(`Could not place transformer ${name}: One or both bus vertices not found`, {
                         hv_bus: hv_bus_name,
@@ -622,20 +635,19 @@ async function insertComponentsForData(grafka, a, target, point, data) {
 
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
 
-                // Position external grid above the bus
-                const vertexX = busVertex.geometry.x;
-                const vertexY = busVertex.geometry.y - 80;
-
-                const styleExternalGrid = "verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=externalGrid;shapeELXXX=External Grid"
+                const [egW, egH] = vertexSizeFromElectrisimSymbol('sym-ext-grid', 70, 58);
+                const anchorX = busVertex.geometry.x + IMPORT_BUSBAR_W / 2;
+                const anchorY = busVertex.geometry.y - 80;
+                const styleExternalGrid = vertexStyleFromElectrisimSymbol('sym-ext-grid', 'External Grid');
 
                 const vertex = grafka.insertVertex(
                     parent,
                     null,
                     ``,
-                    vertexX,
-                    vertexY,
-                    70,  // width
-                    58,   // height
+                    anchorX - egW / 2,
+                    anchorY - egH / 2,
+                    egW,
+                    egH,
                     styleExternalGrid
                 );
                 configureExternalGridAttributes(grafka, vertex, {                    
@@ -661,21 +673,20 @@ async function insertComponentsForData(grafka, a, target, point, data) {
 
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
 
-                // Position generator below the bus, slightly offset to avoid overlaps
-                const generatorOffset = index * 30; // Offset multiple generators on same bus
-                const vertexX = busVertex.geometry.x + generatorOffset;
-                const vertexY = busVertex.geometry.y + 80;
-
-                const styleGenerator = "pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.signal_sources.ac_source;shapeELXXX=Generator"
+                const generatorOffset = index * 30;
+                const [genW, genH] = vertexSizeFromElectrisimSymbol('sym-generator', 45, 45);
+                const anchorX = busVertex.geometry.x + IMPORT_BUSBAR_W / 2 + generatorOffset;
+                const anchorY = busVertex.geometry.y + 80;
+                const styleGenerator = vertexStyleFromElectrisimSymbol('sym-generator', 'Generator');
 
                 const vertex = grafka.insertVertex(
                     parent,
                     null,
                     ``,
-                    vertexX,
-                    vertexY,
-                    45,  // width
-                    45,   // height
+                    anchorX - genW / 2,
+                    anchorY - genH / 2,
+                    genW,
+                    genH,
                     styleGenerator
                 );
                 configureGeneratorAttributes(grafka, vertex, {
@@ -708,21 +719,20 @@ async function insertComponentsForData(grafka, a, target, point, data) {
 
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
 
-                // Position static generator below the bus, offset to avoid overlaps
-                const staticGenOffset = index * 40; // Different offset for static generators
-                const vertexX = busVertex.geometry.x + staticGenOffset;
-                const vertexY = busVertex.geometry.y + 120;
-
-                const styleStaticGenerator = "verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.rot_mech.synchro;shapeELXXX=Static Generator"
+                const staticGenOffset = index * 40;
+                const [sgW, sgH] = vertexSizeFromElectrisimSymbol('sym-static-gen', 45, 45);
+                const anchorX = busVertex.geometry.x + IMPORT_BUSBAR_W / 2 + staticGenOffset;
+                const anchorY = busVertex.geometry.y + 120;
+                const styleStaticGenerator = vertexStyleFromElectrisimSymbol('sym-static-gen', 'Static Generator');
 
                 const vertex = grafka.insertVertex(
                     parent,
                     null,
                     ``,
-                    vertexX,
-                    vertexY,
-                    45,  // width
-                    45,   // height
+                    anchorX - sgW / 2,
+                    anchorY - sgH / 2,
+                    sgW,
+                    sgH,
                     styleStaticGenerator
                 );
                 configureStaticGeneratorAttributes(grafka, vertex, {
@@ -751,19 +761,19 @@ async function insertComponentsForData(grafka, a, target, point, data) {
 
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
 
-                const vertexX = busVertex.geometry.x + 60  // Position based on bus index
-                const vertexY = busVertex.geometry.y + 60;  // Position above buses
-
-                const styleAsymmetricStaticGenerator = "verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.rot_mech.asymmetric;shapeELXXX=Asymmetric Static Generator"
+                const [asgW, asgH] = vertexSizeFromElectrisimSymbol('sym-asym-static-gen', 45, 45);
+                const anchorX = busVertex.geometry.x + IMPORT_BUSBAR_W / 2 + 60;
+                const anchorY = busVertex.geometry.y + 60;
+                const styleAsymmetricStaticGenerator = vertexStyleFromElectrisimSymbol('sym-asym-static-gen', 'Asymmetric Static Generator');
 
                 const vertex = grafka.insertVertex(
                     parent,
                     null,
                     ``,
-                    vertexX,
-                    vertexY,
-                    45,  // width
-                    45,   // height
+                    anchorX - asgW / 2,
+                    anchorY - asgH / 2,
+                    asgW,
+                    asgH,
                     styleAsymmetricStaticGenerator
                 );
                 configureStaticGeneratorAttributes(grafka, vertex, {
@@ -890,22 +900,20 @@ async function insertComponentsForData(grafka, a, target, point, data) {
 
                 // Calculate positions for the transformer
                 //const vertexXHV = hvBusVertex.geometry.x // + (hv_bus_no * 150);  // Position based on hv_bus index
-                const vertexX = hvBusVertex.geometry.x + 60//(lv_bus_no * 150);  // Position based on lv_bus index
-                const vertexY = lvBusVertex.geometry.y - 120;  // Position between buses
+                const vertexCenterX = hvBusVertex.geometry.x + 60;
+                const vertexCenterY = lvBusVertex.geometry.y - 120;
 
+                const threewindingtrafoStyle = vertexStyleFromElectrisimSymbol('sym-3w-transformer', 'Three Winding Transformer');
+                const [twW, twH] = vertexSizeFromElectrisimSymbol('sym-3w-transformer', 40, 60);
 
-                // Use transformer symbol style
-                const threewindingtrafoStyle = "pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.inductors.pot_trans_3_windings;shapeELXXX=Three Winding Transformer";
-
-                // Insert the transformer vertex
                 const vertex = grafka.insertVertex(
                     parent,
                     null,
                     ``,
-                    vertexX,  // Center between the two buses
-                    vertexY,
-                    40,  // width
-                    60,  // height
+                    vertexCenterX - twW / 2,
+                    vertexCenterY - twH / 2,
+                    twW,
+                    twH,
                     threewindingtrafoStyle
                 );
 
@@ -959,17 +967,18 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 let bus = busData.data[bus_no];
                 let bus_name = bus[0];
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
-                const vertexX = busVertex.geometry.x + 60  // Position based on bus index
-                const vertexY = busVertex.geometry.y + 60;  // Position below buses
-                const styleShuntReactor = "pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.signal_sources.signal_ground;shapeELXXX=Shunt Reactor"
+                const [shW, shH] = vertexSizeFromElectrisimSymbol('sym-shunt', 30, 20);
+                const anchorX = busVertex.geometry.x + IMPORT_BUSBAR_W / 2 + 60;
+                const anchorY = busVertex.geometry.y + 60;
+                const styleShuntReactor = vertexStyleFromElectrisimSymbol('sym-shunt', 'Shunt Reactor');
                 const vertex = grafka.insertVertex(
                     parent,
                     null,
                     ``,
-                    vertexX,
-                    vertexY,
-                    30,  // width
-                    20,   // height
+                    anchorX - shW / 2,
+                    anchorY - shH / 2,
+                    shW,
+                    shH,
                     styleShuntReactor
                 );
                 configureShuntReactorAttributes(grafka, vertex, {
@@ -1027,21 +1036,20 @@ async function insertComponentsForData(grafka, a, target, point, data) {
 
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
 
-                // Position load below the bus, offset to avoid overlaps with generators
-                const loadOffset = index * 35; // Different offset for loads
-                const vertexX = busVertex.geometry.x - 60 + loadOffset; // Position to the left of bus
-                const vertexY = busVertex.geometry.y + 80;
-
-                const loadStyle = "pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.signal_sources.signal_ground;shapeELXXX=Load"
+                const loadOffset = index * 35;
+                const [ldW, ldH] = vertexSizeFromElectrisimSymbol('sym-load', 30, 20);
+                const anchorX = busVertex.geometry.x + IMPORT_BUSBAR_W / 2 - 60 + loadOffset;
+                const anchorY = busVertex.geometry.y + 80;
+                const loadStyle = vertexStyleFromElectrisimSymbol('sym-load', 'Load');
 
                 const vertex = grafka.insertVertex(
                     parent,
                     null,
                     ``,
-                    vertexX,
-                    vertexY,
-                    30,  // width
-                    20,   // height
+                    anchorX - ldW / 2,
+                    anchorY - ldH / 2,
+                    ldW,
+                    ldH,
                     loadStyle
                 );
                 configureLoadAttributes(grafka, vertex, {
@@ -1069,19 +1077,19 @@ async function insertComponentsForData(grafka, a, target, point, data) {
 
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
 
-                const vertexX = busVertex.geometry.x + 60  // Position based on bus index
-                const vertexY = busVertex.geometry.y + 60;  // Position below buses
-
-                const asymmetricloadStyle = "pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.signal_sources.signal_ground;shapeELXXX=Asymmetric Load"
+                const [alW, alH] = vertexSizeFromElectrisimSymbol('sym-asym-load', 30, 20);
+                const anchorX = busVertex.geometry.x + IMPORT_BUSBAR_W / 2 + 60;
+                const anchorY = busVertex.geometry.y + 60;
+                const asymmetricloadStyle = vertexStyleFromElectrisimSymbol('sym-asym-load', 'Asymmetric Load');
 
                 const vertex = grafka.insertVertex(
                     parent,
                     null,
                     ``,
-                    vertexX,
-                    vertexY,
-                    30,  // width
-                    20,   // height
+                    anchorX - alW / 2,
+                    anchorY - alH / 2,
+                    alW,
+                    alH,
                     asymmetricloadStyle
                 );
                 configureAsymmetricLoadAttributes(grafka, vertex, {
@@ -1156,17 +1164,18 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 let bus = busData.data[bus_no];
                 let bus_name = bus[0];
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
-                const vertexX = busVertex.geometry.x + 60  // Position based on bus index
-                const vertexY = busVertex.geometry.y + 60;  // Position below buses
-                const styleWard = "pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.signal_sources.signal_ground;shapeELXXX=Ward"
+                const [wW, wH] = vertexSizeFromElectrisimSymbol('sym-ward', 30, 20);
+                const anchorX = busVertex.geometry.x + IMPORT_BUSBAR_W / 2 + 60;
+                const anchorY = busVertex.geometry.y + 60;
+                const styleWard = vertexStyleFromElectrisimSymbol('sym-ward', 'Ward');
                 const vertex = grafka.insertVertex(
                     parent,
                     null,
                     ``,
-                    vertexX,
-                    vertexY,
-                    30,  // width
-                    20,   // height
+                    anchorX - wW / 2,
+                    anchorY - wH / 2,
+                    wW,
+                    wH,
                     styleWard
                 );
                 configureWardAttributes(grafka, vertex, {
@@ -1187,17 +1196,18 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 let bus = busData.data[bus_no];
                 let bus_name = bus[0];
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
-                const vertexX = busVertex.geometry.x + 60  // Position based on bus index
-                const vertexY = busVertex.geometry.y + 60;  // Position below buses
-                const styleExtendedWard = "pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.miscellaneous.extended_ward;shapeELXXX=Extended Ward"
+                const [ewW, ewH] = vertexSizeFromElectrisimSymbol('sym-ext-ward', 30, 20);
+                const anchorX = busVertex.geometry.x + IMPORT_BUSBAR_W / 2 + 60;
+                const anchorY = busVertex.geometry.y + 60;
+                const styleExtendedWard = vertexStyleFromElectrisimSymbol('sym-ext-ward', 'Extended Ward');
                 const vertex = grafka.insertVertex(
                     parent,
                     null,
                     ``,
-                    vertexX,
-                    vertexY,
-                    30,  // width
-                    20,   // height
+                    anchorX - ewW / 2,
+                    anchorY - ewH / 2,
+                    ewW,
+                    ewH,
                     styleExtendedWard
                 );
                 configureExtendedWardAttributes(grafka, vertex, {
@@ -1222,17 +1232,18 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 let bus = busData.data[bus_no];
                 let bus_name = bus[0];
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
-                const vertexX = busVertex.geometry.x + 60  // Position based on bus index
-                const vertexY = busVertex.geometry.y + 60;  // Position below buses
-                const styleMotor = "shapeELXXX=Motor;verticalLabelPosition=middle;shadow=0;dashed=0;align=center;html=1;verticalAlign=middle;strokeWidth=1;shape=ellipse;fontSize=32;perimeter=ellipsePerimeter;"
+                const [mW, mH] = vertexSizeFromElectrisimSymbol('sym-motor', 30, 20);
+                const anchorX = busVertex.geometry.x + IMPORT_BUSBAR_W / 2 + 60;
+                const anchorY = busVertex.geometry.y + 60;
+                const styleMotor = vertexStyleFromElectrisimSymbol('sym-motor', 'Motor');
                 const vertex = grafka.insertVertex(
                     parent,
                     null,
                     ``,
-                    vertexX,
-                    vertexY,
-                    30,  // width
-                    20,   // height
+                    anchorX - mW / 2,
+                    anchorY - mH / 2,
+                    mW,
+                    mH,
                     styleMotor
                 );
                 configureMotorAttributes(grafka, vertex, {
@@ -1261,17 +1272,18 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 let bus = busData.data[bus_no];
                 let bus_name = bus[0];
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
-                const vertexX = busVertex.geometry.x + 60  // Position based on bus index
-                const vertexY = busVertex.geometry.y + 60;  // Position below buses
-                const styleStorage = "pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.miscellaneous.multicell_battery;shapeELXXX=Storage"
+                const [stW, stH] = vertexSizeFromElectrisimSymbol('sym-storage', 30, 20);
+                const anchorX = busVertex.geometry.x + IMPORT_BUSBAR_W / 2 + 60;
+                const anchorY = busVertex.geometry.y + 60;
+                const styleStorage = vertexStyleFromElectrisimSymbol('sym-storage', 'Storage');
                 const vertex = grafka.insertVertex(
                     parent,
                     null,
                     ``,
-                    vertexX,
-                    vertexY,
-                    30,  // width
-                    20,   // height
+                    anchorX - stW / 2,
+                    anchorY - stH / 2,
+                    stW,
+                    stH,
                     styleStorage
                 );
                 configureStorageAttributes(grafka, vertex, {
@@ -1298,17 +1310,18 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 let bus = busData.data[bus_no];
                 let bus_name = bus[0];
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
-                const vertexX = busVertex.geometry.x + 60  // Position based on bus index
-                const vertexY = busVertex.geometry.y + 60;  // Position below buses
-                const styleSVC = "pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.miscellaneous.svc;shapeELXXX=SVC"
+                const [svcW, svcH] = vertexSizeFromElectrisimSymbol('sym-svc', 30, 20);
+                const anchorX = busVertex.geometry.x + IMPORT_BUSBAR_W / 2 + 60;
+                const anchorY = busVertex.geometry.y + 60;
+                const styleSVC = vertexStyleFromElectrisimSymbol('sym-svc', 'SVC');
                 const vertex = grafka.insertVertex(
                     parent,
                     null,
                     ``,
-                    vertexX,
-                    vertexY,
-                    30,  // width
-                    20,   // height
+                    anchorX - svcW / 2,
+                    anchorY - svcH / 2,
+                    svcW,
+                    svcH,
                     styleSVC
                 );
                 configureSVCAttributes(grafka, vertex, {
@@ -1342,19 +1355,22 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 const hvBusVertex = findVertexByBusId(grafka, parent, from_bus_name);
                 const lvBusVertex = findVertexByBusId(grafka, parent, to_bus_name);
 
-                const vertexX = hvBusVertex.geometry.x + 60//(lv_bus_no * 150);  // Position based on lv_bus index
-                const vertexY = lvBusVertex.geometry.y - 120;  // Position between buses
+                const hvCx = hvBusVertex.geometry.x + IMPORT_BUSBAR_W / 2;
+                const lvCx = lvBusVertex.geometry.x + IMPORT_BUSBAR_W / 2;
+                const vertexCenterX = (hvCx + lvCx) / 2;
+                const vertexCenterY = (hvBusVertex.geometry.y + lvBusVertex.geometry.y) / 2 - 40;
 
-                const tcscStyle = "pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.miscellaneous.tcsc;shapeELXXX=TCSC";
+                const tcscStyle = vertexStyleFromElectrisimSymbol('sym-tcsc', 'TCSC');
+                const [tcscW, tcscH] = vertexSizeFromElectrisimSymbol('sym-tcsc', 40, 60);
 
                 const vertex = grafka.insertVertex(
                     parent,
                     null,
                     ``,
-                    vertexX,  // Center between the two buses
-                    vertexY,
-                    40,  // width
-                    60,  // height
+                    vertexCenterX - tcscW / 2,
+                    vertexCenterY - tcscH / 2,
+                    tcscW,
+                    tcscH,
                     tcscStyle
                 );
 

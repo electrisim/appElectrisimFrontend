@@ -1,5 +1,6 @@
 import { Dialog } from './Dialog.js';
 import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
+import { OPF_COST_CURRENCY_OPTIONS } from './utils/opfCostCurrency.js';
 import {
     mountHarmonicSpectrumTriState,
     syncHarmonicSpectrumTriStateFromDialogData,
@@ -14,7 +15,8 @@ export const defaultGeneratorData = {
     sn_mva: 0.0,
     scaling: 1.0,
     slack: false,
-    controllable: false,
+    /** OPF: match pandapower opf_basic (create_gen controllable=True); turn off if P must stay fixed in OPF. */
+    controllable: true,
     vn_kv: 0.0,
     xdss_pu: 0.0,
     rdss_ohm: 0.0,
@@ -25,6 +27,12 @@ export const defaultGeneratorData = {
     min_p_mw: 0.0,
     max_q_mvar: 0.0,
     min_q_mvar: 0.0,
+    /** OPF label for marginal units (study metadata uses first device with this set). */
+    opf_cost_currency: 'EUR',
+    /** OPF polynomial marginal ∂C/∂P (€/MWh) / PWL slope — pandapower cp1; empty = omit from OPF cost */
+    opf_marginal_cost_eur_per_mwh: '',
+    /** OPF polynomial quadratic term €/(MW²·h) — pandapower cp2; empty = omit */
+    opf_cp2_eur_per_mw2: '',
     in_service: true,
     /** OpenDSS harmonic (Generator) */
     spectrum: 'defaultgen',
@@ -91,14 +99,6 @@ export class GeneratorDialog extends Dialog {
                 description: 'True if generator is slack generator for loadflow calculation',
                 type: 'checkbox',
                 value: this.data.slack
-            },
-            {
-                id: 'controllable',
-                label: 'Controllable',
-                symbol: 'controllable',
-                description: 'True if generator is controllable by OPF',
-                type: 'checkbox',
-                value: this.data.controllable
             },
             {
                 id: 'in_service',
@@ -192,6 +192,14 @@ export class GeneratorDialog extends Dialog {
         // OPF (Optimal Power Flow) parameters
         this.opfParameters = [
             {
+                id: 'controllable',
+                label: 'Controllable',
+                symbol: 'controllable',
+                description: 'True if generator is controllable by OPF',
+                type: 'checkbox',
+                value: this.data.controllable
+            },
+            {
                 id: 'max_p_mw',
                 label: 'Maximum Active Power',
                 symbol: 'max_p_mw',
@@ -230,6 +238,36 @@ export class GeneratorDialog extends Dialog {
                 type: 'number',
                 value: this.data.min_q_mvar.toString(),
                 step: '1'
+            },
+            {
+                id: 'opf_cost_currency',
+                label: 'Marginal cost currency (labels)',
+                symbol: 'opf_cost_currency',
+                description:
+                    'Shown next to marginal / quadratic OPF costs for this machine. Numeric values are still passed to pandapower unchanged. For the whole OPF run, the first generator, external grid, or storage (in that order) with a non-empty currency sets the study metadata label.',
+                type: 'select',
+                value: this.data.opf_cost_currency,
+                options: OPF_COST_CURRENCY_OPTIONS.map((o) => ({ value: o.code, label: o.label })),
+            },
+            {
+                id: 'opf_marginal_cost_eur_per_mwh',
+                label: 'OPF marginal cost (linear)',
+                symbol: 'opf_marginal_cost_eur_per_mwh',
+                unit: 'per MWh',
+                description:
+                    'Marginal generation cost ∂C/∂P when OPF uses Polynomial or Piecewise linear costs (polynomial cp1 or PWL slope). Use the same monetary sense as the <strong>Marginal cost currency</strong> field above; pandapower keeps EUR-related column names internally. Leave empty to omit this unit from the OPF cost.',
+                type: 'text',
+                value: String(this.data.opf_marginal_cost_eur_per_mwh ?? ''),
+            },
+            {
+                id: 'opf_cp2_eur_per_mw2',
+                label: 'OPF quadratic cost coefficient',
+                symbol: 'opf_cp2_eur_per_mw2',
+                unit: 'per MW²·h',
+                description:
+                    'Polynomial OPF only: quadratic term cp2 on active power (pandapower cp2_eur_per_mw2 naming). Ignored for piecewise-linear cost. Use the same monetary unit as marginal cost (see currency above). Leave empty if unused.',
+                type: 'text',
+                value: String(this.data.opf_cp2_eur_per_mw2 ?? ''),
             }
         ];
 
@@ -581,7 +619,32 @@ export class GeneratorDialog extends Dialog {
                 form.appendChild(parameterRow);
                 return;
             }
-            if (param.type === 'checkbox') {
+            if (param.type === 'select') {
+                input = document.createElement('select');
+                (param.options || []).forEach((opt) => {
+                    const o = document.createElement('option');
+                    const val = typeof opt === 'object' && opt !== null ? opt.value : opt;
+                    const lab = typeof opt === 'object' && opt !== null && opt.label != null ? opt.label : val;
+                    o.value = String(val);
+                    o.textContent = String(lab);
+                    if (String(param.value) === o.value) {
+                        o.selected = true;
+                    }
+                    input.appendChild(o);
+                });
+                Object.assign(input.style, {
+                    width: isNameField ? '100%' : '180px',
+                    ...(isNameField ? { minWidth: '0' } : {}),
+                    padding: '10px 14px',
+                    border: '2px solid #ced4da',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                    backgroundColor: '#ffffff',
+                    boxSizing: 'border-box',
+                    cursor: 'pointer',
+                });
+            } else if (param.type === 'checkbox') {
                 input = document.createElement('input');
                 input.type = 'checkbox';
                 input.checked = param.value;
@@ -735,6 +798,8 @@ export class GeneratorDialog extends Dialog {
                     values[param.id] = parseFloat(input.value) || 0;
                 } else if (param.type === 'checkbox') {
                     values[param.id] = input.checked;
+                } else if (param.type === 'select') {
+                    values[param.id] = input.value;
                 } else {
                     values[param.id] = input.value;
                 }
@@ -835,8 +900,24 @@ export class GeneratorDialog extends Dialog {
                 if (attributeName === 'cost_per_unit_by_currency') {
                     this.data[attributeName] = attributeValue;
                 }
+                if (attributeName === 'opf_cost_currency') {
+                    this.data.opf_cost_currency =
+                        attributeValue != null && String(attributeValue).trim() !== ''
+                            ? String(attributeValue).trim()
+                            : this.data.opf_cost_currency;
+                }
+                if (attributeName === 'opf_marginal_cost_eur_per_mwh') {
+                    this.data.opf_marginal_cost_eur_per_mwh =
+                        attributeValue != null ? String(attributeValue).trim() : '';
+                }
+                if (attributeName === 'opf_cp2_eur_per_mw2') {
+                    this.data.opf_cp2_eur_per_mw2 =
+                        attributeValue != null ? String(attributeValue).trim() : '';
+                }
                 if (!loadFlowParam && !shortCircuitParam && !opfParam && !harmonicParam && !economicParam && attributeName !== 'cost_per_unit_by_currency'
-                    && attributeName !== 'spectrum' && attributeName !== 'spectrum_csv') {
+                    && attributeName !== 'spectrum' && attributeName !== 'spectrum_csv'
+                    && attributeName !== 'opf_cost_currency'
+                    && attributeName !== 'opf_marginal_cost_eur_per_mwh' && attributeName !== 'opf_cp2_eur_per_mw2') {
                     console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
             }

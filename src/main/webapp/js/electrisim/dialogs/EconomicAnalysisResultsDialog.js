@@ -56,19 +56,20 @@ export class EconomicAnalysisResultsDialog extends Dialog {
         if (totalEnergyMwh != null) {
             const periodHours = this.results.energy_loss_period_hours ?? this.results.time_steps ?? 1;
             const lifetimeYears = this.results.lifetime_years ?? 30;
+            const periodMwh = this.results.total_energy_losses_period_mwh;
+            const displayPeriodMwh = periodMwh != null ? periodMwh : totalEnergyMwh;
             const energyCard = makeCard(
-                'Energy Losses (annual)',
-                `${Number(totalEnergyMwh).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MWh`
+                periodMwh != null ? 'Energy losses (simulation period)' : 'Energy losses',
+                `${Number(displayPeriodMwh).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MWh`
             );
             const periodEl = document.createElement('div');
             periodEl.style.cssText = 'font-size: 11px; color: #6c757d; margin-top: 4px;';
-            periodEl.textContent = periodHours > 1 ? `Over ${periodHours.toLocaleString()} hours/year` : '1 hour (snapshot)';
+            periodEl.textContent = periodHours > 1 ? `Integrated over ${periodHours.toLocaleString()} hour steps (Δt = 1 h)` : '1 hour (snapshot)';
             energyCard.appendChild(periodEl);
-            if (lifetimeYears > 1 && periodHours >= 8760) {
-                const lifetimeMwh = totalEnergyMwh * lifetimeYears;
+            if (periodMwh != null && lifetimeYears >= 1) {
                 const lifetimeEl = document.createElement('div');
                 lifetimeEl.style.cssText = 'font-size: 11px; color: #6c757d; margin-top: 2px; font-weight: 500;';
-                lifetimeEl.textContent = `${lifetimeYears} years: ${Number(lifetimeMwh).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} MWh`;
+                lifetimeEl.textContent = `${lifetimeYears}-year lifetime total: ${Number(totalEnergyMwh).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} MWh (= simulation period × ${lifetimeYears})`;
                 energyCard.appendChild(lifetimeEl);
             }
             grid.appendChild(energyCard);
@@ -76,16 +77,13 @@ export class EconomicAnalysisResultsDialog extends Dialog {
         if (energyLossCost != null && energyLossCost > 0) {
             const lifetimeYears = this.results.lifetime_years ?? 30;
             const costCard = makeCard(
-                'Energy Loss Cost (annual)',
+                'Energy loss cost (lifetime)',
                 `${costSym} ${Number(energyLossCost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
             );
-            if (lifetimeYears > 1) {
-                const lifetimeCost = energyLossCost * lifetimeYears;
-                const lifetimeEl = document.createElement('div');
-                lifetimeEl.style.cssText = 'font-size: 11px; color: #6c757d; margin-top: 4px; font-weight: 500;';
-                lifetimeEl.textContent = `${lifetimeYears} years: ${costSym} ${Number(lifetimeCost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                costCard.appendChild(lifetimeEl);
-            }
+            const subEl = document.createElement('div');
+            subEl.style.cssText = 'font-size: 11px; color: #6c757d; margin-top: 4px;';
+            subEl.textContent = `Total losses over ${lifetimeYears} years × energy price per MWh`;
+            costCard.appendChild(subEl);
             grid.appendChild(costCard);
         }
 
@@ -300,11 +298,10 @@ export class EconomicAnalysisResultsDialog extends Dialog {
         if (totalEnergyMwh != null) {
             const periodHours = this.results.energy_loss_period_hours ?? this.results.time_steps ?? 1;
             const lifetimeYears = this.results.lifetime_years ?? 30;
-            const genProfile = this.results.generation_profile ?? '-';
             const footnote = document.createElement('p');
             footnote.style.cssText = 'margin: 16px 0 0 0; color: #6c757d; font-size: 12px; font-style: italic;';
             footnote.textContent = periodHours > 1
-                ? `Calculated over ${periodHours} hours/year (generation profile: ${genProfile}). Lifetime: ${lifetimeYears} years.`
+                ? `Loss energy integrates simulated hourly losses over ${periodHours} steps (Δt = 1 h). Lifetime total scales by ${lifetimeYears} years; cost uses lifetime MWh × price.`
                 : '1 hour equivalent, instantaneous snapshot.';
             form.appendChild(footnote);
         }

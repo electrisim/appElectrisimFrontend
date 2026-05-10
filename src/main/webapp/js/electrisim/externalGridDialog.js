@@ -1,5 +1,6 @@
 import { Dialog } from './Dialog.js';
 import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
+import { OPF_COST_CURRENCY_OPTIONS } from './utils/opfCostCurrency.js';
 import {
     mountHarmonicSpectrumTriState,
     syncHarmonicSpectrumTriStateFromDialogData,
@@ -24,6 +25,10 @@ export const defaultExternalGridData = {
     min_q_mvar: 0.0,
     controllable: false,
     slack_weight: 1.0,
+    opf_marginal_cost_eur_per_mwh: '',
+    opf_cp2_eur_per_mw2: '',
+    /** OPF cost label currency for marginal/cp2 (study metadata picks first gen / ext / storage with value). */
+    opf_cost_currency: 'EUR',
     /** OpenDSS Vsource harmonic spectrum */
     spectrum: 'defaultvsource',
     spectrum_csv: '',
@@ -184,6 +189,29 @@ export class ExternalGridDialog extends Dialog {
                 value: this.data.slack_weight.toString(),
                 step: '0.1',
                 min: '0'
+            },
+            {
+                id: 'opf_cost_currency',
+                label: 'Marginal cost currency (labels)',
+                description:
+                    'Shown next to optional marginal / quadratic OPF costs at this coupling. Numeric values are passed to pandapower unchanged. For the whole OPF run, the first generator, external grid, or storage with a non-empty currency sets the study metadata.',
+                type: 'select',
+                value: this.data.opf_cost_currency,
+                options: OPF_COST_CURRENCY_OPTIONS.map((o) => ({ value: o.code, label: o.label })),
+            },
+            {
+                id: 'opf_marginal_cost_eur_per_mwh',
+                label: 'OPF marginal cost (∂C/∂P per MWh)',
+                description: 'Optional marginal active-power price at this coupling for pandapower OPF (same numeric convention as synchronous generators). Leave blank for none.',
+                type: 'text',
+                value: String(this.data.opf_marginal_cost_eur_per_mwh ?? ''),
+            },
+            {
+                id: 'opf_cp2_eur_per_mw2',
+                label: 'OPF quadratic cost coef. cp₂',
+                description: 'Small nonnegative curvature (∂²C/∂P²) for polynomial OPF cost when marginal above is set. Typical tiny fraction over MW².',
+                type: 'text',
+                value: String(this.data.opf_cp2_eur_per_mw2 ?? ''),
             }
         ];
 
@@ -503,9 +531,36 @@ export class ExternalGridDialog extends Dialog {
                 return;
             }
 
-            const input = document.createElement('input');
-            input.type = param.type;
-            input.id = param.id;
+            let input;
+            if (param.type === 'select') {
+                input = document.createElement('select');
+                (param.options || []).forEach((opt) => {
+                    const o = document.createElement('option');
+                    const val = typeof opt === 'object' && opt !== null ? opt.value : opt;
+                    const lab = typeof opt === 'object' && opt !== null && opt.label != null ? opt.label : val;
+                    o.value = String(val);
+                    o.textContent = String(lab);
+                    if (String(param.value) === o.value) {
+                        o.selected = true;
+                    }
+                    input.appendChild(o);
+                });
+                Object.assign(input.style, {
+                    width: isNameField ? '100%' : '180px',
+                    ...(isNameField ? { minWidth: '0' } : {}),
+                    padding: '10px 14px',
+                    border: '2px solid #ced4da',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                    backgroundColor: '#ffffff',
+                    boxSizing: 'border-box',
+                    cursor: 'pointer',
+                });
+            } else {
+                input = document.createElement('input');
+                input.type = param.type;
+                input.id = param.id;
             
             // Handle different input types
             if (param.type === 'checkbox') {
@@ -560,11 +615,13 @@ export class ExternalGridDialog extends Dialog {
                     }
                 });
             }
+            }
             
-            // Set additional attributes
-            if (param.step) input.step = param.step;
-            if (param.min !== undefined) input.min = param.min;
-            if (param.max !== undefined) input.max = param.max;
+            if (param.type === 'number') {
+                if (param.step) input.step = param.step;
+                if (param.min !== undefined) input.min = param.min;
+                if (param.max !== undefined) input.max = param.max;
+            }
 
             this.inputs.set(param.id, input);
             rightColumn.appendChild(input);
@@ -655,6 +712,8 @@ export class ExternalGridDialog extends Dialog {
                     values[param.id] = parseFloat(input.value) || 0;
                 } else if (param.type === 'checkbox') {
                     values[param.id] = input.checked;
+                } else if (param.type === 'select') {
+                    values[param.id] = input.value;
                 } else {
                     values[param.id] = input.value;
                 }

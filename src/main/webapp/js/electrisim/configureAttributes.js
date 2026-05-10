@@ -33,6 +33,17 @@ export function configureExternalGridAttributes(grafka, vertex, options = {}) {
     g.setAttribute("spectrum", options.spectrum || "defaultvsource");
     g.setAttribute("spectrum_csv", options.spectrum_csv || "");
 
+    // OPF coupling economics / bounds (optional; OPF dialog can override per run)
+    g.setAttribute("OPF_coupling_parameters", "");
+    g.setAttribute("max_p_mw", String(options.max_p_mw ?? 0));
+    g.setAttribute("min_p_mw", String(options.min_p_mw ?? 0));
+    g.setAttribute("max_q_mvar", String(options.max_q_mvar ?? 0));
+    g.setAttribute("min_q_mvar", String(options.min_q_mvar ?? 0));
+    g.setAttribute("controllable", String(options.controllable ?? false));
+    g.setAttribute("opf_marginal_cost_eur_per_mwh", String(options.opf_marginal_cost_eur_per_mwh ?? ""));
+    g.setAttribute("opf_cp2_eur_per_mw2", String(options.opf_cp2_eur_per_mw2 ?? ""));
+    g.setAttribute("opf_cost_currency", String(options.opf_cost_currency ?? "EUR"));
+
     // Economic parameters
     g.setAttribute("Economic_parameters", "");
     g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
@@ -94,6 +105,10 @@ export function configureGeneratorAttributes(grafka, vertex, options = {}) {
     g.setAttribute("Economic_parameters", "");
     g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
 
+    g.setAttribute("opf_marginal_cost_eur_per_mwh", String(options.opf_marginal_cost_eur_per_mwh ?? ""));
+    g.setAttribute("opf_cp2_eur_per_mw2", String(options.opf_cp2_eur_per_mw2 ?? ""));
+    g.setAttribute("opf_cost_currency", options.opf_cost_currency != null ? String(options.opf_cost_currency) : "EUR");
+
     grafka.getModel().setValue(vertex, g)
 
     grafka.insertVertex(vertex, null, 'Generator', 0.5, 1.1, 0, 0, null, true);
@@ -122,14 +137,16 @@ export function configureStaticGeneratorAttributes(grafka, vertex, options = {})
     g.setAttribute("kappa", options.kappa ||  "0.0");
     g.setAttribute("current_source", options.current_source || true);
 
-    //OPF
-    /*
-    g.setAttribute("max_p_mw", "0");
-    g.setAttribute("min_p_mw", "0");
-    g.setAttribute("max_q_mvar", "0");
-    g.setAttribute("min_q_mvar", "0");
-    g.setAttribute("controllable", true);
-    g.setAttribute("q_mvar", "0");*/
+    // OPF (pandapower — https://pandapower.readthedocs.io/en/latest/opf/pypower_run.html)
+    g.setAttribute("OPF_parameters", "");
+    g.setAttribute("controllable", String(options.controllable ?? false));
+    g.setAttribute("min_p_mw", String(options.min_p_mw ?? "0"));
+    g.setAttribute("max_p_mw", String(options.max_p_mw ?? "1"));
+    g.setAttribute("min_q_mvar", String(options.min_q_mvar ?? "-1"));
+    g.setAttribute("max_q_mvar", String(options.max_q_mvar ?? "1"));
+    g.setAttribute("opf_marginal_cost_eur_per_mwh", String(options.opf_marginal_cost_eur_per_mwh ?? ""));
+    g.setAttribute("opf_cp2_eur_per_mw2", String(options.opf_cp2_eur_per_mw2 ?? ""));
+    g.setAttribute("opf_cost_currency", String(options.opf_cost_currency ?? "EUR"));
 
     // Harmonic analysis parameters (OpenDSS)
     // Reference: https://opendss.epri.com/Properties9.html
@@ -197,10 +214,15 @@ export function configureBusAttributes(grafka, vertex, options = {}) {
     //g.setAttribute("type", "b");
     //g.setAttribute("in_service", true); //in_service nie działa
 
-    //Optimal Power Flow
-    /*
-    g.setAttribute("max_vm_pu", "0");
-    g.setAttribute("min_vm_pu", "0");  */
+    g.setAttribute("OPF_parameters", "");
+    g.setAttribute(
+        "min_vm_pu",
+        options.min_vm_pu != null && options.min_vm_pu !== "" ? String(options.min_vm_pu) : "0.9",
+    );
+    g.setAttribute(
+        "max_vm_pu",
+        options.max_vm_pu != null && options.max_vm_pu !== "" ? String(options.max_vm_pu) : "1.1",
+    );
 
     // Economic parameters
     g.setAttribute("Economic_parameters", "");
@@ -253,6 +275,9 @@ export function configureTransformerAttributes(grafka, vertex, options = {}) {
     g.setAttribute("tap_step_degree", options.tap_step_degree ||"0");
     g.setAttribute("tap_phase_shifter", false);
     g.setAttribute("tap_changer_type", options.tap_changer_type || "Ratio"); // pandapower 3.0+: "Ratio", "Symmetrical", or "Ideal"
+
+    g.setAttribute("OPF_parameters", "");
+    g.setAttribute("max_loading_percent", options.max_loading_percent != null ? String(options.max_loading_percent) : "0");
 
     // Harmonic analysis parameters (OpenDSS Transformer)
     g.setAttribute("Harmonic_parameters", "");
@@ -328,10 +353,8 @@ export function configureThreeWindingTransformerAttributes(grafka, vertex, optio
     g.setAttribute("Economic_parameters", "");
     g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
 
-    //Optimal power flow
-    /*
-    g.setAttribute("max_loading_percent", "0");
-    g.setAttribute("tap_pos", "0");*/
+    g.setAttribute("OPF_parameters", "");
+    g.setAttribute("max_loading_percent", options.max_loading_percent != null ? String(options.max_loading_percent) : "0");
 
     grafka.getModel().setValue(vertex, g)
     //this.currentGraph.insertVertex(umieszczonaCell, null, 'Three Winding Transformer', -0.25, 0, 0, 0, null, true);             
@@ -425,13 +448,27 @@ export function configureLoadAttributes(grafka, vertex, options = {}) {
     g.setAttribute("puXharm", options.puXharm || "0.0");
     g.setAttribute("XRharm", options.XRharm || "6.0");
 
+    // OPF (controllable load — pandapower)
+    g.setAttribute("OPF_parameters", "");
+    g.setAttribute("controllable", String(options.controllable ?? false));
+    g.setAttribute("min_p_mw", String(options.min_p_mw ?? "0"));
+    g.setAttribute("max_p_mw", String(options.max_p_mw ?? "1000"));
+    g.setAttribute("min_q_mvar", String(options.min_q_mvar ?? "-1000"));
+    g.setAttribute("max_q_mvar", String(options.max_q_mvar ?? "1000"));
+    g.setAttribute("opf_marginal_cost_eur_per_mwh", String(options.opf_marginal_cost_eur_per_mwh ?? ""));
+    g.setAttribute("opf_cp2_eur_per_mw2", String(options.opf_cp2_eur_per_mw2 ?? ""));
+    g.setAttribute("opf_cost_currency", String(options.opf_cost_currency ?? "EUR"));
+
     // Economic parameters
     g.setAttribute("Economic_parameters", "");
     g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
 
     grafka.getModel().setValue(vertex, g)
     
-    grafka.insertVertex(vertex, null, 'Load', 0.5, 1.5, 0, 0, null, true);
+    // Top-center pin; value must be empty — a visible label here is drawn at the port and would cover the tie line
+    grafka.insertVertex(vertex, null, '', 0.5, 0, 0, 0, null, true);
+    // Visible name below icon (aligned with Generator / Static Gen); synced on Apply via EditDataDialog.applyLoadValues
+    grafka.insertVertex(vertex, null, options.name || 'Load', 0.5, 1.1, 0, 0, null, true);
 }
 
 export function configureAsymmetricLoadAttributes(grafka, vertex, options = {}) {
@@ -461,7 +498,7 @@ export function configureAsymmetricLoadAttributes(grafka, vertex, options = {}) 
 
     grafka.getModel().setValue(vertex, g)
 
-    grafka.insertVertex(vertex, null, 'A.Load', 0.5, 1.5, 0, 0, null, true);
+    grafka.insertVertex(vertex, null, '', 0.5, 0, 0, 0, null, true);
 }
 
 export function configureImpedanceAttributes(grafka, vertex, options = {}) {
@@ -565,7 +602,8 @@ export function configureMotorAttributes(grafka, vertex, options = {}) {
 
     grafka.getModel().setValue(vertex, g)
 
-    grafka.insertVertex(vertex, null, '', 0.5, 0.4, 0, 0, null, true);
+    // Top feed from busbar — slightly below SVG circle apex so the stroke meets the visible ring (image padding)
+    grafka.insertVertex(vertex, null, '', 0.5, 0.3, 0, 0, null, true);
 }
 
 export function configureStorageAttributes(grafka, vertex, options = {}) {
@@ -594,6 +632,9 @@ export function configureStorageAttributes(grafka, vertex, options = {}) {
     g.setAttribute("min_p_mw", String(options.min_p_mw ?? 0));
     g.setAttribute("max_q_mvar", String(options.max_q_mvar ?? 0));
     g.setAttribute("min_q_mvar", String(options.min_q_mvar ?? 0));
+    g.setAttribute("opf_marginal_cost_eur_per_mwh", String(options.opf_marginal_cost_eur_per_mwh ?? ""));
+    g.setAttribute("opf_cp2_eur_per_mw2", String(options.opf_cp2_eur_per_mw2 ?? ""));
+    g.setAttribute("opf_cost_currency", String(options.opf_cost_currency ?? "EUR"));
 
     // OpenDSS-specific parameters (https://opendss.epri.com/Properties5.html)
     g.setAttribute("OpenDSS_parameters", "");
@@ -707,22 +748,23 @@ export function configureDCLineAttributes(grafka, vertex, options = {}) {
     g.setAttribute("vm_from_pu", options.vm_from_pu || "0");
     g.setAttribute("vm_to_pu", options.vm_to_pu || "0");
 
+    // OPF (pandapower dcline — https://pandapower.readthedocs.io/en/latest/opf/pypower_run.html)
+    g.setAttribute("OPF_parameters", "");
+    g.setAttribute("max_p_mw", String(options.max_p_mw ?? "10"));
+    g.setAttribute("min_q_from_mvar", String(options.min_q_from_mvar ?? ""));
+    g.setAttribute("max_q_from_mvar", String(options.max_q_from_mvar ?? ""));
+    g.setAttribute("min_q_to_mvar", String(options.min_q_to_mvar ?? ""));
+    g.setAttribute("max_q_to_mvar", String(options.max_q_to_mvar ?? ""));
+    g.setAttribute("opf_marginal_cost_eur_per_mwh", String(options.opf_marginal_cost_eur_per_mwh ?? ""));
+    g.setAttribute("opf_cp2_eur_per_mw2", String(options.opf_cp2_eur_per_mw2 ?? ""));
+    g.setAttribute("opf_cost_currency", String(options.opf_cost_currency ?? "EUR"));
+
     // Economic parameters
     g.setAttribute("Economic_parameters", "");
     g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
 
     //OPTIONAL
     //g.setAttribute("in_service", "True"); //in_service nie działa                               
-
-    //Optimal Power Flow
-    /*
-    g.setAttribute("max_p_mw", "0");
-    g.setAttribute("min_q_from_mvar", "0");
-    g.setAttribute("min_q_to_mvar", "0");
-    g.setAttribute("max_q_from_mvar", "0");
-    g.setAttribute("max_q_to_mvar", "0");
-
-    g.setAttribute("controllable", "True");*/
 
     grafka.getModel().setValue(vertex, g) 
 
@@ -760,6 +802,9 @@ export function configureLineAttributes(grafka, vertex, options = {}) {
     g.setAttribute("c0_nf_per_km", options.c0_nf_per_km || "0.1");
     g.setAttribute("endtemp_degree", "0");  
 
+    g.setAttribute("OPF_parameters", "");
+    g.setAttribute("max_loading_percent", options.max_loading_percent != null ? String(options.max_loading_percent) : "0");
+
     // Economic parameters
     g.setAttribute("Economic_parameters", "");
     g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "0");
@@ -794,7 +839,7 @@ export function configureLoadDcAttributes(grafka, vertex, options = {}) {
     g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
     
     grafka.getModel().setValue(vertex, g);
-    grafka.insertVertex(vertex, null, 'Load DC', 0.5, 1.5, 0, 0, null, true);
+    grafka.insertVertex(vertex, null, '', 0.5, 0, 0, 0, null, true);
 }
 
 export function configureSourceDcAttributes(grafka, vertex, options = {}) {

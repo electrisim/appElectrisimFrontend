@@ -83,10 +83,12 @@
                     },
                     {
                         id: 'delta',
-                        label: 'Delta (Convergence Tolerance)',
+                        label: 'Delta (convergence tolerance)',
+                        description:
+                            'PYPOWER OPF power-limit tolerance (see pandapower opf_basic tutorial). The notebook uses 1e-16; looser values (e.g. 1e-8) can change dispatch slightly.',
                         type: 'number',
-                        value: '1e-8',
-                        step: '1e-10'
+                        value: '1e-16',
+                        step: 'any'
                     },
                     {
                         id: 'trafo_model',
@@ -138,20 +140,6 @@
                             { value: 'piecewise_linear', label: 'Piecewise Linear Cost' },
                             { value: 'none', label: 'No Cost Function', default: true }
                         ]
-                    },
-                    {
-                        id: 'min_p_mw',
-                        label: 'Generator Min P (MW)',
-                        type: 'number',
-                        value: '0',
-                        step: '0.01'
-                    },
-                    {
-                        id: 'max_p_mw',
-                        label: 'Generator Max P (MW)',
-                        type: 'number',
-                        value: '10',
-                        step: '0.01'
                     }
                 ];
                 
@@ -159,10 +147,9 @@
             }
 
             getDescription() {
-                return '<strong>Configure Optimal Power Flow calculation parameters</strong><br>' +
-                       'AC OPF uses pandapower.runopp for full AC optimal power flow.<br>' +
-                       'DC OPF uses pandapower.rundcopp for linearized DC optimal power flow.<br>' +
-                       '<em>Note: Cost functions should be defined on generators for meaningful optimization.</em> ' +
+                return '<strong>Study-wide OPF options</strong><br>' +
+                       'Per-device limits, marginal costs, currency labels, and polynomial curvature are edited on each symbol&rsquo;s <strong>OPF</strong> tab (generator, external grid, storage).<br>' +
+                       'AC OPF uses pandapower.runopp; DC OPF uses pandapower.rundcopp.<br>' +
                        'See the <a href="https://electrisim.com/documentation.html#optimal-power-flow" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
             }
 
@@ -184,13 +171,23 @@
                     justify-content: center;
                 `;
 
+                const onEscapeKey = (e) => {
+                    if (e.key === 'Escape') {
+                        closeOverlay();
+                    }
+                };
+                const closeOverlay = () => {
+                    overlay.remove();
+                    document.removeEventListener('keydown', onEscapeKey);
+                };
+
                 // Create dialog container
                 const dialog = document.createElement('div');
                 dialog.style.cssText = `
                     background: white;
                     border-radius: 8px;
                     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-                    max-width: 600px;
+                    max-width: 720px;
                     max-height: 80vh;
                     overflow-y: auto;
                     padding: 20px;
@@ -226,6 +223,22 @@
                 const form = document.createElement('form');
                 const values = [];
 
+                const opfTypeParam = this.parameters.find((p) => p.id === 'opf_type');
+                let initialOpfType = 'ac';
+                if (opfTypeParam?.options) {
+                    const defOpt = opfTypeParam.options.find((o) => o.default);
+                    if (defOpt) initialOpfType = String(defOpt.value);
+                }
+
+                const syncOpfDependentVisibility = () => {
+                    const sel = form.querySelector('input[name="opf_type"]:checked');
+                    const cur = sel ? String(sel.value) : initialOpfType;
+                    form.querySelectorAll('[data-opf-show-when]').forEach((el) => {
+                        const when = el.getAttribute('data-opf-show-when');
+                        el.style.display = when === cur ? '' : 'none';
+                    });
+                };
+
                 // Standard parameters
                 this.parameters.forEach((param, index) => {
                     const fieldContainer = document.createElement('div');
@@ -245,6 +258,14 @@
                     `;
                     fieldContainer.appendChild(label);
 
+                    if (param.description && param.type !== 'radio') {
+                        const desc = document.createElement('div');
+                        desc.textContent = param.description;
+                        desc.style.cssText =
+                            'font-size: 12px; color: #555; margin: -4px 0 8px 0; line-height: 1.4;';
+                        fieldContainer.appendChild(desc);
+                    }
+
                     if (param.type === 'radio') {
                         param.options.forEach(option => {
                             const radioContainer = document.createElement('div');
@@ -263,6 +284,9 @@
                             radio.addEventListener('change', () => {
                                 if (radio.checked) {
                                     values[index] = option.value;
+                                    if (param.id === 'opf_type') {
+                                        syncOpfDependentVisibility();
+                                    }
                                 }
                             });
 
@@ -279,6 +303,38 @@
                             radioContainer.appendChild(radioLabel);
                             fieldContainer.appendChild(radioContainer);
                         });
+                        if (param.id === 'cost_function') {
+                            const costHint = document.createElement('div');
+                            costHint.style.cssText =
+                                'margin-top: 12px; padding: 10px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 12px; color: #334155; line-height: 1.5;';
+                            costHint.innerHTML =
+                                '<strong>Polynomial</strong> — uses <code>opf_marginal_cost_eur_per_mwh</code> (cp1) and optional <code>opf_cp2_eur_per_mw2</code> (cp2) from each element&rsquo;s <strong>OPF</strong> tab. The pandapower <code>opf_basic</code> loss-minimization cells use <strong>the same cp1 only</strong> (no cp2); if your gens or slack still have cp2 set (e.g. 0.01), dispatch and reported marginal ∂C/∂P will differ from the notebook.<br><br>' +
+                                '<strong>Piecewise linear</strong> — one segment over each device&rsquo;s OPF <strong>Min&ndash;Max P (MW)</strong> with slope from the same marginal field.<br><br>' +
+                                '<strong>No cost function</strong> — no <code>poly_cost</code> / <code>pwl_cost</code>; OPF still runs without a generation-cost objective.';
+                            fieldContainer.appendChild(costHint);
+                        }
+                    } else if (param.type === 'select') {
+                        const sel = document.createElement('select');
+                        sel.id = param.id;
+                        sel.style.cssText =
+                            'max-width: 280px; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;';
+                        (param.options || []).forEach((opt) => {
+                            const o = document.createElement('option');
+                            o.value = opt.value;
+                            o.textContent = opt.label;
+                            if (String(opt.value) === String(param.value)) {
+                                o.selected = true;
+                                values[index] = opt.value;
+                            }
+                            sel.appendChild(o);
+                        });
+                        if (values[index] === undefined) {
+                            values[index] = param.value || (param.options[0] && param.options[0].value);
+                        }
+                        sel.addEventListener('change', () => {
+                            values[index] = sel.value;
+                        });
+                        fieldContainer.appendChild(sel);
                     } else if (param.type === 'checkbox') {
                         const checkbox = document.createElement('input');
                         checkbox.type = 'checkbox';
@@ -324,52 +380,18 @@
                         fieldContainer.appendChild(input);
                     }
 
-                    form.appendChild(fieldContainer);
+                    let nodeToAppend = fieldContainer;
+                    if (param.dependsOn === 'opf_type' && param.showWhen) {
+                        const wrap = document.createElement('div');
+                        wrap.setAttribute('data-opf-show-when', String(param.showWhen));
+                        wrap.style.display = String(param.showWhen) === initialOpfType ? '' : 'none';
+                        wrap.appendChild(fieldContainer);
+                        nodeToAppend = wrap;
+                    }
+                    form.appendChild(nodeToAppend);
                 });
 
-                // --- Per-generator min/max fields ---
-                const generatorCells = this.graph.getChildCells(this.graph.getDefaultParent(), true, true)
-                    .filter(cell => {
-                        const style = cell.getStyle && cell.getStyle();
-                        return style && style.includes('Generator');
-                    });
-                const perGenMinMax = {}; // { generatorId: {min: inputElem, max: inputElem} }
-                if (generatorCells.length > 0) {
-                    const genHeader = document.createElement('div');
-                    genHeader.textContent = 'Per-Generator Min/Max P (MW)';
-                    genHeader.style.cssText = 'margin: 16px 0 8px 0; font-weight: bold; color: #007cba;';
-                    form.appendChild(genHeader);
-                }
-                generatorCells.forEach(cell => {
-                    const genId = cell.id;
-                    const genName = cell.value?.getAttribute?.('name') || cell.mxObjectId || genId;
-                    const p_mw = cell.value?.getAttribute?.('p_mw') || '';
-                    const row = document.createElement('div');
-                    row.style.cssText = 'display: flex; align-items: center; gap: 8px; margin-bottom: 8px;';
-                    const label = document.createElement('span');
-                    label.textContent = `Generator ${genName} (P=${p_mw})`;
-                    label.style.cssText = 'min-width: 120px; font-size: 13px;';
-                    row.appendChild(label);
-                    // Min field
-                    const minInput = document.createElement('input');
-                    minInput.type = 'number';
-                    minInput.value = '0';
-                    minInput.step = '0.01';
-                    minInput.style.cssText = 'width: 70px;';
-                    row.appendChild(document.createTextNode('Min:'));
-                    row.appendChild(minInput);
-                    // Max field
-                    const maxInput = document.createElement('input');
-                    maxInput.type = 'number';
-                    maxInput.value = p_mw || '10';
-                    maxInput.step = '0.01';
-                    maxInput.style.cssText = 'width: 70px;';
-                    row.appendChild(document.createTextNode('Max:'));
-                    row.appendChild(maxInput);
-                    perGenMinMax[genId] = { min: minInput, max: maxInput };
-                    form.appendChild(row);
-                });
-                // --- End per-generator fields ---
+                syncOpfDependentVisibility();
 
                 dialog.appendChild(form);
 
@@ -393,7 +415,7 @@
                     cursor: pointer;
                 `;
                 cancelButton.addEventListener('click', () => {
-                    document.body.removeChild(overlay);
+                    closeOverlay();
                 });
 
                 const submitButton = document.createElement('button');
@@ -420,7 +442,7 @@
                         if (!hasSubscription) {
                             console.log('OptimalPowerFlowDialog: No subscription, showing modal...');
                             // Close the dialog first
-                            document.body.removeChild(overlay);
+                            closeOverlay();
                             
                             // Show subscription modal if no active subscription
                             if (window.showSubscriptionModal) {
@@ -434,23 +456,11 @@
                         }
                         
                         console.log('OptimalPowerFlowDialog: Subscription check passed, proceeding with calculation...');
-                        
-                        // Close dialog
-                        document.body.removeChild(overlay);
-                        
-                        // Collect per-generator min/max values
-                        const perGenLimits = {};
-                        Object.keys(perGenMinMax).forEach(genId => {
-                            perGenLimits[genId] = {
-                                min: parseFloat(perGenMinMax[genId].min.value),
-                                max: parseFloat(perGenMinMax[genId].max.value)
-                            };
-                        });
 
-                        // Call callback with values
-                        console.log('OptimalPowerFlowDialog: Calling callback with values array:', values);
+                        closeOverlay();
+
                         if (callback) {
-                            callback(values, perGenLimits);
+                            callback(values);
                         }
                     } catch (error) {
                         console.error('OptimalPowerFlowDialog: Error checking subscription status:', error);
@@ -468,18 +478,11 @@
                 // Close on overlay click
                 overlay.addEventListener('click', (e) => {
                     if (e.target === overlay) {
-                        document.body.removeChild(overlay);
+                        closeOverlay();
                     }
                 });
 
-                // Close on Escape key
-                const handleEscape = (e) => {
-                    if (e.key === 'Escape') {
-                        document.body.removeChild(overlay);
-                        document.removeEventListener('keydown', handleEscape);
-                    }
-                };
-                document.addEventListener('keydown', handleEscape);
+                document.addEventListener('keydown', onEscapeKey);
             }
 
             async checkSubscriptionStatus() {

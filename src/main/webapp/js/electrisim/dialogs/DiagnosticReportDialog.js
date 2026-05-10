@@ -233,8 +233,41 @@
             content.appendChild(section);
         }
 
+        appendSolverVerboseLog(content, text) {
+            const raw = text != null ? String(text).trim() : '';
+            if (!raw) return;
+
+            const section = document.createElement('div');
+            section.style.cssText =
+                'border: 1px solid #455a64; border-radius: 4px; margin-bottom: 16px; overflow: hidden;';
+
+            const header = document.createElement('div');
+            header.style.cssText =
+                'background: #455a64; color: white; padding: 10px 16px; font-weight: bold; font-size: 14px;';
+            header.textContent = 'PyPower / OPF verbose output';
+            section.appendChild(header);
+
+            const sub = document.createElement('div');
+            sub.style.cssText = 'padding: 8px 12px; font-size: 12px; color: #546e7a; background: #eceff1;';
+            sub.textContent =
+                'Captured because "Suppress warnings" was disabled in the OPF dialog. PyPower notes that some summaries refer to internal matrices, not pandapower DataFrames.';
+            section.appendChild(sub);
+
+            const pre = document.createElement('pre');
+            pre.style.cssText =
+                'margin: 0; padding: 12px 16px; font-family: ui-monospace, Consolas, monospace; font-size: 11px; line-height: 1.35; max-height: 420px; overflow: auto; white-space: pre; background: #fafafa;';
+            pre.textContent = raw;
+            section.appendChild(pre);
+
+            content.appendChild(section);
+        }
+
         createDetailedDiagnostic(content, diagnosticData) {
             console.log('DiagnosticReportDialog: Processing diagnostic data:', diagnosticData);
+
+            if (diagnosticData.solver_verbose_log && String(diagnosticData.solver_verbose_log).trim()) {
+                this.appendSolverVerboseLog(content, diagnosticData.solver_verbose_log);
+            }
             
             // Handle pandapower diagnostic text output (from stdout capture)
             if (diagnosticData.diagnostic_output) {

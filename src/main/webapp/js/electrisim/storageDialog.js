@@ -1,5 +1,6 @@
 import { Dialog } from './Dialog.js';
 import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
+import { OPF_COST_CURRENCY_OPTIONS } from './utils/opfCostCurrency.js';
 
 // Default values for storage parameters (based on pandapower and OpenDSS documentation)
 export const defaultStorageData = {
@@ -24,6 +25,9 @@ export const defaultStorageData = {
     min_p_mw: 0.0,
     max_q_mvar: 0.0,
     min_q_mvar: 0.0,
+    opf_marginal_cost_eur_per_mwh: '',
+    opf_cp2_eur_per_mw2: '',
+    opf_cost_currency: 'EUR',
     // OpenDSS-specific parameters (https://opendss.epri.com/Properties5.html)
     state: 'IDLING',
     disp_mode: 'DEFAULT',
@@ -203,6 +207,29 @@ export class StorageDialog extends Dialog {
                 type: 'number',
                 value: this.data.min_q_mvar.toString(),
                 step: '0.1'
+            },
+            {
+                id: 'opf_cost_currency',
+                label: 'Marginal cost currency (labels)',
+                description:
+                    'Shown next to optional marginal / quadratic OPF costs. Numeric values are passed to pandapower unchanged. For the whole OPF run, the first generator, external grid, or storage with a non-empty currency sets the study metadata.',
+                type: 'select',
+                value: this.data.opf_cost_currency,
+                options: OPF_COST_CURRENCY_OPTIONS.map((o) => ({ value: o.code, label: o.label })),
+            },
+            {
+                id: 'opf_marginal_cost_eur_per_mwh',
+                label: 'OPF marginal cost (∂C/∂P per MWh)',
+                description: 'Optional marginal active-power price for storage dispatch in pandapower OPF. Blank skips an explicit storage cost row.',
+                type: 'text',
+                value: String(this.data.opf_marginal_cost_eur_per_mwh ?? ''),
+            },
+            {
+                id: 'opf_cp2_eur_per_mw2',
+                label: 'OPF quadratic cost coef. cp₂',
+                description: 'Small nonnegative curvature when marginal above is set.',
+                type: 'text',
+                value: String(this.data.opf_cp2_eur_per_mw2 ?? ''),
             }
         ];
 
@@ -624,9 +651,14 @@ export class StorageDialog extends Dialog {
                 if (param.options && Array.isArray(param.options)) {
                     param.options.forEach(option => {
                         const optionElement = document.createElement('option');
-                        optionElement.value = option;
-                        optionElement.textContent = option;
-                        if (option === param.value) {
+                        if (typeof option === 'object' && option !== null && 'value' in option) {
+                            optionElement.value = String(option.value);
+                            optionElement.textContent = option.label != null ? String(option.label) : String(option.value);
+                        } else {
+                            optionElement.value = String(option);
+                            optionElement.textContent = String(option);
+                        }
+                        if (String(param.value) === optionElement.value) {
                             optionElement.selected = true;
                         }
                         input.appendChild(optionElement);

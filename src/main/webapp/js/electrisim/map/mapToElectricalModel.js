@@ -5,7 +5,7 @@
 
 import { NODE_TYPES } from './MapEditor.js';
 import { OFFSHORE_66KV_AL_CABLES } from '../lineLibraryDialog.js';
-import { ELECTRICAL_SYMBOLS } from '../electricalSymbols.js';
+import { ELECTRICAL_SYMBOLS, vertexStyleImportedBusbar } from '../electricalSymbols.js';
 
 function symWh(symbolKey) {
     const o = ELECTRICAL_SYMBOLS[symbolKey];
@@ -41,7 +41,7 @@ import {
 
 const IMG_BASE = 'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;';
 
-const BUS_STYLE    = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-bus'].url + ';shapeELXXX=Bus';
+const BUS_STYLE    = vertexStyleImportedBusbar('Bus');
 const DC_BUS_STYLE = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-dc-bus'].url + ';shapeELXXX=DC Bus';
 
 const EXTERNAL_GRID_STYLE = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-ext-grid'].url + ';shapeELXXX=External Grid';

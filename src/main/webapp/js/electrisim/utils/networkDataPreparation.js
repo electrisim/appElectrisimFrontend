@@ -424,7 +424,15 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         spectrum: { name: 'spectrum', optional: true },
                         spectrum_csv: { name: 'spectrum_csv', optional: true },
                         in_service: { name: 'in_service', optional: true },
-                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
+                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true },
+                        max_p_mw: { name: 'max_p_mw', optional: true },
+                        min_p_mw: { name: 'min_p_mw', optional: true },
+                        max_q_mvar: { name: 'max_q_mvar', optional: true },
+                        min_q_mvar: { name: 'min_q_mvar', optional: true },
+                        controllable: { name: 'controllable', optional: true },
+                        opf_marginal_cost_eur_per_mwh: { name: 'opf_marginal_cost_eur_per_mwh', optional: true },
+                        opf_cp2_eur_per_mw2: { name: 'opf_cp2_eur_per_mw2', optional: true },
+                        opf_cost_currency: { name: 'opf_cost_currency', optional: true },
                     })
                 };
                 componentArrays.externalGrid.push(externalGrid);
@@ -450,7 +458,10 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         Xdpp: { name: 'Xdpp', optional: true },
                         XRdp: { name: 'XRdp', optional: true },
                         in_service: { name: 'in_service', optional: true },
-                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
+                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true },
+                        opf_marginal_cost_eur_per_mwh: { name: 'opf_marginal_cost_eur_per_mwh', optional: true },
+                        opf_cp2_eur_per_mw2: { name: 'opf_cp2_eur_per_mw2', optional: true },
+                        opf_cost_currency: { name: 'opf_cost_currency', optional: true },
                     })
                 };
                 componentArrays.generator.push(generator);
@@ -492,7 +503,15 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         Xdpp: { name: 'Xdpp', optional: true },
                         XRdp: { name: 'XRdp', optional: true },
                         in_service: { name: 'in_service', optional: true },
-                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
+                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true },
+                        controllable: { name: 'controllable', optional: true },
+                        min_p_mw: { name: 'min_p_mw', optional: true },
+                        max_p_mw: { name: 'max_p_mw', optional: true },
+                        min_q_mvar: { name: 'min_q_mvar', optional: true },
+                        max_q_mvar: { name: 'max_q_mvar', optional: true },
+                        opf_marginal_cost_eur_per_mwh: { name: 'opf_marginal_cost_eur_per_mwh', optional: true },
+                        opf_cp2_eur_per_mw2: { name: 'opf_cp2_eur_per_mw2', optional: true },
+                        opf_cost_currency: { name: 'opf_cost_currency', optional: true },
                     })
                 };
                 componentArrays.staticGenerator.push(staticGenerator);
@@ -535,7 +554,11 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                     name: cell.mxObjectId.replace('#', '_'),
                     id: cell.id,
                     vn_kv: cell.value.attributes[2].nodeValue,
-                    userFriendlyName: baseData.userFriendlyName
+                    userFriendlyName: baseData.userFriendlyName,
+                    ...getAttributesAsObject(cell, {
+                        min_vm_pu: { name: 'min_vm_pu', optional: true },
+                        max_vm_pu: { name: 'max_vm_pu', optional: true },
+                    }),
                 };
                 componentArrays.busbar.push(busbar);
                 break;
@@ -587,7 +610,8 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         discrete_tap_control: { name: 'discrete_tap_control', optional: true },
                         control_side: { name: 'control_side', optional: true },
                         vm_lower_pu: { name: 'vm_lower_pu', optional: true },
-                        vm_upper_pu: { name: 'vm_upper_pu', optional: true }
+                        vm_upper_pu: { name: 'vm_upper_pu', optional: true },
+                        max_loading_percent: { name: 'max_loading_percent', optional: true },
                     })
                 };
                 componentArrays.transformer.push(transformer);
@@ -755,7 +779,15 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         puXharm: { name: 'puXharm', optional: true },
                         XRharm: { name: 'XRharm', optional: true },
                         in_service: { name: 'in_service', optional: true },
-                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
+                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true },
+                        controllable: { name: 'controllable', optional: true },
+                        min_p_mw: { name: 'min_p_mw', optional: true },
+                        max_p_mw: { name: 'max_p_mw', optional: true },
+                        min_q_mvar: { name: 'min_q_mvar', optional: true },
+                        max_q_mvar: { name: 'max_q_mvar', optional: true },
+                        opf_marginal_cost_eur_per_mwh: { name: 'opf_marginal_cost_eur_per_mwh', optional: true },
+                        opf_cp2_eur_per_mw2: { name: 'opf_cp2_eur_per_mw2', optional: true },
+                        opf_cost_currency: { name: 'opf_cost_currency', optional: true },
                     })
                 };
                 componentArrays.load.push(load);
@@ -951,6 +983,9 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         min_p_mw: { name: 'min_p_mw', optional: true },
                         max_q_mvar: { name: 'max_q_mvar', optional: true },
                         min_q_mvar: { name: 'min_q_mvar', optional: true },
+                        opf_marginal_cost_eur_per_mwh: { name: 'opf_marginal_cost_eur_per_mwh', optional: true },
+                        opf_cp2_eur_per_mw2: { name: 'opf_cp2_eur_per_mw2', optional: true },
+                        opf_cost_currency: { name: 'opf_cost_currency', optional: true },
                         // OpenDSS connection
                         conn: { name: 'conn', optional: true },
                         phases: { name: 'phases', optional: true },
@@ -1236,7 +1271,15 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         vm_from_pu: 'vm_from_pu',
                         vm_to_pu: 'vm_to_pu',
                         in_service: { name: 'in_service', optional: true },
-                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
+                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true },
+                        max_p_mw: { name: 'max_p_mw', optional: true },
+                        min_q_from_mvar: { name: 'min_q_from_mvar', optional: true },
+                        max_q_from_mvar: { name: 'max_q_from_mvar', optional: true },
+                        min_q_to_mvar: { name: 'min_q_to_mvar', optional: true },
+                        max_q_to_mvar: { name: 'max_q_to_mvar', optional: true },
+                        opf_marginal_cost_eur_per_mwh: { name: 'opf_marginal_cost_eur_per_mwh', optional: true },
+                        opf_cp2_eur_per_mw2: { name: 'opf_cp2_eur_per_mw2', optional: true },
+                        opf_cost_currency: { name: 'opf_cost_currency', optional: true },
                     })
                 };
                 componentArrays.dcLine.push(dcLine);
@@ -1273,7 +1316,8 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         x0_ohm_per_km: { name: 'x0_ohm_per_km', optional: true },
                         c0_nf_per_km: { name: 'c0_nf_per_km', optional: true },
                         endtemp_degree: { name: 'endtemp_degree', optional: true },
-                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
+                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true },
+                        max_loading_percent: { name: 'max_loading_percent', optional: true },
                     })
                 };
 
