@@ -1,5 +1,6 @@
 import { Dialog } from './Dialog.js';
 import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
+import { OPF_COST_CURRENCY_OPTIONS } from './utils/opfCostCurrency.js';
 
 // Default values for DC line parameters (based on pandapower documentation)
 export const defaultDCLineData = {
@@ -10,7 +11,15 @@ export const defaultDCLineData = {
     vm_from_pu: 0.0,
     vm_to_pu: 0.0,
     in_service: true,
-    cost_per_unit_by_currency: "0"
+    cost_per_unit_by_currency: "0",
+    max_p_mw: 10.0,
+    min_q_from_mvar: '',
+    max_q_from_mvar: '',
+    min_q_to_mvar: '',
+    max_q_to_mvar: '',
+    opf_cost_currency: 'EUR',
+    opf_marginal_cost_eur_per_mwh: '',
+    opf_cp2_eur_per_mw2: '',
 };
 
 export class DCLineDialog extends Dialog {
@@ -93,10 +102,118 @@ export class DCLineDialog extends Dialog {
             }
         ];
 
+        this.opfParameters = [
+            {
+                id: 'max_p_mw',
+                label: 'Maximum transfer (OPF)',
+                description: 'Maximum active power from from-bus to to-bus for OPF (pandapower dcline).',
+                type: 'number',
+                value: String(this.data.max_p_mw),
+                step: '0.1',
+                min: '0',
+            },
+            {
+                id: 'min_q_from_mvar',
+                label: 'Min Q from bus (MVAr)',
+                description: 'Reactive power limit at from bus for OPF (optional; backend widens if empty).',
+                type: 'number',
+                value: String(this.data.min_q_from_mvar),
+                step: '0.1',
+            },
+            {
+                id: 'max_q_from_mvar',
+                label: 'Max Q from bus (MVAr)',
+                type: 'number',
+                value: String(this.data.max_q_from_mvar),
+                step: '0.1',
+            },
+            {
+                id: 'min_q_to_mvar',
+                label: 'Min Q to bus (MVAr)',
+                type: 'number',
+                value: String(this.data.min_q_to_mvar),
+                step: '0.1',
+            },
+            {
+                id: 'max_q_to_mvar',
+                label: 'Max Q to bus (MVAr)',
+                type: 'number',
+                value: String(this.data.max_q_to_mvar),
+                step: '0.1',
+            },
+            {
+                id: 'opf_cost_currency',
+                label: 'Marginal cost currency (labels)',
+                type: 'select',
+                value: this.data.opf_cost_currency,
+                options: OPF_COST_CURRENCY_OPTIONS.map((o) => ({ value: o.code, label: o.label })),
+                description: 'Label for OPF marginal / quadratic cost coefficients.',
+            },
+            {
+                id: 'opf_marginal_cost_eur_per_mwh',
+                label: 'OPF marginal cost (∂C/∂P per MWh)',
+                type: 'text',
+                value: String(this.data.opf_marginal_cost_eur_per_mwh ?? ''),
+                description:
+                    'Polynomial cp1 or PWL slope on DC transfer P. Leave empty to omit this line from the OPF cost.',
+            },
+            {
+                id: 'opf_cp2_eur_per_mw2',
+                label: 'OPF quadratic coefficient',
+                type: 'text',
+                value: String(this.data.opf_cp2_eur_per_mw2 ?? ''),
+                description: 'Polynomial OPF only. Leave empty if unused.',
+            },
+        ];
+
         // Economic parameters (for Economic Analysis)
         this.economicParameters = [
             { id: 'cost_per_unit_by_currency', label: 'Cost per unit', description: 'Cost per unit for Economic Analysis CAPEX calculation', type: 'text', value: '' }
         ];
+    }
+
+    _finalizeDclineOpfParametersFromPowerTab() {
+        const d = defaultDCLineData;
+        const opf = this.opfParameters || [];
+        const opfBy = (id) => opf.find((p) => p.id === id);
+        const pRow = this.powerParameters.find((p) => p.id === 'p_mw');
+        const pMw = parseFloat(pRow && pRow.value);
+        const pAbs = Number.isFinite(pMw) ? Math.abs(pMw) : 0;
+
+        const isBlank = (v) =>
+            v === '' || v === null || v === undefined || (typeof v === 'string' && v.trim() === '');
+
+        const setNumIfBlank = (id, fallbackStr) => {
+            const p = opfBy(id);
+            if (!p || p.type !== 'number') return;
+            if (isBlank(p.value)) p.value = fallbackStr;
+        };
+
+        const maxPStr =
+            pAbs > 1e-9
+                ? String(Math.max(pAbs, Number(d.max_p_mw) || 10))
+                : String(d.max_p_mw);
+        setNumIfBlank('max_p_mw', maxPStr);
+
+        const maxPEl = opfBy('max_p_mw');
+        if (maxPEl && maxPEl.type === 'number' && pAbs > 1e-9) {
+            const cur = parseFloat(maxPEl.value);
+            if (!Number.isFinite(cur) || cur <= 1e-9) {
+                maxPEl.value = String(Math.max(pAbs, Number(d.max_p_mw) || 10));
+            }
+        }
+
+        ['max_p_mw', 'opf_cost_currency', 'opf_marginal_cost_eur_per_mwh', 'opf_cp2_eur_per_mw2'].forEach((key) => {
+            const p = opfBy(key);
+            if (!p || !Object.prototype.hasOwnProperty.call(this.data, key)) return;
+            if (p.type === 'select') this.data[key] = p.value;
+            else if (p.type === 'text') {
+                this.data[key] = p.value != null ? String(p.value).trim() : '';
+            } else if (p.type === 'number') {
+                const n = parseFloat(p.value);
+                if (Number.isFinite(n)) this.data[key] = n;
+            }
+        });
     }
     
     getDescription() {
@@ -157,11 +274,13 @@ export class DCLineDialog extends Dialog {
         const powerTab = this.createTab('Power', 'power', this.currentTab === 'power');
         const lossTab = this.createTab('Losses', 'loss', this.currentTab === 'loss');
         const voltageTab = this.createTab('Voltage', 'voltage', this.currentTab === 'voltage');
+        const opfTab = this.createTab('OPF', 'opf', this.currentTab === 'opf');
         const economicTab = this.createTab('Economic', 'economic', this.currentTab === 'economic');
         
         tabContainer.appendChild(powerTab);
         tabContainer.appendChild(lossTab);
         tabContainer.appendChild(voltageTab);
+        tabContainer.appendChild(opfTab);
         tabContainer.appendChild(economicTab);
         container.appendChild(tabContainer);
 
@@ -181,11 +300,13 @@ export class DCLineDialog extends Dialog {
         const powerContent = this.createTabContent('power', this.powerParameters);
         const lossContent = this.createTabContent('loss', this.lossParameters);
         const voltageContent = this.createTabContent('voltage', this.voltageParameters);
+        const opfContent = this.createTabContent('opf', this.opfParameters);
         const economicContent = this.createTabContent('economic', this.economicParameters);
         
         contentArea.appendChild(powerContent);
         contentArea.appendChild(lossContent);
         contentArea.appendChild(voltageContent);
+        contentArea.appendChild(opfContent);
         contentArea.appendChild(economicContent);
         container.appendChild(contentArea);
 
@@ -233,10 +354,11 @@ export class DCLineDialog extends Dialog {
         this.container = container;
         
         // Tab click handlers
-        powerTab.onclick = () => this.switchTab('power', powerTab, [lossTab, voltageTab, economicTab], powerContent, [lossContent, voltageContent, economicContent]);
-        lossTab.onclick = () => this.switchTab('loss', lossTab, [powerTab, voltageTab, economicTab], lossContent, [powerContent, voltageContent, economicContent]);
-        voltageTab.onclick = () => this.switchTab('voltage', voltageTab, [powerTab, lossTab, economicTab], voltageContent, [powerContent, lossContent, economicContent]);
-        economicTab.onclick = () => this.switchTab('economic', economicTab, [powerTab, lossTab, voltageTab], economicContent, [powerContent, lossContent, voltageContent]);
+        powerTab.onclick = () => this.switchTab('power', powerTab, [lossTab, voltageTab, opfTab, economicTab], powerContent, [lossContent, voltageContent, opfContent, economicContent]);
+        lossTab.onclick = () => this.switchTab('loss', lossTab, [powerTab, voltageTab, opfTab, economicTab], lossContent, [powerContent, voltageContent, opfContent, economicContent]);
+        voltageTab.onclick = () => this.switchTab('voltage', voltageTab, [powerTab, lossTab, opfTab, economicTab], voltageContent, [powerContent, lossContent, opfContent, economicContent]);
+        opfTab.onclick = () => this.switchTab('opf', opfTab, [powerTab, lossTab, voltageTab, economicTab], opfContent, [powerContent, lossContent, voltageContent, economicContent]);
+        economicTab.onclick = () => this.switchTab('economic', economicTab, [powerTab, lossTab, voltageTab, opfTab], economicContent, [powerContent, lossContent, voltageContent, opfContent]);
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
@@ -376,6 +498,61 @@ export class DCLineDialog extends Dialog {
                     cursor: 'pointer',
                     margin: '0'
                 });
+            } else if (param.type === 'select') {
+                input = document.createElement('select');
+                (param.options || []).forEach((opt) => {
+                    const optionElement = document.createElement('option');
+                    if (typeof opt === 'object' && opt !== null && 'value' in opt) {
+                        optionElement.value = String(opt.value);
+                        optionElement.textContent =
+                            opt.label != null ? String(opt.label) : String(opt.value);
+                    } else {
+                        const s = String(opt);
+                        optionElement.value = s;
+                        optionElement.textContent =
+                            s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+                    }
+                    if (String(param.value) === optionElement.value) {
+                        optionElement.selected = true;
+                    }
+                    input.appendChild(optionElement);
+                });
+                Object.assign(input.style, {
+                    width: isNameField ? '100%' : '180px',
+                    ...(isNameField ? { minWidth: '0' } : {}),
+                    padding: '10px 14px',
+                    border: '2px solid #ced4da',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                    backgroundColor: '#ffffff',
+                    boxSizing: 'border-box',
+                    transition: 'all 0.2s ease',
+                    outline: 'none',
+                    cursor: 'pointer'
+                });
+                input.addEventListener('focus', () => {
+                    input.style.borderColor = '#007bff';
+                    input.style.boxShadow = '0 0 0 3px rgba(0, 123, 255, 0.15)';
+                    input.style.transform = 'translateY(-1px)';
+                });
+                input.addEventListener('blur', () => {
+                    input.style.borderColor = '#ced4da';
+                    input.style.boxShadow = 'none';
+                    input.style.transform = 'translateY(0)';
+                });
+                input.addEventListener('mouseenter', () => {
+                    if (input !== document.activeElement) {
+                        input.style.borderColor = '#adb5bd';
+                        input.style.backgroundColor = '#f8f9fa';
+                    }
+                });
+                input.addEventListener('mouseleave', () => {
+                    if (input !== document.activeElement) {
+                        input.style.borderColor = '#ced4da';
+                        input.style.backgroundColor = '#ffffff';
+                    }
+                });
             } else {
                 input = document.createElement('input');
                 input.type = param.type;
@@ -502,7 +679,7 @@ export class DCLineDialog extends Dialog {
         const values = {};
         
         // Collect all parameter values from all tabs
-        [...this.powerParameters, ...this.lossParameters, ...this.voltageParameters, ...(this.economicParameters || [])].forEach(param => {
+        [...this.powerParameters, ...this.lossParameters, ...this.voltageParameters, ...(this.opfParameters || []), ...(this.economicParameters || [])].forEach(param => {
             const input = this.inputs.get(param.id);
             if (input) {
                 if (param.id === 'cost_per_unit_by_currency') {
@@ -592,9 +769,21 @@ export class DCLineDialog extends Dialog {
                     }
                     console.log(`  Updated voltage ${attributeName}: ${oldValue} → ${voltageParam.value}`);
                 }
+
+                const opfParam = this.opfParameters?.find(p => p.id === attributeName);
+                if (opfParam) {
+                    if (opfParam.type === 'checkbox') {
+                        opfParam.value = attributeValue === 'true' || attributeValue === true;
+                    } else if (opfParam.type === 'select') {
+                        const t = attributeValue != null ? String(attributeValue).trim() : '';
+                        if (t !== '') opfParam.value = t;
+                    } else {
+                        opfParam.value = attributeValue != null ? String(attributeValue) : '';
+                    }
+                }
                 
                 const economicParam = this.economicParameters?.find(p => p.id === attributeName);
-                if (!powerParam && !lossParam && !voltageParam && !economicParam) {
+                if (!powerParam && !lossParam && !voltageParam && !opfParam && !economicParam) {
                     console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
             }
@@ -602,6 +791,8 @@ export class DCLineDialog extends Dialog {
             console.log('No cell data or attributes found');
         }
         
+        this._finalizeDclineOpfParametersFromPowerTab();
+
         // Log final parameter values
         console.log('Final parameter values:');
         [...this.powerParameters, ...this.lossParameters, ...this.voltageParameters].forEach(param => {

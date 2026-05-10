@@ -439,7 +439,9 @@ function timeSeriesSimulationPandaPower(a, b, c) {
                                     typ: `Bus${counters.busbar++}`,
                                     ...getAttributesAsObject(cell, {
                                         name: 'name',
-                                        vn_kv: 'vn_kv'
+                                        vn_kv: 'vn_kv',
+                                        min_vm_pu: { name: 'min_vm_pu', optional: true },
+                                        max_vm_pu: { name: 'max_vm_pu', optional: true },
                                     })
                                 };
                                 componentArrays.busbar.push(busbar);

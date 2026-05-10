@@ -49,7 +49,9 @@ export const defaultThreeWindingTransformerData = {
     vkr0_hv_percent: 0.0,
     vkr0_mv_percent: 0.0,
     vkr0_lv_percent: 0.0,
-    vector_group: 'YNyn0d'
+    vector_group: 'YNyn0d',
+    /** pandapower trafo3w max_loading_percent — OPF branch thermal limit (%), 0 = unset */
+    max_loading_percent: 0.0,
 };
 
 export class ThreeWindingTransformerDialog extends Dialog {
@@ -424,6 +426,19 @@ export class ThreeWindingTransformerDialog extends Dialog {
             }
         ];
 
+        // OPF (pandapower trafo3w — https://pandapower.readthedocs.io/en/latest/elements/trafo3w.html)
+        this.opfParameters = [
+            {
+                id: 'max_loading_percent',
+                label: 'Maximum loading (max_loading_percent) [%]',
+                description: 'Optional AC optimal power flow constraint: maximum loading in percent of transformer rating (pandapower trafo3w max_loading_percent). Use 0 for no limit. https://pandapower.readthedocs.io/en/latest/elements/trafo3w.html',
+                type: 'number',
+                value: this.data.max_loading_percent.toString(),
+                step: '0.1',
+                min: '0',
+            },
+        ];
+        
         // Economic parameters (for Economic Analysis)
         this.economicParameters = [
             { id: 'cost_per_unit_by_currency', label: 'Cost per unit', description: 'Cost per unit for Economic Analysis CAPEX calculation', type: 'text', value: '' }
@@ -487,11 +502,13 @@ export class ThreeWindingTransformerDialog extends Dialog {
         // Create tabs
         const loadFlowTab = this.createTab('Load Flow', 'loadflow', this.currentTab === 'loadflow');
         const shortCircuitTab = this.createTab('Short Circuit', 'shortcircuit', this.currentTab === 'shortcircuit');
+        const opfTab = this.createTab('OPF', 'opf', this.currentTab === 'opf');
         const schematicTab = this.createTab('Schematic', 'schematic', this.currentTab === 'schematic');
         const economicTab = this.createTab('Economic', 'economic', this.currentTab === 'economic');
         
         tabContainer.appendChild(loadFlowTab);
         tabContainer.appendChild(shortCircuitTab);
+        tabContainer.appendChild(opfTab);
         tabContainer.appendChild(schematicTab);
         tabContainer.appendChild(economicTab);
         container.appendChild(tabContainer);
@@ -511,11 +528,13 @@ export class ThreeWindingTransformerDialog extends Dialog {
         // Create tab content containers
         const loadFlowContent = this.createTabContent('loadflow', this.loadFlowParameters);
         const shortCircuitContent = this.createTabContent('shortcircuit', this.shortCircuitParameters);
+        const opfContent = this.createTabContent('opf', this.opfParameters);
         const schematicContent = this.createTabContent('schematic', this.schematicParameters);
         const economicContent = this.createTabContent('economic', this.economicParameters);
         
         contentArea.appendChild(loadFlowContent);
         contentArea.appendChild(shortCircuitContent);
+        contentArea.appendChild(opfContent);
         contentArea.appendChild(schematicContent);
         contentArea.appendChild(economicContent);
         container.appendChild(contentArea);
@@ -588,10 +607,11 @@ export class ThreeWindingTransformerDialog extends Dialog {
         this.container = container;
         
         // Tab click handlers
-        const allTabs = [loadFlowTab, shortCircuitTab, schematicTab, economicTab];
-        const allContents = [loadFlowContent, shortCircuitContent, schematicContent, economicContent];
+        const allTabs = [loadFlowTab, shortCircuitTab, opfTab, schematicTab, economicTab];
+        const allContents = [loadFlowContent, shortCircuitContent, opfContent, schematicContent, economicContent];
         loadFlowTab.onclick = () => this.switchTab('loadflow', loadFlowTab, allTabs.filter(t => t !== loadFlowTab), loadFlowContent, allContents.filter(c => c !== loadFlowContent));
         shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, allTabs.filter(t => t !== shortCircuitTab), shortCircuitContent, allContents.filter(c => c !== shortCircuitContent));
+        opfTab.onclick = () => this.switchTab('opf', opfTab, allTabs.filter(t => t !== opfTab), opfContent, allContents.filter(c => c !== opfContent));
         schematicTab.onclick = () => this.switchTab('schematic', schematicTab, allTabs.filter(t => t !== schematicTab), schematicContent, allContents.filter(c => c !== schematicContent));
         economicTab.onclick = () => this.switchTab('economic', economicTab, allTabs.filter(t => t !== economicTab), economicContent, allContents.filter(c => c !== economicContent));
 
@@ -888,7 +908,7 @@ export class ThreeWindingTransformerDialog extends Dialog {
         const values = {};
         
         // Collect all parameter values from all tabs
-        [...this.schematicParameters, ...this.loadFlowParameters, ...this.shortCircuitParameters, ...(this.economicParameters || [])].forEach(param => {
+        [...this.schematicParameters, ...this.loadFlowParameters, ...this.shortCircuitParameters, ...this.opfParameters, ...(this.economicParameters || [])].forEach(param => {
             const input = this.inputs.get(param.id);
             if (input) {
                 if (param.id === 'cost_per_unit_by_currency') {
@@ -1086,6 +1106,15 @@ export class ThreeWindingTransformerDialog extends Dialog {
                         shortCircuitParam.value = attributeValue;
                     }
                 }
+
+                const opfParam = this.opfParameters.find(p => p.id === attributeName);
+                if (opfParam) {
+                    if (opfParam.type === 'checkbox') {
+                        opfParam.value = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        opfParam.value = attributeValue;
+                    }
+                }
                 
                 const economicParam = (this.economicParameters || []).find(p => p.id === attributeName);
                 if (economicParam) {
@@ -1101,7 +1130,7 @@ export class ThreeWindingTransformerDialog extends Dialog {
 
 // Legacy exports for backward compatibility (maintaining AG-Grid structure for existing code)
 export const rowDefsThreeWindingTransformerBase = [
-    { name: "Three Winding Transformer", sn_hv_mva:0.0, sn_mv_mva:0.0, sn_lv_mva:0.0, vn_hv_kv:0.0, vn_mv_kv:0.0, vn_lv_kv:0.0, vk_hv_percent:0.0, vk_mv_percent:0.0, vk_lv_percent:0.0, vkr_hv_percent:0.0, vkr_mv_percent:0.0, vkr_lv_percent:0.0, pfe_kw:0.0, i0_percent:0.0, shift_mv_degree:0.0, shift_lv_degree:0.0, tap_side:"hv", tap_neutral:0.0, tap_min:-10.0, tap_max:10.0, tap_step_percent:1.0, tap_pos:0.0, tap_phase_shifter:false, tap_changer_type:"Ratio" },
+    { name: "Three Winding Transformer", sn_hv_mva:0.0, sn_mv_mva:0.0, sn_lv_mva:0.0, vn_hv_kv:0.0, vn_mv_kv:0.0, vn_lv_kv:0.0, vk_hv_percent:0.0, vk_mv_percent:0.0, vk_lv_percent:0.0, vkr_hv_percent:0.0, vkr_mv_percent:0.0, vkr_lv_percent:0.0, pfe_kw:0.0, i0_percent:0.0, shift_mv_degree:0.0, shift_lv_degree:0.0, tap_side:"hv", tap_neutral:0.0, tap_min:-10.0, tap_max:10.0, tap_step_percent:1.0, tap_pos:0.0, tap_phase_shifter:false, tap_changer_type:"Ratio", max_loading_percent: 0.0 },
 ];
     
 export const columnDefsThreeWindingTransformerBase = [  
@@ -1248,6 +1277,12 @@ export const columnDefsThreeWindingTransformerBase = [
       field: "tap_changer_type",
       headerTooltip: "tap changer type: 'Ratio' (default) or 'Symmetrical' - new in pandapower 3.0+",
       maxWidth: 150,
+    },
+    {
+      field: "max_loading_percent",
+      headerTooltip: "OPF max loading % of rating (pandapower trafo3w); 0 = no limit",
+      maxWidth: 160,
+      valueParser: (params) => parseFloat(params.newValue) || 0,
     }
   ];
   

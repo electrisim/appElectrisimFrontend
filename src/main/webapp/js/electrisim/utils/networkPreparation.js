@@ -312,7 +312,11 @@ export function prepareNetworkData(graph, editorUi, additionalParams = {}) {
                     name: baseData.name,
                     id: baseData.id,
                     vn_kv: cell.value?.attributes?.[2]?.nodeValue || '20.0',
-                    userFriendlyName: baseData.userFriendlyName
+                    userFriendlyName: baseData.userFriendlyName,
+                    ...getAttributesAsObject(cell, {
+                        min_vm_pu: { name: 'min_vm_pu', optional: true },
+                        max_vm_pu: { name: 'max_vm_pu', optional: true },
+                    }),
                 });
                 break;
 

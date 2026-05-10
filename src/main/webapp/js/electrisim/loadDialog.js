@@ -1,5 +1,6 @@
 import { Dialog } from './Dialog.js';
 import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
+import { OPF_COST_CURRENCY_OPTIONS } from './utils/opfCostCurrency.js';
 import {
     mountHarmonicSpectrumTriState,
     syncHarmonicSpectrumTriStateFromDialogData,
@@ -17,10 +18,10 @@ export const defaultLoadData = {
     scaling: 1.0,
     type: 'wye',
     controllable: false,
-    max_p_mw: 0.0,
+    max_p_mw: 1.0,
     min_p_mw: 0.0,
-    max_q_mvar: 0.0,
-    min_q_mvar: 0.0,
+    max_q_mvar: 1.0,
+    min_q_mvar: -1.0,
     in_service: true,
     /** OpenDSS harmonic analysis (see configureLoadAttributes) */
     spectrum: 'defaultload',
@@ -28,7 +29,10 @@ export const defaultLoadData = {
     pctSeriesRL: 100,
     conn: 'wye',
     puXharm: 0.0,
-    XRharm: 6.0
+    XRharm: 6.0,
+    opf_cost_currency: 'EUR',
+    opf_marginal_cost_eur_per_mwh: '',
+    opf_cp2_eur_per_mw2: '',
 };
 
 export class LoadDialog extends Dialog {
@@ -189,6 +193,34 @@ export class LoadDialog extends Dialog {
                 type: 'number',
                 value: this.data.min_q_mvar.toString(),
                 step: '1'
+            },
+            {
+                id: 'opf_cost_currency',
+                label: 'Marginal cost currency (labels)',
+                symbol: 'opf_cost_currency',
+                description:
+                    'Shown next to marginal / quadratic OPF costs. Use together with marginal cost when modeling curtailable / flexible demand.',
+                type: 'select',
+                value: this.data.opf_cost_currency,
+                options: OPF_COST_CURRENCY_OPTIONS.map((o) => ({ value: o.code, label: o.label })),
+            },
+            {
+                id: 'opf_marginal_cost_eur_per_mwh',
+                label: 'OPF marginal cost (linear)',
+                symbol: 'opf_marginal_cost_eur_per_mwh',
+                unit: 'per MWh',
+                description:
+                    'Cost slope ∂C/∂P for controllable load (polynomial cp1 or PWL). Leave empty to omit this load from the OPF cost.',
+                type: 'text',
+                value: String(this.data.opf_marginal_cost_eur_per_mwh ?? ''),
+            },
+            {
+                id: 'opf_cp2_eur_per_mw2',
+                label: 'OPF quadratic cost coefficient',
+                symbol: 'opf_cp2_eur_per_mw2',
+                type: 'text',
+                value: String(this.data.opf_cp2_eur_per_mw2 ?? ''),
+                description: 'Polynomial OPF only: small convexity term on P. Leave empty if unused.',
             }
         ];
 
@@ -254,6 +286,71 @@ export class LoadDialog extends Dialog {
         this.economicParameters = [
             { id: 'cost_per_unit_by_currency', label: 'Cost per unit', description: 'Cost per unit for Economic Analysis CAPEX calculation', type: 'text', value: '' }
         ];
+    }
+
+    /** OPF: align P/Q limits from load-flow tab; marginal/cp2 stay as entered (may be empty). */
+    _finalizeLoadOpfParametersFromLoadflowTab() {
+        const d = defaultLoadData;
+        const opf = this.opfParameters || [];
+        const opfBy = (id) => opf.find((p) => p.id === id);
+        const pRow = this.loadFlowParameters.find((p) => p.id === 'p_mw');
+        const qRow = this.loadFlowParameters.find((p) => p.id === 'q_mvar');
+        const pMw = parseFloat(pRow && pRow.value);
+        const qMvar = parseFloat(qRow && qRow.value);
+        const pAbs = Number.isFinite(pMw) ? Math.abs(pMw) : 0;
+        const qAbs = Number.isFinite(qMvar) ? Math.abs(qMvar) : 0;
+
+        const isBlank = (v) =>
+            v === '' || v === null || v === undefined || (typeof v === 'string' && v.trim() === '');
+
+        const setNumIfBlank = (id, fallbackStr) => {
+            const p = opfBy(id);
+            if (!p || p.type !== 'number') return;
+            if (isBlank(p.value)) p.value = fallbackStr;
+        };
+
+        setNumIfBlank('min_p_mw', String(d.min_p_mw));
+
+        const maxPStr =
+            pAbs > 1e-9
+                ? String(Math.max(pAbs, 1e-6))
+                : String(d.max_p_mw);
+        setNumIfBlank('max_p_mw', maxPStr);
+
+        const qLimStr =
+            qAbs > 1e-9 ? String(Math.max(qAbs, 1e-6)) : String(Math.abs(d.max_q_mvar));
+        setNumIfBlank('max_q_mvar', qLimStr);
+        const qL = parseFloat(opfBy('max_q_mvar') && opfBy('max_q_mvar').value);
+        const minQ = Number.isFinite(qL) ? -Math.abs(qL) : d.min_q_mvar;
+        setNumIfBlank('min_q_mvar', String(minQ));
+
+        const maxPEl = opfBy('max_p_mw');
+        if (maxPEl && maxPEl.type === 'number' && pAbs > 1e-9) {
+            const cur = parseFloat(maxPEl.value);
+            if (!Number.isFinite(cur) || cur <= 1e-9) maxPEl.value = String(Math.max(pAbs, 1e-6));
+        }
+
+        [
+            'controllable',
+            'opf_cost_currency',
+            'max_p_mw',
+            'min_p_mw',
+            'max_q_mvar',
+            'min_q_mvar',
+            'opf_marginal_cost_eur_per_mwh',
+            'opf_cp2_eur_per_mw2',
+        ].forEach((key) => {
+            const p = opfBy(key);
+            if (!p || !Object.prototype.hasOwnProperty.call(this.data, key)) return;
+            if (p.type === 'checkbox') this.data[key] = !!p.value;
+            else if (p.type === 'select') this.data[key] = p.value;
+            else if (p.type === 'text') {
+                this.data[key] = p.value != null ? String(p.value).trim() : '';
+            } else if (p.type === 'number') {
+                const n = parseFloat(p.value);
+                if (Number.isFinite(n)) this.data[key] = n;
+            }
+        });
     }
     
     getDescription() {
@@ -576,11 +673,19 @@ export class LoadDialog extends Dialog {
                 });
             } else if (param.type === 'select') {
                 input = document.createElement('select');
-                param.options.forEach(option => {
+                (param.options || []).forEach((opt) => {
                     const optionElement = document.createElement('option');
-                    optionElement.value = option;
-                    optionElement.textContent = option.charAt(0).toUpperCase() + option.slice(1);
-                    if (option === param.value) {
+                    if (typeof opt === 'object' && opt !== null && 'value' in opt) {
+                        optionElement.value = String(opt.value);
+                        optionElement.textContent =
+                            opt.label != null ? String(opt.label) : String(opt.value);
+                    } else {
+                        const s = String(opt);
+                        optionElement.value = s;
+                        optionElement.textContent =
+                            s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+                    }
+                    if (String(param.value) === optionElement.value) {
                         optionElement.selected = true;
                     }
                     input.appendChild(optionElement);
@@ -826,8 +931,11 @@ export class LoadDialog extends Dialog {
                     const oldValue = opfParam.value;
                     if (opfParam.type === 'checkbox') {
                         opfParam.value = attributeValue === 'true' || attributeValue === true;
+                    } else if (opfParam.type === 'select') {
+                        const t = attributeValue != null ? String(attributeValue).trim() : '';
+                        if (t !== '') opfParam.value = t;
                     } else {
-                        opfParam.value = attributeValue;
+                        opfParam.value = attributeValue != null ? String(attributeValue) : '';
                     }
                     console.log(`  Updated opf ${attributeName}: ${oldValue} → ${opfParam.value}`);
                 }
@@ -871,6 +979,8 @@ export class LoadDialog extends Dialog {
         } else {
             console.log('No cell data or attributes found');
         }
+
+        this._finalizeLoadOpfParametersFromLoadflowTab();
 
         syncHarmonicSpectrumTriStateFromDialogData(this.inputs, this.harmonicParameters, this.data);
         

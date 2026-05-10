@@ -1,5 +1,6 @@
 import { Dialog } from './Dialog.js';
 import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
+import { OPF_COST_CURRENCY_OPTIONS } from './utils/opfCostCurrency.js';
 import {
     mountHarmonicSpectrumTriState,
     syncHarmonicSpectrumTriStateFromDialogData,
@@ -185,6 +186,14 @@ export const defaultStaticGeneratorData = {
     current_source: true,
     in_service: true,
     cost_per_unit_by_currency: "0",
+    controllable: false,
+    min_p_mw: 0,
+    max_p_mw: 1.0,
+    min_q_mvar: -1.0,
+    max_q_mvar: 1.0,
+    opf_cost_currency: 'EUR',
+    opf_marginal_cost_eur_per_mwh: '',
+    opf_cp2_eur_per_mw2: '',
     /** pandapower: net.sgen.reactive_capability_curve + q_capability_curve_table */
     reactive_capability_curve: false,
     curve_style: 'straightLineYValues',
@@ -403,6 +412,85 @@ export class StaticGeneratorDialog extends Dialog {
             }
         ];
 
+        // OPF (pandapower — see https://pandapower.readthedocs.io/en/latest/opf/pypower_run.html)
+        this.opfParameters = [
+            {
+                id: 'controllable',
+                label: 'OPF controllable',
+                description: 'If enabled, active/reactive power can be optimized within limits below when OPF costs are used',
+                type: 'checkbox',
+                value: this.data.controllable,
+            },
+            {
+                id: 'max_p_mw',
+                label: 'Maximum active power (OPF)',
+                symbol: 'max_p_mw',
+                unit: 'MW',
+                description: 'Maximum active power injection for OPF',
+                type: 'number',
+                value: String(this.data.max_p_mw),
+                step: '0.1',
+            },
+            {
+                id: 'min_p_mw',
+                label: 'Minimum active power (OPF)',
+                symbol: 'min_p_mw',
+                unit: 'MW',
+                description: 'Minimum active power injection for OPF',
+                type: 'number',
+                value: String(this.data.min_p_mw),
+                step: '0.1',
+            },
+            {
+                id: 'max_q_mvar',
+                label: 'Maximum reactive power (OPF)',
+                symbol: 'max_q_mvar',
+                unit: 'MVar',
+                description: 'Maximum reactive injection for OPF',
+                type: 'number',
+                value: String(this.data.max_q_mvar),
+                step: '0.1',
+            },
+            {
+                id: 'min_q_mvar',
+                label: 'Minimum reactive power (OPF)',
+                symbol: 'min_q_mvar',
+                unit: 'MVar',
+                description: 'Minimum reactive injection for OPF',
+                type: 'number',
+                value: String(this.data.min_q_mvar),
+                step: '0.1',
+            },
+            {
+                id: 'opf_cost_currency',
+                label: 'Marginal cost currency (labels)',
+                symbol: 'opf_cost_currency',
+                description:
+                    'Shown next to marginal / quadratic OPF costs. Numeric values are still passed to pandapower unchanged.',
+                type: 'select',
+                value: this.data.opf_cost_currency,
+                options: OPF_COST_CURRENCY_OPTIONS.map((o) => ({ value: o.code, label: o.label })),
+            },
+            {
+                id: 'opf_marginal_cost_eur_per_mwh',
+                label: 'OPF marginal cost (linear)',
+                symbol: 'opf_marginal_cost_eur_per_mwh',
+                description:
+                    'Polynomial cp1 or PWL slope ∂C/∂P for this static generator (same unit sense as currency above). Leave empty to omit this unit from the OPF cost.',
+                type: 'text',
+                value: String(this.data.opf_marginal_cost_eur_per_mwh ?? ''),
+            },
+            {
+                id: 'opf_cp2_eur_per_mw2',
+                label: 'OPF quadratic coefficient',
+                symbol: 'opf_cp2_eur_per_mw2',
+                description:
+                    'Polynomial OPF only: cp2 on P (small positive for convexity). Leave empty if unused.',
+                type: 'text',
+                value: String(this.data.opf_cp2_eur_per_mw2 ?? ''),
+            },
+        ];
+
         // Economic parameters (for Economic Analysis)
         this.economicParameters = [
             { id: 'cost_per_unit_by_currency', label: 'Cost per unit', description: 'Cost per unit for Economic Analysis CAPEX calculation', type: 'text', value: '' }
@@ -411,6 +499,73 @@ export class StaticGeneratorDialog extends Dialog {
     
     getDescription() {
         return '<strong>Configure Static Generator Parameters</strong><br>Set parameters for static generator with power flow and short-circuit capabilities. See the <a href="https://electrisim.com/documentation.html#static-generator" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
+    }
+
+    /** OPF limit fields: align limits from Power tab; marginal/cp2 stay as entered (may be empty). */
+    _finalizeStaticGeneratorOpfParametersFromPowerTab() {
+        const d = defaultStaticGeneratorData;
+        const opf = this.opfParameters || [];
+        const opfBy = (id) => opf.find((p) => p.id === id);
+        const pRow = this.powerParameters.find((p) => p.id === 'p_mw');
+        const qRow = this.powerParameters.find((p) => p.id === 'q_mvar');
+        const pMw = parseFloat(pRow && pRow.value);
+        const qMvar = parseFloat(qRow && qRow.value);
+        const pAbs = Number.isFinite(pMw) ? Math.abs(pMw) : 0;
+        const qAbs = Number.isFinite(qMvar) ? Math.abs(qMvar) : 0;
+
+        const isBlank = (v) =>
+            v === '' || v === null || v === undefined || (typeof v === 'string' && v.trim() === '');
+
+        const setNumIfBlank = (id, fallbackStr) => {
+            const p = opfBy(id);
+            if (!p || p.type !== 'number') return;
+            if (isBlank(p.value)) p.value = fallbackStr;
+        };
+
+        setNumIfBlank('min_p_mw', String(d.min_p_mw));
+
+        const maxPStr =
+            pAbs > 1e-9
+                ? String(Math.max(pAbs, 1e-6))
+                : String(d.max_p_mw);
+        setNumIfBlank('max_p_mw', maxPStr);
+
+        const qLimStr =
+            qAbs > 1e-9 ? String(Math.max(qAbs, 1e-6)) : String(Math.abs(d.max_q_mvar));
+        setNumIfBlank('max_q_mvar', qLimStr);
+        const qL = parseFloat(opfBy('max_q_mvar') && opfBy('max_q_mvar').value);
+        const minQ = Number.isFinite(qL) ? -Math.abs(qL) : d.min_q_mvar;
+        setNumIfBlank('min_q_mvar', String(minQ));
+
+        // If limits stayed at zero but the unit has non-zero P, align max P with |P|
+        const maxPEl = opfBy('max_p_mw');
+        if (maxPEl && maxPEl.type === 'number' && pAbs > 1e-9) {
+            const cur = parseFloat(maxPEl.value);
+            if (!Number.isFinite(cur) || cur <= 1e-9) maxPEl.value = String(Math.max(pAbs, 1e-6));
+        }
+
+        const opfKeys = [
+            'controllable',
+            'opf_cost_currency',
+            'max_p_mw',
+            'min_p_mw',
+            'max_q_mvar',
+            'min_q_mvar',
+            'opf_marginal_cost_eur_per_mwh',
+            'opf_cp2_eur_per_mw2',
+        ];
+        opfKeys.forEach((key) => {
+            const p = opfBy(key);
+            if (!p || !Object.prototype.hasOwnProperty.call(this.data, key)) return;
+            if (p.type === 'checkbox') this.data[key] = !!p.value;
+            else if (p.type === 'select') this.data[key] = p.value;
+            else if (p.type === 'text') {
+                this.data[key] = p.value != null ? String(p.value).trim() : '';
+            } else if (p.type === 'number') {
+                const n = parseFloat(p.value);
+                if (Number.isFinite(n)) this.data[key] = n;
+            }
+        });
     }
     
     show(callback) {
@@ -475,6 +630,7 @@ export class StaticGeneratorDialog extends Dialog {
         const advancedTab = this.createTab('Advanced', 'advanced', this.currentTab === 'advanced');
         const harmonicTab = this.createTab('Harmonic', 'harmonic', this.currentTab === 'harmonic');
         const qCapTab = this.createTab('Q capability', 'qcapability', this.currentTab === 'qcapability');
+        const opfTab = this.createTab('OPF', 'opf', this.currentTab === 'opf');
         const economicTab = this.createTab('Economic', 'economic', this.currentTab === 'economic');
         
         tabContainer.appendChild(powerTab);
@@ -483,6 +639,7 @@ export class StaticGeneratorDialog extends Dialog {
         tabContainer.appendChild(advancedTab);
         tabContainer.appendChild(harmonicTab);
         tabContainer.appendChild(qCapTab);
+        tabContainer.appendChild(opfTab);
         tabContainer.appendChild(economicTab);
         container.appendChild(tabContainer);
 
@@ -510,6 +667,7 @@ export class StaticGeneratorDialog extends Dialog {
         }
         const harmonicContent = this.createTabContent('harmonic', this.harmonicParameters);
         const qCapContent = this.createTabContent('qcapability', this.qCapabilityParameters);
+        const opfContent = this.createTabContent('opf', this.opfParameters);
         const economicContent = this.createTabContent('economic', this.economicParameters);
 
         const qCapForm = qCapContent.querySelector('form');
@@ -523,6 +681,7 @@ export class StaticGeneratorDialog extends Dialog {
         contentArea.appendChild(advancedContent);
         contentArea.appendChild(harmonicContent);
         contentArea.appendChild(qCapContent);
+        contentArea.appendChild(opfContent);
         contentArea.appendChild(economicContent);
         container.appendChild(contentArea);
 
@@ -663,13 +822,14 @@ export class StaticGeneratorDialog extends Dialog {
         this.container = container;
         
         // Tab click handlers
-        powerTab.onclick = () => this.switchTab('power', powerTab, [ratingTab, shortCircuitTab, advancedTab, harmonicTab, qCapTab, economicTab], powerContent, [ratingContent, shortCircuitContent, advancedContent, harmonicContent, qCapContent, economicContent]);
-        ratingTab.onclick = () => this.switchTab('rating', ratingTab, [powerTab, shortCircuitTab, advancedTab, harmonicTab, qCapTab, economicTab], ratingContent, [powerContent, shortCircuitContent, advancedContent, harmonicContent, qCapContent, economicContent]);
-        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [powerTab, ratingTab, advancedTab, harmonicTab, qCapTab, economicTab], shortCircuitContent, [powerContent, ratingContent, advancedContent, harmonicContent, qCapContent, economicContent]);
-        advancedTab.onclick = () => this.switchTab('advanced', advancedTab, [powerTab, ratingTab, shortCircuitTab, harmonicTab, qCapTab, economicTab], advancedContent, [powerContent, ratingContent, shortCircuitContent, harmonicContent, qCapContent, economicContent]);
-        harmonicTab.onclick = () => this.switchTab('harmonic', harmonicTab, [powerTab, ratingTab, shortCircuitTab, advancedTab, qCapTab, economicTab], harmonicContent, [powerContent, ratingContent, shortCircuitContent, advancedContent, qCapContent, economicContent]);
-        qCapTab.onclick = () => this.switchTab('qcapability', qCapTab, [powerTab, ratingTab, shortCircuitTab, advancedTab, harmonicTab, economicTab], qCapContent, [powerContent, ratingContent, shortCircuitContent, advancedContent, harmonicContent, economicContent]);
-        economicTab.onclick = () => this.switchTab('economic', economicTab, [powerTab, ratingTab, shortCircuitTab, advancedTab, harmonicTab, qCapTab], economicContent, [powerContent, ratingContent, shortCircuitContent, advancedContent, harmonicContent, qCapContent]);
+        powerTab.onclick = () => this.switchTab('power', powerTab, [ratingTab, shortCircuitTab, advancedTab, harmonicTab, qCapTab, opfTab, economicTab], powerContent, [ratingContent, shortCircuitContent, advancedContent, harmonicContent, qCapContent, opfContent, economicContent]);
+        ratingTab.onclick = () => this.switchTab('rating', ratingTab, [powerTab, shortCircuitTab, advancedTab, harmonicTab, qCapTab, opfTab, economicTab], ratingContent, [powerContent, shortCircuitContent, advancedContent, harmonicContent, qCapContent, opfContent, economicContent]);
+        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [powerTab, ratingTab, advancedTab, harmonicTab, qCapTab, opfTab, economicTab], shortCircuitContent, [powerContent, ratingContent, advancedContent, harmonicContent, qCapContent, opfContent, economicContent]);
+        advancedTab.onclick = () => this.switchTab('advanced', advancedTab, [powerTab, ratingTab, shortCircuitTab, harmonicTab, qCapTab, opfTab, economicTab], advancedContent, [powerContent, ratingContent, shortCircuitContent, harmonicContent, qCapContent, opfContent, economicContent]);
+        harmonicTab.onclick = () => this.switchTab('harmonic', harmonicTab, [powerTab, ratingTab, shortCircuitTab, advancedTab, qCapTab, opfTab, economicTab], harmonicContent, [powerContent, ratingContent, shortCircuitContent, advancedContent, qCapContent, opfContent, economicContent]);
+        qCapTab.onclick = () => this.switchTab('qcapability', qCapTab, [powerTab, ratingTab, shortCircuitTab, advancedTab, harmonicTab, opfTab, economicTab], qCapContent, [powerContent, ratingContent, shortCircuitContent, advancedContent, harmonicContent, opfContent, economicContent]);
+        opfTab.onclick = () => this.switchTab('opf', opfTab, [powerTab, ratingTab, shortCircuitTab, advancedTab, harmonicTab, qCapTab, economicTab], opfContent, [powerContent, ratingContent, shortCircuitContent, advancedContent, harmonicContent, qCapContent, economicContent]);
+        economicTab.onclick = () => this.switchTab('economic', economicTab, [powerTab, ratingTab, shortCircuitTab, advancedTab, harmonicTab, qCapTab, opfTab], economicContent, [powerContent, ratingContent, shortCircuitContent, advancedContent, harmonicContent, qCapContent, opfContent]);
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
@@ -841,17 +1001,29 @@ export class StaticGeneratorDialog extends Dialog {
                 });
             } else if (param.type === 'select') {
                 input = document.createElement('select');
-                param.options.forEach(option => {
+                (param.options || []).forEach((rawOption) => {
                     const optionElement = document.createElement('option');
-                    optionElement.value = option;
+                    const isValueLabel =
+                        rawOption != null &&
+                        typeof rawOption === 'object' &&
+                        Object.prototype.hasOwnProperty.call(rawOption, 'value');
+                    const optValue = isValueLabel ? rawOption.value : rawOption;
+                    const optValueStr = optValue != null ? String(optValue) : '';
+                    optionElement.value = optValueStr;
                     if (param.id === 'curve_style') {
-                        optionElement.textContent = option === 'straightLineYValues'
+                        optionElement.textContent = optValueStr === 'straightLineYValues'
                             ? 'Straight line between points'
                             : 'Constant Q to next P point';
+                    } else if (isValueLabel && rawOption.label != null && String(rawOption.label).length) {
+                        optionElement.textContent = String(rawOption.label);
+                    } else if (optValueStr) {
+                        optionElement.textContent =
+                            optValueStr.charAt(0).toUpperCase() + optValueStr.slice(1);
                     } else {
-                        optionElement.textContent = option.charAt(0).toUpperCase() + option.slice(1);
+                        optionElement.textContent = '';
                     }
-                    if (option === param.value) {
+                    const pv = param.value != null ? String(param.value) : '';
+                    if (optValueStr === pv) {
                         optionElement.selected = true;
                     }
                     input.appendChild(optionElement);
@@ -1019,6 +1191,7 @@ export class StaticGeneratorDialog extends Dialog {
         
         // Collect all parameter values from all tabs
         [...this.powerParameters, ...this.ratingParameters, ...this.shortCircuitParameters, ...this.advancedParameters,
+            ...(this.opfParameters || []),
             ...(this.harmonicParameters || []), ...(this.qCapabilityParameters || []), ...(this.economicParameters || [])].forEach(param => {
             if (param.type === 'harmonicSpectrumTriState') {
                 if (this.inputs.get(param.triStateModeSelectId)) {
@@ -1075,6 +1248,7 @@ export class StaticGeneratorDialog extends Dialog {
         // Log initial parameter values
         console.log('Initial parameter values:');
         [...this.powerParameters, ...this.ratingParameters, ...this.shortCircuitParameters, ...this.advancedParameters,
+            ...(this.opfParameters || []),
             ...(this.harmonicParameters || []), ...(this.qCapabilityParameters || [])].forEach(param => {
             console.log(`  ${param.id}: ${param.value} (${param.type})`);
         });
@@ -1135,6 +1309,20 @@ export class StaticGeneratorDialog extends Dialog {
                     console.log(`  Updated advanced ${attributeName}: ${oldValue} → ${advancedParam.value}`);
                 }
 
+                const opfParam = (this.opfParameters || []).find(p => p.id === attributeName);
+                if (opfParam) {
+                    const oldValue = opfParam.value;
+                    if (opfParam.type === 'checkbox') {
+                        opfParam.value = attributeValue === 'true' || attributeValue === true;
+                    } else if (opfParam.type === 'select') {
+                        const t = attributeValue != null ? String(attributeValue).trim() : '';
+                        if (t !== '') opfParam.value = t;
+                    } else {
+                        opfParam.value = attributeValue != null ? String(attributeValue) : '';
+                    }
+                    console.log(`  Updated opf ${attributeName}: ${oldValue} → ${opfParam.value}`);
+                }
+
                 const harmonicParam = (this.harmonicParameters || []).find(p => p.id === attributeName);
                 if (harmonicParam && harmonicParam.type !== 'harmonicSpectrumTriState') {
                     harmonicParam.value = attributeValue != null ? String(attributeValue) : harmonicParam.value;
@@ -1172,7 +1360,7 @@ export class StaticGeneratorDialog extends Dialog {
                     console.log(`  Updated economic ${attributeName}: → ${attributeValue}`);
                 }
                 
-                if (!powerParam && !ratingParam && !shortCircuitParam && !advancedParam && !harmonicParam && !qCapParam && !economicParam
+                if (!powerParam && !ratingParam && !shortCircuitParam && !advancedParam && !opfParam && !harmonicParam && !qCapParam && !economicParam
                     && attributeName !== 'spectrum' && attributeName !== 'spectrum_csv') {
                     console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
@@ -1180,10 +1368,13 @@ export class StaticGeneratorDialog extends Dialog {
         } else {
             console.log('No cell data or attributes found');
         }
+
+        this._finalizeStaticGeneratorOpfParametersFromPowerTab();
         
         // Log final parameter values
         console.log('Final parameter values:');
         [...this.powerParameters, ...this.ratingParameters, ...this.shortCircuitParameters, ...this.advancedParameters,
+            ...(this.opfParameters || []),
             ...(this.harmonicParameters || []), ...(this.qCapabilityParameters || [])].forEach(param => {
             console.log(`  ${param.id}: ${param.value} (${param.type})`);
         });

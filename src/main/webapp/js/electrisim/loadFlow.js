@@ -2384,7 +2384,11 @@ ${tapBlock}`;
                             name: cell.mxObjectId.replace('#', '_'),
                             id: cell.id,
                             vn_kv: cell.value.attributes[2].nodeValue,
-                            userFriendlyName: baseData.userFriendlyName
+                            userFriendlyName: baseData.userFriendlyName,
+                            ...getAttributesAsObject(cell, {
+                                min_vm_pu: { name: 'min_vm_pu', optional: true },
+                                max_vm_pu: { name: 'max_vm_pu', optional: true },
+                            }),
                         };
                         componentArrays.busbar.push(busbar);
                         break;
