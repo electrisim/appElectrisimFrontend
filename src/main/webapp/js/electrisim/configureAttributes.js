@@ -884,7 +884,39 @@ export function configureSwitchAttributes(grafka, vertex, options = {}) {
     // Economic parameters
     g.setAttribute("Economic_parameters", "");
     g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
-    
+
+    // Protection coordination defaults. The Switch dialog Protection tab populates
+    // these for users who want OC relays / fuses; backend reads them from the JSON
+    // payload and instantiates pandapower.protection devices on the matching switch.
+    g.setAttribute("Protection_parameters", "");
+    g.setAttribute("protection_type", options.protection_type || "none");
+    g.setAttribute("oc_relay_type", options.oc_relay_type || "DTOC");
+    g.setAttribute("curve_type", options.curve_type || "standard_inverse");
+    g.setAttribute("tms", options.tms !== undefined ? String(options.tms) : "1.0");
+    g.setAttribute("t_grade", options.t_grade !== undefined ? String(options.t_grade) : "0.5");
+    g.setAttribute("t_gg", options.t_gg !== undefined ? String(options.t_gg) : "0.07");
+    g.setAttribute("t_g", options.t_g !== undefined ? String(options.t_g) : "0.5");
+    g.setAttribute("t_diff", options.t_diff !== undefined ? String(options.t_diff) : "0.3");
+    g.setAttribute("pickup_mode", options.pickup_mode || "auto");
+    g.setAttribute("I_s_a", options.I_s_a !== undefined ? String(options.I_s_a) : "0");
+    g.setAttribute("I_g_a", options.I_g_a !== undefined ? String(options.I_g_a) : "0");
+    g.setAttribute("I_gg_a", options.I_gg_a !== undefined ? String(options.I_gg_a) : "0");
+    g.setAttribute("fuse_type", options.fuse_type || "");
+    g.setAttribute("fuse_mode", options.fuse_mode || "library");
+    g.setAttribute("fuse_custom_std_json", options.fuse_custom_std_json != null ? String(options.fuse_custom_std_json) : "");
+    g.setAttribute("rated_i_a", options.rated_i_a !== undefined ? String(options.rated_i_a) : "0");
+    g.setAttribute("overload_factor", options.overload_factor !== undefined ? String(options.overload_factor) : "1.25");
+    g.setAttribute("ct_current_factor", options.ct_current_factor !== undefined ? String(options.ct_current_factor) : "1.2");
+    g.setAttribute("safety_factor", options.safety_factor !== undefined ? String(options.safety_factor) : "1.0");
+
+    // Pandapower JSON import: branch refs when only one graph edge is drawn (Switch ↔ Bus).
+    if (options.pp_import_bus) {
+        g.setAttribute("pp_import_bus", String(options.pp_import_bus));
+    }
+    if (options.pp_import_element) {
+        g.setAttribute("pp_import_element", String(options.pp_import_element));
+    }
+
     grafka.getModel().setValue(vertex, g);
     updateSwitchCellStyle(grafka, vertex, closed);
 }

@@ -155,20 +155,22 @@
 
             show(callback) {
                 console.log('OptimalPowerFlowDialog.show() called');
-                
-                // Create modal overlay
+
                 const overlay = document.createElement('div');
                 overlay.style.cssText = `
                     position: fixed;
                     top: 0;
                     left: 0;
-                    right: 0;
-                    bottom: 0;
+                    width: 100%;
+                    height: 100%;
                     background: rgba(0, 0, 0, 0.5);
                     z-index: 10000;
                     display: flex;
-                    align-items: center;
                     justify-content: center;
+                    align-items: center;
+                    padding: max(12px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(12px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+                    box-sizing: border-box;
+                    overflow-y: auto;
                 `;
 
                 const onEscapeKey = (e) => {
@@ -181,27 +183,34 @@
                     document.removeEventListener('keydown', onEscapeKey);
                 };
 
-                // Create dialog container
                 const dialog = document.createElement('div');
                 dialog.style.cssText = `
                     background: white;
                     border-radius: 8px;
-                    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-                    max-width: 720px;
-                    max-height: 80vh;
-                    overflow-y: auto;
-                    padding: 20px;
-                    margin: 20px;
+                    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+                    width: min(760px, 94vw);
+                    max-width: 94vw;
+                    height: calc(100vh - 48px);
+                    max-height: calc(100vh - 48px);
+                    overflow: hidden;
+                    display: flex;
+                    flex-direction: column;
+                    flex-shrink: 0;
+                    margin: auto;
                     font-family: Arial, sans-serif;
+                    box-sizing: border-box;
                 `;
 
                 // Create title
                 const title = document.createElement('h2');
                 title.textContent = this.title;
                 title.style.cssText = `
-                    margin: 0 0 16px 0;
+                    margin: 0;
+                    padding: 18px 20px 8px;
                     color: #333;
                     font-size: 18px;
+                    font-weight: 600;
+                    flex-shrink: 0;
                 `;
                 dialog.appendChild(title);
 
@@ -209,13 +218,16 @@
                 const description = document.createElement('div');
                 description.innerHTML = this.getDescription();
                 description.style.cssText = `
-                    padding: 10px;
-                    background: #e3f2fd;
-                    border: 1px solid #bbdefb;
-                    border-radius: 4px;
-                    margin-bottom: 16px;
+                    margin: 0 20px 12px;
+                    padding: 8px 12px;
+                    background: #e8f4fc;
+                    border: 1px solid #b8dae9;
+                    border-radius: 6px;
                     font-size: 12px;
-                    color: #1565c0;
+                    line-height: 1.45;
+                    color: #0d47a1;
+                    flex-shrink: 0;
+                    box-sizing: border-box;
                 `;
                 dialog.appendChild(description);
 
@@ -393,7 +405,18 @@
 
                 syncOpfDependentVisibility();
 
-                dialog.appendChild(form);
+                const formScroll = document.createElement('div');
+                formScroll.style.cssText = `
+                    flex: 1 1 0%;
+                    min-height: 0;
+                    overflow-y: auto;
+                    overflow-x: hidden;
+                    padding: 4px 20px 16px;
+                    scrollbar-width: thin;
+                    scrollbar-color: #c5ccd3 #f1f3f5;
+                `;
+                formScroll.appendChild(form);
+                dialog.appendChild(formScroll);
 
                 // Create buttons
                 const buttonContainer = document.createElement('div');
@@ -401,7 +424,11 @@
                     display: flex;
                     justify-content: flex-end;
                     gap: 8px;
-                    margin-top: 20px;
+                    flex-shrink: 0;
+                    padding: 14px 20px 18px;
+                    margin-top: 0;
+                    border-top: 1px solid #e9ecef;
+                    background: #fafbfc;
                 `;
 
                 const cancelButton = document.createElement('button');

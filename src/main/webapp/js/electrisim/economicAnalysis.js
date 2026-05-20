@@ -15,23 +15,27 @@ function createProgressOverlay() {
         left: 0,
         width: '100%',
         height: '100%',
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        backgroundColor: 'rgba(0, 0, 0, 0.45)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: '10002'
+        zIndex: '10002',
+        padding: '16px',
+        boxSizing: 'border-box'
     });
     const card = document.createElement('div');
     Object.assign(card.style, {
         backgroundColor: '#fff',
-        borderRadius: '8px',
-        padding: '24px 32px',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+        borderRadius: '10px',
+        padding: '28px 36px',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.14)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: '16px',
-        minWidth: '280px'
+        gap: '18px',
+        minWidth: 'min(320px, 90vw)',
+        maxWidth: '420px',
+        border: '1px solid #e9ecef'
     });
     const spinner = document.createElement('div');
     Object.assign(spinner.style, {

@@ -1,5 +1,6 @@
 import { Dialog } from '../Dialog.js';
 import { ensureSubscriptionFunctions } from '../ensureSubscriptionFunctions.js';
+import { SIMULATION_FORM_SCROLL_STYLE, SIMULATION_INFO_BANNER_STYLE, STUDY_MODAL_OVERLAY_STYLE, getStudyModalDialogBoxStyle, STUDY_MODAL_CONTENT_WRAPPER_STYLE } from '../utils/dialogStyles.js';
 
 /**
  * HarmonicAnalysisDialog
@@ -303,37 +304,25 @@ export class HarmonicAnalysisDialog extends Dialog {
             padding: '0',
             margin: '0',
             width: '100%',
+            height: '100%',
             boxSizing: 'border-box',
             display: 'flex',
             flexDirection: 'column',
+            flex: '1 1 auto',
             minHeight: '0',
-            maxHeight: '100%'
+            maxHeight: '100%',
+            overflow: 'hidden'
         });
 
         if (this.getDescription) {
             const description = document.createElement('div');
-            Object.assign(description.style, {
-                padding: '6px 10px',
-                backgroundColor: '#e3f2fd',
-                border: '1px solid #bbdefb',
-                borderRadius: '4px',
-                fontSize: '12px',
-                color: '#1565c0',
-                marginBottom: '12px'
-            });
+            Object.assign(description.style, SIMULATION_INFO_BANNER_STYLE);
             description.innerHTML = this.getDescription();
             container.appendChild(description);
         }
 
         const scrollableContent = document.createElement('div');
-        Object.assign(scrollableContent.style, {
-            flex: '1',
-            overflowY: 'auto',
-            paddingRight: '5px',
-            marginBottom: '16px',
-            minHeight: '250px',
-            maxHeight: '450px'
-        });
+        Object.assign(scrollableContent.style, SIMULATION_FORM_SCROLL_STYLE);
 
         const form = this.createForm();
         scrollableContent.appendChild(form);
@@ -421,32 +410,10 @@ export class HarmonicAnalysisDialog extends Dialog {
 
     createModalOverlay() {
         this.modalOverlay = document.createElement('div');
-        Object.assign(this.modalOverlay.style, {
-            position: 'fixed',
-            top: '0',
-            left: '0',
-            width: '100%',
-            height: '100%',
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            zIndex: '10000',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center'
-        });
+        Object.assign(this.modalOverlay.style, STUDY_MODAL_OVERLAY_STYLE);
 
         const dialogBox = document.createElement('div');
-        Object.assign(dialogBox.style, {
-            backgroundColor: 'white',
-            borderRadius: '8px',
-            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
-            width: '560px',
-            maxWidth: '90vw',
-            maxHeight: '85vh',
-            minHeight: '420px',
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column'
-        });
+        Object.assign(dialogBox.style, getStudyModalDialogBoxStyle(600));
 
         const titleBar = document.createElement('div');
         Object.assign(titleBar.style, {
@@ -455,19 +422,14 @@ export class HarmonicAnalysisDialog extends Dialog {
             borderBottom: '1px solid #e9ecef',
             fontWeight: '600',
             fontSize: '16px',
-            color: '#495057'
+            color: '#495057',
+            flexShrink: '0'
         });
         titleBar.textContent = this.title;
         dialogBox.appendChild(titleBar);
 
         const contentWrapper = document.createElement('div');
-        Object.assign(contentWrapper.style, {
-            padding: '20px',
-            flex: '1',
-            display: 'flex',
-            flexDirection: 'column',
-            minHeight: '0'
-        });
+        Object.assign(contentWrapper.style, STUDY_MODAL_CONTENT_WRAPPER_STYLE);
         contentWrapper.appendChild(this.container);
         dialogBox.appendChild(contentWrapper);
 

@@ -1,6 +1,7 @@
 // BessSizingDialog.js - Dialog for BESS Sizing parameters
 import { Dialog } from '../Dialog.js';
 import { ensureSubscriptionFunctions } from '../ensureSubscriptionFunctions.js';
+import { SIMULATION_FORM_SCROLL_STYLE, SIMULATION_INFO_BANNER_STYLE } from '../utils/dialogStyles.js';
 
 console.log('BessSizingDialog.js LOADED');
 
@@ -568,21 +569,17 @@ export class BessSizingDialog extends Dialog {
             height: '100%',
             boxSizing: 'border-box',
             display: 'flex',
-            flexDirection: 'column'
+            flexDirection: 'column',
+            flex: '1 1 auto',
+            minHeight: '0',
+            maxHeight: '100%',
+            overflow: 'hidden'
         });
 
         // Add description
         if (this.getDescription) {
             const description = document.createElement('div');
-            Object.assign(description.style, {
-                padding: '6px 10px',
-                backgroundColor: '#e3f2fd',
-                border: '1px solid #bbdefb',
-                borderRadius: '4px',
-                fontSize: '12px',
-                color: '#1565c0',
-                marginBottom: '12px'
-            });
+            Object.assign(description.style, SIMULATION_INFO_BANNER_STYLE);
             description.innerHTML = this.getDescription();
             container.appendChild(description);
         }
@@ -590,11 +587,8 @@ export class BessSizingDialog extends Dialog {
         // Create scrollable content area
         const contentArea = document.createElement('div');
         Object.assign(contentArea.style, {
-            overflowY: 'auto',
-            overflowX: 'hidden',
-            flex: '1 1 auto',
-            minHeight: '0',
-            paddingRight: '8px'
+            ...SIMULATION_FORM_SCROLL_STYLE,
+            overflowX: 'hidden'
         });
 
         // Create form
@@ -684,7 +678,8 @@ export class BessSizingDialog extends Dialog {
             justifyContent: 'flex-end',
             marginTop: '16px',
             paddingTop: '16px',
-            borderTop: '1px solid #e9ecef'
+            borderTop: '1px solid #e9ecef',
+            flexShrink: '0'
         });
 
         const cancelButton = this.createButton('Cancel', '#6c757d', '#5a6268');
@@ -775,9 +770,8 @@ export class BessSizingDialog extends Dialog {
 
         this.container = container;
 
-        // Use DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
-            this.ui.showDialog(container, 680, 600, true, false);
+            this.mountStudyModalShell(680);
         } else {
             this.showModalFallback(container);
         }

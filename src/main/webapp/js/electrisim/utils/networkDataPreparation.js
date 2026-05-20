@@ -15,8 +15,11 @@ import {
     getThreeWindingConnections,
     getImpedanceConnections,
     getConnectedBuses,
+    getLineBusEndpointsForPayload,
+    validateLineBusTopology,
     validateBusConnections,
-    COMPONENT_TYPES
+    COMPONENT_TYPES,
+    isSwitchClosedForPowerFlow
 } from '../loadFlow.js';
 
 /**
@@ -52,6 +55,104 @@ export function getEconomicProfileRelevance(graph) {
         if (!foundGens && (cellStyle.includes('PV System') || cellStyle.includes('PVSystem'))) foundGens = true;
     }
     return { hasLoads: foundLoads, hasGenerators: foundGens };
+}
+
+const GEN_STUB_SWITCH_ET = 'gen_stub';
+
+/**
+ * Bus–Switch–injecting element (generator, load, shunt, storage, …): pandapower has no switch type
+ * that points at these elements; use ``et='b'``, ``z_ohm=0`` between the diagram bus and a synthetic
+ * auxiliary bus, and place the element on the auxiliary bus.
+ *
+ * @see https://pandapower.readthedocs.io/en/latest/elements/switch.html
+ */
+function expandGenStubSwitches(componentArrays, counters) {
+    const stubSwitches = componentArrays.switch.filter((sw) => sw.et === GEN_STUB_SWITCH_ET);
+    if (stubSwitches.length === 0) {
+        return;
+    }
+    const stubTargetArrays = [
+        componentArrays.generator,
+        componentArrays.staticGenerator,
+        componentArrays.asymmetricGenerator,
+        componentArrays.storage,
+        componentArrays.load,
+        componentArrays.asymmetricLoad,
+        componentArrays.shuntReactor,
+        componentArrays.capacitor,
+        componentArrays.motor,
+        componentArrays.SVC,
+    ];
+    const safeToken = (id) => String(id).replace(/[^a-zA-Z0-9_]/g, '_');
+    const dropStubSwitchIds = new Set();
+
+    for (const sw of stubSwitches) {
+        const cellId = sw.elementCellId;
+        if (cellId == null) {
+            console.warn('expandGenStubSwitches: missing elementCellId on switch, skip', sw.id);
+            continue;
+        }
+        let injectRec = null;
+        for (let i = 0; i < stubTargetArrays.length; i++) {
+            injectRec = stubTargetArrays[i].find((g) => g.id === cellId);
+            if (injectRec) break;
+        }
+        if (!injectRec) {
+            console.warn('expandGenStubSwitches: no matching bus element for switch, skip', sw.id, cellId);
+            continue;
+        }
+        let mainBusRecord = componentArrays.busbar.find((b) => b.name === sw.bus);
+        if (!mainBusRecord) {
+            const labelMatches = componentArrays.busbar.filter((b) => b.userFriendlyName === sw.bus);
+            if (labelMatches.length === 1) {
+                mainBusRecord = labelMatches[0];
+            } else if (labelMatches.length > 1) {
+                console.error(
+                    'expandGenStubSwitches: ambiguous bus reference for Bus–Switch–Element. ' +
+                        `Switch "${sw.id}" references bus "${sw.bus}", which matches ${labelMatches.length} buses by label. ` +
+                        'Skipping switch resolution; element will keep its current bus.'
+                );
+                dropStubSwitchIds.add(sw.id);
+                delete sw.elementCellId;
+                continue;
+            }
+        }
+        if (!mainBusRecord) {
+            console.warn('expandGenStubSwitches: main bus not found for switch bus ref', sw.bus, sw.id);
+            dropStubSwitchIds.add(sw.id);
+            delete sw.elementCellId;
+            continue;
+        }
+        const mainBusKey = mainBusRecord.name;
+        const vnKv = mainBusRecord.vn_kv != null ? String(mainBusRecord.vn_kv) : '20';
+
+        if (!isSwitchClosedForPowerFlow(sw)) {
+            injectRec.bus = mainBusKey;
+            injectRec.in_service = 'false';
+            dropStubSwitchIds.add(sw.id);
+            delete sw.elementCellId;
+            continue;
+        }
+
+        const tok = safeToken(sw.id);
+        const auxName = `_electrisim_aux_${tok}`;
+        componentArrays.busbar.push({
+            typ: `Bus${counters.busbar++}`,
+            name: auxName,
+            id: auxName,
+            vn_kv: vnKv,
+            userFriendlyName: auxName,
+        });
+        injectRec.bus = auxName;
+        sw.bus = mainBusKey;
+        sw.element = auxName;
+        sw.et = 'b';
+        sw.z_ohm = sw.z_ohm != null && sw.z_ohm !== '' ? sw.z_ohm : '0';
+        delete sw.elementCellId;
+    }
+    if (dropStubSwitchIds.size > 0) {
+        componentArrays.switch = componentArrays.switch.filter((s) => !dropStubSwitchIds.has(s.id));
+    }
 }
 
 // Cache for prepareNetworkData - speeds up repeated analyses when graph unchanged
@@ -1166,7 +1267,11 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                 break;
 
             case COMPONENT_TYPES.SWITCH:
-                const switchConnections = getSwitchConnections(cell);
+                if (!cell.edges || cell.edges.length < 2) {
+                    const swE = model.getEdges(cell);
+                    if (swE && swE.length) cell.edges = swE;
+                }
+                const switchConnections = getSwitchConnections(cell, model);
                 const switchAttrs = getAttributesAsObject(cell, {
                     name: { name: 'name', optional: true },
                     et: { name: 'et', optional: true },
@@ -1177,13 +1282,19 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                 });
                 const switchElement = {
                     typ: `Switch${counters.switch++}`,
-                    name: switchAttrs.name || cell.mxObjectId.replace('#', '_'),
                     id: cell.id,
                     userFriendlyName: switchAttrs.name || cell.mxObjectId.replace('#', '_'),
+                    ...switchAttrs,
+                    name: switchAttrs.name || cell.mxObjectId.replace('#', '_'),
                     bus: switchConnections.bus,
                     element: switchConnections.element,
-                    et: switchAttrs.et || switchConnections.et,
-                    ...switchAttrs
+                    et:
+                        switchConnections.et === GEN_STUB_SWITCH_ET
+                            ? GEN_STUB_SWITCH_ET
+                            : switchConnections.et,
+                    ...(switchConnections.elementCellId != null
+                        ? { elementCellId: switchConnections.elementCellId }
+                        : {}),
                 };
                 componentArrays.switch.push(switchElement);
                 break;
@@ -1286,6 +1397,11 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                 break;
 
             case COMPONENT_TYPES.LINE:
+                if (!cell.edges || cell.edges.length === 0) {
+                    const le = model.getEdges(cell);
+                    if (le && le.length) cell.edges = le;
+                }
+                const lineEndpointBuses = getLineBusEndpointsForPayload(cell, model);
                 const line = {
                     typ: `Line${counters.line++}`,
                     name: cell.mxObjectId.replace('#', '_'),
@@ -1300,7 +1416,7 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         }
                         return cell.mxObjectId.replace('#', '_');
                     })(),
-                    ...getConnectedBuses(cell),
+                    ...lineEndpointBuses,
                     ...getAttributesAsObject(cell, {
                         length_km: 'length_km',
                         parallel: { name: 'parallel', optional: true },
@@ -1321,9 +1437,11 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                     })
                 };
 
-                // Validate bus connections
                 try {
-                    validateBusConnections(cell);
+                    validateLineBusTopology(cell, model);
+                    if (!lineEndpointBuses.busFrom || !lineEndpointBuses.busTo) {
+                        throw new Error('Could not resolve line endpoints to electrical buses.');
+                    }
                 } catch (error) {
                     console.error(error.message);
                 }
@@ -1347,6 +1465,8 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
     if (componentArrays.threeWindingTransformer.length > 0) {
         componentArrays.threeWindingTransformer = updateThreeWindingTransformerConnections(componentArrays.threeWindingTransformer, componentArrays.busbar, graph);
     }
+
+    expandGenStubSwitches(componentArrays, counters);
 
     // Build final array
     const array = [];
@@ -1383,9 +1503,9 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
     addComponents(componentArrays.dcBus);
     addComponents(componentArrays.loadDc);
     addComponents(componentArrays.sourceDc);
-    addComponents(componentArrays.switch);
     addComponents(componentArrays.dcLine);
     addComponents(componentArrays.line);
+    addComponents(componentArrays.switch);
 
     // Create final object
     const obj = Object.assign({}, array);

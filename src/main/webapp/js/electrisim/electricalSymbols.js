@@ -71,17 +71,22 @@ export function vertexSizeFromElectrisimSymbol(symbolKey, fallbackW = 56, fallba
   return [sym.w, sym.h];
 }
 
-/** Horizontal busbar for import: stretch SVG to cell (avoid aspect=fixed shrinking the line). */
+/**
+ * Horizontal bus for Pandapower / map import and any long busbar cell.
+ *
+ * Matches the palette sidebar bus from ``app.min.js`` (electricalBusbars → "Bus"):
+ *   ``line;strokeWidth=2;html=1;shapeELXXX=Bus;points=[[0,0.5],[0.05,0.5,0], …, [1,0.5]]``
+ * — ``shape=line`` (thin horizontal stroke at cell centre) plus a connection-point grid every
+ * 5 % so edges can dock anywhere along the bar.
+ */
 export function vertexStyleImportedBusbar(shapeELXXX = 'Bus') {
-  const sym = ELECTRICAL_SYMBOLS['sym-bus'];
   const pts = [[0, 0.5]];
-  for (let x = 0.05; x < 1; x += 0.05) {
-    pts.push([Math.round(x * 100) / 100, 0.5, 0]);
+  for (let x = 5; x < 100; x += 5) {
+    pts.push([x / 100, 0.5, 0]);
   }
   pts.push([1, 0.5]);
   const pointsJson = JSON.stringify(pts);
   return (
-    'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;' +
-    `shape=image;image=${sym.url};imageAspect=0;points=${pointsJson};shapeELXXX=${shapeELXXX}`
+    `shape=line;strokeWidth=2;html=1;shapeELXXX=${shapeELXXX};points=${pointsJson}`
   );
 }

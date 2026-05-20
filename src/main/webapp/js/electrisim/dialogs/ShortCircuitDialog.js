@@ -1,6 +1,7 @@
 // ShortCircuitDialog.js - Dialog for Short Circuit parameters with tabs for Pandapower and OpenDSS
 import { Dialog } from '../Dialog.js';
 import { ensureSubscriptionFunctions } from '../ensureSubscriptionFunctions.js';
+import { getDrawioStudyDialogHeight, SIMULATION_FORM_SCROLL_STYLE, SIMULATION_INFO_BANNER_STYLE } from '../utils/dialogStyles.js';
 
 export class ShortCircuitDialog extends Dialog {
     constructor(editorUi) {
@@ -399,24 +400,19 @@ export class ShortCircuitDialog extends Dialog {
             padding: '0',
             margin: '0',
             width: '100%',
+            height: '100%',
             boxSizing: 'border-box',
             display: 'flex',
             flexDirection: 'column',
+            flex: '1 1 auto',
             minHeight: '0',
-            maxHeight: '100%'
+            maxHeight: '100%',
+            overflow: 'hidden'
         });
 
         if (this.getDescription) {
             const description = document.createElement('div');
-            Object.assign(description.style, {
-                padding: '6px 10px',
-                backgroundColor: '#e3f2fd',
-                border: '1px solid #bbdefb',
-                borderRadius: '4px',
-                fontSize: '12px',
-                color: '#1565c0',
-                marginBottom: '12px'
-            });
+            Object.assign(description.style, SIMULATION_INFO_BANNER_STYLE);
             description.innerHTML = this.getDescription();
             container.appendChild(description);
         }
@@ -426,14 +422,7 @@ export class ShortCircuitDialog extends Dialog {
 
         const scrollableContent = document.createElement('div');
         scrollableContent.setAttribute('data-form-container', 'true');
-        Object.assign(scrollableContent.style, {
-            flex: '1',
-            overflowY: 'auto',
-            paddingRight: '5px',
-            marginBottom: '16px',
-            minHeight: '300px',
-            maxHeight: '450px'
-        });
+        Object.assign(scrollableContent.style, SIMULATION_FORM_SCROLL_STYLE);
 
         const form = this.createForm();
         scrollableContent.appendChild(form);
@@ -499,7 +488,7 @@ export class ShortCircuitDialog extends Dialog {
 
         const useDrawIODialog = !this.useModalFallback && this.ui && typeof this.ui.showDialog === 'function';
         if (useDrawIODialog) {
-            this.ui.showDialog(container, 680, 600, true, false, () => {
+            this.ui.showDialog(container, 720, getDrawioStudyDialogHeight(), true, false, () => {
                 this.destroy();
                 return 1;
             });

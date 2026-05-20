@@ -5,6 +5,10 @@ import { ensureSubscriptionFunctions } from '../ensureSubscriptionFunctions.js';
 export class ContingencyDialog extends Dialog {
     constructor(editorUi) {
         super('Contingency Analysis Parameters', 'Analyze');
+
+        /** Full-viewport modal shell (matches Load Flow dialog layout). */
+        this.useStudyModalShell = true;
+        this.studyModalBoxWidth = 740;
         
         // Use global App if editorUi is not valid
         this.ui = editorUi || window.App?.main?.editor?.editorUi;

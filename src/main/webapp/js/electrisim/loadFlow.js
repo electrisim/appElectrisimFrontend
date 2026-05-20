@@ -400,19 +400,48 @@ const getConnectedBusId = (cell, isLine = false, strictValidation = false) => {
     };
 
     if (isLine) {
-        // For lines, only validate if strict validation is enabled
+        // Walk through Switch endpoints to find the real bus on each side.
+        // ``Bus1 → Switch1 → Line → Switch2 → Bus2`` is a common pattern when each cable
+        // has a breaker on either end; the line's ``from_bus`` / ``to_bus`` must still be
+        // the actual buses, not the switch vertices.
+        const isSwitchVertex = (c) => {
+            if (!c?.style || c.edge) return false;
+            const m = c.style.match(/shapeELXXX=([^;]+)/);
+            return m && (m[1] === 'Switch' || m[1] === 'switch');
+        };
+        const oppositeEnd = (edge, fromCell) => {
+            if (!edge || !fromCell) return null;
+            const fromOid = fromCell.mxObjectId;
+            if (edge.target && edge.target.mxObjectId !== fromOid) return edge.target;
+            if (edge.source && edge.source.mxObjectId !== fromOid) return edge.source;
+            return null;
+        };
+        const resolveBusFromEndpoint = (endpoint, viaEdge) => {
+            if (!endpoint) return null;
+            if (isBus(endpoint)) return endpoint;
+            if (isSwitchVertex(endpoint) && Array.isArray(endpoint.edges)) {
+                for (const e of endpoint.edges) {
+                    if (e === viaEdge) continue;
+                    const peer = oppositeEnd(e, endpoint);
+                    if (peer && isBus(peer)) return peer;
+                }
+            }
+            return null;
+        };
+        const fromBusCell = resolveBusFromEndpoint(cell.source, cell) || cell.source;
+        const toBusCell = resolveBusFromEndpoint(cell.target, cell) || cell.target;
         if (strictValidation) {
-            if (cell.source && !isBus(cell.source)) {
+            if (cell.source && !isBus(fromBusCell)) {
                 console.warn(`Line "${cell.id}" source is connected to "${cell.source.id}" which may not be a Bus`);
             }
-            if (cell.target && !isBus(cell.target)) {
+            if (cell.target && !isBus(toBusCell)) {
                 console.warn(`Line "${cell.id}" target is connected to "${cell.target.id}" which may not be a Bus`);
             }
         }
-        return {            
-            busFrom: cell.source?.mxObjectId?.replace('#', '_'),
-            busTo: cell.target?.mxObjectId?.replace('#', '_')
-        };            
+        return {
+            busFrom: fromBusCell?.mxObjectId?.replace('#', '_'),
+            busTo: toBusCell?.mxObjectId?.replace('#', '_'),
+        };
     }
     if (!cell.edges || cell.edges.length === 0) {
         return null;
@@ -511,36 +540,106 @@ const getAttributesAsObject = (cell, attributeMap) => {
 
 // Add helper function for transformer bus connections
 const getTransformerConnections = (cell, strictValidation = false) => {
-    const hvEdge = cell.edges[0];
-    const lvEdge = cell.edges[1];
-
-    // Get connected cells
-    const hvConnectedCell = hvEdge.target.mxObjectId !== cell.mxObjectId ? hvEdge.target : hvEdge.source;
-    const lvConnectedCell = lvEdge.target.mxObjectId !== cell.mxObjectId ? lvEdge.target : lvEdge.source;
-    
-    // Validate that connected cells are buses
     const isBus = (connectedCell) => {
         if (!connectedCell || !connectedCell.style) return false;
-        // Check if the style contains 'Bus' or if it's a busbar shape
         return connectedCell.style.includes('shape=mxgraph.electrical.transmission.busbar') ||
                connectedCell.style.includes('Bus') ||
                (connectedCell.value && connectedCell.value.nodeName && connectedCell.value.nodeName.includes('Bus'));
     };
-    
-    // Only validate if strict validation is enabled
-    if (strictValidation) {
-        if (!isBus(hvConnectedCell)) {
-            console.warn(`Transformer "${cell.id}" HV side is connected to "${hvConnectedCell.id}" which may not be a Bus. PandaPower requires explicit Bus connections.`);
+
+    /** Pandapower-style switches (``et='t'``) sit between the bus and trafo on the diagram, so
+     *  the trafo's direct neighbour is a Switch vertex; we walk one extra hop to reach the bus. */
+    const isSwitchVertex = (c) => {
+        if (!c?.style || c.edge) return false;
+        const m = c.style.match(/shapeELXXX=([^;]+)/);
+        return m && (m[1] === 'Switch' || m[1] === 'switch');
+    };
+
+    const otherEnd = (edge, fromCell) => {
+        if (!edge || !fromCell) return null;
+        const fromOid = fromCell.mxObjectId;
+        if (edge.target && edge.target.mxObjectId !== fromOid) return edge.target;
+        if (edge.source && edge.source.mxObjectId !== fromOid) return edge.source;
+        return null;
+    };
+
+    const resolveBusVia = (edge) => {
+        const direct = otherEnd(edge, cell);
+        if (!direct) return null;
+        if (isBus(direct)) return direct;
+        if (isSwitchVertex(direct) && Array.isArray(direct.edges)) {
+            for (const swEdge of direct.edges) {
+                if (swEdge === edge) continue;
+                const peer = otherEnd(swEdge, direct);
+                if (peer && isBus(peer)) return peer;
+            }
         }
-        
-        if (!isBus(lvConnectedCell)) {
-            console.warn(`Transformer "${cell.id}" LV side is connected to "${lvConnectedCell.id}" which may not be a Bus. PandaPower requires explicit Bus connections.`);
+        return null;
+    };
+
+    const getBusVnKv = (busCell) => {
+        if (!busCell?.value?.attributes) return Number.NaN;
+        const attrs = busCell.value.attributes;
+        for (let i = 0; i < attrs.length; i++) {
+            if (attrs[i].nodeName === 'vn_kv') {
+                const v = parseFloat(attrs[i].nodeValue);
+                return Number.isFinite(v) ? v : Number.NaN;
+            }
+        }
+        return Number.NaN;
+    };
+
+    const edges = cell.edges || [];
+    const busCellsByEdgeIndex = [];
+    for (let i = 0; i < edges.length; i++) {
+        const bus = resolveBusVia(edges[i]);
+        if (bus) busCellsByEdgeIndex.push({ bus, idx: i });
+    }
+    const uniqueBuses = [];
+    const seen = new Set();
+    for (const entry of busCellsByEdgeIndex) {
+        const key = entry.bus.mxObjectId;
+        if (key && !seen.has(key)) {
+            seen.add(key);
+            uniqueBuses.push(entry);
+        }
+    }
+
+    let hvEntry;
+    let lvEntry;
+    if (uniqueBuses.length >= 2) {
+        const a = uniqueBuses[0];
+        const b = uniqueBuses[1];
+        const vnA = getBusVnKv(a.bus);
+        const vnB = getBusVnKv(b.bus);
+        if (Number.isFinite(vnA) && Number.isFinite(vnB) && vnA !== vnB) {
+            hvEntry = vnA >= vnB ? a : b;
+            lvEntry = vnA >= vnB ? b : a;
+        } else {
+            hvEntry = a;
+            lvEntry = b;
+        }
+    } else {
+        const fallbackBus = (edge) => {
+            const o = otherEnd(edge, cell);
+            return o && o.mxObjectId ? o : null;
+        };
+        hvEntry = { bus: fallbackBus(edges[0]), idx: 0 };
+        lvEntry = { bus: fallbackBus(edges[1]), idx: 1 };
+    }
+
+    if (strictValidation) {
+        if (!hvEntry?.bus || !isBus(hvEntry.bus)) {
+            console.warn(`Transformer "${cell.id}" HV side could not be resolved to a Bus.`);
+        }
+        if (!lvEntry?.bus || !isBus(lvEntry.bus)) {
+            console.warn(`Transformer "${cell.id}" LV side could not be resolved to a Bus.`);
         }
     }
 
     return {
-        hv_bus: hvConnectedCell.mxObjectId.replace('#', '_'),
-        lv_bus: lvConnectedCell.mxObjectId.replace('#', '_')
+        hv_bus: hvEntry?.bus?.mxObjectId?.replace('#', '_'),
+        lv_bus: lvEntry?.bus?.mxObjectId?.replace('#', '_'),
     };
 };
 
@@ -731,33 +830,77 @@ const getThreeWindingConnections = (cell) => {
             `Please connect all three sides of the transformer to their respective buses.`
         );
     }
-    const [lvEdge, mvEdge, hvEdge] = cell.edges;
-    const getConnectedBus = (edge) => {
-        if (!edge) {
-            throw new Error(`Three Winding Transformer "${cell.id}" has an undefined edge connection.`);
+
+    const isBus = (connectedCell) => {
+        if (!connectedCell || !connectedCell.style) return false;
+        return connectedCell.style.includes('shape=mxgraph.electrical.transmission.busbar') ||
+               connectedCell.style.includes('Bus') ||
+               (connectedCell.value && connectedCell.value.nodeName && connectedCell.value.nodeName.includes('Bus'));
+    };
+    const isSwitchVertex = (c) => {
+        if (!c?.style || c.edge) return false;
+        const m = c.style.match(/shapeELXXX=([^;]+)/);
+        return m && (m[1] === 'Switch' || m[1] === 'switch');
+    };
+    const otherEnd = (edge, fromCell) => {
+        if (!edge || !fromCell) return null;
+        const fromOid = fromCell.mxObjectId;
+        if (edge.target && edge.target.mxObjectId !== fromOid) return edge.target;
+        if (edge.source && edge.source.mxObjectId !== fromOid) return edge.source;
+        return null;
+    };
+    const resolveBusVia = (edge) => {
+        const direct = otherEnd(edge, cell);
+        if (!direct) return null;
+        if (isBus(direct)) return direct;
+        if (isSwitchVertex(direct) && Array.isArray(direct.edges)) {
+            for (const swEdge of direct.edges) {
+                if (swEdge === edge) continue;
+                const peer = otherEnd(swEdge, direct);
+                if (peer && isBus(peer)) return peer;
+            }
         }
-        const target = edge.target;
-        const source = edge.source;
-        if (!target && !source) {
-            throw new Error(
-                `Three Winding Transformer "${cell.id}" has an edge that is not connected on either side. ` +
-                `Please ensure all connections go to a bus.`
-            );
+        return null;
+    };
+    const getBusVnKv = (busCell) => {
+        if (!busCell?.value?.attributes) return Number.NaN;
+        for (const a of busCell.value.attributes) {
+            if (a.nodeName === 'vn_kv') {
+                const v = parseFloat(a.nodeValue);
+                return Number.isFinite(v) ? v : Number.NaN;
+            }
         }
-        const connectedCell = (target && target.mxObjectId !== cell.mxObjectId) ? target : source;
-        if (!connectedCell || !connectedCell.mxObjectId) {
-            throw new Error(
-                `Three Winding Transformer "${cell.id}" has an edge not properly connected to a bus. ` +
-                `Please check all three connections.`
-            );
-        }
-        return connectedCell.mxObjectId.replace('#', '_');
+        return Number.NaN;
     };
 
+    const edges = cell.edges;
+    const uniqueBuses = [];
+    const seen = new Set();
+    for (let i = 0; i < edges.length; i++) {
+        const bus = resolveBusVia(edges[i]);
+        if (bus && bus.mxObjectId && !seen.has(bus.mxObjectId)) {
+            seen.add(bus.mxObjectId);
+            uniqueBuses.push(bus);
+        }
+    }
+    if (uniqueBuses.length < 3) {
+        throw new Error(
+            `Three Winding Transformer "${cell.id}" must resolve 3 distinct bus connections (HV, MV, LV). ` +
+            `Found ${uniqueBuses.length}. Please check connections.`
+        );
+    }
+
+    const ranked = uniqueBuses
+        .map((b) => ({ bus: b, vn: getBusVnKv(b) }))
+        .sort((a, b) => {
+            const av = Number.isFinite(a.vn) ? a.vn : -Infinity;
+            const bv = Number.isFinite(b.vn) ? b.vn : -Infinity;
+            return bv - av;
+        });
     return {
-        hv_bus: getConnectedBus(hvEdge),
-        mv_bus: getConnectedBus(mvEdge),
-        lv_bus: getConnectedBus(lvEdge)
+        hv_bus: ranked[0].bus.mxObjectId.replace('#', '_'),
+        mv_bus: ranked[1].bus.mxObjectId.replace('#', '_'),
+        lv_bus: ranked[2].bus.mxObjectId.replace('#', '_'),
     };
 };
 
@@ -777,25 +920,216 @@ const getImpedanceConnections = (cell) => {
     }
 };
 
-// Add helper function for switch connections (pandapower switch: bus + element)
-const getSwitchConnections = (cell) => {
-    if (!cell.edges || cell.edges.length < 2) {
-        throw new Error(`Switch "${cell.id}" must connect a bus to a line or transformer. Found ${cell.edges?.length || 0} connection(s).`);
+/**
+ * Stable ID used to reference a graph cell from another component (switch -> bus / element).
+ * Must match the `name` field that prepareNetworkData writes on bus / line / transformer records,
+ * which is `cell.mxObjectId.replace('#','_')`. Earlier versions returned the XML `name` attribute
+ * (e.g. the user-friendly label "Bus"), causing every bus to collide on that label and the
+ * Bus–Switch–Generator expansion to attach the aux bus to whichever bus appeared first.
+ */
+const cellSemanticId = (c) => {
+    if (!c) return '';
+    return String(c.mxObjectId || '').replace('#', '_');
+};
+
+/**
+ * Neighbor types that cannot appear as the pandapower switch `element` (only l/t/t3/b).
+ * Bus–Switch–* uses a synthetic aux bus + native `et='b'` tie, same pattern for gen, load, shunt, etc.
+ */
+const cellIsBusInjectStubNeighbor = (c) => {
+    const st = c?.style ? parseCellStyle(c.style) : null;
+    const t = st?.shapeELXXX;
+    if (!t) return false;
+    return (
+        t === 'Generator' ||
+        t === 'Static Generator' ||
+        t === 'Asymmetric Static Generator' ||
+        t === 'Storage' ||
+        t === 'PV System' ||
+        t === 'PVSystem' ||
+        t === COMPONENT_TYPES.LOAD ||
+        t === COMPONENT_TYPES.ASYMMETRIC_LOAD ||
+        t === COMPONENT_TYPES.SHUNT_REACTOR ||
+        t === COMPONENT_TYPES.CAPACITOR ||
+        t === COMPONENT_TYPES.MOTOR ||
+        t === COMPONENT_TYPES.SVC
+    );
+};
+
+/** Switch payload `closed` may be boolean or string; default true if unset. */
+function isSwitchClosedForPowerFlow(sw) {
+    const c = sw && sw.closed;
+    if (c === false || c === 'false') return false;
+    if (c === true || c === 'true') return true;
+    return true;
+}
+
+/** True for diagram bus / busbar vertices (uses shapeELXXX so plain ``shapeELXXX=Bus`` is recognized). */
+const cellIsElectricalBusVertex = (c) => {
+    if (!c || !c.style) return false;
+    const st = parseCellStyle(c.style);
+    const t = st?.shapeELXXX;
+    if (t === 'Bus') return true;
+    if (t && (String(t).includes('Result') || t === 'NotEditable')) return false;
+    const s = c.style;
+    return (
+        s.includes('shape=mxgraph.electrical.transmission.busbar') ||
+        (c.value && c.value.nodeName && String(c.value.nodeName).includes('Bus'))
+    );
+};
+
+/**
+ * Bus endpoint for switch pairing — includes legacy style hints so Bus–Switch–Bus matches
+ * ``b1 && b2`` even when ``shapeELXXX`` is missing or nonstandard (otherwise ``et`` stays ``l``
+ * and XML ``et`` can label a bus–bus tie as a line switch, which pandapower rejects).
+ */
+const cellIsBusForSwitch = (c) => {
+    if (!c) return false;
+    if (cellIsElectricalBusVertex(c)) return true;
+    if (c.style && (c.style.includes('Bus') || c.style.includes('busbar'))) return true;
+    return false;
+};
+
+/** AC line *component* vertex — not edges (Polyline) and not buses whose style can contain "Line". */
+const cellIsLineVertexForSwitch = (c) => {
+    if (!c || !c.style) return false;
+    if (cellIsElectricalBusVertex(c)) return false;
+    const st = parseCellStyle(c.style);
+    if (st?.shapeELXXX === 'Line') return true;
+    const s = c.style;
+    if (s.includes('Polyline') || s.includes('orthogonalEdgeStyle')) return false;
+    if (s.includes('shapeELXXX=Line')) return true;
+    return false;
+};
+
+const cellIs2WTrafoVertexForSwitch = (c) => {
+    if (!c?.style) return false;
+    return parseCellStyle(c.style)?.shapeELXXX === 'Transformer';
+};
+
+const cellIs3WTrafoVertexForSwitch = (c) => {
+    if (!c?.style) return false;
+    return parseCellStyle(c.style)?.shapeELXXX === 'Three Winding Transformer';
+};
+
+function edgesOfVertex(v, model) {
+    if (!v) return [];
+    if (v.edges && v.edges.length > 0) return v.edges;
+    if (model && typeof model.getEdges === 'function') {
+        return model.getEdges(v) || [];
     }
-    const getOtherCell = (edge) => {
-        return edge.target?.mxObjectId !== cell.mxObjectId ? edge.target : edge.source;
+    return [];
+}
+
+function cellIsSwitchVertexForLine(v) {
+    return parseCellStyle(v?.style || '')?.shapeELXXX === 'Switch';
+}
+
+function cellIsLineGraphVertex(v) {
+    return parseCellStyle(v?.style || '')?.shapeELXXX === 'Line';
+}
+
+/**
+ * From a line/switch chain endpoint, find the nearest electrical bus semantic id (pandapower ``name``).
+ * Walks through Switch and Line *vertices* placed in series (Bus–Line–Switch–Bus style drawings).
+ */
+function resolveGraphEndpointToBusSemantic(fromVertex, enteredViaEdge, model, maxHops) {
+    const limit = maxHops != null ? maxHops : 48;
+    const visited = new Set();
+    // Track which graph edge each search frame came in through. Without this the DFS can hop
+    // through the Line edge from Switch_A back to Switch_B and report the FAR side's bus —
+    // making Bus1↔Switch↔Line(edge)↔Switch↔Bus2 export with busFrom==busTo.
+    const stack = [{ v: fromVertex, viaEdge: enteredViaEdge, depth: 0 }];
+    while (stack.length) {
+        const { v, viaEdge, depth } = stack.pop();
+        if (!v || depth > limit) continue;
+        if (visited.has(v.id)) continue;
+        visited.add(v.id);
+        if (cellIsElectricalBusVertex(v)) {
+            return cellSemanticId(v);
+        }
+        if (cellIsSwitchVertexForLine(v) || cellIsLineGraphVertex(v)) {
+            const edges = edgesOfVertex(v, model);
+            for (let i = 0; i < edges.length; i++) {
+                const e = edges[i];
+                if (e === viaEdge) continue;
+                const other = e.source === v ? e.target : e.source;
+                if (!other) continue;
+                stack.push({ v: other, viaEdge: e, depth: depth + 1 });
+            }
+        }
+    }
+    return '';
+}
+
+/**
+ * Line may be an mxGraph *edge* (source/target) or a *vertex* with two incident edges.
+ * Endpoints may be Switch vertices; pandapower expects ``busFrom`` / ``busTo`` bus names.
+ */
+function getLineBusEndpointsForPayload(cell, model) {
+    if (cell.source && cell.target) {
+        const busFrom = resolveGraphEndpointToBusSemantic(cell.source, cell, model);
+        const busTo = resolveGraphEndpointToBusSemantic(cell.target, cell, model);
+        if (busFrom && busTo) return { busFrom, busTo };
+    }
+    const edges = edgesOfVertex(cell, model);
+    if (edges.length >= 2) {
+        const o0 = edges[0].source === cell ? edges[0].target : edges[0].source;
+        const o1 = edges[1].source === cell ? edges[1].target : edges[1].source;
+        const busFrom = resolveGraphEndpointToBusSemantic(o0, cell, model);
+        const busTo = resolveGraphEndpointToBusSemantic(o1, cell, model);
+        if (busFrom && busTo) return { busFrom, busTo };
+    }
+    return {
+        busFrom: cell.source?.mxObjectId?.replace('#', '_') || '',
+        busTo: cell.target?.mxObjectId?.replace('#', '_') || '',
     };
-    const conn1 = getOtherCell(cell.edges[0]);
-    const conn2 = getOtherCell(cell.edges[1]);
-    const isBus = (c) => c && c.style && (c.style.includes('Bus') || c.style.includes('busbar'));
-    const busCell = isBus(conn1) ? conn1 : (isBus(conn2) ? conn2 : conn1);
-    const elemCell = busCell === conn1 ? conn2 : conn1;
-    let et = 'l';
-    if (elemCell?.style) {
-        if (elemCell.style.includes('Transformer') && !elemCell.style.includes('Three')) et = 't';
-        else if (elemCell.style.includes('Three Winding')) et = 't3';
-        else if (elemCell.style.includes('Line') && !elemCell.style.includes('DC')) et = 'l';
+}
+
+function validateLineBusTopology(cell, model) {
+    if (cell.source?.mxObjectId && cell.target?.mxObjectId) return;
+    const edges = edgesOfVertex(cell, model);
+    if (edges.length < 2) {
+        throw new Error('Line is missing a graph connection at one or both ends.');
     }
+}
+
+/**
+ * Line AC component whose resolved endpoints are exactly ``busA`` / ``busB`` (unordered).
+ * Returns null if none or more than one such line (ambiguous).
+ */
+function findUniqueLineConnectingBusVertices(busA, busB, model) {
+    if (!model || !busA || !busB) return null;
+    const idA = cellSemanticId(busA);
+    const idB = cellSemanticId(busB);
+    if (!idA || !idB || idA === idB) return null;
+    const root = model.getRoot && model.getRoot();
+    if (!root) return null;
+    let found = null;
+    let matchCount = 0;
+    const visit = (cell) => {
+        if (!cell) return;
+        const nc = cell.getChildCount ? cell.getChildCount() : 0;
+        for (let i = 0; i < nc; i++) {
+            visit(model.getChildAt(cell, i));
+        }
+        if (!cell.style || !cellIsLineGraphVertex(cell)) return;
+        const ends = getLineBusEndpointsForPayload(cell, model);
+        if (!ends.busFrom || !ends.busTo) return;
+        if (
+            (ends.busFrom === idA && ends.busTo === idB) ||
+            (ends.busFrom === idB && ends.busTo === idA)
+        ) {
+            found = cell;
+            matchCount += 1;
+        }
+    };
+    visit(root);
+    return matchCount === 1 ? found : null;
+}
+
+// Add helper function for switch connections (pandapower switch: bus + element)
+const getSwitchConnections = (cell, model) => {
     const getAttr = (name) => {
         if (!cell.value?.attributes) return null;
         for (let i = 0; i < cell.value.attributes.length; i++) {
@@ -803,13 +1137,241 @@ const getSwitchConnections = (cell) => {
         }
         return null;
     };
-    et = getAttr('et') || et;
+
+    if (!cell.edges || cell.edges.length === 0) {
+        throw new Error(
+            `Switch "${cell.id}" must connect a bus to a line, transformer, second bus, generator, load, or other bus-tied element. Found no connections.`
+        );
+    }
+
+    if (cell.edges.length < 2) {
+        const ib = getAttr('pp_import_bus');
+        const ie = getAttr('pp_import_element');
+        const etImp = getAttr('et') || 'l';
+        if (ib && ie) {
+            return { bus: String(ib).trim(), element: String(ie).trim(), et: etImp };
+        }
+        throw new Error(
+            `Switch "${cell.id}" must connect a bus to a line, transformer, second bus, generator, load, or other bus-tied element. Found ${cell.edges?.length || 0} connection(s). ` +
+                `(Imported models use one graph edge to the bus plus pp_import_bus / pp_import_element attributes.)`
+        );
+    }
+    const getOtherCell = (edge) => {
+        return edge.target?.mxObjectId !== cell.mxObjectId ? edge.target : edge.source;
+    };
+
+    // Pandapower line breaker: ``Bus1 → Switch1 → Line(edge) → Switch2 → Bus2``.
+    // The switch's `element` must be the Line EDGE itself (its mxObjectId matches the
+    // ``Line*`` payload row), not the switch on the other end of the cable.
+    const styleHasLineShape = (s) => {
+        if (!s) return false;
+        const m = s.match(/shapeELXXX=([^;]+)/);
+        return !!m && m[1] === 'Line';
+    };
+    let lineEdge = null;
+    for (let ei = 0; ei < cell.edges.length; ei++) {
+        const e = cell.edges[ei];
+        if (e && e.edge && styleHasLineShape(e.style)) {
+            lineEdge = e;
+            break;
+        }
+    }
+    if (lineEdge) {
+        let busSide = null;
+        for (let ei = 0; ei < cell.edges.length; ei++) {
+            const e = cell.edges[ei];
+            if (!e || e === lineEdge) continue;
+            const peer = getOtherCell(e);
+            if (peer && cellIsBusForSwitch(peer)) {
+                busSide = peer;
+                break;
+            }
+        }
+        if (!busSide) {
+            for (let ei = 0; ei < cell.edges.length; ei++) {
+                const e = cell.edges[ei];
+                if (!e || e === lineEdge) continue;
+                const peer = getOtherCell(e);
+                if (peer) { busSide = peer; break; }
+            }
+        }
+        return {
+            bus: cellSemanticId(busSide),
+            element: cellSemanticId(lineEdge),
+            et: 'l',
+        };
+    }
+
+    const conn1 = getOtherCell(cell.edges[0]);
+    const conn2 = getOtherCell(cell.edges[1]);
+    const b1 = cellIsBusForSwitch(conn1);
+    const b2 = cellIsBusForSwitch(conn2);
+    const l1 = cellIsLineVertexForSwitch(conn1);
+    const l2 = cellIsLineVertexForSwitch(conn2);
+    const t1 = cellIs2WTrafoVertexForSwitch(conn1) || cellIs3WTrafoVertexForSwitch(conn1);
+    const t2 = cellIs2WTrafoVertexForSwitch(conn2) || cellIs3WTrafoVertexForSwitch(conn2);
+    let busCell;
+    let elemCell;
+    // Bus–Switch–Bus in the graph often models a switch in series on an AC line whose endpoints are
+    // the same two buses. Export as ``et='l'`` (line switch); ``et='b'`` would parallel the line in
+    // pandapower and yields no P/Q in ``_electrisim_switch_res_for_output`` for plain ties.
+    if (b1 && b2) {
+        const seriesLine = model ? findUniqueLineConnectingBusVertices(conn1, conn2, model) : null;
+        if (seriesLine) {
+            const ends = getLineBusEndpointsForPayload(seriesLine, model);
+            const s1 = cellSemanticId(conn1);
+            busCell = s1 === ends.busFrom || s1 === ends.busTo ? conn1 : conn2;
+            elemCell = seriesLine;
+        } else {
+            busCell = conn1;
+            elemCell = conn2;
+        }
+    } else if (b1 && l2) {
+        busCell = conn1;
+        elemCell = conn2;
+    } else if (l1 && b2) {
+        busCell = conn2;
+        elemCell = conn1;
+    } else if (b1 && t2) {
+        busCell = conn1;
+        elemCell = conn2;
+    } else if (t1 && b2) {
+        busCell = conn2;
+        elemCell = conn1;
+    } else {
+        const isBusLegacy = (c) => c && c.style && (c.style.includes('Bus') || c.style.includes('busbar'));
+        busCell = isBusLegacy(conn1) ? conn1 : (isBusLegacy(conn2) ? conn2 : conn1);
+        elemCell = busCell === conn1 ? conn2 : conn1;
+    }
+
+    let et = 'l';
+    /** Did topology unambiguously identify the peer type? If so, the stored XML ``et`` must NOT
+     *  override it — a fresh sidebar Switch defaults to ``et='l'`` and would otherwise mislabel
+     *  a Bus↔Switch↔Transformer wiring as ``et='l'``, leaving the backend to look the trafo up
+     *  in ``LinesDict``. */
+    let etFromTopology = false;
+    const sty = elemCell && (elemCell.style || '');
+    if (cellIsBusForSwitch(elemCell) && elemCell !== busCell && cellIsBusForSwitch(busCell)) {
+        et = 'b';
+        etFromTopology = true;
+    } else if (cellIsBusInjectStubNeighbor(elemCell)) {
+        et = 'gen_stub';
+        etFromTopology = true;
+    } else if (cellIs3WTrafoVertexForSwitch(elemCell) || (sty && sty.includes('Three Winding'))) {
+        et = 't3';
+        etFromTopology = true;
+    } else if (cellIs2WTrafoVertexForSwitch(elemCell) || (sty && sty.includes('Transformer'))) {
+        et = 't';
+        etFromTopology = true;
+    } else if (cellIsLineVertexForSwitch(elemCell)) {
+        et = 'l';
+        etFromTopology = true;
+    }
+    // Topology wins for Bus–Switch–Generator: a stored `et` (e.g. default "l" in cell XML) must not
+    // replace gen_stub or expansion is skipped and the generator keeps a bogus "bus" (switch vertex).
+    if (et === 'gen_stub') {
+        return {
+            bus: cellSemanticId(busCell),
+            element: cellSemanticId(elemCell),
+            elementCellId: elemCell.id,
+            et: 'gen_stub',
+        };
+    }
+    if (
+        et === 'b' &&
+        cellIsBusForSwitch(elemCell) &&
+        cellIsBusForSwitch(busCell) &&
+        elemCell !== busCell
+    ) {
+        return {
+            bus: cellSemanticId(busCell),
+            element: cellSemanticId(elemCell),
+            et: 'b',
+        };
+    }
+    const xmlEt = getAttr('et');
+    if (cellIsLineVertexForSwitch(elemCell)) {
+        et = 'l';
+    } else if (!etFromTopology && xmlEt) {
+        et = xmlEt;
+    }
+    if (
+        et !== 'gen_stub' &&
+        cellIsBusForSwitch(busCell) &&
+        cellIsBusForSwitch(elemCell) &&
+        busCell !== elemCell &&
+        !cellIsLineVertexForSwitch(elemCell)
+    ) {
+        et = 'b';
+    }
     return {
-        bus: busCell?.mxObjectId?.replace('#', '_') || '',
-        element: elemCell?.mxObjectId?.replace('#', '_') || elemCell?.id || '',
-        et: et
+        bus: cellSemanticId(busCell),
+        element: cellSemanticId(elemCell),
+        et: et,
     };
 };
+
+/**
+ * Open Bus–Switch–Generator: the switch is not sent to pandapower, so there is no `res_switch`
+ * row. Add a zeroed row so the result box updates. (Closed case uses native `et='b'` and real
+ * `net.res_switch` from the backend.)
+ *
+ * @see https://pandapower.readthedocs.io/en/latest/elements/switch.html
+ */
+function mergeOpenGenStubSwitchResultsIntoJson(dataJson, graph) {
+    if (!dataJson || !graph || !graph.getModel) return;
+    const existingIds = new Set((dataJson.switches || []).map((s) => String(s.id)));
+    const model = graph.getModel();
+    const root = model.getRoot && model.getRoot();
+    if (!root) return;
+
+    const walk = (cell) => {
+        if (!cell) return;
+        const st = parseCellStyle(cell.getStyle && cell.getStyle());
+        if (st && st.shapeELXXX === 'Switch') {
+            if (!cell.edges || cell.edges.length === 0) {
+                const edges = model.getEdges(cell);
+                if (edges && edges.length) cell.edges = edges;
+            }
+            let conn;
+            try {
+                conn = getSwitchConnections(cell, model);
+            } catch (_) {
+                conn = null;
+            }
+            if (conn && conn.et === 'gen_stub') {
+                const cid = String(cell.id);
+                if (!existingIds.has(cid)) {
+                    const swAttrs = getAttributesAsObject(cell, {
+                        name: { name: 'name', optional: true },
+                        closed: 'closed',
+                    });
+                    if (!isSwitchClosedForPowerFlow(swAttrs)) {
+                        dataJson.switches = dataJson.switches || [];
+                        dataJson.switches.push({
+                            name: (swAttrs.name != null && String(swAttrs.name).trim()) || 'Switch',
+                            id: cid,
+                            closed: false,
+                            i_ka: 0,
+                            p_from_mw: 0,
+                            q_from_mvar: 0,
+                            p_to_mw: 0,
+                            q_to_mvar: 0,
+                            loading_percent: 0,
+                        });
+                        existingIds.add(cid);
+                    }
+                }
+            }
+        }
+        const nch = model.getChildCount(cell);
+        for (let i = 0; i < nch; i++) {
+            walk(model.getChildAt(cell, i));
+        }
+    };
+
+    walk(root);
+}
 
 // Helper functions for LINE
 function getConnectedBuses(cell) {
@@ -954,7 +1516,8 @@ function loadFlowPandaPower(a, b, c) {
         TCSC: 0,
         SSC: 0,
         dcLine: 0,
-        line: 0
+        line: 0,
+        switch: 0
     };
 
     // Clear all caches at the start of each simulation to prevent memory accumulation
@@ -1059,7 +1622,8 @@ function loadFlowPandaPower(a, b, c) {
         TCSC: [],
         SSC: [],
         dcLine: [],
-        line: []
+        line: [],
+        switch: []
     };    
 
 
@@ -1184,6 +1748,66 @@ function loadFlowPandaPower(a, b, c) {
         return null;
     }
 
+    /**
+     * Result placeholders for non-bus components are tagged ``connectedTo=<componentId>`` by
+     * ``resultBoxes.createResultPlaceholder``. The legacy addEdge hook can drop **one per
+     * incident edge**, so a Switch attached to two buses ends up with two placeholders. Collect
+     * every placeholder that references ``componentCell.id`` so the renderer can update one and
+     * delete the rest. Direct children with no ``connectedTo`` are also returned because
+     * line-as-edge placeholders sometimes drop the tag in older diagrams.
+     */
+    function findAllResultPlaceholdersForComponent(componentCell) {
+        const found = [];
+        if (!componentCell || !b.getModel) return found;
+        const model = b.getModel();
+        const compId = String(componentCell.id);
+        const isResultStyle = (s) => s && (s.includes('shapeELXXX=ResultBus') || s.includes('shapeELXXX=Result') || s.includes('shapeELXXX=ResultExternalGrid'));
+        const matches = (child, isDirectChild) => {
+            const st = model.getStyle(child) || '';
+            if (!isResultStyle(st)) return false;
+            // Direct child of the component cell is always its placeholder (line creation hook,
+            // bus hook, etc. anchor the placeholder there). On incident edges only accept exact
+            // ``connectedTo`` matches so we don't steal a sibling component's placeholder.
+            if (isDirectChild) return true;
+            const m = st.match(/connectedTo=([^;]+)/);
+            return m ? String(m[1]).trim() === compId : false;
+        };
+        const scan = (parent, isDirectScan) => {
+            if (!parent) return;
+            const n = model.getChildCount(parent);
+            for (let i = 0; i < n; i++) {
+                const child = model.getChildAt(parent, i);
+                if (child && matches(child, isDirectScan)) found.push({ placeholder: child, parent });
+            }
+        };
+        scan(componentCell, true);
+        const edges = (b.getEdges && b.getEdges(componentCell)) || componentCell.edges || [];
+        for (let i = 0; i < edges.length; i++) scan(edges[i], false);
+        return found;
+    }
+
+    /**
+     * Update one placeholder for a component and discard duplicates. Returns the surviving cell.
+     * Used by switch/line renderers so a single ``connectedTo=<id>`` result remains in the diagram.
+     */
+    function updateOrCreateSinglePlaceholder(componentCell, resultString, fallbackParent, opts) {
+        const model = b.getModel();
+        const all = findAllResultPlaceholdersForComponent(componentCell);
+        if (all.length > 0) {
+            const keep = all[0].placeholder;
+            model.setValue(keep, resultString);
+            for (let i = 1; i < all.length; i++) {
+                try { model.remove(all[i].placeholder); } catch (_) {}
+            }
+            return keep;
+        }
+        const parent = fallbackParent || componentCell;
+        return insertResultPlaceholder(parent, resultString, {
+            ...(opts || {}),
+            connectedToId: componentCell.id,
+        });
+    }
+
     // Result box base style - solid fill, solid border, readable text (matches resultBoxes.js)
     const RESULT_BOX_STYLE = 'shapeELXXX=Result;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;overflow=hidden;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3';
 
@@ -1221,7 +1845,9 @@ function loadFlowPandaPower(a, b, c) {
 
     // Color processors
     function processVoltageColor(grafka, cell, vmPu) {
-        const voltage = parseFloat(vmPu.toFixed(2));
+        const n = Number(vmPu);
+        if (!Number.isFinite(n)) return;
+        const voltage = parseFloat(n.toFixed(2));
         let color = null;
 
         if (voltage >= 1.1 || voltage <= 0.9) color = COLOR_STATES.DANGER;
@@ -1232,7 +1858,9 @@ function loadFlowPandaPower(a, b, c) {
     }
 
     function processLoadingColor(grafka, cell, loadingPercent) {
-        const loading = parseFloat(loadingPercent.toFixed(1));
+        const n = Number(loadingPercent);
+        if (!Number.isFinite(n)) return;
+        const loading = parseFloat(n.toFixed(1));
         let color = null;
 
         if (loading > 100) color = COLOR_STATES.DANGER;
@@ -1308,20 +1936,50 @@ function loadFlowPandaPower(a, b, c) {
     const elementProcessors = {
         busbars: (data, b, grafka) => {
             const model = b.getModel();
+            const busDisplayPq = (cell) => {
+                const pInjN = Number(cell.p_mw);
+                const qInjN = Number(cell.q_mvar);
+                const magInj = Math.hypot(
+                    Number.isFinite(pInjN) ? pInjN : 0,
+                    Number.isFinite(qInjN) ? qInjN : 0
+                );
+                // Prefer pandapower lumped injection when it is non-trivial (gen/load/ext_grid on this bus).
+                // Use branch-terminal sums only for pass-through buses (e.g. LV with trafo + stub line while sgen is on aux).
+                if (magInj >= 1e-6) {
+                    return { p: cell.p_mw, q: cell.q_mvar, pf: cell.pf, qp: cell.q_p };
+                }
+                const pBr = cell.p_branch_mw;
+                const qBr = cell.q_branch_mvar;
+                const hasBr =
+                    pBr !== undefined && pBr !== null && qBr !== undefined && qBr !== null;
+                const pN = Number(pBr);
+                const qN = Number(qBr);
+                const magBr = hasBr ? Math.hypot(Number.isFinite(pN) ? pN : 0, Number.isFinite(qN) ? qN : 0) : 0;
+                if (hasBr && magBr >= 1e-6) {
+                    const p = Number.isFinite(pN) ? pN : 0;
+                    const q = Number.isFinite(qN) ? qN : 0;
+                    const denom = Math.sqrt(p * p + q * q);
+                    const pf = denom > 1e-12 ? p / denom : 0;
+                    const qp = Math.abs(p) > 1e-12 ? q / p : 0;
+                    return { p, q, pf, qp };
+                }
+                return { p: cell.p_mw, q: cell.q_mvar, pf: cell.pf, qp: cell.q_p };
+            };
             const results = data.map(cell => {
-                const resultCell = getCachedCell(cell.id);
+                const resultCell = getResultGraphCell(cell);
                 if (!resultCell) return null;
                 cell.name = replaceUnderscores(cell.name);
                 const label = formatResultNameHeader(resultCell, cell.name, 'Bus');
+                const d = busDisplayPq(cell);
                 return {
                     resultCell,
                     resultString: `${label}
 U[pu]: ${formatNumber(cell.vm_pu)}
 U[deg]: ${formatNumber(cell.va_degree)}
-P[MW]: ${formatNumber(cell.p_mw)}
-Q[MVar]: ${formatNumber(cell.q_mvar)}
-PF: ${formatNumber(cell.pf)}
-Q/P: ${formatNumber(cell.q_p)}`,
+P[MW]: ${formatNumber(d.p)}
+Q[MVar]: ${formatNumber(d.q)}
+PF: ${formatNumber(d.pf)}
+Q/P: ${formatNumber(d.qp)}`,
                     cell
                 };
             });
@@ -1345,7 +2003,7 @@ Q/P: ${formatNumber(cell.q_p)}`,
         lines: (data, b, grafka) => {
             const model = b.getModel();
             const lineResults = data.map(cell => {
-                const resultCell = getCachedCell(cell.id);
+                const resultCell = getResultGraphCell(cell);
                 if (!resultCell) {
                     console.warn('ELXXX: Line result cell not found for id:', cell.id, '- skipping line results');
                     return null;
@@ -1370,17 +2028,20 @@ Q/P: ${formatNumber(cell.q_p)}`,
             });
 
             lineResults.filter(r => r !== null).forEach(({ resultCell, resultString, cell }) => {
-                const existing = findResultPlaceholder(resultCell);
-                if (existing) {
-                    model.setValue(existing, resultString);
-                    processCellStyles(b, existing, true);
+                // Line may have a placeholder on the line cell itself (line-as-edge: child of the
+                // edge) or, in parallel Bus–Switch–Bus topologies, one from a sibling switch may
+                // have been auto-created on the same midpoint. Consolidate by connectedTo=lineId.
+                const keep = updateOrCreateSinglePlaceholder(resultCell, resultString, resultCell, {
+                    width: 70,
+                    height: 80,
+                    positionX: 0.5,
+                    positionY: 0,
+                });
+                if (keep) {
+                    const keepParent = model.getParent(keep);
+                    const isEdgeParent = typeof model.isEdge === 'function' && model.isEdge(keepParent);
+                    processCellStyles(b, keep, isEdgeParent);
                     processLoadingColor(grafka, resultCell, cell.loading_percent);
-                } else {
-                    const labelka = insertResultPlaceholder(resultCell, resultString, { width: 70, height: 80, positionX: 0.5, positionY: 0 });
-                    if (labelka) {
-                        processCellStyles(b, labelka, true);
-                        processLoadingColor(grafka, resultCell, cell.loading_percent);
-                    }
                 }
             });
         },
@@ -1388,7 +2049,7 @@ Q/P: ${formatNumber(cell.q_p)}`,
 
         externalgrids: (data, b) => {
             data.forEach(cell => {
-                const resultCell = getCachedCell(cell.id);
+                const resultCell = getResultGraphCell(cell);
                 if (!resultCell) return;
                 const label = formatResultNameHeader(resultCell, cell.name, 'External Grid');
                 const resultString = `${label}
@@ -1418,7 +2079,8 @@ Q/P: ${formatNumber(cell.q_p)}`,
 
         generators: (data, b) => {
             data.forEach(cell => {
-                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
+                const resultCell = getResultGraphCell(cell);
+                if (!resultCell) return;
                 const genLabel = formatResultNameHeader(resultCell, cell.name, 'Generator');
                 const resultString = `${genLabel}
             P[MW]: ${formatNumber(cell.p_mw)}
@@ -1440,7 +2102,8 @@ Q/P: ${formatNumber(cell.q_p)}`,
         },
         staticgenerators: (data, b) => {
             data.forEach(cell => {
-                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
+                const resultCell = getResultGraphCell(cell);
+                if (!resultCell) return;
                 const label = formatResultNameHeader(resultCell, cell.name, 'Static Generator');
                 const resultString = `${label}
             P[MW]: ${formatNumber(cell.p_mw)}
@@ -1460,7 +2123,8 @@ Q/P: ${formatNumber(cell.q_p)}`,
         },
         asymmetricstaticgenerators: (data, b) => {
             data.forEach(cell => {
-                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
+                const resultCell = getResultGraphCell(cell);
+                if (!resultCell) return;
                 const label = formatResultNameHeader(resultCell, cell.name, 'Asymmetric Static Generator');
                 const resultString = `${label}
             P_A[MW]: ${formatNumber(cell.p_a_mw)}
@@ -1490,6 +2154,8 @@ Q/P: ${formatNumber(cell.q_p)}`,
                 const tapBlock = formatTapControlOnTrafo(cell);
 
                 const resultString = `${trafoLabel}
+            P_HV[MW]: ${formatNumber(cell.p_hv_mw)}
+            P_LV[MW]: ${formatNumber(cell.p_lv_mw)}
             i_HV[kA]: ${formatNumber(cell.i_hv_ka)}
             i_LV[kA]: ${formatNumber(cell.i_lv_ka)}
             loading[%]: ${formatNumber(cell.loading_percent)}
@@ -1503,8 +2169,8 @@ ${tapBlock}`;
                     existing = findResultPlaceholder(parent);
                 }
                 const parent = existing ? b.getModel().getParent(existing) : ((b.getEdges && b.getEdges(resultCell))?.[0] || resultCell);
-                const boxW = tapBlock ? 74 : 60;
-                const boxH = tapBlock ? 58 : 50;
+                const boxW = tapBlock ? 74 : 68;
+                const boxH = tapBlock ? 72 : 64;
                 if (existing) {
                     b.getModel().setValue(existing, resultString);
                     processCellStyles(b, existing);
@@ -1565,7 +2231,8 @@ ${tapBlock}`;
         },
         shunts: (data, b) => {
             data.forEach(cell => {
-                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
+                const resultCell = getResultGraphCell(cell);
+                if (!resultCell) return;
                 const label = formatResultNameHeader(resultCell, cell.name, 'Shunt');
                 const scBlock = formatShuntControlOnShunt(cell);
                 const resultString = `${label}
@@ -1589,7 +2256,8 @@ ${tapBlock}`;
         },
         capacitors: (data, b) => {
             data.forEach(cell => {
-                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
+                const resultCell = getResultGraphCell(cell);
+                if (!resultCell) return;
                 const label = formatResultNameHeader(resultCell, cell.name, 'Capacitor');
                 const resultString = `${label}
             P[MW]: ${formatNumber(cell.p_mw)}
@@ -1610,7 +2278,8 @@ ${tapBlock}`;
         },
         loads: (data, b) => {
             data.forEach(cell => {
-                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
+                const resultCell = getResultGraphCell(cell);
+                if (!resultCell) return;
                 const label = formatResultNameHeader(resultCell, cell.name, 'Load');
                 const resultString = `${label}
             P[MW]: ${formatNumber(cell.p_mw)}
@@ -1630,7 +2299,8 @@ ${tapBlock}`;
         },
         asymmetricloads: (data, b) => {
             data.forEach(cell => {
-                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
+                const resultCell = getResultGraphCell(cell);
+                if (!resultCell) return;
                 const label = formatResultNameHeader(resultCell, cell.name, 'Asymmetric Load');
                 const resultString = `${label}
             P_A[MW]: ${formatNumber(cell.p_a_mw)}
@@ -1655,7 +2325,7 @@ ${tapBlock}`;
         impedances: (data, b) => {
             const model = b.getModel();
             data.forEach(cell => {
-                const resultCell = getCachedCell(cell.id);
+                const resultCell = getResultGraphCell(cell);
                 if (!resultCell) return;
                 cell.name = replaceUnderscores(cell.name);
                 const label = formatResultNameHeader(resultCell, cell.name, 'Impedance');
@@ -1683,7 +2353,8 @@ ${tapBlock}`;
         },
         wards: (data, b) => {
             data.forEach(cell => {
-                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
+                const resultCell = getResultGraphCell(cell);
+                if (!resultCell) return;
                 const label = formatResultNameHeader(resultCell, cell.name, 'Ward');
                 const resultString = `${label}
             P[MW]: ${formatNumber(cell.p_mw)}
@@ -1705,7 +2376,8 @@ ${tapBlock}`;
         },
         extendedwards: (data, b) => {
             data.forEach(cell => {
-                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
+                const resultCell = getResultGraphCell(cell);
+                if (!resultCell) return;
                 const label = formatResultNameHeader(resultCell, cell.name, 'Extended Ward');
                 const resultString = `${label}
             P[MW]: ${formatNumber(cell.p_mw)}
@@ -1726,7 +2398,8 @@ ${tapBlock}`;
         },
         motors: (data, b) => {
             data.forEach(cell => {
-                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
+                const resultCell = getResultGraphCell(cell);
+                if (!resultCell) return;
                 const label = formatResultNameHeader(resultCell, cell.name, 'Motor');
                 const resultString = `${label}
             P[MW]: ${formatNumber(cell.p_mw)}
@@ -1746,7 +2419,8 @@ ${tapBlock}`;
         },
         storages: (data, b) => {
             data.forEach(cell => {
-                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
+                const resultCell = getResultGraphCell(cell);
+                if (!resultCell) return;
                 const label = formatResultNameHeader(resultCell, cell.name, 'Storage');
                 const resultString = `${label}
             P[MW]: ${formatNumber(cell.p_mw)}
@@ -1766,7 +2440,8 @@ ${tapBlock}`;
         },
         svc: (data, b) => {
             data.forEach(cell => {
-                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
+                const resultCell = getResultGraphCell(cell);
+                if (!resultCell) return;
                 const label = formatResultNameHeader(resultCell, cell.name, 'SVC');
                 const resultString = `${label}
             Firing angle[degree]: ${formatNumber(cell.thyristor_firing_angle_degree)}
@@ -1789,7 +2464,8 @@ ${tapBlock}`;
         },
         tcsc: (data, b) => {
             data.forEach(cell => {
-                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
+                const resultCell = getResultGraphCell(cell);
+                if (!resultCell) return;
                 const label = formatResultNameHeader(resultCell, cell.name, 'TCSC');
                 const resultString = `${label}
             Firing angle[degree]: ${formatNumber(cell.thyristor_firing_angle_degree)}
@@ -1819,7 +2495,8 @@ ${tapBlock}`;
         },
         sscs: (data, b) => {
             data.forEach(cell => {
-                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
+                const resultCell = getResultGraphCell(cell);
+                if (!resultCell) return;
                 const label = formatResultNameHeader(resultCell, cell.name, 'SSC');
                 const resultString = `${label}
             q_mvar: ${formatNumber(cell.q_mvar)}
@@ -1843,7 +2520,8 @@ ${tapBlock}`;
         },
         dclines: (data, b) => {
             data.forEach(cell => {
-                const resultCell = getCachedCell(cell.id); // OPTIMIZED: Use cached lookup
+                const resultCell = getResultGraphCell(cell);
+                if (!resultCell) return;
                 const label = formatResultNameHeader(resultCell, cell.name, 'DC Line');
                 const resultString = `${label}
             P_from[MW]: ${formatNumber(cell.p_from_mw)}
@@ -1863,6 +2541,57 @@ ${tapBlock}`;
                     const labelka = insertResultPlaceholder(parent, resultString, { width: 70, height: 80, positionX: 0.5 });
                     if (labelka) processCellStyles(b, labelka);
                 }
+            });
+        },
+        /** net.res_switch: p_from_mw, q_from_mvar, p_to_mw, q_to_mvar, i_ka, loading_percent */
+        switches: (data, b, grafka) => {
+            const model = b.getModel();
+            data.forEach((cell) => {
+                const resultCell = getResultGraphCell(cell);
+                if (!resultCell) return;
+                cell.name = cell.name != null ? replaceUnderscores(String(cell.name)) : 'Switch';
+                const hdr = formatResultNameHeader(resultCell, cell.name, 'Switch');
+                const cld = cell.closed;
+                const closedStr =
+                    cld === false || cld === 'false' ? 'false' : 'true';
+                const resultString = `${hdr}
+closed: ${closedStr}
+P_from[MW]: ${formatNumber(cell.p_from_mw)}
+Q_from[MVar]: ${formatNumber(cell.q_from_mvar)}
+P_to[MW]: ${formatNumber(cell.p_to_mw)}
+Q_to[MVar]: ${formatNumber(cell.q_to_mvar)}
+i[kA]: ${formatNumber(cell.i_ka)}
+Loading[%]: ${formatNumber(cell.loading_percent, 1)}`;
+
+                // Bus–Switch–* with switch as a graph *vertex* gets one edge-placeholder per
+                // incident edge from the legacy addEdge hook. Their midpoints can overlap a
+                // parallel Line's own placeholder, so consolidate to a single placeholder
+                // anchored on the switch vertex itself.
+                const all = findAllResultPlaceholdersForComponent(resultCell);
+                const directChild = all.find((p) => p.parent === resultCell);
+                if (directChild) {
+                    for (let i = 0; i < all.length; i++) {
+                        if (all[i].placeholder !== directChild.placeholder) {
+                            try { model.remove(all[i].placeholder); } catch (_) {}
+                        }
+                    }
+                    model.setValue(directChild.placeholder, resultString);
+                    processCellStyles(b, directChild.placeholder, false);
+                } else {
+                    for (let i = 0; i < all.length; i++) {
+                        try { model.remove(all[i].placeholder); } catch (_) {}
+                    }
+                    const fresh = insertResultPlaceholder(resultCell, resultString, {
+                        width: 78,
+                        height: 102,
+                        positionX: 0,
+                        positionY: 0,
+                        offsetXDelta: 90,
+                        connectedToId: resultCell.id,
+                    });
+                    if (fresh) processCellStyles(b, fresh, false);
+                }
+                if (grafka) processLoadingColor(grafka, resultCell, cell.loading_percent);
             });
         },
     };
@@ -1909,6 +2638,7 @@ ${tapBlock}`;
 
             mergeTapControlIntoTransformers(dataJson);
             mergeShuntControlIntoShunts(dataJson);
+            mergeOpenGenStubSwitchResultsIntoJson(dataJson, b);
             try {
                 window.__electrisimLastLoadFlowResultJson = dataJson;
             } catch (_) {
@@ -2041,7 +2771,7 @@ ${tapBlock}`;
             resultCellLookupMap = null;
             resultCellLookupGraph = null;
             if (err.message === "server") return;
-           // alert('Error processing network data.' + err+'\n \nCheck input data or contact electrisim@electrisim.com', );
+            console.error('Load flow: processNetworkData failed:', err);
         } finally {
             if (typeof apka !== 'undefined' && apka.spinner) {
                 apka.spinner.stop();
@@ -2329,6 +3059,7 @@ ${tapBlock}`;
                                 q_mvar: 'q_mvar',
                                 sn_mva: 'sn_mva',
                                 scaling: 'scaling',
+                                vn_kv: { name: 'vn_kv', optional: true },
                                 type: 'type',
                                 k: 'k',
                                 rx: 'rx',
@@ -2950,6 +3681,12 @@ ${tapBlock}`;
                         break;
 
                     case COMPONENT_TYPES.LINE:
+                        const lfModel = b.getModel();
+                        if (!cell.edges || cell.edges.length === 0) {
+                            const le = lfModel.getEdges(cell);
+                            if (le && le.length) cell.edges = le;
+                        }
+                        const lineEndpointBuses = getLineBusEndpointsForPayload(cell, lfModel);
                         const line = {
                             typ: `Line${counters.line++}`,
                             name: cell.mxObjectId.replace('#', '_'),
@@ -2965,7 +3702,7 @@ ${tapBlock}`;
                                 }
                                 return cell.mxObjectId.replace('#', '_');
                             })(),
-                            ...getConnectedBuses(cell),
+                            ...lineEndpointBuses,
                             ...getAttributesAsObject(cell, {
                                 // Basic parameters
                                 length_km: 'length_km',
@@ -2990,9 +3727,12 @@ ${tapBlock}`;
                             })
                         };
 
-                        // Validate bus connections
+                        // Validate bus connections (line vertex or edge; allow Switch intermediate)
                         try {
-                            validateBusConnections(cell);
+                            validateLineBusTopology(cell, lfModel);
+                            if (!lineEndpointBuses.busFrom || !lineEndpointBuses.busTo) {
+                                throw new Error('Could not resolve line endpoints to electrical buses.');
+                            }
                             setCellStyle(cell, { strokeColor: 'black' });
                         } catch (error) {
                             console.error(error.message);
@@ -3001,6 +3741,38 @@ ${tapBlock}`;
                         }
 
                         componentArrays.line.push(line);
+                        break;
+
+                    case COMPONENT_TYPES.SWITCH:
+                        if (!cell.edges || cell.edges.length < 2) {
+                            const swE = b.getModel().getEdges(cell);
+                            if (swE && swE.length) cell.edges = swE;
+                        }
+                        const switchConnections = getSwitchConnections(cell, b.getModel());
+                        const switchAttrs = getAttributesAsObject(cell, {
+                            name: { name: 'name', optional: true },
+                            et: { name: 'et', optional: true },
+                            type: 'type',
+                            closed: 'closed',
+                            z_ohm: 'z_ohm',
+                            in_ka: { name: 'in_ka', optional: true }
+                        });
+                        const switchElement = {
+                            typ: `Switch${counters.switch++}`,
+                            id: cell.id,
+                            userFriendlyName: switchAttrs.name || cell.mxObjectId.replace('#', '_'),
+                            ...switchAttrs,
+                            name: switchAttrs.name || cell.mxObjectId.replace('#', '_'),
+                            bus: switchConnections.bus,
+                            element: switchConnections.element,
+                            et: switchConnections.et === 'gen_stub'
+                                ? 'gen_stub'
+                                : switchConnections.et,
+                            ...(switchConnections.elementCellId != null
+                                ? { elementCellId: switchConnections.elementCellId }
+                                : {})
+                        };
+                        componentArrays.switch.push(switchElement);
                         break;
                 }
                 
@@ -3021,6 +3793,92 @@ ${tapBlock}`;
         if (componentArrays.threeWindingTransformer.length > 0) {
             componentArrays.threeWindingTransformer = updateThreeWindingTransformerConnections(componentArrays.threeWindingTransformer, componentArrays.busbar, b);
         }
+
+        // Bus–Switch–injecting element (gen, load, shunt, …): aux bus + element on aux + native bus–bus switch
+        (function expandInjectStubSwitches() {
+            const stubSwitches = componentArrays.switch.filter((sw) => sw.et === 'gen_stub');
+            if (stubSwitches.length === 0) return;
+            const stubTargetArrays = [
+                componentArrays.generator,
+                componentArrays.staticGenerator,
+                componentArrays.asymmetricGenerator,
+                componentArrays.storage,
+                componentArrays.load,
+                componentArrays.asymmetricLoad,
+                componentArrays.shuntReactor,
+                componentArrays.capacitor,
+                componentArrays.motor,
+                componentArrays.SVC,
+            ];
+            const safeToken = (id) => String(id).replace(/[^a-zA-Z0-9_]/g, '_');
+            const dropStubSwitchIds = new Set();
+            for (const sw of stubSwitches) {
+                const cellId = sw.elementCellId;
+                if (cellId == null) {
+                    console.warn('expandInjectStubSwitches: missing elementCellId on switch', sw.id);
+                    continue;
+                }
+                let injectRec = null;
+                for (let i = 0; i < stubTargetArrays.length; i++) {
+                    injectRec = stubTargetArrays[i].find((g) => g.id === cellId);
+                    if (injectRec) break;
+                }
+                if (!injectRec) {
+                    console.warn('expandInjectStubSwitches: no matching bus element for switch', sw.id, cellId);
+                    continue;
+                }
+                let mainBusRecord = componentArrays.busbar.find((bb) => bb.name === sw.bus);
+                if (!mainBusRecord) {
+                    const labelMatches = componentArrays.busbar.filter((bb) => bb.userFriendlyName === sw.bus);
+                    if (labelMatches.length === 1) {
+                        mainBusRecord = labelMatches[0];
+                    } else if (labelMatches.length > 1) {
+                        console.error(
+                            'expandInjectStubSwitches: ambiguous bus reference for Bus–Switch–Element. ' +
+                                `Switch "${sw.id}" references bus "${sw.bus}", which matches ${labelMatches.length} buses by label. ` +
+                                'Skipping switch resolution; element will keep its current bus.'
+                        );
+                        dropStubSwitchIds.add(sw.id);
+                        delete sw.elementCellId;
+                        continue;
+                    }
+                }
+                if (!mainBusRecord) {
+                    console.warn('expandInjectStubSwitches: main bus not found for switch', sw.id, sw.bus);
+                    dropStubSwitchIds.add(sw.id);
+                    delete sw.elementCellId;
+                    continue;
+                }
+                const mainBusKey = mainBusRecord.name;
+                const vnKv = mainBusRecord.vn_kv != null ? String(mainBusRecord.vn_kv) : '20';
+                if (!isSwitchClosedForPowerFlow(sw)) {
+                    injectRec.bus = mainBusKey;
+                    injectRec.in_service = 'false';
+                    dropStubSwitchIds.add(sw.id);
+                    delete sw.elementCellId;
+                    continue;
+                }
+                const tok = safeToken(sw.id);
+                const auxName = `_electrisim_aux_${tok}`;
+                componentArrays.busbar.push({
+                    typ: `Bus${counters.busbar++}`,
+                    name: auxName,
+                    id: auxName,
+                    vn_kv: vnKv,
+                    userFriendlyName: auxName
+                });
+                injectRec.bus = auxName;
+                sw.bus = mainBusKey;
+                sw.element = auxName;
+                sw.et = 'b';
+                sw.z_ohm = sw.z_ohm != null && sw.z_ohm !== '' ? sw.z_ohm : '0';
+                delete sw.elementCellId;
+            }
+            if (dropStubSwitchIds.size > 0) {
+                componentArrays.switch = componentArrays.switch.filter((s) => !dropStubSwitchIds.has(s.id));
+            }
+        })();
+
             // Create optimized array with minimal memory copying
         const arrayBuildStart = performance.now();
         const array = [];
@@ -3055,6 +3913,7 @@ ${tapBlock}`;
         addComponents(componentArrays.TCSC);
         addComponents(componentArrays.dcLine);
         addComponents(componentArrays.line);
+        addComponents(componentArrays.switch);
         
         const arrayBuildTime = performance.now() - arrayBuildStart;
 
@@ -3136,5 +3995,8 @@ export {
     getThreeWindingConnections,
     getImpedanceConnections,
     getConnectedBuses,
-    validateBusConnections
+    getLineBusEndpointsForPayload,
+    validateLineBusTopology,
+    validateBusConnections,
+    isSwitchClosedForPowerFlow
 };

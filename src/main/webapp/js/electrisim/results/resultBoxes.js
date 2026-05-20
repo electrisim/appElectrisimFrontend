@@ -1133,7 +1133,23 @@ function applyResultBoxesHook() {
 
         //jesli linia łączy dwa bus wtedy umożliwij wprowadzanie parametrów linii   
         //do wyszukiwania fraza ELXXX Line
-        if (g.source?.style?.includes("Bus") && g.target?.style?.includes("Bus")) {
+        // Two endpoint patterns become a fully parameterised Line element:
+        //   • Bus ↔ Bus (classic pandapower line)
+        //   • Switch ↔ Switch (Bus1 → Switch1 → Line → Switch2 → Bus2 — one breaker per cable end)
+        // A Bus ↔ Switch edge is just a stub (NotEditableLine) — the Switch ↔ Bus connection
+        // itself carries no electrical parameters.
+        var isBusEndpoint = function (cell) {
+            if (!cell || !cell.style) return false;
+            return cell.style.includes('shapeELXXX=Bus') ||
+                cell.style.includes('shape=mxgraph.electrical.transmission.busbar');
+        };
+        var isSwitchEndpoint = function (cell) {
+            return !!(cell && cell.style && cell.style.includes('shapeELXXX=Switch'));
+        };
+        var isLineConnection =
+            (isBusEndpoint(g.source) && isBusEndpoint(g.target)) ||
+            (isSwitchEndpoint(g.source) && isSwitchEndpoint(g.target));
+        if (isLineConnection) {
 
             //utworzenie parametrów linii
             var listaParametry = mxUtils.createXmlDocument().createElement("object");

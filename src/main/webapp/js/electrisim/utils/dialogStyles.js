@@ -1,5 +1,89 @@
 // dialogStyles.js - Common styles for all dialogs
 
+/** Viewport-relative height for Draw.io embedded study dialogs */
+export function getDrawioStudyDialogHeight() {
+    if (typeof window === 'undefined' || typeof window.innerHeight !== 'number') {
+        return 760;
+    }
+    return Math.min(880, Math.max(560, Math.floor(window.innerHeight * 0.9)));
+}
+
+/** Scroll region: fills remaining space inside flex column layouts */
+export const SIMULATION_FORM_SCROLL_STYLE = {
+    flex: '1 1 0%',
+    minHeight: '0',
+    overflowY: 'auto',
+    overflowX: 'hidden',
+    paddingRight: '8px',
+    scrollbarWidth: 'thin',
+    scrollbarColor: '#c5ccd3 #f1f3f5'
+};
+
+/** Compact info banner used at top of calculation / study dialogs */
+export const SIMULATION_INFO_BANNER_STYLE = {
+    padding: '8px 12px',
+    backgroundColor: '#e8f4fc',
+    border: '1px solid #b8dae9',
+    borderRadius: '6px',
+    fontSize: '12px',
+    lineHeight: '1.45',
+    color: '#0d47a1',
+    marginBottom: '10px',
+    flexShrink: '0',
+    boxSizing: 'border-box'
+};
+
+/** Full-screen overlay for custom study modals (Load Flow, Harmonics, …) */
+export const STUDY_MODAL_OVERLAY_STYLE = {
+    position: 'fixed',
+    top: '0',
+    left: '0',
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    zIndex: '10000',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 'max(12px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(12px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px))',
+    boxSizing: 'border-box',
+    overflowY: 'auto'
+};
+
+/**
+ * Dialog shell with explicit viewport-based height so flex descendants get a real height budget
+ * (fixes inner scroll staying short when only max-height was set).
+ * @param {number} widthPx preferred max width in px before vw cap
+ */
+export function getStudyModalDialogBoxStyle(widthPx = 640) {
+    const shellH = 'calc(100vh - 48px)';
+    return {
+        backgroundColor: 'white',
+        borderRadius: '8px',
+        boxShadow: '0 6px 24px rgba(0, 0, 0, 0.12)',
+        width: `min(${widthPx}px, 94vw)`,
+        maxWidth: '94vw',
+        height: shellH,
+        maxHeight: shellH,
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        flexShrink: '0',
+        boxSizing: 'border-box'
+    };
+}
+
+/** Below title bar: grows and clips so only the form region scrolls */
+export const STUDY_MODAL_CONTENT_WRAPPER_STYLE = {
+    padding: '16px 20px',
+    flex: '1 1 0%',
+    minHeight: '0',
+    overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
+    boxSizing: 'border-box'
+};
+
 export const DIALOG_STYLES = {
     // Common dialog container styles
     container: {

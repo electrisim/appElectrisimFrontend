@@ -16,6 +16,7 @@
     <link rel="modulepreload" href="js/electrisim/loadflowOpenDss.js">
     <link rel="modulepreload" href="js/electrisim/optimalPowerFlow.js">
     <link rel="modulepreload" href="js/electrisim/contingencyAnalysis.js">
+    <link rel="modulepreload" href="js/electrisim/protectionCoordination.js">
 
     <link rel="stylesheet" type="text/css" href="mxgraph/css/common.css">
     <link rel="stylesheet" type="text/css" href="styles/resizable-dialogs.css">
@@ -341,7 +342,8 @@
             { src: 'js/electrisim/rpcAnalysis.js', type: 'module', async: true },
             { src: 'js/electrisim/optimalPowerFlow.js', type: 'module', async: true },
             { src: 'js/electrisim/shortCircuit.js', type: 'module', async: true },
-            { src: 'js/electrisim/contingencyAnalysis.js', type: 'module', async: true }
+            { src: 'js/electrisim/contingencyAnalysis.js', type: 'module', async: true },
+            { src: 'js/electrisim/protectionCoordination.js', type: 'module', async: true }
         ];
 
         function checkAllLoaded() {
@@ -732,7 +734,8 @@
 								'js/electrisim/rpcAnalysis.js',
 								'js/electrisim/optimalPowerFlow.js',
 								'js/electrisim/timeSeriesSimulation.js',
-								'js/electrisim/contingencyAnalysis.js'
+								'js/electrisim/contingencyAnalysis.js',
+								'js/electrisim/protectionCoordination.js'
                             ];
 							
 							// Auth scripts (Stripe, etc.) - deferred until after Electrisim scripts for faster initial load

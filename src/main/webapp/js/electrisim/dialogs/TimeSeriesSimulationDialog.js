@@ -7,103 +7,152 @@
         }
 
         show(callback) {
-            // Overlay
             const overlay = document.createElement('div');
             overlay.style.cssText = `
-                position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-                background: rgba(0,0,0,0.5); z-index: 10000;
-                display: flex; align-items: center; justify-content: center;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 10000;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                padding: max(12px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(12px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+                box-sizing: border-box;
+                overflow-y: auto;
             `;
 
-            // Dialog
             const dialog = document.createElement('div');
             dialog.style.cssText = `
-                background: white; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-                max-width: 500px; max-height: 90vh; overflow-y: auto; padding: 24px; margin: 20px;
+                background: white;
+                border-radius: 8px;
+                box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+                width: min(540px, 94vw);
+                max-width: 94vw;
+                height: calc(100vh - 48px);
+                max-height: calc(100vh - 48px);
+                overflow: hidden;
+                display: flex;
+                flex-direction: column;
+                flex-shrink: 0;
+                margin: auto;
                 font-family: Arial, sans-serif;
+                box-sizing: border-box;
             `;
 
-            // Title
             const title = document.createElement('h2');
             title.textContent = this.title;
-            title.style.cssText = 'margin: 0 0 20px 0; color: #333;';
+            title.style.cssText = `
+                margin: 0;
+                padding: 18px 24px 8px;
+                color: #333;
+                font-size: 18px;
+                font-weight: 600;
+                flex-shrink: 0;
+            `;
             dialog.appendChild(title);
 
             const blurb = document.createElement('div');
-            blurb.style.cssText = 'margin: -12px 0 16px 0; padding: 8px 10px; background: #e3f2fd; border: 1px solid #bbdefb; border-radius: 4px; font-size: 12px; color: #1565c0;';
+            blurb.style.cssText = `
+                margin: 0 24px 12px;
+                padding: 8px 12px;
+                background: #e8f4fc;
+                border: 1px solid #b8dae9;
+                border-radius: 6px;
+                font-size: 12px;
+                line-height: 1.45;
+                color: #0d47a1;
+                flex-shrink: 0;
+                box-sizing: border-box;
+            `;
             blurb.innerHTML = 'Run sequential load flows with time-varying load and generation profiles. See the <a href="https://electrisim.com/documentation.html#time-series-simulation" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
             dialog.appendChild(blurb);
 
-            // Form
+            const formScroll = document.createElement('div');
+            formScroll.style.cssText = `
+                flex: 1 1 0%;
+                min-height: 0;
+                overflow-y: auto;
+                overflow-x: hidden;
+                padding: 4px 24px 12px;
+                scrollbar-width: thin;
+                scrollbar-color: #c5ccd3 #f1f3f5;
+            `;
+
             const form = document.createElement('form');
             form.style.cssText = 'display: flex; flex-direction: column; gap: 16px;';
 
             // Time Series Parameters Section
             const tsSection = document.createElement('div');
             tsSection.innerHTML = '<h3 style="margin: 0 0 12px 0; color: #007cba;">Time Series Parameters</h3>';
-            
-            // Time Steps
+
             const timeSteps = this.createNumberInput('time_steps', 'Time Steps (hours)', '24', '1', '168');
             tsSection.appendChild(timeSteps);
-            
-            // Load Profile
+
             const loadProfile = this.createSelect('load_profile', 'Load Profile', [
-                {value: 'constant', label: 'Constant'},
-                {value: 'daily', label: 'Daily (Residential)'},
-                {value: 'industrial', label: 'Industrial'},
-                {value: 'variable', label: 'Variable (High Variation)'}
+                { value: 'constant', label: 'Constant' },
+                { value: 'daily', label: 'Daily (Residential)' },
+                { value: 'industrial', label: 'Industrial' },
+                { value: 'variable', label: 'Variable (High Variation)' }
             ]);
             tsSection.appendChild(loadProfile);
-            
-            // Generation Profile
+
             const generationProfile = this.createSelect('generation_profile', 'Generation Profile', [
-                {value: 'constant', label: 'Constant'},
-                {value: 'solar', label: 'Solar'},
-                {value: 'wind', label: 'Wind'},
-                {value: 'variable', label: 'Variable (High Variation)'}
+                { value: 'constant', label: 'Constant' },
+                { value: 'solar', label: 'Solar' },
+                { value: 'wind', label: 'Wind' },
+                { value: 'variable', label: 'Variable (High Variation)' }
             ]);
             tsSection.appendChild(generationProfile);
-            
+
             form.appendChild(tsSection);
 
             // Power Flow Parameters Section
             const pfSection = document.createElement('div');
             pfSection.innerHTML = '<h3 style="margin: 20px 0 12px 0; color: #007cba;">Power Flow Parameters</h3>';
-            
-            // Frequency
+
             const frequency = this.createNumberInput('frequency', 'Frequency (Hz)', '50', '0.1', '1000');
             pfSection.appendChild(frequency);
-            
-            // Algorithm
+
             const algorithm = this.createSelect('algorithm', 'Algorithm', [
-                {value: 'nr', label: 'Newton-Raphson (NR)'},
-                {value: 'iwamoto_nr', label: 'Iwamoto Newton-Raphson'},
-                {value: 'fastdecoupled', label: 'Fast Decoupled'},
-                {value: 'dc', label: 'DC Power Flow'}
+                { value: 'nr', label: 'Newton-Raphson (NR)' },
+                { value: 'iwamoto_nr', label: 'Iwamoto Newton-Raphson' },
+                { value: 'fastdecoupled', label: 'Fast Decoupled' },
+                { value: 'dc', label: 'DC Power Flow' }
             ]);
             pfSection.appendChild(algorithm);
-            
-            // Calculate Voltage Angles
+
             const calcVoltageAngles = this.createSelect('calculate_voltage_angles', 'Calculate Voltage Angles', [
-                {value: 'auto', label: 'Auto'},
-                {value: true, label: 'Yes'},
-                {value: false, label: 'No'}
+                { value: 'auto', label: 'Auto' },
+                { value: true, label: 'Yes' },
+                { value: false, label: 'No' }
             ]);
             pfSection.appendChild(calcVoltageAngles);
-            
-            // Initialization
+
             const init = this.createSelect('init', 'Initialization', [
-                {value: 'dc', label: 'DC'},
-                {value: 'flat', label: 'Flat'},
-                {value: 'pf', label: 'Power Flow'}
+                { value: 'dc', label: 'DC' },
+                { value: 'flat', label: 'Flat' },
+                { value: 'pf', label: 'Power Flow' }
             ]);
             pfSection.appendChild(init);
-            
+
             form.appendChild(pfSection);
 
-            // Buttons
+            formScroll.appendChild(form);
+            dialog.appendChild(formScroll);
+
             const buttonContainer = document.createElement('div');
-            buttonContainer.style.cssText = 'display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;';
+            buttonContainer.style.cssText = `
+                display: flex;
+                gap: 12px;
+                justify-content: flex-end;
+                flex-shrink: 0;
+                padding: 14px 24px 18px;
+                border-top: 1px solid #e9ecef;
+                background: #fafbfc;
+            `;
 
             const cancelButton = document.createElement('button');
             cancelButton.textContent = 'Cancel';
@@ -118,10 +167,8 @@
             submitButton.style.cssText = 'padding: 8px 16px; background: #007cba; color: white; border: none; border-radius: 4px; cursor: pointer;';
             buttonContainer.appendChild(submitButton);
 
-            form.appendChild(buttonContainer);
-            dialog.appendChild(form);
+            dialog.appendChild(buttonContainer);
 
-            // Form submission
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 

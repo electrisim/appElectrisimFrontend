@@ -6,10 +6,60 @@ import {
 
 /** Horizontal busbar geometry aligned with map-generated diagrams (sym-bus.svg). */
 const IMPORT_BUSBAR_W = 260;
-const IMPORT_BUSBAR_H = 16;
+/** Match map import / thin palette bus line (see ``vertexStyleImportedBusbar``). */
+const IMPORT_BUSBAR_H = 12;
 
 /** sym-transformer.svg viewBox -45..45, -30..28 → winding axis at y = 0 → (30/58) from top */
 const TRANSFORMER_EDGE_PIN_Y = 30 / 58;
+
+/**
+ * Inline AC line segment when pandapower switches reference the line (``et='l'``).
+ *
+ * The vertex exists purely as an attachment point for the switch's peer edge — it should be
+ * visually a *continuation* of the line, not a white rectangle. We render it with ``shape=line``
+ * (same as the bus / palette line) and orient it along the feeder direction.
+ */
+const IMPORT_LINE_VERTEX_LENGTH = 24;
+const IMPORT_LINE_VERTEX_THICKNESS = 8;
+const IMPORT_LINE_VERTEX_STYLE_HORIZONTAL =
+    'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;' +
+    'shape=line;strokeColor=#000000;strokeWidth=1;perimeter=none;rounded=0;shapeELXXX=Line';
+const IMPORT_LINE_VERTEX_STYLE_VERTICAL =
+    'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;' +
+    'shape=line;direction=north;strokeColor=#000000;strokeWidth=1;perimeter=none;rounded=0;shapeELXXX=Line';
+
+const IMPORT_STUB_EDGE_STYLE =
+    'edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;' +
+    'exitX=0.5;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;;' +
+    'shapeELXXX=NotEditableLine';
+
+/** Pixels per pandapower ``geo`` unit (see bus import ``geo_x`` / ``geo_y``). */
+const IMPORT_GEO_SCALE = 88;
+/** Vertical step between BFS layers when geo is missing. */
+const IMPORT_VERTICAL_FEEDER_STEP = 152;
+const IMPORT_SIBLING_BUS_GAP = 170;
+const IMPORT_MAX_BUSES_VERTICAL_FEEDER = 80;
+
+/** Rotate switch / transformer symbols for geo- or BFS-based **vertical** SLD import (pins align top/bottom). */
+const IMPORT_SLD_VERTICAL_ROTATION = 90;
+
+/** Straight edges for vertical SLD — orthogonal routing draws “bracket” paths when pins are almost collinear. */
+const IMPORT_VERTICAL_SLD_EDGE_BASE =
+    'edgeStyle=none;rounded=0;html=1;jettySize=0;orthogonalLoop=0;jumpStyle=none;';
+
+/** If bus centre and peer centre differ by less than this (px), treat as one vertical feeder and snap switch X to peer. */
+const IMPORT_VERTICAL_COLLINEAR_X_EPS = 24;
+
+/** Vertical SLD: distance from busbar electrical centre to first switch centre (px). */
+const IMPORT_VERTICAL_SWITCH_GAP_FROM_BUS = 18;
+/** Vertical SLD: extra spacing between stacked switch *cells* on the same bus side (px). */
+const IMPORT_VERTICAL_SWITCH_STACK_PADDING = 6;
+
+/**
+ * Horizontal import: legacy midpoint on switch symbol (Graph uses precise pins).
+ * @see Graph.js Switch constraints — pins at y = 22/40 on left/right.
+ */
+const SWITCH_EDGE_PIN_Y = 0.5;
 // Use existing globalPandaPowerData if it exists, otherwise create it
 if (typeof globalPandaPowerData === 'undefined') {
     window.globalPandaPowerData = null;
@@ -142,6 +192,517 @@ function findVertexByBusId(grafka, parent, busName) {
         }
     }
     return null;
+}
+
+function importGetXmlAttribute(cell, attrName) {
+    if (!cell?.value?.attributes) return null;
+    const attrs = cell.value.attributes;
+    for (let i = 0; i < attrs.length; i++) {
+        if (attrs[i].name === attrName) return attrs[i].value;
+    }
+    return null;
+}
+
+function importBusbarCenterXY(busVertex) {
+    if (!busVertex?.geometry) return { x: 0, y: 0 };
+    return {
+        x: busVertex.geometry.x + IMPORT_BUSBAR_W / 2,
+        y: busVertex.geometry.y + busVertex.geometry.height / 2,
+    };
+}
+
+function importFindVertexByTransformerName(grafka, parent, trafoName) {
+    const want = String(trafoName);
+    const childCells = grafka.getChildCells(parent, true, false);
+    for (let i = 0; i < childCells.length; i++) {
+        const cell = childCells[i];
+        if (!cell?.style || cell.edge) continue;
+        const st = String(cell.style);
+        if (!st.includes('shapeELXXX=Transformer') && !st.includes('shapeELXXX=Three Winding Transformer')) continue;
+        const nm = importGetXmlAttribute(cell, 'name');
+        if (nm != null && String(nm) === want) return cell;
+    }
+    return null;
+}
+
+/** Backend may emit plain indices (``"4"``) while buses use ``Bus_4`` when names are blank. */
+function importFindBusVertexByPandapowerRef(grafka, parent, ref, busData) {
+    if (ref == null || ref === '') return null;
+    const s = String(ref).trim();
+    let v = findVertexByBusId(grafka, parent, s);
+    if (v) return v;
+    if (/^\d+$/.test(s)) {
+        v = findVertexByBusId(grafka, parent, `Bus_${s}`);
+        if (v) return v;
+        const idx = parseInt(s, 10);
+        if (busData && busData.data && busData.data[idx]) {
+            const rowName = busData.data[idx][0];
+            return findVertexByBusId(grafka, parent, rowName);
+        }
+    }
+    return null;
+}
+
+/**
+ * Switch ``element`` for lines may be ``Line_0`` or bare ``"0"`` (pandapower index) after export.
+ */
+function importResolveLineDataRow(lineData, elementRef) {
+    if (!lineData || !lineData.data) return null;
+    const s = String(elementRef);
+    let row = lineData.data.find((ln) => String(ln[0]) === s);
+    if (row) return row;
+    if (/^\d+$/.test(s)) {
+        const idx = parseInt(s, 10);
+        if (lineData.data[idx]) return lineData.data[idx];
+        row = lineData.data.find((ln) => String(ln[0]) === `Line_${s}`);
+        if (row) return row;
+    }
+    return null;
+}
+
+function importFindLineVertexPeer(importLineVertexByName, lineData, elementRef) {
+    const s = String(elementRef);
+    if (importLineVertexByName[s]) return importLineVertexByName[s];
+    if (/^\d+$/.test(s) && importLineVertexByName[`Line_${s}`]) return importLineVertexByName[`Line_${s}`];
+    const row = importResolveLineDataRow(lineData, elementRef);
+    if (row && importLineVertexByName[String(row[0])]) return importLineVertexByName[String(row[0])];
+    return null;
+}
+
+function importFindTrafoVertexForSwitch(grafka, parent, elementRef, transformerData) {
+    let v = importFindVertexByTransformerName(grafka, parent, elementRef);
+    if (v) return v;
+    const s = String(elementRef).trim();
+    if (/^\d+$/.test(s)) {
+        v = importFindVertexByTransformerName(grafka, parent, `Trafo_${s}`);
+        if (v) return v;
+        const idx = parseInt(s, 10);
+        if (transformerData && transformerData.data && transformerData.data[idx]) {
+            const nm = transformerData.data[idx][0];
+            return importFindVertexByTransformerName(grafka, parent, nm);
+        }
+    }
+    return null;
+}
+
+/**
+ * Bus name string as used on imported busbars (matches switch ``bus`` column after numeric resolve).
+ */
+function importBusNameFromSwitchRow(busNameImported, busData) {
+    let busKey = String(busNameImported).trim();
+    if (/^\d+$/.test(busKey) && busData?.data?.[parseInt(busKey, 10)]) {
+        busKey = String(busData.data[parseInt(busKey, 10)][0]);
+    }
+    return busKey;
+}
+
+function importResolveTwoWTrafoRowIndex(elementRef, transformerData) {
+    if (!transformerData?.data) return -1;
+    const el = String(elementRef).trim();
+    if (/^\d+$/.test(el)) {
+        const idx = parseInt(el, 10);
+        return idx >= 0 && idx < transformerData.data.length ? idx : -1;
+    }
+    const byName = transformerData.data.findIndex((t) => String(t[0]) === el);
+    if (byName >= 0) return byName;
+    const m = el.match(/^Trafo_(\d+)$/);
+    if (m) {
+        const idx = parseInt(m[1], 10);
+        return idx >= 0 && idx < transformerData.data.length ? idx : -1;
+    }
+    return -1;
+}
+
+function importResolveThreeWTrafoRowIndex(elementRef, trafo3wData) {
+    if (!trafo3wData?.data) return -1;
+    const el = String(elementRef).trim();
+    if (/^\d+$/.test(el)) {
+        const idx = parseInt(el, 10);
+        return idx >= 0 && idx < trafo3wData.data.length ? idx : -1;
+    }
+    const byName = trafo3wData.data.findIndex((t) => String(t[0]) === el);
+    if (byName >= 0) return byName;
+    return -1;
+}
+
+/**
+ * Row index → Set of bus names that already have an ``et=='t'`` / ``et=='t3'`` switch to that transformer.
+ * Omitting matching trafo↔bus import edges avoids 4-way (duplicate) connections on the symbol.
+ */
+function importBuildTrafoSwitchBusSets(switchData, transformerData, threeWindingTransformerData, busData) {
+    const twoW = [];
+    const threeW = [];
+    (switchData.data || []).forEach((row) => {
+        if (!Array.isArray(row) || row.length < 8) return;
+        const [, busNameImported, elementRef, etRaw] = row;
+        const et = String(etRaw || 'l');
+        if (et !== 't' && et !== 't3') return;
+        const busKey = importBusNameFromSwitchRow(busNameImported, busData);
+        if (et === 't') {
+            const ti = importResolveTwoWTrafoRowIndex(elementRef, transformerData);
+            if (ti < 0) return;
+            if (!twoW[ti]) twoW[ti] = new Set();
+            twoW[ti].add(busKey);
+        } else {
+            const ti = importResolveThreeWTrafoRowIndex(elementRef, threeWindingTransformerData);
+            if (ti < 0) return;
+            if (!threeW[ti]) threeW[ti] = new Set();
+            threeW[ti].add(busKey);
+        }
+    });
+    return { twoW, threeW };
+}
+
+function importCellIs2WTransformer(c) {
+    if (!c?.style) return false;
+    const s = String(c.style);
+    return s.includes('shapeELXXX=Transformer') && !s.includes('Three Winding');
+}
+
+function importCellIs3WTransformer(c) {
+    return Boolean(c?.style && String(c.style).includes('shapeELXXX=Three Winding Transformer'));
+}
+
+function importCellIsLineGraphVertex(c) {
+    return Boolean(c?.style && !c.edge && String(c.style).includes('shapeELXXX=Line'));
+}
+
+/** Electrical midpoint of horizontal imported busbar. */
+function importBusbarElectricalY(busVertex) {
+    if (!busVertex?.geometry) return 0;
+    return busVertex.geometry.y + IMPORT_BUSBAR_H / 2;
+}
+
+/**
+ * Edge bus → switch: dock on busbar; enter switch at side pins (horizontal SLD) or top/bottom (vertical SLD).
+ */
+function importBusToSwitchEdgeStyle(busVertex, swVertex, verticalSld) {
+    if (verticalSld) {
+        const bcy = importBusbarElectricalY(busVertex);
+        const swCy = swVertex.geometry.y + swVertex.geometry.height / 2;
+        const busAbove = bcy < swCy - 3;
+        // Rotated 90° CW: unrotated left-centre (0,0.5) becomes screen top-centre,
+        // unrotated right-centre (1,0.5) becomes screen bottom-centre.
+        // Using exactly 0.5 keeps both endpoints on the cell centre X → no horizontal jog.
+        const exitX = 0.5;
+        const exitY = busAbove ? 1 : 0;
+        const entryX = busAbove ? 0 : 1;
+        const entryY = 0.5;
+        return (
+            `${IMPORT_VERTICAL_SLD_EDGE_BASE}` +
+            `exitX=${exitX};exitY=${exitY};exitDx=0;exitDy=0;exitPerimeter=0;` +
+            `entryX=${entryX};entryY=${entryY};entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=NotEditableLine`
+        );
+    }
+    const bcy = importBusbarElectricalY(busVertex);
+    const swCy = swVertex.geometry.y + swVertex.geometry.height / 2;
+    const bcx = busVertex.geometry.x + IMPORT_BUSBAR_W / 2;
+    const swcx = swVertex.geometry.x + swVertex.geometry.width / 2;
+    const dy = bcy - swCy;
+
+    let exitX = 0.5;
+    let exitY = 1;
+    let entryX = 0;
+    let entryY = SWITCH_EDGE_PIN_Y;
+
+    if (Math.abs(dy) <= 3) {
+        if (bcx < swcx - 8) {
+            exitX = 1;
+            exitY = 0.5;
+            entryX = 0;
+            entryY = SWITCH_EDGE_PIN_Y;
+        } else if (bcx > swcx + 8) {
+            exitX = 0;
+            exitY = 0.5;
+            entryX = 1;
+            entryY = SWITCH_EDGE_PIN_Y;
+        } else if (dy <= 0) {
+            exitY = 1;
+            entryX = 0;
+        } else {
+            exitY = 0;
+            entryX = 1;
+        }
+    } else if (dy < 0) {
+        exitY = 1;
+        entryX = 0;
+    } else {
+        exitY = 0;
+        entryX = 1;
+    }
+
+    return (
+        'edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;' +
+        `exitX=${exitX};exitY=${exitY};exitDx=0;exitDy=0;exitPerimeter=0;` +
+        `entryX=${entryX};entryY=${entryY};entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=NotEditableLine`
+    );
+}
+
+/**
+ * Edge switch → peer: exit switch at opposite pin; enter 2W trafo on HV/LV winding points (or top/bottom when vertical).
+ */
+function importSwitchToPeerEdgeStyle(swVertex, peerCell, busVertex, verticalSld) {
+    if (verticalSld) {
+        const bcy = importBusbarElectricalY(busVertex);
+        const swCy = swVertex.geometry.y + swVertex.geometry.height / 2;
+        const busAbove = bcy < swCy - 3;
+        // Rotated 90° CW: exit opposite side from bus → bottom of rotated switch when bus is above.
+        // Local (1, 0.5) = bottom-centre after rotation; local (0, 0.5) = top-centre.
+        const exitX = busAbove ? 1 : 0;
+        const exitY = 0.5;
+
+        const peerCy = peerCell.geometry.y + peerCell.geometry.height / 2;
+        const peerBelow = peerCy > swCy + 2;
+
+        let entryX = 0.5;
+        let entryY = 0.5;
+        if (importCellIs2WTransformer(peerCell)) {
+            // Rotated trafo: local (0, 0.5) → top-centre, local (1, 0.5) → bottom-centre.
+            entryX = peerBelow ? 0 : 1;
+            entryY = 0.5;
+        } else if (importCellIs3WTransformer(peerCell)) {
+            entryX = peerBelow ? 0 : 1;
+            entryY = 0.5;
+        } else if (importCellIsLineGraphVertex(peerCell)) {
+            entryX = 0.5;
+            entryY = 0.5;
+        } else {
+            entryX = 0.5;
+            entryY = peerBelow ? 0 : 1;
+        }
+
+        return (
+            `${IMPORT_VERTICAL_SLD_EDGE_BASE}` +
+            `exitX=${exitX};exitY=${exitY};exitDx=0;exitDy=0;exitPerimeter=0;` +
+            `entryX=${entryX};entryY=${entryY};entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=NotEditableLine`
+        );
+    }
+    const bcy = importBusbarElectricalY(busVertex);
+    const swCy = swVertex.geometry.y + swVertex.geometry.height / 2;
+    const bcx = busVertex.geometry.x + IMPORT_BUSBAR_W / 2;
+    const swcx = swVertex.geometry.x + swVertex.geometry.width / 2;
+    const dy = bcy - swCy;
+
+    let exitX = 1;
+    let exitY = SWITCH_EDGE_PIN_Y;
+
+    if (Math.abs(dy) <= 3) {
+        if (bcx < swcx - 8) {
+            exitX = 1;
+        } else if (bcx > swcx + 8) {
+            exitX = 0;
+        } else if (dy <= 0) {
+            exitX = 1;
+        } else {
+            exitX = 0;
+        }
+    } else if (dy < 0) {
+        exitX = 1;
+    } else {
+        exitX = 0;
+    }
+
+    const peerCy = peerCell.geometry.y + peerCell.geometry.height / 2;
+    const peerBelow = peerCy > swCy + 2;
+
+    let entryX = 0.5;
+    let entryY = 0.5;
+    if (importCellIs2WTransformer(peerCell)) {
+        if (peerBelow) {
+            entryX = 0;
+            entryY = TRANSFORMER_EDGE_PIN_Y;
+        } else {
+            entryX = 1;
+            entryY = TRANSFORMER_EDGE_PIN_Y;
+        }
+    } else if (importCellIs3WTransformer(peerCell)) {
+        entryX = 0.5;
+        entryY = peerBelow ? 0 : 1;
+    } else if (importCellIsLineGraphVertex(peerCell)) {
+        entryX = 0.5;
+        entryY = 0.5;
+    } else {
+        entryX = 0.5;
+        entryY = peerBelow ? 0 : 1;
+    }
+
+    return (
+        'edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;' +
+        `exitX=${exitX};exitY=${exitY};exitDx=0;exitDy=0;exitPerimeter=0;` +
+        `entryX=${entryX};entryY=${entryY};entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=NotEditableLine`
+    );
+}
+
+/** Trafo → bus: winding pins (horizontal SLD) or top/bottom (vertical SLD). */
+function importTrafoToBusEdgeStyle(trafoVertex, busVertex, isHvWinding, verticalSld) {
+    const tcy = trafoVertex.geometry.y + trafoVertex.geometry.height / 2;
+    const bcy = importBusbarElectricalY(busVertex);
+    const busAbove = bcy < tcy - 2;
+    if (verticalSld) {
+        // Rotated 90° CW: HV winding (originally left) becomes top → local (0, 0.5).
+        // LV winding (originally right) becomes bottom → local (1, 0.5).
+        const exitX = isHvWinding ? 0 : 1;
+        const exitY = 0.5;
+        const entryX = 0.5;
+        const entryY = busAbove ? 1 : 0;
+        return (
+            `${IMPORT_VERTICAL_SLD_EDGE_BASE}` +
+            `exitX=${exitX};exitY=${exitY};exitDx=0;exitDy=0;exitPerimeter=0;` +
+            `entryX=${entryX};entryY=${entryY};entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=NotEditableLine`
+        );
+    }
+    const exitX = isHvWinding ? 0 : 1;
+    const exitY = TRANSFORMER_EDGE_PIN_Y;
+    const entryX = 0.5;
+    const entryY = busAbove ? 1 : 0;
+    return (
+        'edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;' +
+        `exitX=${exitX};exitY=${exitY};exitDx=0;exitDy=0;exitPerimeter=0;` +
+        `entryX=${entryX};entryY=${entryY};entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=NotEditableLine`
+    );
+}
+
+/** Three-winding trafo → bus for vertical SLD (approximate top/bottom docking). */
+function importTrafo3wToBusEdgeStyle(trafoVertex, busVertex) {
+    const tcy = trafoVertex.geometry.y + trafoVertex.geometry.height / 2;
+    const bcy = importBusbarElectricalY(busVertex);
+    const busAbove = bcy < tcy - 2;
+    return (
+        `${IMPORT_VERTICAL_SLD_EDGE_BASE}` +
+        `exitX=0.5;exitY=${busAbove ? 0 : 1};exitDx=0;exitDy=0;exitPerimeter=0;` +
+        `entryX=0.5;entryY=${busAbove ? 1 : 0};entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=NotEditableLine`
+    );
+}
+
+function importResolveBusRowIndex(ref, busData) {
+    if (!busData?.data) return -1;
+    const s = String(ref).trim();
+    if (/^\d+$/.test(s)) {
+        const i = parseInt(s, 10);
+        if (i >= 0 && i < busData.data.length) return i;
+    }
+    const byName = busData.data.findIndex((row) => String(row[0]) === s);
+    return byName;
+}
+
+function importAllBusesHaveGeo(busData) {
+    if (!busData?.data?.length) return false;
+    for (let r = 0; r < busData.data.length; r++) {
+        const row = busData.data[r];
+        const gx = row.length > 4 ? row[4] : null;
+        const gy = row.length > 5 ? row[5] : null;
+        if (gx == null || gy == null) return false;
+        const x = Number(gx);
+        const y = Number(gy);
+        if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
+    }
+    return true;
+}
+
+/** Map pandapower geo coordinates to canvas (Y grows downward; geo often uses Y up). */
+function importBusPositionsFromGeo(busData, anchorX, anchorY, scale) {
+    const positions = [];
+    let minGx = Infinity;
+    let maxGx = -Infinity;
+    let minGy = Infinity;
+    let maxGy = -Infinity;
+    for (let i = 0; i < busData.data.length; i++) {
+        const gx = Number(busData.data[i][4]);
+        const gy = Number(busData.data[i][5]);
+        minGx = Math.min(minGx, gx);
+        maxGx = Math.max(maxGx, gx);
+        minGy = Math.min(minGy, gy);
+        maxGy = Math.max(maxGy, gy);
+    }
+    const cx = (minGx + maxGx) / 2;
+    const cy = (minGy + maxGy) / 2;
+    for (let i = 0; i < busData.data.length; i++) {
+        const gx = Number(busData.data[i][4]);
+        const gy = Number(busData.data[i][5]);
+        positions[i] = {
+            x: anchorX + (gx - cx) * scale - IMPORT_BUSBAR_W / 2,
+            y: anchorY - (gy - cy) * scale,
+        };
+    }
+    return positions;
+}
+
+function importBuildBusAdjacencyForLayout(busCount, lineData, transformerData, switchData, busData) {
+    const adj = Array.from({ length: busCount }, () => []);
+    const add = (a, b) => {
+        if (a < 0 || b < 0 || a >= busCount || b >= busCount || a === b) return;
+        adj[a].push(b);
+        adj[b].push(a);
+    };
+    (lineData.data || []).forEach((line) => {
+        const [, , from_bus, to_bus] = line;
+        add(from_bus, to_bus);
+    });
+    (transformerData.data || []).forEach((t) => {
+        const [, , hv, lv] = t;
+        add(hv, lv);
+    });
+    (switchData.data || []).forEach((row) => {
+        if (!Array.isArray(row) || row.length < 8) return;
+        if (String(row[3] || 'l') !== 'b') return;
+        const u = importResolveBusRowIndex(row[1], busData);
+        const v = importResolveBusRowIndex(row[2], busData);
+        add(u, v);
+    });
+    return adj;
+}
+
+/**
+ * BFS from slack bus: vertical spine for radial feeders; siblings spread on X.
+ * Returns null if the graph is disconnected.
+ */
+function importLayoutBfsVerticalFeeder(busCount, adj, rootIdx, anchorX, anchorY, yStep, siblingGap) {
+    if (rootIdx < 0 || rootIdx >= busCount) return null;
+    const depth = new Array(busCount).fill(-1);
+    const q = [rootIdx];
+    depth[rootIdx] = 0;
+    while (q.length) {
+        const u = q.shift();
+        const neigh = [...new Set(adj[u])].sort((a, b) => a - b);
+        for (let i = 0; i < neigh.length; i++) {
+            const v = neigh[i];
+            if (depth[v] >= 0) continue;
+            depth[v] = depth[u] + 1;
+            q.push(v);
+        }
+    }
+    if (depth.some((d) => d < 0)) return null;
+
+    const byDepth = new Map();
+    let maxD = 0;
+    for (let i = 0; i < busCount; i++) {
+        const d = depth[i];
+        maxD = Math.max(maxD, d);
+        if (!byDepth.has(d)) byDepth.set(d, []);
+        byDepth.get(d).push(i);
+    }
+    for (const [, arr] of byDepth) {
+        arr.sort((a, b) => a - b);
+    }
+
+    const positions = [];
+    for (let i = 0; i < busCount; i++) {
+        positions.push({ x: 0, y: 0 });
+    }
+    for (let d = 0; d <= maxD; d++) {
+        const layer = byDepth.get(d) || [];
+        const n = layer.length;
+        const y = anchorY + d * yStep;
+        for (let j = 0; j < n; j++) {
+            const busIdx = layer[j];
+            const offsetX = n === 1 ? 0 : (j - (n - 1) / 2) * siblingGap;
+            positions[busIdx] = {
+                x: anchorX + offsetX - IMPORT_BUSBAR_W / 2,
+                y,
+            };
+        }
+    }
+    return positions;
 }
 
 // Optimized component insertion with proper batching and UI yielding
@@ -340,6 +901,33 @@ async function insertComponentsForData(grafka, a, target, point, data) {
     grafka.getModel().beginUpdate();
 
     try {
+        let switchData = { data: [] };
+        try {
+            if (data._object?.switch?._object) {
+                switchData = JSON.parse(data._object.switch._object);
+            }
+        } catch (e) {
+            console.warn('Could not parse switch bundle from pandapower import:', e);
+        }
+        const lineNamesNeedingVertex = new Set();
+        (switchData.data || []).forEach((row) => {
+            if (!Array.isArray(row) || row.length < 8) return;
+            const et = String(row[3] || 'l');
+            if (et !== 'l') return;
+            const el = String(row[2]);
+            lineNamesNeedingVertex.add(el);
+            if (/^\d+$/.test(el)) {
+                lineNamesNeedingVertex.add(`Line_${el}`);
+            }
+        });
+        const importLineVertexByName = Object.create(null);
+        const trafoSwitchBusSets = importBuildTrafoSwitchBusSets(
+            switchData,
+            transformerData,
+            threeWindingTransformerData,
+            busData,
+        );
+
         // First pass - identify bus-transformer connections with progress tracking
         const busCount = busData.data.length;
         const busToTransformerMap = new Array(busCount).fill().map(() => []);
@@ -380,71 +968,104 @@ async function insertComponentsForData(grafka, a, target, point, data) {
             }
         });
 
-        // Hierarchical placement parameters
-        const levelHeight = 200; // Vertical spacing between voltage levels
-        const busSpacing = 180;  // Horizontal spacing between buses on same level
-        const startX = x + 100;  // Starting X position
-        const startY = y + 100;  // Starting Y position
+        // Bus placement: pandapower geo (preferred) → vertical BFS feeder → legacy voltage bands
+        const levelHeight = 200;
+        const busSpacing = 180;
+        const startX = x + 100;
+        const startY = y + 100;
+        const layoutCenterX = startX + IMPORT_BUSBAR_W / 2;
 
-        // Group buses by voltage level efficiently
-        const voltageGroups = {};
-        for (let index = 0; index < busData.data.length; index++) {
-            const bus = busData.data[index];
-            const [name, vn_kv, type, inService] = bus;
-            const voltage = parseFloat(vn_kv);
+        let busPositions = null;
+        let importPandapowerVerticalSld = false;
 
-            if (!voltageGroups[voltage]) {
-                voltageGroups[voltage] = [];
+        if (importAllBusesHaveGeo(busData)) {
+            busPositions = importBusPositionsFromGeo(busData, layoutCenterX, startY, IMPORT_GEO_SCALE);
+            importPandapowerVerticalSld = true;
+        } else if (
+            busCount > 0 &&
+            busCount <= IMPORT_MAX_BUSES_VERTICAL_FEEDER &&
+            externalGridData &&
+            Array.isArray(externalGridData.data) &&
+            externalGridData.data.length > 0
+        ) {
+            const rootRow = externalGridData.data[0];
+            const rootSlack = parseInt(String(rootRow[1]), 10);
+            if (Number.isFinite(rootSlack) && rootSlack >= 0 && rootSlack < busCount) {
+                const adj = importBuildBusAdjacencyForLayout(
+                    busCount,
+                    lineData,
+                    transformerData,
+                    switchData,
+                    busData,
+                );
+                busPositions = importLayoutBfsVerticalFeeder(
+                    busCount,
+                    adj,
+                    rootSlack,
+                    layoutCenterX,
+                    startY,
+                    IMPORT_VERTICAL_FEEDER_STEP,
+                    IMPORT_SIBLING_BUS_GAP,
+                );
+                if (busPositions) {
+                    importPandapowerVerticalSld = true;
                 }
-            voltageGroups[voltage].push({index, name, voltage});
+            }
         }
 
-            // Sort voltage levels in descending order (highest voltage at top)
-            const sortedVoltages = Object.keys(voltageGroups).map(v => parseFloat(v)).sort((a, b) => b - a);
-            
-            // Calculate positions for each voltage level
-            const busPositions = [];
+        if (!busPositions) {
+            const voltageGroups = {};
+            for (let index = 0; index < busData.data.length; index++) {
+                const bus = busData.data[index];
+                const [name, vn_kv, type, inService] = bus;
+                const voltage = parseFloat(vn_kv);
+
+                if (!voltageGroups[voltage]) {
+                    voltageGroups[voltage] = [];
+                }
+                voltageGroups[voltage].push({ index, name, voltage });
+            }
+
+            const sortedVoltages = Object.keys(voltageGroups).map((v) => parseFloat(v)).sort((a, b) => b - a);
+
+            busPositions = [];
             for (let i = 0; i < busCount; i++) {
-                busPositions[i] = {x: 0, y: 0};
+                busPositions[i] = { x: 0, y: 0 };
             }
 
             sortedVoltages.forEach((voltage, levelIndex) => {
                 const busesAtLevel = voltageGroups[voltage];
-                const levelY = startY + (levelIndex * levelHeight);
-                
-                // Center the buses horizontally at this voltage level
+                const levelY = startY + levelIndex * levelHeight;
+
                 const totalWidth = (busesAtLevel.length - 1) * busSpacing;
-                const levelStartX = startX - (totalWidth / 2);
-                
+                const levelStartX = startX - totalWidth / 2;
+
                 busesAtLevel.forEach((busInfo, busIndex) => {
-                    const busX = levelStartX + (busIndex * busSpacing);
+                    const busX = levelStartX + busIndex * busSpacing;
                     busPositions[busInfo.index] = {
                         x: busX,
-                        y: levelY
+                        y: levelY,
                     };
                 });
             });
 
-            // Fine-tune positions based on transformer connections
-            // Move connected buses closer together if they're on different levels
             transformerData.data.forEach((trafo) => {
-                const [name, std_type, hv_bus_no, lv_bus_no] = trafo;
-                
+                const [, , hv_bus_no, lv_bus_no] = trafo;
+
                 if (hv_bus_no < busCount && hv_bus_no >= 0 && lv_bus_no < busCount && lv_bus_no >= 0) {
                     const hvBus = busData.data[hv_bus_no];
                     const lvBus = busData.data[lv_bus_no];
                     const hvVoltage = parseFloat(hvBus[1]);
                     const lvVoltage = parseFloat(lvBus[1]);
-                    
-                    // If buses are on different voltage levels, align them vertically
+
                     if (hvVoltage !== lvVoltage) {
-                        // Average their X positions to align them vertically
                         const avgX = (busPositions[hv_bus_no].x + busPositions[lv_bus_no].x) / 2;
                         busPositions[hv_bus_no].x = avgX;
                         busPositions[lv_bus_no].x = avgX;
                     }
                 }
             });
+        }
 
             // Create vertices using the calculated positions
             busData.data.forEach((bus, index) => {
@@ -512,8 +1133,12 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                     const vertexCenterX = (hvCx + lvCx) / 2;
                     const vertexCenterY = (hvY + lvY) / 2;
 
-                    const trafoStyle = vertexStyleFromElectrisimSymbol('sym-transformer', 'Transformer');
-                    const [trafoW, trafoH] = vertexSizeFromElectrisimSymbol('sym-transformer', 40, 60);
+                    let trafoStyle = vertexStyleFromElectrisimSymbol('sym-transformer', 'Transformer');
+                    let [trafoW, trafoH] = vertexSizeFromElectrisimSymbol('sym-transformer', 40, 60);
+                    if (importPandapowerVerticalSld) {
+                        [trafoW, trafoH] = [trafoH, trafoW];
+                        trafoStyle = `${trafoStyle};rotation=${IMPORT_SLD_VERTICAL_ROTATION}`;
+                    }
 
                     const vertex = grafka.insertVertex(
                         parent,
@@ -551,11 +1176,31 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                         in_service: `${in_service}`
                     });
 
-                    // Create edges connecting transformer to buses
-                    grafka.insertEdge(parent, null, "", vertex, hvBusVertex,
-                        `edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=${TRANSFORMER_EDGE_PIN_Y};exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=NotEditableLine`);
-                    grafka.insertEdge(parent, null, "", vertex, lvBusVertex,
-                        `edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=${TRANSFORMER_EDGE_PIN_Y};exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=NotEditableLine`);
+                    const switchedBuses = trafoSwitchBusSets.twoW[index];
+                    const skipHvEdge = switchedBuses && switchedBuses.has(String(hv_bus_name));
+                    const skipLvEdge = switchedBuses && switchedBuses.has(String(lv_bus_name));
+
+                    // Create edges connecting transformer to buses (skip winding if import adds bus–switch–trafo)
+                    if (!skipHvEdge) {
+                        grafka.insertEdge(
+                            parent,
+                            null,
+                            '',
+                            vertex,
+                            hvBusVertex,
+                            importTrafoToBusEdgeStyle(vertex, hvBusVertex, true, importPandapowerVerticalSld),
+                        );
+                    }
+                    if (!skipLvEdge) {
+                        grafka.insertEdge(
+                            parent,
+                            null,
+                            '',
+                            vertex,
+                            lvBusVertex,
+                            importTrafoToBusEdgeStyle(vertex, lvBusVertex, false, importPandapowerVerticalSld),
+                        );
+                    }
                 } else {
                     console.warn(`Could not place transformer ${name}: One or both bus vertices not found`, {
                         hv_bus: hv_bus_name,
@@ -584,24 +1229,7 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 const toBusVertex = findVertexByBusId(grafka, parent, toBusName);
 
                 if (fromBusVertex && toBusVertex) {
-                    // Define line style based on type (cs for cable, ol for overhead line)
-                    let lineStyle;
-
-                    lineStyle = "edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=Line";
-
-
-                    // Insert the edge for the line
-                    const edge = grafka.insertEdge(
-                        parent,
-                        null,
-                        name,
-                        fromBusVertex,
-                        toBusVertex,
-                        lineStyle
-                    );
-
-                    // Configure line attributes
-                    configureLineAttributes(grafka, edge, {
+                    const lineAttr = {
                         name: `${name}`,
                         std_type: `${std_type}`,
                         from_bus: `${from_bus}`,
@@ -615,8 +1243,56 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                         df: `${df}`,
                         parallel: `${parallel}`,
                         type: `${type}`,
-                        in_service: `${in_service}`
-                    });
+                        in_service: `${in_service}`,
+                    };
+                    const useLineVertex =
+                        lineNamesNeedingVertex.has(String(name)) ||
+                        lineNamesNeedingVertex.has(String(index));
+                    if (useLineVertex) {
+                        const fc = importBusbarCenterXY(fromBusVertex);
+                        const tc = importBusbarCenterXY(toBusVertex);
+                        const useVertical =
+                            importPandapowerVerticalSld ||
+                            Math.abs(fc.y - tc.y) > Math.abs(fc.x - tc.x);
+                        const lvW = useVertical
+                            ? IMPORT_LINE_VERTEX_THICKNESS
+                            : IMPORT_LINE_VERTEX_LENGTH;
+                        const lvH = useVertical
+                            ? IMPORT_LINE_VERTEX_LENGTH
+                            : IMPORT_LINE_VERTEX_THICKNESS;
+                        const lvStyle = useVertical
+                            ? IMPORT_LINE_VERTEX_STYLE_VERTICAL
+                            : IMPORT_LINE_VERTEX_STYLE_HORIZONTAL;
+                        const mx = (fc.x + tc.x) / 2 - lvW / 2;
+                        const my = (fc.y + tc.y) / 2 - lvH / 2;
+                        const lineVertex = grafka.insertVertex(
+                            parent,
+                            null,
+                            ``,
+                            mx,
+                            my,
+                            lvW,
+                            lvH,
+                            lvStyle,
+                        );
+                        configureLineAttributes(grafka, lineVertex, lineAttr);
+                        grafka.insertEdge(parent, null, '', fromBusVertex, lineVertex, IMPORT_STUB_EDGE_STYLE);
+                        grafka.insertEdge(parent, null, '', lineVertex, toBusVertex, IMPORT_STUB_EDGE_STYLE);
+                        importLineVertexByName[String(name)] = lineVertex;
+                        importLineVertexByName[String(index)] = lineVertex;
+                    } else {
+                        let lineStyle;
+                        lineStyle = "edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=Line";
+                        const edge = grafka.insertEdge(
+                            parent,
+                            null,
+                            name,
+                            fromBusVertex,
+                            toBusVertex,
+                            lineStyle
+                        );
+                        configureLineAttributes(grafka, edge, lineAttr);
+                    }
                 } else {
                     console.warn(`Could not create line ${name}: Bus vertices not found`, {
                         from_bus: fromBusName,
@@ -626,6 +1302,136 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                     });
                 }
             }); 
+
+            // Pandapower switches: two incident edges (bus–line / bus–trafo / bus–bus) for export + layout.
+            // ``verticalSwitchStackPerBusSide`` stacks switches close to the busbar in vertical SLD mode
+            // (otherwise t-fraction places them mid-feeder, leaving a long disconnected-looking stub).
+            const verticalSwitchStackPerBusSide = new Map();
+            (switchData.data || []).forEach((row, si) => {
+                if (!Array.isArray(row) || row.length < 8) return;
+                const [name, bus_name, element_name, etRaw, closed, type, z_ohm, in_ka] = row;
+                const et = String(etRaw || 'l');
+                const busVertex = importFindBusVertexByPandapowerRef(grafka, parent, bus_name, busData);
+                if (!busVertex) {
+                    console.warn(`Could not place switch ${name}: bus "${bus_name}" not found`);
+                    return;
+                }
+                let [swW, swH] = vertexSizeFromElectrisimSymbol('sym-switch', 36, 42);
+                let swStyle = vertexStyleFromElectrisimSymbol('sym-switch', 'Switch');
+                if (importPandapowerVerticalSld) {
+                    [swW, swH] = [swH, swW];
+                    swStyle = `${swStyle};rotation=${IMPORT_SLD_VERTICAL_ROTATION}`;
+                }
+
+                let peerCell = null;
+                if (et === 'l') {
+                    peerCell = importFindLineVertexPeer(importLineVertexByName, lineData, element_name);
+                } else if (et === 't' || et === 't3') {
+                    peerCell = importFindTrafoVertexForSwitch(
+                        grafka,
+                        parent,
+                        element_name,
+                        transformerData,
+                    );
+                } else if (et === 'b') {
+                    peerCell = importFindBusVertexByPandapowerRef(grafka, parent, element_name, busData);
+                }
+
+                const B = importBusbarCenterXY(busVertex);
+                let swCx;
+                let swCy;
+                if (!peerCell) {
+                    console.warn(`Could not place switch ${name}: peer for et=${et} element "${element_name}" not found — using single-bus overlay`);
+                    const bx = busVertex.geometry.x;
+                    const by = busVertex.geometry.y;
+                    const topLX = bx + IMPORT_BUSBAR_W / 2 - swW / 2 + 48 + (si % 4) * 46;
+                    const topLY = by - 60 - Math.floor(si / 4) * 52;
+                    swCx = topLX + swW / 2;
+                    swCy = topLY + swH / 2;
+                } else {
+                    let Px;
+                    let Py;
+                    if (peerCell.edge) {
+                        const g = peerCell.geometry;
+                        Px = g.x + g.width / 2;
+                        Py = g.y + g.height / 2;
+                    } else {
+                        const g = peerCell.geometry;
+                        Px = g.x + g.width / 2;
+                        Py = g.y + g.height / 2;
+                    }
+                    let t = et === 'b' ? 0.5 : 0.34;
+                    if (et === 'l') {
+                        const lineRow = importResolveLineDataRow(lineData, element_name);
+                        if (lineRow) {
+                            const [, , fbIdx, tbIdx] = lineRow;
+                            const fbNm = busData.data[fbIdx][0];
+                            const tbNm = busData.data[tbIdx][0];
+                            if (String(bus_name) === String(fbNm)) t = 0.26;
+                            else if (String(bus_name) === String(tbNm)) t = 0.26;
+                        }
+                    } else if (et === 't' || et === 't3') {
+                        t = 0.32;
+                    }
+                    swCx = B.x + t * (Px - B.x);
+                    swCy = B.y + t * (Py - B.y);
+                    if (importPandapowerVerticalSld && Math.abs(B.x - Px) <= IMPORT_VERTICAL_COLLINEAR_X_EPS) {
+                        swCx = Px;
+                    }
+                    if (importPandapowerVerticalSld) {
+                        const sideKey = `${busVertex.id || ''}|${String(bus_name)}|${Py > B.y ? 'below' : 'above'}`;
+                        const stackIdx = verticalSwitchStackPerBusSide.get(sideKey) || 0;
+                        verticalSwitchStackPerBusSide.set(sideKey, stackIdx + 1);
+                        const sign = Py > B.y ? 1 : -1;
+                        const firstCenterOffset = swH / 2 + IMPORT_VERTICAL_SWITCH_GAP_FROM_BUS;
+                        const stackStep = swH + IMPORT_VERTICAL_SWITCH_STACK_PADDING;
+                        swCx = B.x;
+                        swCy = B.y + sign * (firstCenterOffset + stackIdx * stackStep);
+                    }
+                }
+
+                const swVertex = grafka.insertVertex(
+                    parent,
+                    null,
+                    ``,
+                    swCx - swW / 2,
+                    swCy - swH / 2,
+                    swW,
+                    swH,
+                    swStyle,
+                );
+                const closedBool = closed === true || closed === 'true';
+                if (typeof window.configureSwitchAttributes === 'function') {
+                    window.configureSwitchAttributes(grafka, swVertex, {
+                        name: String(name),
+                        et,
+                        type: String(type || 'CB'),
+                        closed: closedBool,
+                        z_ohm: z_ohm != null && z_ohm !== '' ? String(z_ohm) : '0',
+                        in_ka: in_ka != null && in_ka === in_ka ? String(in_ka) : '0',
+                        pp_import_bus: String(bus_name),
+                        pp_import_element: String(element_name),
+                    });
+                }
+                grafka.insertEdge(
+                    parent,
+                    null,
+                    '',
+                    busVertex,
+                    swVertex,
+                    importBusToSwitchEdgeStyle(busVertex, swVertex, importPandapowerVerticalSld),
+                );
+                if (peerCell) {
+                    grafka.insertEdge(
+                        parent,
+                        null,
+                        '',
+                        swVertex,
+                        peerCell,
+                        importSwitchToPeerEdgeStyle(swVertex, peerCell, busVertex, importPandapowerVerticalSld),
+                    );
+                }
+            });
 
             externalGridData.data.forEach((externalgrid, index) => {
                 const [name, bus_no, vm_pu, va_degree, slack_weight, in_service] = externalgrid;
@@ -903,8 +1709,13 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 const vertexCenterX = hvBusVertex.geometry.x + 60;
                 const vertexCenterY = lvBusVertex.geometry.y - 120;
 
-                const threewindingtrafoStyle = vertexStyleFromElectrisimSymbol('sym-3w-transformer', 'Three Winding Transformer');
-                const [twW, twH] = vertexSizeFromElectrisimSymbol('sym-3w-transformer', 40, 60);
+                const threewindingtrafoStyleBase = vertexStyleFromElectrisimSymbol('sym-3w-transformer', 'Three Winding Transformer');
+                let [twW, twH] = vertexSizeFromElectrisimSymbol('sym-3w-transformer', 40, 60);
+                let threewindingtrafoStyle = threewindingtrafoStyleBase;
+                if (importPandapowerVerticalSld) {
+                    [twW, twH] = [twH, twW];
+                    threewindingtrafoStyle = `${threewindingtrafoStyleBase};rotation=${IMPORT_SLD_VERTICAL_ROTATION}`;
+                }
 
                 const vertex = grafka.insertVertex(
                     parent,
@@ -952,14 +1763,46 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 const edgeStyleMV = "edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.4;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=NotEditableLine";
                 const edgeStyleLV = "edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.4;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=NotEditableLine";
 
-                if (hvBusVertex) {
-                    grafka.insertEdge(parent, null, "", vertex, hvBusVertex, edgeStyleHV);
+                const switchedBuses3w = trafoSwitchBusSets.threeW[index];
+                const skipHv3 = switchedBuses3w && switchedBuses3w.has(String(hv_bus_name));
+                const skipMv3 = switchedBuses3w && switchedBuses3w.has(String(mv_bus_name));
+                const skipLv3 = switchedBuses3w && switchedBuses3w.has(String(lv_bus_name));
+
+                if (hvBusVertex && !skipHv3) {
+                    grafka.insertEdge(
+                        parent,
+                        null,
+                        '',
+                        vertex,
+                        hvBusVertex,
+                        importPandapowerVerticalSld
+                            ? importTrafo3wToBusEdgeStyle(vertex, hvBusVertex)
+                            : edgeStyleHV,
+                    );
                 }
-                if (mvBusVertex) {
-                    grafka.insertEdge(parent, null, "", vertex, mvBusVertex, edgeStyleMV);
+                if (mvBusVertex && !skipMv3) {
+                    grafka.insertEdge(
+                        parent,
+                        null,
+                        '',
+                        vertex,
+                        mvBusVertex,
+                        importPandapowerVerticalSld
+                            ? importTrafo3wToBusEdgeStyle(vertex, mvBusVertex)
+                            : edgeStyleMV,
+                    );
                 }
-                if (lvBusVertex) {
-                    grafka.insertEdge(parent, null, "", vertex, lvBusVertex, edgeStyleLV);
+                if (lvBusVertex && !skipLv3) {
+                    grafka.insertEdge(
+                        parent,
+                        null,
+                        '',
+                        vertex,
+                        lvBusVertex,
+                        importPandapowerVerticalSld
+                            ? importTrafo3wToBusEdgeStyle(vertex, lvBusVertex)
+                            : edgeStyleLV,
+                    );
                 }
             });
             shuntReactorData.data.forEach((shuntreactor, index) => {

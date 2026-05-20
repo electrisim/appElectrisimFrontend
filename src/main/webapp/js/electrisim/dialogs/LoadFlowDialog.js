@@ -2,6 +2,7 @@
 // VERSION: 2024-10-18 - Updated with correct OpenDSS parameters
 import { Dialog } from '../Dialog.js';
 import { ensureSubscriptionFunctions } from '../ensureSubscriptionFunctions.js';
+import { SIMULATION_FORM_SCROLL_STYLE, SIMULATION_INFO_BANNER_STYLE, STUDY_MODAL_OVERLAY_STYLE, getStudyModalDialogBoxStyle, STUDY_MODAL_CONTENT_WRAPPER_STYLE } from '../utils/dialogStyles.js';
 
 console.log('🔥 LoadFlowDialog.js LOADED - Version 2024-10-18 14:30 - WITH NEW OPENDSS PARAMETERS');
 
@@ -210,7 +211,8 @@ export class LoadFlowDialog extends Dialog {
             display: 'flex',
             flexDirection: 'column',
             width: '100%',
-            marginBottom: '16px'
+            marginBottom: '12px',
+            flexShrink: '0'
         });
 
         // Create tab headers
@@ -699,25 +701,20 @@ export class LoadFlowDialog extends Dialog {
             padding: '0',
             margin: '0',
             width: '100%',
+            height: '100%',
             boxSizing: 'border-box',
             display: 'flex',
             flexDirection: 'column',
-            minHeight: '0', // Allow flex shrinking
-            maxHeight: '100%' // Prevent overflow of parent
+            flex: '1 1 auto',
+            minHeight: '0',
+            maxHeight: '100%',
+            overflow: 'hidden'
         });
 
         // Add description
         if (this.getDescription) {
             const description = document.createElement('div');
-            Object.assign(description.style, {
-                padding: '6px 10px',
-                backgroundColor: '#e3f2fd',
-                border: '1px solid #bbdefb',
-                borderRadius: '4px',
-                fontSize: '12px',
-                color: '#1565c0',
-                marginBottom: '12px'
-            });
+            Object.assign(description.style, SIMULATION_INFO_BANNER_STYLE);
             description.innerHTML = this.getDescription();
             container.appendChild(description);
         }
@@ -729,14 +726,7 @@ export class LoadFlowDialog extends Dialog {
         // Create scrollable content area for the form
         const scrollableContent = document.createElement('div');
         scrollableContent.setAttribute('data-form-container', 'true'); // Add identifier for easy lookup
-        Object.assign(scrollableContent.style, {
-            flex: '1',
-            overflowY: 'auto',
-            paddingRight: '5px', // Space for scrollbar
-            marginBottom: '16px',
-            minHeight: '300px', // Minimum height to ensure form is visible
-            maxHeight: '450px' // Maximum height before scrolling
-        });
+        Object.assign(scrollableContent.style, SIMULATION_FORM_SCROLL_STYLE);
 
         // Add form to scrollable area
         const form = this.createForm();
@@ -884,37 +874,12 @@ export class LoadFlowDialog extends Dialog {
     }
 
     createModalOverlay() {
-        // Create modal overlay
         this.modalOverlay = document.createElement('div');
-        Object.assign(this.modalOverlay.style, {
-            position: 'fixed',
-            top: '0',
-            left: '0',
-            width: '100%',
-            height: '100%',
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            zIndex: '10000',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center'
-        });
+        Object.assign(this.modalOverlay.style, STUDY_MODAL_OVERLAY_STYLE);
 
-        // Create dialog box
         const dialogBox = document.createElement('div');
-        Object.assign(dialogBox.style, {
-            backgroundColor: 'white',
-            borderRadius: '8px',
-            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
-            width: '600px',
-            maxWidth: '90vw',
-            maxHeight: '85vh',
-            minHeight: '600px',
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column'
-        });
+        Object.assign(dialogBox.style, getStudyModalDialogBoxStyle(640));
 
-        // Add title bar
         const titleBar = document.createElement('div');
         Object.assign(titleBar.style, {
             padding: '16px 20px',
@@ -922,27 +887,20 @@ export class LoadFlowDialog extends Dialog {
             borderBottom: '1px solid #e9ecef',
             fontWeight: '600',
             fontSize: '16px',
-            color: '#495057'
+            color: '#495057',
+            flexShrink: '0'
         });
         titleBar.textContent = this.title;
         dialogBox.appendChild(titleBar);
 
-        // Add content
         const contentWrapper = document.createElement('div');
-        Object.assign(contentWrapper.style, {
-            padding: '20px',
-            flex: '1',
-            display: 'flex',
-            flexDirection: 'column',
-            minHeight: '0' // Important for proper flex shrinking
-        });
+        Object.assign(contentWrapper.style, STUDY_MODAL_CONTENT_WRAPPER_STYLE);
         contentWrapper.appendChild(this.container);
         dialogBox.appendChild(contentWrapper);
 
         this.modalOverlay.appendChild(dialogBox);
         document.body.appendChild(this.modalOverlay);
 
-        // Add click outside to close
         this.modalOverlay.addEventListener('click', (e) => {
             if (e.target === this.modalOverlay) {
                 this.destroy();

@@ -1,5 +1,5 @@
 // Dialog.js - Base class for all dialogs
-import { DIALOG_STYLES } from './utils/dialogStyles.js';
+import { DIALOG_STYLES, getDrawioStudyDialogHeight, getStudyModalDialogBoxStyle, SIMULATION_FORM_SCROLL_STYLE, SIMULATION_INFO_BANNER_STYLE, STUDY_MODAL_CONTENT_WRAPPER_STYLE, STUDY_MODAL_OVERLAY_STYLE } from './utils/dialogStyles.js';
 
 // Try to import performance utils, but don't fail if not available
 let EventListenerRegistry;
@@ -61,37 +61,42 @@ export class Dialog {
             height: '100%',
             boxSizing: 'border-box',
             display: 'flex',
-            flexDirection: 'column'
+            flexDirection: 'column',
+            ...(this.useStudyModalShell
+                ? {
+                    flex: '1 1 auto',
+                    minHeight: '0',
+                    maxHeight: '100%',
+                    overflow: 'hidden'
+                }
+                : {})
         });
 
         // Add description if provided
         if (this.getDescription) {
             const description = document.createElement('div');
-            Object.assign(description.style, {
-                padding: '6px 10px',
-                backgroundColor: '#e3f2fd',
-                border: '1px solid #bbdefb',
-                borderRadius: '4px',
-                fontSize: '12px',
-                color: '#1565c0',
-                marginBottom: '12px'
-            });
+            Object.assign(description.style, SIMULATION_INFO_BANNER_STYLE);
             description.innerHTML = this.getDescription();
             container.appendChild(description);
         }
 
         // Create content area (scrollable)
         const contentArea = document.createElement('div');
-        Object.assign(contentArea.style, {
-            overflowY: 'auto',
-            overflowX: 'auto',
-            flex: '1 1 auto',
-            minHeight: '0',
-            minWidth: 0,
-            scrollbarWidth: 'thin',
-            scrollbarColor: '#c1c1c1 #f1f1f1',
-            paddingRight: '8px'
-        });
+        Object.assign(
+            contentArea.style,
+            this.useStudyModalShell
+                ? SIMULATION_FORM_SCROLL_STYLE
+                : {
+                    overflowY: 'auto',
+                    overflowX: 'auto',
+                    flex: '1 1 auto',
+                    minHeight: '0',
+                    minWidth: 0,
+                    scrollbarWidth: 'thin',
+                    scrollbarColor: '#c5ccd3 #f1f3f5',
+                    paddingRight: '8px'
+                }
+        );
 
         const form = document.createElement('form');
         Object.assign(form.style, {
@@ -299,6 +304,16 @@ export class Dialog {
 
         // Only add our buttons when using DrawIO's showDialog - showModalFallback adds its own
         const useDrawIODialog = !this.useModalFallback && this.ui && typeof this.ui.showDialog === 'function';
+
+        if (this.useStudyModalShell) {
+            Object.assign(buttonContainer.style, { flexShrink: '0' });
+            container.appendChild(buttonContainer);
+            this.container = container;
+            const w = this.studyModalBoxWidth != null ? this.studyModalBoxWidth : 720;
+            this.mountStudyModalShell(w);
+            return;
+        }
+
         if (useDrawIODialog) {
             container.appendChild(buttonContainer);
         }
@@ -309,13 +324,52 @@ export class Dialog {
         if (useDrawIODialog) {
             // The true, false parameters tell DrawIO not to create its own buttons
             // Pass onDialogClose so destroy() runs when closed via ESC (ensures cleanupCallback runs)
-            this.ui.showDialog(container, 680, 600, true, false, () => {
+            this.ui.showDialog(container, 720, getDrawioStudyDialogHeight(), true, false, () => {
                 this.destroy();
                 return 1; // Allow DrawIO to proceed with DOM removal
             });
         } else {
             this.showModalFallback(container);
         }
+    }
+
+    /**
+     * Same full-viewport modal shell as Load Flow (title bar + flex body + scroll region).
+     * @param {number} boxWidthPx Content max width before vw cap (default 720).
+     */
+    mountStudyModalShell(boxWidthPx = 720) {
+        this.modalOverlay = document.createElement('div');
+        Object.assign(this.modalOverlay.style, STUDY_MODAL_OVERLAY_STYLE);
+
+        const dialogBox = document.createElement('div');
+        Object.assign(dialogBox.style, getStudyModalDialogBoxStyle(boxWidthPx));
+
+        const titleBar = document.createElement('div');
+        Object.assign(titleBar.style, {
+            padding: '16px 20px',
+            backgroundColor: '#f8f9fa',
+            borderBottom: '1px solid #e9ecef',
+            fontWeight: '600',
+            fontSize: '16px',
+            color: '#495057',
+            flexShrink: '0'
+        });
+        titleBar.textContent = this.title;
+        dialogBox.appendChild(titleBar);
+
+        const contentWrapper = document.createElement('div');
+        Object.assign(contentWrapper.style, STUDY_MODAL_CONTENT_WRAPPER_STYLE);
+        contentWrapper.appendChild(this.container);
+        dialogBox.appendChild(contentWrapper);
+
+        this.modalOverlay.appendChild(dialogBox);
+        document.body.appendChild(this.modalOverlay);
+
+        this.modalOverlay.addEventListener('click', (e) => {
+            if (e.target === this.modalOverlay) {
+                this.destroy();
+            }
+        });
     }
 
     calculateContentHeight() {
@@ -394,7 +448,7 @@ export class Dialog {
             maxWidth: '720px',
             width: '95%',
             minWidth: '320px',
-            maxHeight: '80vh',
+            maxHeight: 'min(92vh, 920px)',
             display: 'flex',
             flexDirection: 'column'
         });

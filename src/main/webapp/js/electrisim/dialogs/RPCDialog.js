@@ -1,5 +1,6 @@
 import { Dialog } from '../Dialog.js';
 import { ensureSubscriptionFunctions } from '../ensureSubscriptionFunctions.js';
+import { SIMULATION_FORM_SCROLL_STYLE, SIMULATION_INFO_BANNER_STYLE } from '../utils/dialogStyles.js';
 
 console.log('RPCDialog.js LOADED');
 
@@ -960,22 +961,21 @@ export class RPCDialog extends Dialog {
         Object.assign(container.style, {
             fontFamily: 'Arial, sans-serif', fontSize: '14px', lineHeight: '1.5',
             color: '#333', padding: '0', margin: '0', width: '100%', height: '100%',
+            minHeight: '0', maxHeight: '100%', overflow: 'hidden', flex: '1 1 auto',
             boxSizing: 'border-box', display: 'flex', flexDirection: 'column'
         });
 
         if (this.getDescription) {
             const desc = document.createElement('div');
-            Object.assign(desc.style, {
-                padding: '6px 10px', backgroundColor: '#e3f2fd', border: '1px solid #bbdefb',
-                borderRadius: '4px', fontSize: '12px', color: '#1565c0', marginBottom: '12px'
-            });
+            Object.assign(desc.style, SIMULATION_INFO_BANNER_STYLE);
             desc.innerHTML = this.getDescription();
             container.appendChild(desc);
         }
 
         const contentArea = document.createElement('div');
         Object.assign(contentArea.style, {
-            overflowY: 'auto', overflowX: 'hidden', flex: '1 1 auto', minHeight: '0', paddingRight: '8px'
+            ...SIMULATION_FORM_SCROLL_STYLE,
+            overflowX: 'hidden'
         });
 
         const form = document.createElement('form');
@@ -1068,7 +1068,8 @@ export class RPCDialog extends Dialog {
         const buttonContainer = document.createElement('div');
         Object.assign(buttonContainer.style, {
             display: 'flex', gap: '8px', justifyContent: 'flex-end',
-            marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #e9ecef'
+            marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #e9ecef',
+            flexShrink: '0'
         });
 
         const cancelButton = this.createButton('Cancel', '#6c757d', '#5a6268');
@@ -1111,7 +1112,7 @@ export class RPCDialog extends Dialog {
         this.container = container;
 
         if (this.ui && typeof this.ui.showDialog === 'function') {
-            this.ui.showDialog(container, 720, 750, true, false);
+            this.mountStudyModalShell(760);
         } else {
             this.showModalFallback(container);
         }
