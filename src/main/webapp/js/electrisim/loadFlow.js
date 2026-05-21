@@ -108,6 +108,31 @@ const mergeShuntControlIntoShunts = (dataJson) => {
     }
 };
 
+/** Format bus line-to-line voltage in kV (from backend vm_kv or vm_pu × vn_kv fallback). */
+const formatBusVmKv = (bus, decimals = 3) => {
+    const kv = Number(bus?.vm_kv);
+    if (Number.isFinite(kv)) return kv.toFixed(decimals);
+    const pu = Number(bus?.vm_pu);
+    const vn = Number(bus?.vn_kv);
+    if (Number.isFinite(pu) && Number.isFinite(vn) && vn > 0) return (pu * vn).toFixed(decimals);
+    return 'N/A';
+};
+
+/** vn_kv from mxGraph bus cell value (fallback when backend omits vm_kv). */
+const vnKvFromGraphCell = (graphCell) => {
+    if (!graphCell?.value?.getAttribute) return NaN;
+    return Number(graphCell.value.getAttribute('vn_kv'));
+};
+
+const formatBusVmKvForCell = (dataCell, graphCell, decimals = 3) => {
+    const kv = Number(dataCell?.vm_kv);
+    if (Number.isFinite(kv)) return kv.toFixed(decimals);
+    const pu = Number(dataCell?.vm_pu);
+    const vn = vnKvFromGraphCell(graphCell);
+    if (Number.isFinite(pu) && Number.isFinite(vn) && vn > 0) return (pu * vn).toFixed(decimals);
+    return 'N/A';
+};
+
 // Helper function to download Pandapower results as a text file
 const downloadPandapowerResults = (dataJson, graph) => {
     console.log('🔽 downloadPandapowerResults() called');
@@ -145,8 +170,8 @@ const downloadPandapowerResults = (dataJson, graph) => {
         // Buses
         if (dataJson.busbars && dataJson.busbars.length > 0) {
             resultsText += '--- BUSES ---\n';
-            const widths = [18, 18, 12, 14];
-            const headers = ['Object id', 'Dialog name', 'U [pu]', 'U [degree]'];
+            const widths = [18, 18, 12, 12, 14];
+            const headers = ['Object id', 'Dialog name', 'U [pu]', 'U [kV]', 'U [degree]'];
             resultsText += createTableRow(headers, widths) + '\n';
             resultsText += createTableSeparator(widths) + '\n';
             dataJson.busbars.forEach(bus => {
@@ -154,6 +179,7 @@ const downloadPandapowerResults = (dataJson, graph) => {
                     bus.name || 'N/A',
                     dialogNameFor(bus) || '—',
                     bus.vm_pu ? bus.vm_pu.toFixed(3) : 'N/A',
+                    formatBusVmKv(bus),
                     bus.va_degree ? bus.va_degree.toFixed(3) : 'N/A'
                 ];
                 resultsText += createTableRow(row, widths) + '\n';
@@ -1975,6 +2001,7 @@ function loadFlowPandaPower(a, b, c) {
                     resultCell,
                     resultString: `${label}
 U[pu]: ${formatNumber(cell.vm_pu)}
+U[kV]: ${formatBusVmKvForCell(cell, resultCell)}
 U[deg]: ${formatNumber(cell.va_degree)}
 P[MW]: ${formatNumber(d.p)}
 Q[MVar]: ${formatNumber(d.q)}
@@ -1991,7 +2018,7 @@ Q/P: ${formatNumber(d.qp)}`,
                     processCellStyles(b, existing);
                     processVoltageColor(grafka, resultCell, cell.vm_pu);
                 } else {
-                    const labelka = insertResultPlaceholder(resultCell, resultString, { width: 80, height: 70, positionX: 0, positionY: 1.0, offsetXDelta: 40, offsetYDelta: 35 });
+                    const labelka = insertResultPlaceholder(resultCell, resultString, { width: 80, height: 76, positionX: 0, positionY: 1.0, offsetXDelta: 40, offsetYDelta: 35 });
                     if (labelka) {
                         processCellStyles(b, labelka);
                         processVoltageColor(grafka, resultCell, cell.vm_pu);

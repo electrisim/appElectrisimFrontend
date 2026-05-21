@@ -63,6 +63,30 @@ const fmtOpenDssFloat = (val, decimals = 3) => {
     return Number(val).toFixed(decimals);
 };
 
+/** Line-to-line bus voltage in kV for OpenDSS/pandapower bus results. */
+const formatBusVmKv = (bus, decimals = 3) => {
+    const kv = Number(bus?.vm_kv);
+    if (Number.isFinite(kv)) return kv.toFixed(decimals);
+    const pu = Number(bus?.vm_pu);
+    const vn = Number(bus?.vn_kv);
+    if (Number.isFinite(pu) && Number.isFinite(vn) && vn > 0) return (pu * vn).toFixed(decimals);
+    return 'N/A';
+};
+
+const vnKvFromGraphCell = (graphCell) => {
+    if (!graphCell?.value?.getAttribute) return NaN;
+    return Number(graphCell.value.getAttribute('vn_kv'));
+};
+
+const formatBusVmKvForCell = (dataCell, graphCell, decimals = 3) => {
+    const kv = Number(dataCell?.vm_kv);
+    if (Number.isFinite(kv)) return kv.toFixed(decimals);
+    const pu = Number(dataCell?.vm_pu);
+    const vn = vnKvFromGraphCell(graphCell);
+    if (Number.isFinite(pu) && Number.isFinite(vn) && vn > 0) return (pu * vn).toFixed(decimals);
+    return 'N/A';
+};
+
 // Helper function to download OpenDSS commands as a text file
 const downloadOpenDSSCommands = (commands) => {
     try {
@@ -138,8 +162,8 @@ const downloadOpenDSSResults = (dataJson, graph) => {
         // Buses
         if (dataJson.busbars && dataJson.busbars.length > 0) {
             resultsText += '--- BUSES ---\n';
-            const widths = [18, 18, 12, 14];
-            const headers = ['Object id', 'Dialog name', 'U [pu]', 'U [degree]'];
+            const widths = [18, 18, 12, 12, 14];
+            const headers = ['Object id', 'Dialog name', 'U [pu]', 'U [kV]', 'U [degree]'];
             resultsText += createOpenDSSTableRow(headers, widths) + '\n';
             resultsText += createOpenDSSTableSeparator(widths) + '\n';
             dataJson.busbars.forEach(bus => {
@@ -147,6 +171,7 @@ const downloadOpenDSSResults = (dataJson, graph) => {
                     bus.name || 'N/A',
                     dialogNameFor(bus) || '—',
                     bus.vm_pu ? bus.vm_pu.toFixed(3) : 'N/A',
+                    formatBusVmKv(bus),
                     bus.va_degree ? bus.va_degree.toFixed(3) : 'N/A'
                 ];
                 resultsText += createOpenDSSTableRow(row, widths) + '\n';
@@ -713,6 +738,7 @@ const elementProcessors = {
                 
                 const resultString = `${cellName}
 U[pu]: ${fmtOpenDssFloat(cell.vm_pu)}
+U[kV]: ${formatBusVmKvForCell(cell, resultCell)}
 U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
 
                 const findFn = typeof window !== 'undefined' && window.findResultPlaceholder;
@@ -723,7 +749,7 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
                 if (existing) {
                     b.getModel().setValue(existing, resultString);
                 } else {
-                    const labelka = insertFn ? insertFn(b, parent, resultString, { width: 70, height: 58, positionX: 0, positionY: 1.0 }) : b.insertVertex(parent, null, resultString, 0, 2.7, 70, 58, fallbackStyle, true);
+                    const labelka = insertFn ? insertFn(b, parent, resultString, { width: 74, height: 64, positionX: 0, positionY: 1.0 }) : b.insertVertex(parent, null, resultString, 0, 2.7, 74, 64, fallbackStyle, true);
                 }
                 processVoltageColor(grafka, resultCell, cell.vm_pu);
             } catch (error) {
