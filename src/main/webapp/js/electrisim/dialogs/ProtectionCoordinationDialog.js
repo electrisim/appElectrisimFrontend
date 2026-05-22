@@ -15,6 +15,20 @@ export class ProtectionCoordinationDialog extends Dialog {
         // Tab 1 - Fault scenario(s) to analyse.
         this.faultParameters = [
             {
+                id: 'fault_location_mode', label: 'Fault location', type: 'radio',
+                options: [
+                    { value: 'line', label: 'Along a line (fraction 0–1)', default: true },
+                    { value: 'bus', label: 'At selected busbar (3-phase / 2-phase / 1-phase SC at bus)' }
+                ]
+            },
+            {
+                id: 'fault_bus_id',
+                label: 'Fault busbar',
+                type: 'select',
+                options: [{ value: '', label: 'Select a busbar…' }],
+                showWhen: 'bus'
+            },
+            {
                 id: 'fault_type', label: 'Fault type', type: 'radio',
                 options: [
                     { value: '3ph', label: 'Three Phase', default: true },
@@ -33,9 +47,10 @@ export class ProtectionCoordinationDialog extends Dialog {
                 id: 'sc_line_id',
                 label: 'Faulted line (pandapower line index, leave "all" to sweep every in-service line)',
                 type: 'text',
-                value: 'all'
+                value: 'all',
+                showWhen: 'line'
             },
-            { id: 'sc_fraction', label: 'Fault location along the line (0-1, mid-line = 0.5)', type: 'number', value: '0.5' }
+            { id: 'sc_fraction', label: 'Fault location along the line (0-1, mid-line = 0.5)', type: 'number', value: '0.5', showWhen: 'line' }
         ];
 
         // Tab 2 - Time grading parameters (defaults applied when the per-switch protection settings are empty).
@@ -81,8 +96,81 @@ export class ProtectionCoordinationDialog extends Dialog {
     getDescription() {
         return '<strong>Configure the Protection Coordination study</strong><br>' +
             'Set the per-switch protection device on each switch (Switch dialog &rarr; Protection tab) - OC relay (DTOC/IDMT/IDTOC) or fuse. ' +
-            'This dialog controls the fault scenario(s) and the default grading values. ' +
+            'Choose a <strong>line fault</strong> (pandapower creates an intermediate SC bus on the line) or a <strong>busbar fault</strong> (short-circuit calculated directly at the selected bus). ' +
+            'Fuse melting times appear in the tripping table when fuses are assigned. ' +
             'See the <a href="https://pandapower.readthedocs.io/en/latest/protection.html" target="_blank" rel="noopener noreferrer">pandapower protection docs</a>.';
+    }
+
+    populateBusbars() {
+        if (!this.graph) return;
+        const model = this.graph.getModel();
+        const busbars = [];
+        (model.getDescendants() || []).forEach(cell => {
+            if (!cell || !cell.value) return;
+            const style = cell.getStyle();
+            if (!style) return;
+            let componentType = null;
+            for (const part of style.split(';')) {
+                if (part.startsWith('shapeELXXX=')) {
+                    componentType = part.split('=')[1];
+                    break;
+                }
+            }
+            if (componentType === 'Bus' || style.includes('shapeELXXX=Bus') || style.includes('busbar')) {
+                busbars.push({ value: cell.getId(), label: this._getCellDisplayName(cell) });
+            }
+        });
+        const busParam = this.faultParameters.find(p => p.id === 'fault_bus_id');
+        if (busParam) {
+            busParam.options = busbars.length
+                ? busbars
+                : [{ value: '', label: 'No busbar found on diagram' }];
+        }
+    }
+
+    _getCellDisplayName(cell) {
+        try {
+            const value = cell.value;
+            if (value && value.attributes) {
+                for (let i = 0; i < value.attributes.length; i++) {
+                    const a = value.attributes[i];
+                    if (a.nodeName === 'name' && a.nodeValue) {
+                        return String(a.nodeValue).trim();
+                    }
+                }
+            }
+        } catch (e) { /* ignore */ }
+        return cell.getId();
+    }
+
+    _getFaultLocationMode() {
+        const param = this.faultParameters.find(p => p.id === 'fault_location_mode');
+        const checked = (param?.options || []).find(o => o.default);
+        return checked ? checked.value : 'line';
+    }
+
+    _updateFaultFieldVisibility() {
+        const mode = this._getFaultLocationMode();
+        const form = this.container?.querySelector('[data-form-container="true"] form');
+        if (!form) return;
+        form.querySelectorAll('[data-fault-show]').forEach(group => {
+            const show = group.getAttribute('data-fault-show');
+            group.style.display = (show === mode || show === 'always') ? '' : 'none';
+        });
+    }
+
+    _bindFaultLocationModeRadios() {
+        const container = this.inputs.get('fault_location_mode');
+        if (!container) return;
+        container.querySelectorAll('input[type="radio"]').forEach(radio => {
+            radio.addEventListener('change', () => {
+                const param = this.faultParameters.find(p => p.id === 'fault_location_mode');
+                if (param?.options) {
+                    param.options.forEach(o => { o.default = (o.value === radio.value); });
+                }
+                this._updateFaultFieldVisibility();
+            });
+        });
     }
 
     createTabInterface() {
@@ -156,6 +244,12 @@ export class ProtectionCoordinationDialog extends Dialog {
         });
 
         this.recreateForm();
+        if (tabId === 'fault') {
+            this.populateBusbars();
+            this.recreateForm();
+            this._bindFaultLocationModeRadios();
+            this._updateFaultFieldVisibility();
+        }
     }
 
     _snapshotCurrentValues() {
@@ -202,6 +296,8 @@ export class ProtectionCoordinationDialog extends Dialog {
         this.parameters.forEach((param) => {
             const formGroup = document.createElement('div');
             Object.assign(formGroup.style, { marginBottom: '4px' });
+            const showWhen = param.showWhen || 'always';
+            formGroup.setAttribute('data-fault-show', showWhen);
 
             const label = document.createElement('label');
             Object.assign(label.style, {
@@ -219,6 +315,8 @@ export class ProtectionCoordinationDialog extends Dialog {
                 input = this.createRadioGroup(param);
             } else if (param.type === 'checkbox') {
                 input = this.createCheckbox(param);
+            } else if (param.type === 'select') {
+                input = this.createSelect(param);
             } else {
                 input = this.createTextInput(param);
             }
@@ -302,6 +400,29 @@ export class ProtectionCoordinationDialog extends Dialog {
         return input;
     }
 
+    createSelect(param) {
+        const select = document.createElement('select');
+        Object.assign(select.style, {
+            width: '100%',
+            padding: '6px 10px',
+            border: '1px solid #ced4da',
+            borderRadius: '4px',
+            fontSize: '13px',
+            fontFamily: 'inherit',
+            backgroundColor: '#ffffff',
+            boxSizing: 'border-box'
+        });
+        (param.options || []).forEach(opt => {
+            const o = document.createElement('option');
+            o.value = opt.value || '';
+            o.textContent = opt.label || '';
+            if (opt.default) o.selected = true;
+            select.appendChild(o);
+        });
+        this.inputs.set(param.id, select);
+        return select;
+    }
+
     getFormValues() {
         // Snapshot the currently visible tab too so we collect its values.
         this._snapshotCurrentValues();
@@ -376,6 +497,13 @@ export class ProtectionCoordinationDialog extends Dialog {
         scrollableContent.appendChild(form);
         container.appendChild(scrollableContent);
 
+        if (this.currentTab === 'fault') {
+            this.populateBusbars();
+            this.recreateForm();
+            this._bindFaultLocationModeRadios();
+            this._updateFaultFieldVisibility();
+        }
+
         const buttonContainer = document.createElement('div');
         Object.assign(buttonContainer.style, {
             display: 'flex',
@@ -410,6 +538,10 @@ export class ProtectionCoordinationDialog extends Dialog {
                     return;
                 }
                 const values = this.getFormValues();
+                if (values.fault_location_mode === 'bus' && !String(values.fault_bus_id || '').trim()) {
+                    alert('Select a fault busbar, or switch fault location to "Along a line".');
+                    return;
+                }
                 if (callback) callback(values);
                 this.destroy();
                 if (this.ui && typeof this.ui.hideDialog === 'function') {

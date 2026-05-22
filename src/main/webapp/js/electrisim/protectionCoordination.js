@@ -74,12 +74,27 @@ function downloadProtectionResultsText(dataJson) {
             lines.push('');
         }
         (dataJson.scenarios || []).forEach((sc, idx) => {
-            lines.push(`--- SCENARIO ${idx + 1} (line ${sc.sc_line_id}, fraction=${sc.sc_fraction}, fault_bus=${sc.fault_bus}) ---`);
+            const loc = sc.fault_location_mode === 'bus'
+                ? `bus fault at ${sc.fault_bus ?? '?'}`
+                : `line ${sc.sc_line_id}, fraction=${sc.sc_fraction}, fault bus=${sc.fault_bus ?? '?'}`;
+            lines.push(`--- SCENARIO ${idx + 1} (${loc}) ---`);
+            if (sc.short_circuit && sc.short_circuit.ikss_ka != null) {
+                lines.push(`  Short-circuit at fault bus: Ikss=${sc.short_circuit.ikss_ka} kA`);
+            }
             if (sc.error) {
                 lines.push(`ERROR: ${sc.error}`);
             } else {
                 (sc.trip || []).forEach(t => {
-                    lines.push(`  ${t.user_friendly_name || t.switch_id || '?'} [${t.device}] tripped=${t.tripped} t_trip=${t.t_trip_s} s, ikss=${t.ikss_ka} kA`);
+                    const act = t.activation_parameter_value != null ? t.activation_parameter_value : t.ikss_ka;
+                    const melt = t.trip_melt_time_s != null ? t.trip_melt_time_s : t.t_melt_s;
+                    lines.push(
+                        `  ${t.user_friendly_name || t.switch_id || '?'} [${t.device}] ` +
+                        `tripped=${t.tripped} ` +
+                        `activation_parameter_value=${act ?? '-'} ` +
+                        `trip_melt_time_s=${melt ?? '-'} s ` +
+                        `t_trip=${t.t_trip_s ?? '-'} s ` +
+                        `ikss=${t.ikss_ka ?? '-'} kA`
+                    );
                 });
             }
             lines.push('');
@@ -149,6 +164,8 @@ async function buildPayloadFromGraph(graph, dialogValues) {
         // Mirror keys read by the Flask dispatch in app.py.
         fault_type: dialogValues.fault_type || '3ph',
         case: dialogValues.case || 'max',
+        fault_location_mode: dialogValues.fault_location_mode || 'line',
+        fault_bus_id: (dialogValues.fault_bus_id && String(dialogValues.fault_bus_id).trim()) || '',
         sc_line_id: (dialogValues.sc_line_id === undefined || dialogValues.sc_line_id === null || String(dialogValues.sc_line_id).trim().toLowerCase() === 'all')
             ? 'all'
             : String(dialogValues.sc_line_id).trim(),

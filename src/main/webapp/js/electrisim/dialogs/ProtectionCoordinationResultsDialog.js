@@ -111,6 +111,7 @@ export class ProtectionCoordinationResultsDialog {
                 <div><b>Trips:</b> ${this._safe(s.n_tripped)}</div>
                 <div><b>Miscoordinations:</b> ${this._safe(s.n_miscoordination)}</div>
                 <div><b>Fault type:</b> ${this._safe(s.fault_type)} (case ${this._safe(s.case)})</div>
+                <div><b>Fault location:</b> ${s.fault_location_mode === 'bus' ? 'Selected busbar' : 'Line fault'}</div>
                 <div><b>Grading margin t_diff:</b> ${this._safe(s.t_diff_s)} s</div>
             </div>
         `;
@@ -125,8 +126,24 @@ export class ProtectionCoordinationResultsDialog {
         scenarios.forEach((sc, idx) => {
             const header = document.createElement('div');
             header.style.cssText = 'font-weight:600; margin:12px 0 4px 0; color:#343a40;';
-            header.textContent = `Scenario ${idx + 1} - line ${sc.sc_line_id}, fraction=${sc.sc_fraction}, fault bus=${sc.fault_bus ?? '?'}`;
+            if (sc.fault_location_mode === 'bus') {
+                header.textContent = `Scenario ${idx + 1} — busbar fault at ${sc.fault_bus ?? '?'}`;
+            } else {
+                header.textContent = `Scenario ${idx + 1} — line ${sc.sc_line_id}, fraction=${sc.sc_fraction}, fault bus=${sc.fault_bus ?? '?'}`;
+            }
             section.appendChild(header);
+
+            if (sc.short_circuit && sc.short_circuit.ikss_ka != null) {
+                const scBox = document.createElement('div');
+                scBox.style.cssText = 'font-size:12px;color:#495057;margin:0 0 8px 0;padding:8px 10px;background:#eef6ff;border:1px solid #cfe2ff;border-radius:4px;';
+                const scBus = sc.short_circuit;
+                const parts = [`I<sub>kss</sub> = ${this._fmt(scBus.ikss_ka)} kA`];
+                if (scBus.ip_ka != null) parts.push(`I<sub>p</sub> = ${this._fmt(scBus.ip_ka)} kA`);
+                if (scBus.ith_ka != null) parts.push(`I<sub>th</sub> = ${this._fmt(scBus.ith_ka)} kA`);
+                if (scBus.skss_mva != null) parts.push(`S<sub>kss</sub> = ${this._fmt(scBus.skss_mva)} MVA`);
+                scBox.innerHTML = `<strong>Short-circuit at fault bus:</strong> ${parts.join(' · ')}`;
+                section.appendChild(scBox);
+            }
             if (sc.error) {
                 const err = document.createElement('div');
                 err.style.cssText = 'padding:8px;border:1px solid #f5c2c7;background:#f8d7da;color:#842029;border-radius:4px;';
@@ -142,23 +159,28 @@ export class ProtectionCoordinationResultsDialog {
                     <th style="border:1px solid #ddd;padding:6px;text-align:left;">Device</th>
                     <th style="border:1px solid #ddd;padding:6px;text-align:right;">I<sub>kss</sub> [kA]</th>
                     <th style="border:1px solid #ddd;padding:6px;text-align:right;">t<sub>trip</sub> [s]</th>
+                    <th style="border:1px solid #ddd;padding:6px;text-align:right;">Melting time [s]</th>
                     <th style="border:1px solid #ddd;padding:6px;text-align:center;">Tripped</th>
                 </tr>
             `;
             const trips = sc.trip || [];
             if (!trips.length) {
                 const tr = document.createElement('tr');
-                tr.innerHTML = `<td colspan="5" style="border:1px solid #ddd;padding:8px;text-align:center;color:#6c757d;font-style:italic;">No protection devices tripped for this fault.</td>`;
+                tr.innerHTML = `<td colspan="6" style="border:1px solid #ddd;padding:8px;text-align:center;color:#6c757d;font-style:italic;">No protection devices tripped for this fault.</td>`;
                 table.appendChild(tr);
             } else {
                 trips.forEach(t => {
                     const tr = document.createElement('tr');
                     tr.style.background = t.tripped ? '#e8f5e9' : '';
+                    const meltCell = t.is_fuse || (t.device && String(t.device).toLowerCase().startsWith('fuse'))
+                        ? this._fmt(t.t_melt_s != null ? t.t_melt_s : t.t_trip_s)
+                        : '—';
                     tr.innerHTML = `
                         <td style="border:1px solid #ddd;padding:6px;">${this._escape(t.user_friendly_name || t.switch_name || t.switch_id || '?')}</td>
                         <td style="border:1px solid #ddd;padding:6px;">${this._escape(t.device || '?')}</td>
                         <td style="border:1px solid #ddd;padding:6px;text-align:right;">${this._fmt(t.ikss_ka)}</td>
                         <td style="border:1px solid #ddd;padding:6px;text-align:right;">${this._fmt(t.t_trip_s)}</td>
+                        <td style="border:1px solid #ddd;padding:6px;text-align:right;">${meltCell}</td>
                         <td style="border:1px solid #ddd;padding:6px;text-align:center;">${t.tripped ? 'Yes' : 'No'}</td>
                     `;
                     table.appendChild(tr);
