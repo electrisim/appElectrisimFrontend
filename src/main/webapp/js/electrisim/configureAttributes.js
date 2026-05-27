@@ -21,12 +21,12 @@ export function configureExternalGridAttributes(grafka, vertex, options = {}) {
 
     //Short-circuit 
     g.setAttribute("Short_circuit_parameters", "");
-    g.setAttribute("s_sc_max_mva", "1000000.0");    
-    g.setAttribute("s_sc_min_mva", "0");
-    g.setAttribute("rx_max", "0");
-    g.setAttribute("rx_min", "0");
-    g.setAttribute("r0x0_max", "0");
-    g.setAttribute("x0x_max", "0");
+    g.setAttribute("s_sc_max_mva", options.s_sc_max_mva != null ? String(options.s_sc_max_mva) : "1000000.0");    
+    g.setAttribute("s_sc_min_mva", options.s_sc_min_mva != null ? String(options.s_sc_min_mva) : "0");
+    g.setAttribute("rx_max", options.rx_max != null ? String(options.rx_max) : "0");
+    g.setAttribute("rx_min", options.rx_min != null ? String(options.rx_min) : "0");
+    g.setAttribute("r0x0_max", options.r0x0_max != null ? String(options.r0x0_max) : "0");
+    g.setAttribute("x0x_max", options.x0x_max != null ? String(options.x0x_max) : "0");
 
     // Harmonic analysis parameters (OpenDSS Vsource)
     g.setAttribute("Harmonic_parameters", "");
@@ -660,6 +660,41 @@ export function configureStorageAttributes(grafka, vertex, options = {}) {
     grafka.insertVertex(vertex, null, 'Storage', 0.5, 1.5, 0, 0, null, true);
 }
 
+export function configurePVSystemAttributes(grafka, vertex, options = {}) {
+    var g = mxUtils.createXmlDocument().createElement("object");
+    g.setAttribute("name", options.name || "PVSystem");
+
+    g.setAttribute("Load_flow_parameters", "");
+    g.setAttribute("irradiance", String(options.irradiance ?? 1.0));
+    g.setAttribute("pmpp", String(options.pmpp ?? 100.0));
+    g.setAttribute("temperature", String(options.temperature ?? 25.0));
+    g.setAttribute("phases", String(options.phases ?? 3));
+    g.setAttribute("kv", String(options.kv ?? 0.4));
+    g.setAttribute("pf", String(options.pf ?? 1.0));
+    g.setAttribute("kvar", String(options.kvar ?? 0.0));
+    g.setAttribute("kva", String(options.kva ?? options.pmpp ?? 100.0));
+    g.setAttribute("cutin", String(options.cutin ?? 0.1));
+    g.setAttribute("cutout", String(options.cutout ?? 0.1));
+    g.setAttribute("conn", options.conn || "wye");
+    g.setAttribute("model", String(options.model ?? 1));
+    g.setAttribute("vmaxpu", String(options.vmaxpu ?? 1.1));
+    g.setAttribute("vminpu", String(options.vminpu ?? 0.9));
+    g.setAttribute("pmpp_percent", String(options.pmpp_percent ?? 100.0));
+    g.setAttribute("in_service", String(options.in_service !== undefined ? options.in_service : true));
+
+    g.setAttribute("Short_circuit_parameters", "");
+    g.setAttribute("spectrum", options.spectrum || "default");
+    g.setAttribute("spectrum_csv", options.spectrum_csv || "");
+    g.setAttribute("basefreq", String(options.basefreq ?? 50.0));
+    g.setAttribute("balanced", String(options.balanced ?? false));
+
+    g.setAttribute("Economic_parameters", "");
+    g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "0");
+
+    grafka.getModel().setValue(vertex, g);
+    grafka.insertVertex(vertex, null, options.name || 'PVSystem', 0.5, 1.1, 0, 0, null, true);
+}
+
 export function configureSVCAttributes(grafka, vertex, options = {}) {
 
     var g = mxUtils.createXmlDocument().createElement("object");
@@ -985,6 +1020,7 @@ if (typeof window !== 'undefined') {
     window.configureExtendedWardAttributes = configureExtendedWardAttributes;
     window.configureMotorAttributes = configureMotorAttributes;
     window.configureStorageAttributes = configureStorageAttributes;
+    window.configurePVSystemAttributes = configurePVSystemAttributes;
     window.configureSVCAttributes = configureSVCAttributes;
     window.configureTCSCAttributes = configureTCSCAttributes;
     window.configureSSCAttributes = configureSSCAttributes;

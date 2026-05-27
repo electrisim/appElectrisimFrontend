@@ -27,6 +27,7 @@
             'dialogs/OptimalPowerFlowDialog',
             'dialogs/OptimalPowerFlowResultsDialog',
             'dialogs/ContingencyDialog',
+            'dialogs/ContingencyResultsDialog',
             'dialogs/ShortCircuitDialog',
             'dialogs/DiagnosticReportDialog'
         ],

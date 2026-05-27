@@ -28,6 +28,7 @@ const FILES_TO_MINIFY = [
     'src/main/webapp/js/electrisim/dialogs/LoadFlowDialog.js',
     'src/main/webapp/js/electrisim/dialogs/OptimalPowerFlowDialog.js',
     'src/main/webapp/js/electrisim/dialogs/ContingencyDialog.js',
+    'src/main/webapp/js/electrisim/dialogs/ContingencyResultsDialog.js',
     'src/main/webapp/js/electrisim/dialogs/ShortCircuitDialog.js',
     'src/main/webapp/js/electrisim/dialogs/ComponentsDataDialog.js',
     // Component dialogs

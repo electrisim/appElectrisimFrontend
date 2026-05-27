@@ -871,6 +871,14 @@ async function insertComponentsForData(grafka, a, target, point, data) {
     const generatorData = JSON.parse(data._object.gen._object);
     const staticGeneratorData = JSON.parse(data._object.sgen._object);
     const asymmetricStaticGeneratorData = JSON.parse(data._object.asymmetric_sgen._object);
+    let pvSystemData = { data: [] };
+    try {
+        if (data._object?.pvsystems?._object) {
+            pvSystemData = JSON.parse(data._object.pvsystems._object);
+        }
+    } catch (e) {
+        console.warn('Could not parse pvsystems bundle from OpenDSS import:', e);
+    }
 
     const lineData = JSON.parse(data._object.line._object);
     const busData = JSON.parse(data._object.bus._object);
@@ -1434,7 +1442,10 @@ async function insertComponentsForData(grafka, a, target, point, data) {
             });
 
             externalGridData.data.forEach((externalgrid, index) => {
-                const [name, bus_no, vm_pu, va_degree, slack_weight, in_service] = externalgrid;
+                const [
+                    name, bus_no, vm_pu, va_degree, slack_weight, in_service,
+                    s_sc_max_mva, s_sc_min_mva, rx_max, rx_min, r0x0_max, x0x_max,
+                ] = externalgrid;
 
                 let bus = busData.data[bus_no];
                 let bus_name = bus[0];
@@ -1461,7 +1472,13 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                     vm_pu: `${vm_pu}`,
                     va_degree: `${va_degree}`,
                     slack_weight: `${slack_weight}`,
-                    in_service: `${in_service}`
+                    in_service: `${in_service}`,
+                    s_sc_max_mva: s_sc_max_mva,
+                    s_sc_min_mva: s_sc_min_mva,
+                    rx_max: rx_max,
+                    rx_min: rx_min,
+                    r0x0_max: r0x0_max,
+                    x0x_max: x0x_max,
                 })
 
                 const edgeStyle = "edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=NotEditableLine";
@@ -1603,6 +1620,59 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                     grafka.insertEdge(parent, null, "", vertex, busVertex, edgeStyle);
                 }
 
+            });
+
+            (pvSystemData.data || []).forEach((pvsystem, index) => {
+                const [
+                    name, bus_no, irradiance, pmpp, temperature, phases, kv,
+                    pf, kvar, kva, cutin, cutout, in_service,
+                ] = pvsystem;
+
+                const bus = busData.data[bus_no];
+                const bus_name = bus[0];
+                const busVertex = findVertexByBusId(grafka, parent, bus_name);
+                if (!busVertex) {
+                    return;
+                }
+
+                const pvOffset = index * 48;
+                const [pvW, pvH] = vertexSizeFromElectrisimSymbol('sym-pv', 68, 104);
+                const anchorX = busVertex.geometry.x + IMPORT_BUSBAR_W / 2 + pvOffset;
+                const anchorY = busVertex.geometry.y + 130;
+                const stylePVSystem = vertexStyleFromElectrisimSymbol('sym-pv', 'PVSystem');
+
+                const vertex = grafka.insertVertex(
+                    parent,
+                    null,
+                    ``,
+                    anchorX - pvW / 2,
+                    anchorY - pvH / 2,
+                    pvW,
+                    pvH,
+                    stylePVSystem,
+                );
+
+                configurePVSystemAttributes(grafka, vertex, {
+                    name: `${name}`,
+                    irradiance,
+                    pmpp,
+                    temperature,
+                    phases,
+                    kv,
+                    pf,
+                    kvar,
+                    kva,
+                    cutin,
+                    cutout,
+                    in_service,
+                });
+
+                const pvEdgeStyle =
+                    'edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;' +
+                    'exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.3;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;;' +
+                    'shapeELXXX=NotEditableLine';
+
+                grafka.insertEdge(parent, null, '', vertex, busVertex, pvEdgeStyle);
             });
 
 

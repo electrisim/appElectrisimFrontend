@@ -15,16 +15,6 @@ export class ContingencyDialog extends Dialog {
         this.graph = this.ui?.editor?.graph;
         this.parameters = [
             {
-                id: 'contingency_type',
-                label: 'Contingency Type',
-                type: 'radio',
-                options: [
-                    { value: 'N-1', label: 'N-1 (Single Element Outage)', default: true },
-                    { value: 'N-2', label: 'N-2 (Double Element Outage)' },
-                    { value: 'N-K', label: 'N-K (Multiple Element Outage)' }
-                ]
-            },
-            {
                 id: 'element_type',
                 label: 'Element Type to Analyze',
                 type: 'radio',
@@ -33,16 +23,6 @@ export class ContingencyDialog extends Dialog {
                     { value: 'transformer', label: 'Transformers' },
                     { value: 'generator', label: 'Generators' },
                     { value: 'all', label: 'All Elements' }
-                ]
-            },
-            {
-                id: 'elements_to_analyze',
-                label: 'Elements to Analyze',
-                type: 'radio',
-                options: [
-                    { value: 'all', label: 'All Elements', default: true },
-                    { value: 'critical', label: 'Critical Elements Only' },
-                    { value: 'selected', label: 'Selected Elements Only' }
                 ]
             },
             {
@@ -89,35 +69,14 @@ export class ContingencyDialog extends Dialog {
                 min: '50',
                 max: '200',
                 step: '1'
-            },
-            {
-                id: 'post_contingency_actions',
-                label: 'Post-Contingency Actions',
-                type: 'radio',
-                options: [
-                    { value: 'none', label: 'No Actions', default: true },
-                    { value: 'redispatch', label: 'Generation Redispatch' },
-                    { value: 'load_shedding', label: 'Load Shedding' },
-                    { value: 'both', label: 'Both Actions' }
-                ]
-            },
-            {
-                id: 'analysis_mode',
-                label: 'Analysis Mode',
-                type: 'radio',
-                options: [
-                    { value: 'fast', label: 'Fast Screening', default: true },
-                    { value: 'detailed', label: 'Detailed Analysis' },
-                    { value: 'comprehensive', label: 'Comprehensive Analysis' }
-                ]
             }
         ];
     }
 
     getDescription() {
         return '<strong>Configure contingency analysis parameters</strong><br>' +
-               'Contingency analysis evaluates system security by simulating outages of network elements. ' +
-               'N-1 analysis is the most common standard for power system security assessment. ' +
+               'Each in-service element of the selected type is switched out one at a time (N-1 screening) ' +
+               'and an AC load flow is run to check voltage and thermal limits. ' +
                'See the <a href="https://electrisim.com/documentation.html#contingency-analysis" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
 
@@ -147,19 +106,14 @@ export class ContingencyDialog extends Dialog {
                 
                 console.log('ContingencyDialog: Subscription check passed, proceeding with analysis...');
                 
-                // Convert object to array format expected by contingencyAnalysis.js
-                // The callback expects: [contingency_type, element_type, elements_to_analyze, voltage_limits, thermal_limits, min_vm_pu, max_vm_pu, max_loading_percent, post_contingency_actions, analysis_mode]
+                // Array order matches contingencyAnalysis.js: element_type, voltage_limits, thermal_limits, min/max V, max loading
                 const valuesArray = [
-                    values[0],  // contingency_type
-                    values[1],  // element_type
-                    values[2],  // elements_to_analyze
-                    values[3],  // voltage_limits
-                    values[4],  // thermal_limits
-                    values[5],  // min_vm_pu
-                    values[6],  // max_vm_pu
-                    values[7],  // max_loading_percent
-                    values[8],  // post_contingency_actions
-                    values[9]   // analysis_mode
+                    values[0],  // element_type
+                    values[1],  // voltage_limits
+                    values[2],  // thermal_limits
+                    values[3],  // min_vm_pu
+                    values[4],  // max_vm_pu
+                    values[5]   // max_loading_percent
                 ];
                 
                 console.log('ContingencyDialog: Calling callback with values array:', valuesArray);

@@ -154,7 +154,8 @@
 
         // Generation accounting — gross output of every injecting element.
         // pandapower / OpenDSS sign conventions:
-        //   ext_grid:           +p_mw → import (gen),  −p_mw → export (load)
+        //   ext_grid:           +p_mw → import (gen/supply from grid)
+        //                       −p_mw → export (grid backfeed; not network load)
         //   gen / sgen / pv:    +p_mw → injection (gen) almost always, but we
         //                       still split by sign to be robust to user setups.
         //   asymmetric_sgen:    p_total = p_a_mw + p_b_mw + p_c_mw
@@ -194,7 +195,6 @@
             { label: 'Asymmetric loads',           value: asymLoadLoad,          count: asymLoads.length },
             { label: 'Motors',                     value: sumOf(motors, 'p_mw'), count: motors.length },
             { label: 'Storage (charge)',           value: stoSplit.pos,          count: storages.length },
-            { label: 'External Grid (export)',     value: extSplit.neg,          count: extGrids.length },
         ].filter(x => x.count > 0 || x.value > 0.0001);
 
         const totalGen  = breakdownGen .reduce((s, r) => s + r.value, 0);

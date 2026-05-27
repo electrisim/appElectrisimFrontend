@@ -185,7 +185,7 @@ const m8 = win.computeNetworkHealthMetrics({
 });
 assert(Math.abs(m8.totalGen  - 100) < 1e-6,
     'gross gen excludes ext_grid export (gross 100 MW, not 50 MW)');
-assert(Math.abs(m8.totalLoad - 100) < 1e-6, 'export shows up on load side');
+assert(Math.abs(m8.totalLoad - 50) < 1e-6, 'ext_grid export is not counted as network load');
 
 // --- Test 9: pvsystems (OpenDSS) -----------------------------------------
 console.log('\nTest 9: pvsystems counted (OpenDSS engine)');
