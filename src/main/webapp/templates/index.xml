@@ -57,6 +57,7 @@
 <template url="distribution/multivoltage example.drawio" title="multivoltage example" libs="general;uml"/>
 <template url="distribution/CIGRE_MVnetwork_allDER.drawio" title="Cigre MV network" libs="general;uml"/>
 <template url="tutorials/OPF_basic_final.xml" title="Optimal Power Flow" libs="general;uml"/>
+<template url="tutorials/case9_contingency.drawio" title="Contingency analysis" libs="general;uml"/>
 <!--<template url="basic/flowchart.xml" title="flowchart" libs="general;flowchart"/>
 <template url="basic/orgchart.xml" title="orgChart" libs="general;basic;arrows"/>
 <template url="basic/swimlanes.xml" title="swimlaneDiagram" libs="general;flowchart;bpmn"/>
