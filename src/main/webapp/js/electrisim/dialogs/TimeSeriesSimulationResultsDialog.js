@@ -1,401 +1,617 @@
 // TimeSeriesSimulationResultsDialog.js
 (function() {
     class TimeSeriesSimulationResultsDialog {
-        constructor(results) {
+        constructor(results, options = {}) {
             this.results = results;
+            this.options = options;
             this.title = 'Time Series Simulation Results';
+            this.charts = [];
         }
 
         show() {
-            // Overlay
             const overlay = document.createElement('div');
             overlay.style.cssText = `
                 position: fixed; top: 0; left: 0; right: 0; bottom: 0;
                 background: rgba(0,0,0,0.5); z-index: 10000;
                 display: flex; align-items: center; justify-content: center;
+                padding: 16px; box-sizing: border-box;
             `;
 
-            // Dialog
             const dialog = document.createElement('div');
             dialog.style.cssText = `
-                background: white; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-                max-width: 1200px; max-height: 90vh; overflow-y: auto; padding: 24px; margin: 20px;
-                font-family: Arial, sans-serif;
+                background: white; border-radius: 8px; box-shadow: 0 4px 24px rgba(0,0,0,0.25);
+                width: min(1200px, 100%); max-height: 92vh; overflow: hidden;
+                font-family: Arial, sans-serif; box-sizing: border-box;
+                display: flex; flex-direction: column;
             `;
 
-            // Title
+            const header = document.createElement('div');
+            header.style.cssText = 'padding: 20px 24px 12px; flex-shrink: 0; border-bottom: 1px solid #eee;';
             const title = document.createElement('h2');
             title.textContent = this.title;
-            dialog.appendChild(title);
+            title.style.cssText = 'margin: 0 0 12px 0; font-size: 20px;';
+            header.appendChild(title);
+            header.appendChild(this.buildSummaryCard());
+            dialog.appendChild(header);
 
-            // Summary
-            const summary = document.createElement('div');
-            summary.innerHTML = `
-                <b>Status:</b> ${this.results.timeseries_converged ? 'Converged' : 'Not converged'}<br>
-                <b>Time Steps:</b> ${this.results.time_steps || 'N/A'}<br>
-                <b>Time Period:</b> ${this.results.time_stamps ? `${this.results.time_stamps[0]} to ${this.results.time_stamps[this.results.time_stamps.length-1]}` : 'N/A'}<br>
-            `;
-            summary.style.marginBottom = '16px';
-            dialog.appendChild(summary);
+            const body = document.createElement('div');
+            body.style.cssText = 'flex: 1; overflow-y: auto; padding: 0 24px 16px;';
 
-            // Add Chart.js CDN
-            const chartScript = document.createElement('script');
-            chartScript.src = 'https://cdn.jsdelivr.net/npm/chart.js';
-            chartScript.onload = () => {
-                this.createPlots(dialog);
+            const tabBar = document.createElement('div');
+            tabBar.style.cssText = 'display:flex;gap:4px;margin:16px 0 12px;border-bottom:2px solid #e9ecef;';
+            const tabs = [
+                { id: 'charts', label: 'Charts' },
+                { id: 'statistics', label: 'Statistics' },
+                { id: 'data', label: 'Detailed data' }
+            ];
+            const panels = {};
+            tabs.forEach(t => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.textContent = t.label;
+                btn.dataset.tab = t.id;
+                btn.style.cssText = `
+                    padding: 8px 16px; border: none; background: none; cursor: pointer;
+                    font-size: 13px; font-weight: 600; color: #666; border-bottom: 2px solid transparent;
+                    margin-bottom: -2px;
+                `;
+                tabBar.appendChild(btn);
+                const panel = document.createElement('div');
+                panel.dataset.panel = t.id;
+                panel.style.display = 'none';
+                panels[t.id] = { btn, panel };
+                body.appendChild(panel);
+            });
+            body.insertBefore(tabBar, body.firstChild);
+
+            const activateTab = (id) => {
+                Object.entries(panels).forEach(([key, { btn, panel }]) => {
+                    const active = key === id;
+                    panel.style.display = active ? 'block' : 'none';
+                    btn.style.color = active ? '#007cba' : '#666';
+                    btn.style.borderBottomColor = active ? '#007cba' : 'transparent';
+                });
             };
-            document.head.appendChild(chartScript);
+            tabBar.querySelectorAll('button').forEach(btn => {
+                btn.addEventListener('click', () => activateTab(btn.dataset.tab));
+            });
 
-            // Voltage Statistics
-            if (this.results.voltage_statistics) {
-                const voltageSection = document.createElement('div');
-                voltageSection.innerHTML = '<h3 style="margin-top:18px">Voltage Statistics</h3>';
-                
-                const voltageTable = document.createElement('table');
-                voltageTable.style.cssText = 'border-collapse:collapse;width:100%;margin-bottom:12px;border:1px solid #ddd;';
-                voltageTable.innerHTML = `
-                    <tr style="background:#f5f5f5;">
-                        <th style="border:1px solid #ddd;padding:8px;">Bus Name</th>
-                        <th style="border:1px solid #ddd;padding:8px;">Min V (pu)</th>
-                        <th style="border:1px solid #ddd;padding:8px;">Max V (pu)</th>
-                        <th style="border:1px solid #ddd;padding:8px;">Avg V (pu)</th>
-                    </tr>
-                `;
-                
-                Object.entries(this.results.voltage_statistics).forEach(([busName, stats]) => {
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td style="border:1px solid #ddd;padding:8px;">${busName}</td>
-                        <td style="border:1px solid #ddd;padding:8px;">${stats.min_vm_pu.toFixed(4)}</td>
-                        <td style="border:1px solid #ddd;padding:8px;">${stats.max_vm_pu.toFixed(4)}</td>
-                        <td style="border:1px solid #ddd;padding:8px;">${stats.avg_vm_pu.toFixed(4)}</td>
-                    `;
-                    voltageTable.appendChild(row);
-                });
-                
-                voltageSection.appendChild(voltageTable);
-                dialog.appendChild(voltageSection);
-            }
+            const chartsPanel = panels.charts.panel;
+            chartsPanel.innerHTML = '<p style="font-size:12px;color:#666;margin:0 0 8px;">Input profiles and simulated bus voltages, line loading, and element powers over time.</p>';
+            const plotsAnchor = document.createElement('div');
+            plotsAnchor.id = 'ts-plots-anchor';
+            chartsPanel.appendChild(plotsAnchor);
 
-            // Loading Statistics
-            if (this.results.loading_statistics) {
-                const loadingSection = document.createElement('div');
-                loadingSection.innerHTML = '<h3 style="margin-top:18px">Line Loading Statistics</h3>';
-                
-                const loadingTable = document.createElement('table');
-                loadingTable.style.cssText = 'border-collapse:collapse;width:100%;margin-bottom:12px;border:1px solid #ddd;';
-                loadingTable.innerHTML = `
-                    <tr style="background:#f5f5f5;">
-                        <th style="border:1px solid #ddd;padding:8px;">Line Name</th>
-                        <th style="border:1px solid #ddd;padding:8px;">Min Loading (%)</th>
-                        <th style="border:1px solid #ddd;padding:8px;">Max Loading (%)</th>
-                        <th style="border:1px solid #ddd;padding:8px;">Avg Loading (%)</th>
-                    </tr>
-                `;
-                
-                Object.entries(this.results.loading_statistics).forEach(([lineName, stats]) => {
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td style="border:1px solid #ddd;padding:8px;">${lineName}</td>
-                        <td style="border:1px solid #ddd;padding:8px;">${stats.min_loading_percent.toFixed(2)}</td>
-                        <td style="border:1px solid #ddd;padding:8px;">${stats.max_loading_percent.toFixed(2)}</td>
-                        <td style="border:1px solid #ddd;padding:8px;">${stats.avg_loading_percent.toFixed(2)}</td>
-                    `;
-                    loadingTable.appendChild(row);
-                });
-                
-                loadingSection.appendChild(loadingTable);
-                dialog.appendChild(loadingSection);
-            }
+            this.renderStatistics(panels.statistics.panel);
+            this.renderSampleTable(panels.data.panel);
 
-            // Sample Time Series Data
-            if (this.results.busbars && this.results.busbars.length > 0) {
-                const sampleSection = document.createElement('div');
-                sampleSection.innerHTML = '<h3 style="margin-top:18px">Sample Time Series Data</h3>';
-                
-                const sampleTable = document.createElement('table');
-                sampleTable.style.cssText = 'border-collapse:collapse;width:100%;margin-bottom:12px;border:1px solid #ddd;';
-                sampleTable.innerHTML = `
-                    <tr style="background:#f5f5f5;">
-                        <th style="border:1px solid #ddd;padding:8px;">Time Step</th>
-                        <th style="border:1px solid #ddd;padding:8px;">Bus Name</th>
-                        <th style="border:1px solid #ddd;padding:8px;">V (pu)</th>
-                        <th style="border:1px solid #ddd;padding:8px;">Angle (deg)</th>
-                        <th style="border:1px solid #ddd;padding:8px;">P (MW)</th>
-                        <th style="border:1px solid #ddd;padding:8px;">Q (MVar)</th>
-                    </tr>
-                `;
-                
-                // Show first few time steps for each bus
-                const buses = [...new Set(this.results.busbars.map(b => b.name))];
-                const timeSteps = [...new Set(this.results.busbars.map(b => b.time_step))].slice(0, 5);
-                
-                timeSteps.forEach(timeStep => {
-                    buses.forEach(busName => {
-                        const busData = this.results.busbars.find(b => b.name === busName && b.time_step === timeStep);
-                        if (busData) {
-                            const row = document.createElement('tr');
-                            row.innerHTML = `
-                                <td style="border:1px solid #ddd;padding:8px;">${timeStep}</td>
-                                <td style="border:1px solid #ddd;padding:8px;">${busName}</td>
-                                <td style="border:1px solid #ddd;padding:8px;">${busData.vm_pu.toFixed(4)}</td>
-                                <td style="border:1px solid #ddd;padding:8px;">${busData.va_degree.toFixed(2)}</td>
-                                <td style="border:1px solid #ddd;padding:8px;">${busData.p_mw.toFixed(2)}</td>
-                                <td style="border:1px solid #ddd;padding:8px;">${busData.q_mvar.toFixed(2)}</td>
-                            `;
-                            sampleTable.appendChild(row);
-                        }
-                    });
-                });
-                
-                sampleSection.appendChild(sampleTable);
-                dialog.appendChild(sampleSection);
-            }
+            dialog.appendChild(body);
 
-            // Close button
+            const buttonRow = document.createElement('div');
+            buttonRow.style.cssText = `
+                display:flex;gap:10px;padding:14px 24px;border-top:1px solid #e9ecef;
+                background:#fafbfc;flex-shrink:0;flex-wrap:wrap;
+            `;
+
+            const exportBtn = document.createElement('button');
+            exportBtn.textContent = 'Export to Excel (.xlsx)';
+            exportBtn.style.cssText = 'background:#28a745;color:white;border:none;padding:10px 20px;border-radius:4px;cursor:pointer;font-size:13px;';
+            exportBtn.onclick = () => this.exportToExcel();
+
             const closeButton = document.createElement('button');
             closeButton.textContent = 'Close';
-            closeButton.style.cssText = `
-                background: #007bff; color: white; border: none; padding: 10px 20px;
-                border-radius: 4px; cursor: pointer; margin-top: 16px;
-            `;
+            closeButton.style.cssText = 'background:#6c757d;color:white;border:none;padding:10px 20px;border-radius:4px;cursor:pointer;font-size:13px;margin-left:auto;';
             closeButton.onclick = () => {
+                this.charts.forEach(c => c.destroy?.());
                 document.body.removeChild(overlay);
             };
-            dialog.appendChild(closeButton);
+
+            buttonRow.appendChild(exportBtn);
+            buttonRow.appendChild(closeButton);
+            dialog.appendChild(buttonRow);
 
             overlay.appendChild(dialog);
             document.body.appendChild(overlay);
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    this.charts.forEach(c => c.destroy?.());
+                    document.body.removeChild(overlay);
+                }
+            });
+
+            activateTab('charts');
+
+            this.loadChartJs(() => {
+                this.createPlots(plotsAnchor);
+                if (this.options.exportToExcel) {
+                    setTimeout(() => this.exportToExcel(true), 400);
+                }
+            });
         }
 
-        createPlots(dialog) {
-            // Create plots section
-            const plotsSection = document.createElement('div');
-            plotsSection.innerHTML = '<h3 style="margin-top:18px">Time Series Plots</h3>';
-            plotsSection.style.marginBottom = '20px';
-            dialog.insertBefore(plotsSection, dialog.lastElementChild);
+        buildSummaryCard() {
+            const converged = !!this.results.timeseries_converged;
+            const steps = this.results.time_steps || 'N/A';
+            const failedSteps = this.getFailedSteps();
+            const card = document.createElement('div');
+            card.style.cssText = `
+                display: flex; flex-wrap: wrap; gap: 12px; align-items: stretch;
+            `;
 
-            // Prepare data for plotting
-            const timeSteps = [...new Set(this.results.busbars.map(b => b.time_step))].sort((a, b) => a - b);
+            const statusBox = document.createElement('div');
+            statusBox.style.cssText = `
+                flex: 0 0 auto; padding: 10px 16px; border-radius: 6px; font-weight: 600; font-size: 14px;
+                background: ${converged ? '#d4edda' : '#f8d7da'};
+                color: ${converged ? '#155724' : '#721c24'};
+                border: 1px solid ${converged ? '#c3e6cb' : '#f5c6cb'};
+            `;
+            statusBox.textContent = converged ? 'All time steps converged' : 'Some time steps did not converge';
+            card.appendChild(statusBox);
+
+            const meta = document.createElement('div');
+            meta.style.cssText = 'flex: 1 1 200px; font-size: 13px; line-height: 1.6; color: #444;';
+            const period = this.results.time_stamps?.length
+                ? `${this.results.time_stamps[0]} → ${this.results.time_stamps[this.results.time_stamps.length - 1]}`
+                : `${steps} hour(s)`;
+            meta.innerHTML = `
+                <div><strong>Duration:</strong> ${steps} time step(s) &nbsp;·&nbsp; <strong>Period:</strong> ${period}</div>
+                <div><strong>Loads:</strong> ${this.countUnique(this.results.loads, 'name')} &nbsp;·&nbsp;
+                <strong>Generators:</strong> ${this.countUnique(this.results.sgens, 'name') + this.countUnique(this.results.gens, 'name')} &nbsp;·&nbsp;
+                <strong>Buses:</strong> ${this.countUnique(this.results.busbars, 'name')}</div>
+            `;
+            card.appendChild(meta);
+
+            if (!converged && failedSteps.length) {
+                const warn = document.createElement('div');
+                warn.style.cssText = `
+                    flex: 1 1 100%; padding: 8px 12px; background: #fff3cd; border: 1px solid #ffeeba;
+                    border-radius: 6px; font-size: 12px; color: #856404; line-height: 1.45;
+                `;
+                const shown = failedSteps.slice(0, 12);
+                const suffix = failedSteps.length > 12 ? ` … (+${failedSteps.length - 12} more)` : '';
+                warn.innerHTML = `<strong>Non-converged steps:</strong> ${shown.join(', ')}${suffix}. ` +
+                    'Try running Load Flow first, use <em>Absolute P (MW)</em> profiles, or adjust initialization under Advanced settings.';
+                card.appendChild(warn);
+            }
+
+            return card;
+        }
+
+        getFailedSteps() {
+            if (Array.isArray(this.results.failed_time_steps)) {
+                return this.results.failed_time_steps;
+            }
+            if (!this.results.busbars?.length) return [];
+            const allSteps = [...new Set(this.results.busbars.map(b => b.time_step))].sort((a, b) => a - b);
+            if (this.results.timeseries_converged) return [];
+            return allSteps.filter(ts => {
+                const rows = this.results.busbars.filter(b => b.time_step === ts);
+                return rows.some(b => b.converged === false);
+            });
+        }
+
+        countUnique(arr, key) {
+            if (!arr?.length) return 0;
+            return new Set(arr.map(item => item[key])).size;
+        }
+
+        loadChartJs(callback) {
+            if (window.Chart) {
+                callback();
+                return;
+            }
+            const existing = document.getElementById('chartjs-ts-script');
+            if (existing) {
+                existing.addEventListener('load', callback);
+                return;
+            }
+            const chartScript = document.createElement('script');
+            chartScript.id = 'chartjs-ts-script';
+            chartScript.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+            chartScript.onload = callback;
+            document.head.appendChild(chartScript);
+        }
+
+        renderStatistics(container) {
+            container.innerHTML = '<p style="font-size:12px;color:#666;margin:0 0 12px;">Min / max / average values across all time steps.</p>';
+            if (this.results.voltage_statistics) {
+                const section = document.createElement('div');
+                section.innerHTML = '<h3 style="margin:0 0 8px;font-size:15px;color:#333;">Voltage statistics</h3>';
+                section.appendChild(this.buildStatsTable(
+                    ['Bus', 'Min V (pu)', 'Max V (pu)', 'Avg V (pu)'],
+                    Object.entries(this.results.voltage_statistics).map(([name, s]) => [
+                        name, s.min_vm_pu.toFixed(4), s.max_vm_pu.toFixed(4), s.avg_vm_pu.toFixed(4)
+                    ])
+                ));
+                container.appendChild(section);
+            }
+            if (this.results.loading_statistics) {
+                const section = document.createElement('div');
+                section.innerHTML = '<h3 style="margin:18px 0 8px;font-size:15px;color:#333;">Line loading statistics</h3>';
+                section.appendChild(this.buildStatsTable(
+                    ['Line', 'Min (%)', 'Max (%)', 'Avg (%)'],
+                    Object.entries(this.results.loading_statistics).map(([name, s]) => [
+                        name, s.min_loading_percent.toFixed(2), s.max_loading_percent.toFixed(2), s.avg_loading_percent.toFixed(2)
+                    ])
+                ));
+                container.appendChild(section);
+            }
+            if (!this.results.voltage_statistics && !this.results.loading_statistics) {
+                container.innerHTML += '<p style="color:#666;">No statistics available.</p>';
+            }
+        }
+
+        buildStatsTable(headers, rows) {
+            const table = document.createElement('table');
+            table.style.cssText = 'border-collapse:collapse;width:100%;margin-bottom:12px;border:1px solid #ddd;font-size:13px;';
+            const thead = document.createElement('thead');
+            const headRow = document.createElement('tr');
+            headRow.style.background = '#f5f5f5';
+            headers.forEach(h => {
+                const th = document.createElement('th');
+                th.textContent = h;
+                th.style.cssText = 'border:1px solid #ddd;padding:8px;text-align:left;position:sticky;top:0;background:#f5f5f5;';
+                headRow.appendChild(th);
+            });
+            thead.appendChild(headRow);
+            table.appendChild(thead);
+            const tbody = document.createElement('tbody');
+            rows.forEach(cols => {
+                const tr = document.createElement('tr');
+                tr.style.background = '#fff';
+                cols.forEach(c => {
+                    const td = document.createElement('td');
+                    td.textContent = c;
+                    td.style.cssText = 'border:1px solid #ddd;padding:8px;';
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+            table.appendChild(tbody);
+            return table;
+        }
+
+        renderSampleTable(container) {
+            if (!this.results.busbars?.length) {
+                container.innerHTML = '<p style="color:#666;">No bus data available.</p>';
+                return;
+            }
+            container.innerHTML = `<p style="font-size:12px;color:#666;margin:0 0 8px;">
+                Bus voltages and powers at every time step. Scroll inside the table to browse all ${this.results.time_steps || ''} hours.
+            </p>`;
+            const section = document.createElement('div');
             const buses = [...new Set(this.results.busbars.map(b => b.name))];
-            const lines = [...new Set(this.results.lines.map(l => l.name))];
-
-            // Voltage Magnitude Plot
-            if (this.results.busbars && this.results.busbars.length > 0) {
-                const voltagePlotContainer = document.createElement('div');
-                voltagePlotContainer.style.cssText = 'margin: 20px 0; padding: 10px; border: 1px solid #ddd; border-radius: 4px;';
-                voltagePlotContainer.innerHTML = '<h4>Voltage Magnitude Over Time</h4>';
-                
-                const voltageCanvas = document.createElement('canvas');
-                voltageCanvas.id = 'voltageChart';
-                voltageCanvas.style.cssText = 'max-height: 300px;';
-                voltagePlotContainer.appendChild(voltageCanvas);
-                plotsSection.appendChild(voltagePlotContainer);
-
-                // Prepare voltage data
-                const voltageDatasets = buses.map(busName => {
-                    const data = timeSteps.map(timeStep => {
-                        const busData = this.results.busbars.find(b => b.name === busName && b.time_step === timeStep);
-                        return busData ? busData.vm_pu : null;
-                    });
-                    return {
-                        label: busName,
-                        data: data,
-                        borderColor: this.getRandomColor(),
-                        backgroundColor: this.getRandomColor(0.1),
-                        tension: 0.1
-                    };
-                });
-
-                new Chart(voltageCanvas, {
-                    type: 'line',
-                    data: {
-                        labels: timeSteps,
-                        datasets: voltageDatasets
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            title: {
-                                display: true,
-                                text: 'Voltage Magnitude [p.u.]'
-                            }
-                        },
-                        scales: {
-                            x: {
-                                title: {
-                                    display: true,
-                                    text: 'Time Step'
-                                }
-                            },
-                            y: {
-                                title: {
-                                    display: true,
-                                    text: 'Voltage Magnitude [p.u.]'
-                                }
-                            }
-                        }
+            const timeSteps = [...new Set(this.results.busbars.map(b => b.time_step))].sort((a, b) => a - b);
+            const rows = [];
+            timeSteps.forEach(ts => {
+                buses.forEach(busName => {
+                    const busData = this.results.busbars.find(b => b.name === busName && b.time_step === ts);
+                    if (busData) {
+                        rows.push([ts, busName, busData.vm_pu.toFixed(4), busData.va_degree.toFixed(2), busData.p_mw.toFixed(2), busData.q_mvar.toFixed(2)]);
                     }
                 });
+            });
+            const scrollWrap = document.createElement('div');
+            scrollWrap.style.cssText = 'max-height:min(480px,50vh);overflow:auto;border:1px solid #e9ecef;border-radius:4px;';
+            scrollWrap.appendChild(this.buildStatsTable(
+                ['Hour', 'Bus', 'V (pu)', 'Angle (°)', 'P (MW)', 'Q (MVar)'],
+                rows
+            ));
+            section.appendChild(scrollWrap);
+            container.appendChild(section);
+        }
+
+        createPlots(container) {
+            const timeSteps = [...new Set((this.results.busbars || []).map(b => b.time_step))].sort((a, b) => a - b);
+
+            this.addProfilePlots(container, timeSteps);
+
+            if (this.results.busbars?.length) {
+                const buses = [...new Set(this.results.busbars.map(b => b.name))];
+                this.addLineChart(container, 'Bus voltage magnitude', 'V (pu)', timeSteps, buses.map(name => ({
+                    label: name,
+                    data: timeSteps.map(ts => {
+                        const d = this.results.busbars.find(b => b.name === name && b.time_step === ts);
+                        return d ? d.vm_pu : null;
+                    })
+                })), '#1976d2');
             }
 
-            // Line Loading Plot
-            if (this.results.lines && this.results.lines.length > 0) {
-                const loadingPlotContainer = document.createElement('div');
-                loadingPlotContainer.style.cssText = 'margin: 20px 0; padding: 10px; border: 1px solid #ddd; border-radius: 4px;';
-                loadingPlotContainer.innerHTML = '<h4>Line Loading Over Time</h4>';
-                
-                const loadingCanvas = document.createElement('canvas');
-                loadingCanvas.id = 'loadingChart';
-                loadingCanvas.style.cssText = 'max-height: 300px;';
-                loadingPlotContainer.appendChild(loadingCanvas);
-                plotsSection.appendChild(loadingPlotContainer);
+            if (this.results.lines?.length) {
+                const lines = [...new Set(this.results.lines.map(l => l.name))];
+                this.addLineChart(container, 'Line loading', 'Loading (%)', timeSteps, lines.map(name => ({
+                    label: name,
+                    data: timeSteps.map(ts => {
+                        const d = this.results.lines.find(l => l.name === name && l.time_step === ts);
+                        return d ? d.loading_percent : null;
+                    })
+                })), '#e65100');
+            }
 
-                // Prepare loading data
-                const loadingDatasets = lines.map(lineName => {
-                    const data = timeSteps.map(timeStep => {
-                        const lineData = this.results.lines.find(l => l.name === lineName && l.time_step === timeStep);
-                        return lineData ? lineData.loading_percent : null;
-                    });
-                    return {
-                        label: lineName,
-                        data: data,
-                        borderColor: this.getRandomColor(),
-                        backgroundColor: this.getRandomColor(0.1),
-                        tension: 0.1
-                    };
+            if (this.results.loads?.length) {
+                const loads = [...new Set(this.results.loads.map(l => l.name))];
+                this.addLineChart(container, 'Load active power', 'P (MW)', timeSteps, loads.map(name => ({
+                    label: name,
+                    data: timeSteps.map(ts => {
+                        const d = this.results.loads.find(l => l.name === name && l.time_step === ts);
+                        return d ? d.p_mw : null;
+                    })
+                })), '#2e7d32');
+            }
+
+            if (this.results.sgens?.length) {
+                const sgens = [...new Set(this.results.sgens.map(s => s.name))];
+                this.addLineChart(container, 'Static generator active power', 'P (MW)', timeSteps, sgens.map(name => ({
+                    label: name,
+                    data: timeSteps.map(ts => {
+                        const d = this.results.sgens.find(s => s.name === name && s.time_step === ts);
+                        return d ? d.p_mw : null;
+                    })
+                })), '#7b1fa2');
+            }
+        }
+
+        resolveProfileDisplayName(technicalId, spec) {
+            if (spec?.display_name) return spec.display_name;
+            const id = String(technicalId);
+            const fromLoad = this.results.loads?.find(l => l.id === id);
+            if (fromLoad?.name) return fromLoad.name;
+            const fromSgen = this.results.sgens?.find(s => s.id === id);
+            if (fromSgen?.name) return fromSgen.name;
+            return id;
+        }
+
+        addProfilePlots(container, timeSteps) {
+            const profilesUsed = this.results.profiles_used;
+            if (profilesUsed && Object.keys(profilesUsed).length > 0) {
+                Object.entries(profilesUsed).forEach(([technicalId, spec]) => {
+                    const elementName = this.resolveProfileDisplayName(technicalId, spec);
+                    const unit = spec.mode === 'absolute' ? 'MW' : '× base P';
+                    this.addLineChart(container, `Input profile — ${elementName}`, spec.mode === 'absolute' ? 'P (MW)' : 'Scale factor',
+                        timeSteps.slice(0, spec.values.length),
+                        [{ label: `${elementName} (${unit})`, data: spec.values }],
+                        spec.element_type === 'load' ? '#1565c0' : '#558b2f'
+                    );
                 });
+                return;
+            }
+            if (this.results.load_profile_values?.length) {
+                this.addLineChart(container, 'Load profile (scale)', 'Scale factor', timeSteps,
+                    [{ label: this.results.load_profile || 'load', data: this.results.load_profile_values }], '#1565c0');
+            }
+            if (this.results.generation_profile_values?.length) {
+                this.addLineChart(container, 'Generation profile (scale)', 'Scale factor', timeSteps,
+                    [{ label: this.results.generation_profile || 'generation', data: this.results.generation_profile_values }], '#558b2f');
+            }
+        }
 
-                new Chart(loadingCanvas, {
-                    type: 'line',
-                    data: {
-                        labels: timeSteps,
-                        datasets: loadingDatasets
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            title: {
-                                display: true,
-                                text: 'Line Loading [%]'
-                            }
-                        },
-                        scales: {
-                            x: {
-                                title: {
-                                    display: true,
-                                    text: 'Time Step'
-                                }
-                            },
-                            y: {
-                                title: {
-                                    display: true,
-                                    text: 'Line Loading [%]'
-                                }
-                            }
-                        }
+        addLineChart(container, title, yLabel, labels, datasets, defaultColor) {
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'margin:12px 0;padding:12px;border:1px solid #ddd;border-radius:6px;background:#fafafa;';
+            const h4 = document.createElement('h4');
+            h4.textContent = title;
+            h4.style.cssText = 'margin:0 0 8px 0;font-size:14px;color:#333;';
+            wrap.appendChild(h4);
+
+            const canvasWrap = document.createElement('div');
+            canvasWrap.style.cssText = 'position:relative;height:260px;width:100%;';
+            const canvas = document.createElement('canvas');
+            canvasWrap.appendChild(canvas);
+            wrap.appendChild(canvasWrap);
+            container.appendChild(wrap);
+
+            const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
+            const chartDatasets = datasets.map((ds, i) => ({
+                label: ds.label,
+                data: ds.data,
+                borderColor: colors[i % colors.length] || defaultColor,
+                backgroundColor: (colors[i % colors.length] || defaultColor) + '22',
+                tension: 0.15,
+                fill: false,
+                pointRadius: labels.length > 48 ? 0 : 2
+            }));
+
+            const chart = new Chart(canvas, {
+                type: 'line',
+                data: { labels, datasets: chartDatasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: chartDatasets.length > 1 } },
+                    scales: {
+                        x: { title: { display: true, text: 'Hour (time step)' } },
+                        y: { title: { display: true, text: yLabel } }
                     }
-                });
+                }
+            });
+            this.charts.push(chart);
+        }
+
+        isValidXlsxLib(x) {
+            return !!(x && x.utils && typeof x.writeFile === 'function' &&
+                (typeof x.utils.book_new === 'function' ||
+                 typeof x.utils.aoa_to_sheet === 'function' ||
+                 typeof x.utils.sheet_from_array_of_arrays === 'function'));
+        }
+
+        async ensureXlsx() {
+            if (this.isValidXlsxLib(window.__electrisimTimeSeriesXlsx)) {
+                return window.__electrisimTimeSeriesXlsx;
             }
 
-            // Load Power Plot (if we have load data)
-            if (this.results.busbars && this.results.busbars.length > 0) {
-                const loadPlotContainer = document.createElement('div');
-                loadPlotContainer.style.cssText = 'margin: 20px 0; padding: 10px; border: 1px solid #ddd; border-radius: 4px;';
-                loadPlotContainer.innerHTML = '<h4>Load Power Over Time</h4>';
-                
-                const loadCanvas = document.createElement('canvas');
-                loadCanvas.id = 'loadChart';
-                loadCanvas.style.cssText = 'max-height: 300px;';
-                loadPlotContainer.appendChild(loadCanvas);
-                plotsSection.appendChild(loadPlotContainer);
+            if (window.__electrisimTsXlsxLoading) {
+                return window.__electrisimTsXlsxLoading;
+            }
 
-                // Prepare load data (negative P values indicate loads)
-                const loadBuses = buses.filter(busName => {
-                    const busData = this.results.busbars.find(b => b.name === busName && b.time_step === 0);
-                    return busData && busData.p_mw < 0;
-                });
+            const SHEETJS_URL = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
 
-                const loadDatasets = loadBuses.map(busName => {
-                    const data = timeSteps.map(timeStep => {
-                        const busData = this.results.busbars.find(b => b.name === busName && b.time_step === timeStep);
-                        return busData ? Math.abs(busData.p_mw) : null; // Use absolute value for display
+            window.__electrisimTsXlsxLoading = (async () => {
+                if (!document.getElementById('electrisim-ts-sheetjs')) {
+                    const previousXlsx = window.XLSX;
+                    const hadValidPrevious = this.isValidXlsxLib(previousXlsx);
+
+                    if (previousXlsx && !hadValidPrevious) {
+                        try { delete window.XLSX; } catch (_) { window.XLSX = undefined; }
+                    }
+
+                    await new Promise((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.id = 'electrisim-ts-sheetjs';
+                        script.src = SHEETJS_URL;
+                        script.async = true;
+                        script.onload = () => resolve();
+                        script.onerror = () => reject(new Error('Failed to load SheetJS library'));
+                        document.head.appendChild(script);
                     });
-                    return {
-                        label: busName + ' (Load)',
-                        data: data,
-                        borderColor: this.getRandomColor(),
-                        backgroundColor: this.getRandomColor(0.1),
-                        tension: 0.1
-                    };
-                });
 
-                if (loadDatasets.length > 0) {
-                    new Chart(loadCanvas, {
-                        type: 'line',
-                        data: {
-                            labels: timeSteps,
-                            datasets: loadDatasets
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                title: {
-                                    display: true,
-                                    text: 'Load Power [MW]'
-                                }
-                            },
-                            scales: {
-                                x: {
-                                    title: {
-                                        display: true,
-                                        text: 'Time Step'
-                                    }
-                                },
-                                y: {
-                                    title: {
-                                        display: true,
-                                        text: 'Load Power [MW]'
-                                    }
-                                }
-                            }
-                        }
+                    if (this.isValidXlsxLib(window.XLSX)) {
+                        window.__electrisimTimeSeriesXlsx = window.XLSX;
+                    }
+
+                    if (hadValidPrevious && previousXlsx !== window.__electrisimTimeSeriesXlsx) {
+                        window.XLSX = previousXlsx;
+                    }
+                } else if (this.isValidXlsxLib(window.XLSX)) {
+                    window.__electrisimTimeSeriesXlsx = window.XLSX;
+                }
+
+                if (!this.isValidXlsxLib(window.__electrisimTimeSeriesXlsx)) {
+                    throw new Error('SheetJS API unavailable');
+                }
+                return window.__electrisimTimeSeriesXlsx;
+            })();
+
+            try {
+                return await window.__electrisimTsXlsxLoading;
+            } finally {
+                delete window.__electrisimTsXlsxLoading;
+            }
+        }
+
+        buildExportSheets() {
+            const sheets = [];
+            sheets.push({
+                name: 'Summary',
+                rows: [
+                    ['Time Series Simulation Results'],
+                    ['Status', this.results.timeseries_converged ? 'Converged' : 'Not converged'],
+                    ['Time steps', this.results.time_steps],
+                    ['Profile mode', this.results.profile_mode || 'custom'],
+                    ['Load profile preset', this.results.load_profile || ''],
+                    ['Generation profile preset', this.results.generation_profile || '']
+                ]
+            });
+
+            if (this.results.busbars?.length) {
+                const rows = [['time_step', 'name', 'vm_pu', 'va_degree', 'p_mw', 'q_mvar']];
+                this.results.busbars.forEach(b => rows.push([b.time_step, b.name, b.vm_pu, b.va_degree, b.p_mw, b.q_mvar]));
+                sheets.push({ name: 'res_bus', rows });
+            }
+            if (this.results.lines?.length) {
+                const rows = [['time_step', 'name', 'loading_percent', 'p_from_mw', 'p_to_mw']];
+                this.results.lines.forEach(l => rows.push([l.time_step, l.name, l.loading_percent, l.p_from_mw, l.p_to_mw]));
+                sheets.push({ name: 'res_line', rows });
+            }
+            if (this.results.loads?.length) {
+                const rows = [['time_step', 'name', 'p_mw', 'q_mvar']];
+                this.results.loads.forEach(l => rows.push([l.time_step, l.name, l.p_mw, l.q_mvar]));
+                sheets.push({ name: 'res_load', rows });
+            }
+            if (this.results.sgens?.length) {
+                const rows = [['time_step', 'name', 'p_mw', 'q_mvar']];
+                this.results.sgens.forEach(s => rows.push([s.time_step, s.name, s.p_mw, s.q_mvar]));
+                sheets.push({ name: 'res_sgen', rows });
+            }
+            const profiles = this.results.profiles_used;
+            if (profiles && Object.keys(profiles).length) {
+                const rows = [['element', 'element_type', 'mode', 'time_step', 'value']];
+                Object.entries(profiles).forEach(([technicalId, spec]) => {
+                    const elementName = this.resolveProfileDisplayName(technicalId, spec);
+                    (spec.values || []).forEach((val, i) => {
+                        rows.push([elementName, spec.element_type, spec.mode, i, val]);
                     });
+                });
+                sheets.push({ name: 'profiles', rows });
+            }
+            return sheets;
+        }
+
+        exportToCsvFallback(silent) {
+            const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+            const sheets = this.buildExportSheets();
+            const lines = [];
+            sheets.forEach(({ name, rows }) => {
+                lines.push(`# ${name}`);
+                rows.forEach(row => {
+                    lines.push(row.map(cell => {
+                        const text = cell == null ? '' : String(cell);
+                        return `"${text.replace(/"/g, '""')}"`;
+                    }).join(','));
+                });
+                lines.push('');
+            });
+            const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `time_series_results_${stamp}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            if (!silent) {
+                alert('Excel library unavailable — results exported as CSV instead.');
+            }
+        }
+
+        createWorkbook(XLSX) {
+            if (typeof XLSX.utils.book_new === 'function') {
+                return XLSX.utils.book_new();
+            }
+            return { SheetNames: [], Sheets: {} };
+        }
+
+        rowsToSheet(XLSX, rows) {
+            if (typeof XLSX.utils.aoa_to_sheet === 'function') {
+                return XLSX.utils.aoa_to_sheet(rows);
+            }
+            if (typeof XLSX.utils.sheet_from_array_of_arrays === 'function') {
+                return XLSX.utils.sheet_from_array_of_arrays(rows);
+            }
+            throw new Error('XLSX sheet conversion API not available');
+        }
+
+        appendSheet(XLSX, workbook, sheet, name) {
+            if (typeof XLSX.utils.book_append_sheet === 'function') {
+                XLSX.utils.book_append_sheet(workbook, sheet, name);
+                return;
+            }
+            workbook.SheetNames.push(name);
+            workbook.Sheets[name] = sheet;
+        }
+
+        async exportToExcel(silent = false) {
+            try {
+                const XLSX = await this.ensureXlsx();
+                const wb = this.createWorkbook(XLSX);
+                this.buildExportSheets().forEach(({ name, rows }) => {
+                    this.appendSheet(XLSX, wb, this.rowsToSheet(XLSX, rows), name);
+                });
+                const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+                XLSX.writeFile(wb, `time_series_results_${stamp}.xlsx`);
+                if (!silent) console.log('Time series results exported to Excel');
+            } catch (err) {
+                console.error('Excel export failed:', err);
+                try {
+                    this.exportToCsvFallback(silent);
+                } catch (csvErr) {
+                    console.error('CSV fallback export failed:', csvErr);
+                    if (!silent) alert('Failed to export results. Please try again.');
                 }
             }
         }
-
-        getRandomColor(alpha = 1) {
-            const colors = [
-                '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
-                '#FF9F40', '#FF6384', '#C9CBCF', '#4BC0C0', '#FF6384'
-            ];
-            const color = colors[Math.floor(Math.random() * colors.length)];
-            if (alpha < 1) {
-                return color + Math.floor(alpha * 255).toString(16).padStart(2, '0');
-            }
-            return color;
-        }
     }
 
-    // Make TimeSeriesSimulationResultsDialog available globally
-    if (typeof globalThis !== 'undefined') {
-        globalThis.TimeSeriesSimulationResultsDialog = TimeSeriesSimulationResultsDialog;
-    } else if (typeof window !== 'undefined') {
-        window.TimeSeriesSimulationResultsDialog = TimeSeriesSimulationResultsDialog;
-    }
-
-    // Export for module usage if supported
-    if (typeof module !== 'undefined' && module.exports) {
-        module.exports = { TimeSeriesSimulationResultsDialog };
-    } else if (typeof exports === 'object') {
-        try {
-            exports.TimeSeriesSimulationResultsDialog = TimeSeriesSimulationResultsDialog;
-        } catch (e) {
-            // Ignore export errors in non-module environments
-        }
-    }
-})(); 
+    globalThis.TimeSeriesSimulationResultsDialog = TimeSeriesSimulationResultsDialog;
+    window.TimeSeriesSimulationResultsDialog = TimeSeriesSimulationResultsDialog;
+})();
