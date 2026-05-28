@@ -121,12 +121,27 @@
 
             activateTab('charts');
 
-            this.loadChartJs(() => {
-                this.createPlots(plotsAnchor);
-                if (this.options.exportToExcel) {
-                    setTimeout(() => this.exportToExcel(true), 400);
-                }
-            });
+            this.loadChartJs()
+                .then(() => {
+                    this.createPlots(plotsAnchor);
+                    requestAnimationFrame(() => {
+                        this.charts.forEach(c => { try { c.resize?.(); } catch (_) { /* ignore */ } });
+                    });
+                    if (this.options.exportToExcel) {
+                        setTimeout(() => this.exportToExcel(true), 400);
+                    }
+                })
+                .catch((err) => {
+                    console.error('Time series charts failed to load:', err);
+                    plotsAnchor.innerHTML = `
+                        <div style="padding:12px;background:#fff3cd;border:1px solid #ffeeba;border-radius:6px;color:#856404;font-size:13px;line-height:1.5;">
+                            <strong>Charts unavailable.</strong> The chart library could not be loaded
+                            (${err.message || 'unknown error'}). Statistics, detailed data, and Excel export still work.
+                        </div>`;
+                    if (this.options.exportToExcel) {
+                        setTimeout(() => this.exportToExcel(true), 400);
+                    }
+                });
         }
 
         buildSummaryCard() {
@@ -195,21 +210,49 @@
             return new Set(arr.map(item => item[key])).size;
         }
 
-        loadChartJs(callback) {
-            if (window.Chart) {
-                callback();
-                return;
+        loadChartJs() {
+            if (typeof window.Chart === 'function') {
+                return Promise.resolve();
             }
-            const existing = document.getElementById('chartjs-ts-script');
-            if (existing) {
-                existing.addEventListener('load', callback);
-                return;
+
+            if (window.__electrisimTsChartJsLoading) {
+                return window.__electrisimTsChartJsLoading;
             }
-            const chartScript = document.createElement('script');
-            chartScript.id = 'chartjs-ts-script';
-            chartScript.src = 'https://cdn.jsdelivr.net/npm/chart.js';
-            chartScript.onload = callback;
-            document.head.appendChild(chartScript);
+
+            window.__electrisimTsChartJsLoading = new Promise((resolve, reject) => {
+                const finish = (ok, err) => {
+                    delete window.__electrisimTsChartJsLoading;
+                    if (ok) resolve();
+                    else reject(err || new Error('Chart.js failed to load'));
+                };
+
+                const existing = document.getElementById('chartjs-ts-script');
+                if (existing) {
+                    if (typeof window.Chart === 'function') {
+                        finish(true);
+                        return;
+                    }
+                    existing.addEventListener('load', () => {
+                        if (typeof window.Chart === 'function') finish(true);
+                        else finish(false, new Error('Chart.js loaded but Chart is unavailable'));
+                    });
+                    existing.addEventListener('error', () => finish(false, new Error('Chart.js script error')));
+                    return;
+                }
+
+                const chartScript = document.createElement('script');
+                chartScript.id = 'chartjs-ts-script';
+                // Bundled locally — production CSP blocks cdn.jsdelivr.net
+                chartScript.src = 'js/vendor/chart.umd.min.js';
+                chartScript.onload = () => {
+                    if (typeof window.Chart === 'function') finish(true);
+                    else finish(false, new Error('Chart.js loaded but Chart is unavailable'));
+                };
+                chartScript.onerror = () => finish(false, new Error('Chart.js script failed to load from js/vendor/chart.umd.min.js'));
+                document.head.appendChild(chartScript);
+            });
+
+            return window.__electrisimTsChartJsLoading;
         }
 
         renderStatistics(container) {
@@ -411,20 +454,31 @@
                 pointRadius: labels.length > 48 ? 0 : 2
             }));
 
-            const chart = new Chart(canvas, {
-                type: 'line',
-                data: { labels, datasets: chartDatasets },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: chartDatasets.length > 1 } },
-                    scales: {
-                        x: { title: { display: true, text: 'Hour (time step)' } },
-                        y: { title: { display: true, text: yLabel } }
+            const ChartCtor = window.Chart;
+            if (typeof ChartCtor !== 'function') {
+                wrap.innerHTML += '<p style="color:#856404;font-size:12px;">Chart library not available.</p>';
+                return;
+            }
+
+            try {
+                const chart = new ChartCtor(canvas, {
+                    type: 'line',
+                    data: { labels, datasets: chartDatasets },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: chartDatasets.length > 1 } },
+                        scales: {
+                            x: { title: { display: true, text: 'Hour (time step)' } },
+                            y: { title: { display: true, text: yLabel } }
+                        }
                     }
-                }
-            });
-            this.charts.push(chart);
+                });
+                this.charts.push(chart);
+            } catch (err) {
+                console.error('Failed to render chart:', title, err);
+                wrap.innerHTML += `<p style="color:#856404;font-size:12px;">Could not render chart: ${err.message || err}</p>`;
+            }
         }
 
         isValidXlsxLib(x) {
