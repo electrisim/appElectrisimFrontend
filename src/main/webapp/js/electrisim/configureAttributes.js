@@ -660,6 +660,86 @@ export function configureStorageAttributes(grafka, vertex, options = {}) {
     grafka.insertVertex(vertex, null, 'Storage', 0.5, 1.5, 0, 0, null, true);
 }
 
+export function configureLoad1phAttributes(grafka, vertex, options = {}) {
+    var g = mxUtils.createXmlDocument().createElement("object");
+    g.setAttribute("name", options.name || "Load 1ph");
+    g.setAttribute("OpenDSS_parameters", "");
+    g.setAttribute("p_kw", options.p_kw ?? "0");
+    g.setAttribute("q_kvar", options.q_kvar ?? "0");
+    g.setAttribute("kv", options.kv ?? "");
+    g.setAttribute("pf", options.pf ?? "1.0");
+    g.setAttribute("phase", String(options.phase ?? 1));
+    g.setAttribute("conn", (options.conn || "wye").toLowerCase());
+    g.setAttribute("spectrum", options.spectrum || "defaultload");
+    g.setAttribute("pctSeriesRL", String(options.pctSeriesRL ?? 100));
+    g.setAttribute("in_service", String(options.in_service !== false));
+    grafka.getModel().setValue(vertex, g);
+    grafka.insertVertex(vertex, null, '', 0.5, 0, 0, 0, null, true);
+    grafka.insertVertex(vertex, null, options.name || 'Load 1ph', 0.5, 1.1, 0, 0, null, true);
+}
+
+export function configureSource1phAttributes(grafka, vertex, options = {}) {
+    var g = mxUtils.createXmlDocument().createElement("object");
+    g.setAttribute("name", options.name || "Source 1ph");
+    g.setAttribute("OpenDSS_parameters", "");
+    g.setAttribute("vm_pu", options.vm_pu ?? "1.0");
+    g.setAttribute("va_degree", options.va_degree ?? "0");
+    g.setAttribute("s_sc_max_mva", options.s_sc_max_mva ?? "1000");
+    g.setAttribute("phase", String(options.phase ?? 1));
+    g.setAttribute("conn", (options.conn || "wye").toLowerCase());
+    g.setAttribute("in_service", String(options.in_service !== false));
+    grafka.getModel().setValue(vertex, g);
+    grafka.insertVertex(vertex, null, options.name || 'Source 1ph', 0.5, 1.1, 0, 0, null, true);
+}
+
+export function configureGenerator1phAttributes(grafka, vertex, options = {}) {
+    var g = mxUtils.createXmlDocument().createElement("object");
+    g.setAttribute("name", options.name || "Generator 1ph");
+    g.setAttribute("OpenDSS_parameters", "");
+    g.setAttribute("p_kw", options.p_kw ?? "0");
+    g.setAttribute("q_kvar", options.q_kvar ?? "0");
+    g.setAttribute("kv", options.kv ?? "");
+    g.setAttribute("sn_kva", options.sn_kva ?? "");
+    g.setAttribute("model", String(options.model ?? 1));
+    g.setAttribute("phase", String(options.phase ?? 1));
+    g.setAttribute("conn", (options.conn || "wye").toLowerCase());
+    g.setAttribute("spectrum", options.spectrum || "defaultgen");
+    g.setAttribute("in_service", String(options.in_service !== false));
+    grafka.getModel().setValue(vertex, g);
+    grafka.insertVertex(vertex, null, options.name || 'Generator 1ph', 0.5, 1.1, 0, 0, null, true);
+}
+
+export function configureTransformer1phAttributes(grafka, vertex, options = {}) {
+    var g = mxUtils.createXmlDocument().createElement("object");
+    g.setAttribute("name", options.name || "Transformer 1ph");
+    g.setAttribute("OpenDSS_parameters", "");
+    g.setAttribute("sn_kva", String(options.sn_kva ?? 25));
+    g.setAttribute("vk_percent", String(options.vk_percent ?? 2.0));
+    g.setAttribute("vkr_percent", String(options.vkr_percent ?? 0.6));
+    g.setAttribute("vn_hv_kv", String(options.vn_hv_kv ?? 7.2));
+    g.setAttribute("vn_lv_kv", String(options.vn_lv_kv ?? 0.12));
+    g.setAttribute("phase", String(options.phase ?? 1));
+    g.setAttribute("conn", (options.conn || "wye").toLowerCase());
+    g.setAttribute("tap_pos", String(options.tap_pos ?? 0));
+    g.setAttribute("in_service", String(options.in_service !== false));
+    grafka.getModel().setValue(vertex, g);
+    grafka.insertVertex(vertex, null, options.name || 'Transformer 1ph', 0.5, 1.1, 0, 0, null, true);
+}
+
+export function configureLine1phAttributes(grafka, edge, options = {}) {
+    var g = mxUtils.createXmlDocument().createElement("object");
+    g.setAttribute("name", options.name || "Line 1ph");
+    g.setAttribute("OpenDSS_parameters", "");
+    g.setAttribute("length_km", String(options.length_km ?? 1));
+    g.setAttribute("r_ohm_per_km", String(options.r_ohm_per_km ?? 0.122));
+    g.setAttribute("x_ohm_per_km", String(options.x_ohm_per_km ?? 0.112));
+    g.setAttribute("c_nf_per_km", String(options.c_nf_per_km ?? 0));
+    g.setAttribute("phase", String(options.phase ?? 1));
+    g.setAttribute("conn", (options.conn || "wye").toLowerCase());
+    g.setAttribute("in_service", String(options.in_service !== false));
+    grafka.getModel().setValue(edge, g);
+}
+
 export function configurePVSystemAttributes(grafka, vertex, options = {}) {
     var g = mxUtils.createXmlDocument().createElement("object");
     g.setAttribute("name", options.name || "PVSystem");
@@ -1021,6 +1101,11 @@ if (typeof window !== 'undefined') {
     window.configureMotorAttributes = configureMotorAttributes;
     window.configureStorageAttributes = configureStorageAttributes;
     window.configurePVSystemAttributes = configurePVSystemAttributes;
+    window.configureLoad1phAttributes = configureLoad1phAttributes;
+    window.configureSource1phAttributes = configureSource1phAttributes;
+    window.configureGenerator1phAttributes = configureGenerator1phAttributes;
+    window.configureTransformer1phAttributes = configureTransformer1phAttributes;
+    window.configureLine1phAttributes = configureLine1phAttributes;
     window.configureSVCAttributes = configureSVCAttributes;
     window.configureTCSCAttributes = configureTCSCAttributes;
     window.configureSSCAttributes = configureSSCAttributes;

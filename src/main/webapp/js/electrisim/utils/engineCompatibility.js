@@ -35,8 +35,15 @@ const PANDAPOWER_ONLY_DISPLAY_NAMES = {
 };
 
 // OpenDSS-only: supported by OpenDSS; excluded when using Pandapower
-const OPENDSS_ONLY_TYP_PREFIXES = ['PVSystem'];
-const OPENDSS_ONLY_DISPLAY_NAMES = { 'PVSystem': 'PVSystem' };
+const OPENDSS_ONLY_TYP_PREFIXES = ['PVSystem', 'Load 1ph', 'Line 1ph', 'Source 1ph', 'Generator 1ph', 'Transformer 1ph'];
+const OPENDSS_ONLY_DISPLAY_NAMES = {
+    'PVSystem': 'PVSystem',
+    'Load 1ph': 'Load 1ph',
+    'Line 1ph': 'Line 1ph',
+    'Source 1ph': 'Source 1ph',
+    'Generator 1ph': 'Generator 1ph',
+    'Transformer 1ph': 'Transformer 1ph'
+};
 
 function typMatchesPrefix(typ, prefixes) {
     if (!typ || typeof typ !== 'string') return false;

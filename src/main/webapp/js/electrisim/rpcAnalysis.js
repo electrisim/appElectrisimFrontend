@@ -173,7 +173,7 @@ function rpcAnalysis(a, b, c) {
                 }
             }
             if (!(pRated > 0)) {
-                pRated = estimateRpcInstalledMw(graph);
+                pRated = estimateRpcInstalledMw(graph, selectedGenIds);
             }
             if (requirementRows.length === 0 && tplKey !== 'none' && tplKey !== 'custom_manual' && pRated > 0) {
                 requirementRows = getGridTemplateRequirementsMw(tplKey, pRated);

@@ -308,7 +308,7 @@ function createResultPlaceholdersForCompositeBlock(graph, cells) {
             if (hasPlaceholder) continue;
         }
 
-        var isExtGrid = (componentShape === 'External Grid');
+        var isExtGrid = (componentShape === 'External Grid' || componentShape === 'Source 1ph');
         var isBessTrafoOrStorage = (componentShape === 'Transformer' || componentShape === 'Storage');
         createResultPlaceholder(graph, edgeCell, componentCell, {
             logicalShape: isExtGrid ? 'ResultExternalGrid' : 'Result',
@@ -936,7 +936,7 @@ function applyResultBoxesHook() {
             // Lines created via import use insertEdge, so they go through addEdge but not the connect handler.
             var sourceIsBus = isBusStyle(sourceStyle);
             var targetIsBus = isBusStyle(targetStyle);
-            var edgeIsLine = (edgeShape === 'Line');
+            var edgeIsLine = (edgeShape === 'Line' || edgeShape === 'Line 1ph');
 
             if (sourceIsBus && targetIsBus && edgeIsLine) {
                 var lineHasPlaceholder = false;
@@ -1021,10 +1021,10 @@ function applyResultBoxesHook() {
                 if (shouldCreatePlaceholder) {
                     // Use a dedicated logical shape for External Grid result boxes
                     // External Grid needs a larger box to fit load flow (P, Q, PF, Q/P) and short-circuit (ikss, ip, ith, rk, xk) results
-                    var logicalShape = (componentShape === 'External Grid')
+                    var logicalShape = (componentShape === 'External Grid' || componentShape === 'Source 1ph')
                         ? 'ResultExternalGrid'
                         : 'Result';
-                    var isExternalGrid = (componentShape === 'External Grid');
+                    var isExternalGrid = (componentShape === 'External Grid' || componentShape === 'Source 1ph');
                     createResultPlaceholder(this, result, componentCell, {
                         logicalShape: logicalShape,
                         width: isExternalGrid ? 95 : 70,

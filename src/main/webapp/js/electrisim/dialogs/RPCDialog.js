@@ -184,14 +184,23 @@ export function getGridTemplateDisplayName(templateKey) {
     return tpl && tpl.name ? tpl.name : '';
 }
 
-/** Sum S_n / P from static generators (MW) — same base as P Max = 0 “auto” on the backend. */
-export function estimateRpcInstalledMw(graph) {
+/**
+ * Sum rated active power (p_mw) from static generators (MW).
+ * Same base as P Max = 0 “auto” on the backend. Prefers p_mw over sn_mva (S_n overstates P).
+ * @param {object} graph — mxGraph instance
+ * @param {string[]|null} generatorCellIds — if set, only these diagram cells are counted
+ */
+export function estimateRpcInstalledMw(graph, generatorCellIds = null) {
     if (!graph) return 0;
     const model = graph.getModel();
     const cells = model.getDescendants();
-    let totalSn = 0;
+    const idSet = generatorCellIds && generatorCellIds.length
+        ? new Set(generatorCellIds.map(id => String(id)))
+        : null;
+    let totalP = 0;
     cells.forEach(cell => {
         if (!cell || !cell.value) return;
+        if (idSet && !idSet.has(String(cell.getId()))) return;
         const style = cell.getStyle();
         if (!style) return;
         if (style.includes('shapeELXXX=Static Generator')) {
@@ -200,11 +209,11 @@ export function estimateRpcInstalledMw(graph) {
                 const pAttr = cell.value.attributes?.getNamedItem('p_mw');
                 const sn = snAttr ? parseFloat(snAttr.nodeValue) : 0;
                 const p = pAttr ? parseFloat(pAttr.nodeValue) : 0;
-                totalSn += (sn > 0 ? sn : (p > 0 ? p : 0));
+                totalP += (p > 0 ? p : (sn > 0 ? sn : 0));
             } catch (e) { /* skip */ }
         }
     });
-    return totalSn;
+    return totalP;
 }
 
 export class RPCDialog extends Dialog {
@@ -816,7 +825,11 @@ export class RPCDialog extends Dialog {
     }
 
     _estimateInstalledCapacity() {
-        return estimateRpcInstalledMw(this.graph);
+        const data = this.inputs.get('generatorIds');
+        const ids = data && data._multiCheckboxes
+            ? data._multiCheckboxes.filter(cb => cb.checked).map(cb => cb.value)
+            : null;
+        return estimateRpcInstalledMw(this.graph, ids);
     }
 
     _addRequirementRow(tbody, p = '', qMin = '', qMax = '') {

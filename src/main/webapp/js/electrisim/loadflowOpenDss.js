@@ -63,6 +63,71 @@ const fmtOpenDssFloat = (val, decimals = 3) => {
     return Number(val).toFixed(decimals);
 };
 
+/** Read shapeELXXX from a graph cell style string. */
+const getShapeFromCell = (cell) => {
+    if (!cell?.getStyle) return '';
+    const m = String(cell.getStyle()).match(/shapeELXXX=([^;]+)/);
+    return m ? m[1] : '';
+};
+
+/** Show OpenDSS warnings returned by the backend (non-blocking banner). */
+const showOpenDssWarnings = (warnings) => {
+    if (!Array.isArray(warnings) || warnings.length === 0) return;
+    const existing = document.getElementById('opendss-warnings-banner');
+    if (existing) existing.remove();
+
+    const banner = document.createElement('div');
+    banner.id = 'opendss-warnings-banner';
+    Object.assign(banner.style, {
+        position: 'fixed',
+        top: '12px',
+        right: '12px',
+        maxWidth: '420px',
+        zIndex: '100010',
+        padding: '12px 36px 12px 14px',
+        backgroundColor: '#fff3cd',
+        border: '1px solid #ffc107',
+        borderRadius: '6px',
+        fontSize: '13px',
+        color: '#856404',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+        lineHeight: '1.4'
+    });
+
+    const title = document.createElement('strong');
+    title.textContent = 'OpenDSS warnings';
+    banner.appendChild(title);
+
+    const ul = document.createElement('ul');
+    Object.assign(ul.style, { margin: '6px 0 0 0', paddingLeft: '18px' });
+    warnings.forEach((w) => {
+        const li = document.createElement('li');
+        li.textContent = String(w);
+        ul.appendChild(li);
+    });
+    banner.appendChild(ul);
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '×';
+    closeBtn.setAttribute('aria-label', 'Dismiss warnings');
+    Object.assign(closeBtn.style, {
+        position: 'absolute',
+        top: '6px',
+        right: '8px',
+        border: 'none',
+        background: 'transparent',
+        fontSize: '20px',
+        cursor: 'pointer',
+        color: '#856404',
+        lineHeight: '1'
+    });
+    closeBtn.onclick = () => banner.remove();
+    banner.appendChild(closeBtn);
+
+    document.body.appendChild(banner);
+    dssWarn('OpenDSS warnings:', warnings);
+};
+
 /** Line-to-line bus voltage in kV for OpenDSS/pandapower bus results. */
 const formatBusVmKv = (bus, decimals = 3) => {
     const kv = Number(bus?.vm_kv);
@@ -821,12 +886,18 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
                     return;
                 }
                 
-                const cellName = formatResultNameHeader(resultCell, cell.name, 'External Grid');
-                
-                const resultString = `${cellName}
+                const isSource1ph = getShapeFromCell(resultCell) === 'Source 1ph';
+                const typeLabel = isSource1ph ? 'Source 1ph' : 'External Grid';
+                const displayName = formatResultNameHeader(resultCell, cell.name, typeLabel);
+                const pVal = isSource1ph ? Number(cell.p_mw) * 1000 : cell.p_mw;
+                const qVal = isSource1ph ? Number(cell.q_mvar) * 1000 : cell.q_mvar;
+                const pUnit = isSource1ph ? 'kW' : 'MW';
+                const qUnit = isSource1ph ? 'kVar' : 'MVar';
+
+                const resultString = `${displayName}
         
-        P[MW]: ${fmtOpenDssFloat(cell.p_mw)}
-        Q[MVar]: ${fmtOpenDssFloat(cell.q_mvar)}
+        P[${pUnit}]: ${fmtOpenDssFloat(pVal)}
+        Q[${qUnit}]: ${fmtOpenDssFloat(qVal)}
         PF: ${fmtOpenDssFloat(cell.pf)}
         Q/P: ${fmtOpenDssFloat(cell.q_p)}`;
 
@@ -868,10 +939,17 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
                 }
                 
                 const cellName = formatResultNameHeader(resultCell, cell.name, 'Generator');
-                
-                const resultString = `${cellName}
-        P[MW]: ${fmtOpenDssFloat(cell.p_mw)}
-        Q[MVar]: ${fmtOpenDssFloat(cell.q_mvar)}
+                const isGen1ph = getShapeFromCell(resultCell) === 'Generator 1ph';
+                const typeLabel = isGen1ph ? 'Generator 1ph' : 'Generator';
+                const displayName = formatResultNameHeader(resultCell, cell.name, typeLabel);
+                const pVal = isGen1ph ? Number(cell.p_mw) * 1000 : cell.p_mw;
+                const qVal = isGen1ph ? Number(cell.q_mvar) * 1000 : cell.q_mvar;
+                const pUnit = isGen1ph ? 'kW' : 'MW';
+                const qUnit = isGen1ph ? 'kVar' : 'MVar';
+
+                const resultString = `${displayName}
+        P[${pUnit}]: ${fmtOpenDssFloat(pVal)}
+        Q[${qUnit}]: ${fmtOpenDssFloat(qVal)}
         U[degree]: ${fmtOpenDssFloat(cell.va_degree)}
         Um[pu]: ${fmtOpenDssFloat(cell.vm_pu)}`;
 
@@ -908,11 +986,26 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
                     return;
                 }
                 
-                const cellName = formatResultNameHeader(resultCell, cell.name, 'Load');
-                
-                const resultString = `${cellName}
-        P[MW]: ${fmtOpenDssFloat(cell.p_mw)}
-        Q[MVar]: ${fmtOpenDssFloat(cell.q_mvar)}`;
+                const isLoad1ph = getShapeFromCell(resultCell) === 'Load 1ph';
+                const typeLabel = isLoad1ph ? 'Load 1ph' : 'Load';
+                const displayName = formatResultNameHeader(resultCell, cell.name, typeLabel);
+                const pVal = isLoad1ph ? Number(cell.p_mw) * 1000 : cell.p_mw;
+                const qVal = isLoad1ph ? Number(cell.q_mvar) * 1000 : cell.q_mvar;
+                const pUnit = isLoad1ph ? 'kW' : 'MW';
+                const qUnit = isLoad1ph ? 'kVar' : 'MVar';
+                const pSetVal = cell.p_set_mw != null
+                    ? (isLoad1ph ? Number(cell.p_set_mw) * 1000 : Number(cell.p_set_mw))
+                    : null;
+                const pLine = (pSetVal != null && Math.abs(pVal - pSetVal) > Math.max(0.5, pSetVal * 0.05))
+                    ? `P[${pUnit}]: ${fmtOpenDssFloat(pVal)} (set ${fmtOpenDssFloat(pSetVal)})`
+                    : `P[${pUnit}]: ${fmtOpenDssFloat(pVal)}`;
+                const vmLine = (cell.vm_pu != null && Number.isFinite(Number(cell.vm_pu)))
+                    ? `\n        Um[pu]: ${fmtOpenDssFloat(cell.vm_pu)}`
+                    : '';
+
+                const resultString = `${displayName}
+        ${pLine}
+        Q[${qUnit}]: ${fmtOpenDssFloat(qVal)}${vmLine}`;
 
                 const edge = (b.getEdges && b.getEdges(resultCell)) ? b.getEdges(resultCell)[0] : null;
                 const parent = edge || resultCell;
@@ -1299,6 +1392,10 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
         // Handle errors first
         if (handleNetworkErrors(dataJson)) {
             return;
+        }
+
+        if (dataJson.warnings && dataJson.warnings.length > 0) {
+            showOpenDssWarnings(dataJson.warnings);
         }
 
         try {
@@ -2033,6 +2130,34 @@ function collectNetworkDataStructured(graph) {
                     } else {
                         dssWarn(`Line ${cellData.name} missing bus connections: busFrom=${cellData.busFrom}, busTo=${cellData.busTo}`);
                     }
+                } else if (styleObj && styleObj.shapeELXXX === 'Line 1ph') {
+                    const connections = getConnectedBusId(cell, true);
+                    const line1Params = getAttributesAsObject(cell, {
+                        length_km: 'length_km',
+                        r_ohm_per_km: 'r_ohm_per_km',
+                        x_ohm_per_km: 'x_ohm_per_km',
+                        c_nf_per_km: 'c_nf_per_km',
+                        phase: 'phase',
+                        conn: 'conn',
+                        in_service: { name: 'in_service', optional: true }
+                    });
+                    const line1InService = line1Params.in_service !== undefined
+                        ? (typeof line1Params.in_service === 'string' ? line1Params.in_service.toLowerCase() === 'true' : Boolean(line1Params.in_service))
+                        : true;
+                    cellData = {
+                        typ: 'Line 1ph',
+                        name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
+                        id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
+                        busFrom: connections?.busFrom,
+                        busTo: connections?.busTo,
+                        r_ohm_per_km: line1Params.r_ohm_per_km || 0.122,
+                        x_ohm_per_km: line1Params.x_ohm_per_km || 0.112,
+                        length_km: line1Params.length_km || 1.0,
+                        c_nf_per_km: line1Params.c_nf_per_km || 0,
+                        phase: parseInt(line1Params.phase, 10) || 1,
+                        conn: (line1Params.conn || 'wye').toLowerCase(),
+                        in_service: line1InService
+                    };
                 } else if (styleObj && styleObj.shapeELXXX === 'Transformer') {
                     // This is a transformer element
                     const connections = getTransformerConnections(cell, graph);
@@ -2096,6 +2221,78 @@ function collectNetworkDataStructured(graph) {
                     } else {
                         dssWarn(`Transformer ${cellData.name} missing bus connections: busFrom=${cellData.busFrom}, busTo=${cellData.busTo}`);
                     }
+                } else if (styleObj && styleObj.shapeELXXX === 'Transformer 1ph') {
+                    const connections = getTransformerConnections(cell, graph);
+                    const tr1Params = getAttributesAsObject(cell, {
+                        sn_kva: 'sn_kva',
+                        vn_hv_kv: 'vn_hv_kv',
+                        vn_lv_kv: 'vn_lv_kv',
+                        vk_percent: 'vk_percent',
+                        vkr_percent: 'vkr_percent',
+                        phase: 'phase',
+                        conn: 'conn',
+                        tap_pos: 'tap_pos',
+                        in_service: { name: 'in_service', optional: true }
+                    });
+                    const tr1InService = tr1Params.in_service !== undefined
+                        ? (typeof tr1Params.in_service === 'string' ? tr1Params.in_service.toLowerCase() === 'true' : Boolean(tr1Params.in_service))
+                        : true;
+                    cellData = {
+                        typ: 'Transformer 1ph',
+                        name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
+                        id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
+                        busFrom: connections?.busFrom,
+                        busTo: connections?.busTo,
+                        sn_kva: tr1Params.sn_kva || 25,
+                        vk_percent: tr1Params.vk_percent || 2.0,
+                        vkr_percent: tr1Params.vkr_percent || 0.6,
+                        vn_hv_kv: tr1Params.vn_hv_kv || 7.2,
+                        vn_lv_kv: tr1Params.vn_lv_kv || 0.12,
+                        phase: parseInt(tr1Params.phase, 10) || 1,
+                        conn: (tr1Params.conn || 'wye').toLowerCase(),
+                        tap_pos: tr1Params.tap_pos || 0,
+                        in_service: tr1InService
+                    };
+                } else if (styleObj && styleObj.shapeELXXX === 'Generator 1ph') {
+                    const gen1Params = getAttributesAsObject(cell, {
+                        p_kw: 'p_kw',
+                        q_kvar: 'q_kvar',
+                        p_mw: { name: 'p_mw', optional: true },
+                        q_mvar: { name: 'q_mvar', optional: true },
+                        kv: 'kv',
+                        sn_kva: { name: 'sn_kva', optional: true },
+                        model: 'model',
+                        phase: 'phase',
+                        conn: 'conn',
+                        spectrum: { name: 'spectrum', optional: true },
+                        in_service: { name: 'in_service', optional: true }
+                    });
+                    const gen1InService = gen1Params.in_service !== undefined
+                        ? (typeof gen1Params.in_service === 'string' ? gen1Params.in_service.toLowerCase() === 'true' : Boolean(gen1Params.in_service))
+                        : true;
+                    const pKw = gen1Params.p_kw != null && gen1Params.p_kw !== ''
+                        ? parseFloat(gen1Params.p_kw)
+                        : parseFloat(gen1Params.p_mw || 0) * 1000;
+                    const qKvar = gen1Params.q_kvar != null && gen1Params.q_kvar !== ''
+                        ? parseFloat(gen1Params.q_kvar)
+                        : parseFloat(gen1Params.q_mvar || 0) * 1000;
+                    cellData = {
+                        typ: 'Generator 1ph',
+                        name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
+                        id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
+                        bus: getConnectedBusId(cell),
+                        p_kw: Number.isFinite(pKw) ? pKw : 0,
+                        q_kvar: Number.isFinite(qKvar) ? qKvar : 0,
+                        p_mw: (Number.isFinite(pKw) ? pKw : 0) / 1000,
+                        q_mvar: (Number.isFinite(qKvar) ? qKvar : 0) / 1000,
+                        kv: gen1Params.kv || '',
+                        sn_kva: gen1Params.sn_kva || '',
+                        model: parseInt(gen1Params.model, 10) || 1,
+                        phase: parseInt(gen1Params.phase, 10) || 1,
+                        conn: (gen1Params.conn || 'wye').toLowerCase(),
+                        spectrum: gen1Params.spectrum || 'defaultgen',
+                        in_service: gen1InService
+                    };
                 } else if (styleObj && styleObj.shapeELXXX === 'Generator') {
                     // This is a generator element
                     const genParams = getAttributesAsObject(cell, {
@@ -2242,6 +2439,46 @@ function collectNetworkDataStructured(graph) {
                     } else {
                         dssWarn(`Load ${cellData.name} missing bus connection`);
                     }
+                } else if (styleObj && styleObj.shapeELXXX === 'Load 1ph') {
+                    const load1Params = getAttributesAsObject(cell, {
+                        p_kw: 'p_kw',
+                        q_kvar: 'q_kvar',
+                        p_mw: { name: 'p_mw', optional: true },
+                        q_mvar: { name: 'q_mvar', optional: true },
+                        kv: 'kv',
+                        pf: 'pf',
+                        phase: 'phase',
+                        conn: 'conn',
+                        spectrum: { name: 'spectrum', optional: true },
+                        pctSeriesRL: { name: 'pctSeriesRL', optional: true },
+                        in_service: { name: 'in_service', optional: true }
+                    });
+                    const load1InService = load1Params.in_service !== undefined
+                        ? (typeof load1Params.in_service === 'string' ? load1Params.in_service.toLowerCase() === 'true' : Boolean(load1Params.in_service))
+                        : true;
+                    const pKw = load1Params.p_kw != null && load1Params.p_kw !== ''
+                        ? parseFloat(load1Params.p_kw)
+                        : parseFloat(load1Params.p_mw || 0) * 1000;
+                    const qKvar = load1Params.q_kvar != null && load1Params.q_kvar !== ''
+                        ? parseFloat(load1Params.q_kvar)
+                        : parseFloat(load1Params.q_mvar || 0) * 1000;
+                    cellData = {
+                        typ: 'Load 1ph',
+                        name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
+                        id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
+                        bus: getConnectedBusId(cell),
+                        p_kw: Number.isFinite(pKw) ? pKw : 0,
+                        q_kvar: Number.isFinite(qKvar) ? qKvar : 0,
+                        p_mw: (Number.isFinite(pKw) ? pKw : 0) / 1000,
+                        q_mvar: (Number.isFinite(qKvar) ? qKvar : 0) / 1000,
+                        kv: load1Params.kv || '',
+                        pf: load1Params.pf || 1.0,
+                        phase: parseInt(load1Params.phase, 10) || 1,
+                        conn: (load1Params.conn || 'wye').toLowerCase(),
+                        spectrum: load1Params.spectrum || 'defaultload',
+                        pctSeriesRL: load1Params.pctSeriesRL,
+                        in_service: load1InService
+                    };
                 } else if (styleObj && styleObj.shapeELXXX === 'Shunt Reactor') {
                     // This is a shunt reactor element
                     const shuntParams = getAttributesAsObject(cell, {
@@ -2575,6 +2812,32 @@ function collectNetworkDataStructured(graph) {
                     } else {
                         dssWarn(`External Grid ${cellData.name} missing bus connection`);
                     }
+                } else if (styleObj && styleObj.shapeELXXX === 'Source 1ph') {
+                    const src1Params = getAttributesAsObject(cell, {
+                        vm_pu: 'vm_pu',
+                        va_degree: 'va_degree',
+                        s_sc_max_mva: 's_sc_max_mva',
+                        phase: 'phase',
+                        conn: 'conn',
+                        in_service: { name: 'in_service', optional: true }
+                    });
+                    const src1InService = src1Params.in_service !== undefined
+                        ? (typeof src1Params.in_service === 'string'
+                            ? !['false', 'no', '0'].includes(src1Params.in_service.toLowerCase())
+                            : Boolean(src1Params.in_service))
+                        : true;
+                    cellData = {
+                        typ: 'Source 1ph',
+                        name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
+                        id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
+                        bus: getConnectedBusId(cell),
+                        vm_pu: src1Params.vm_pu || 1.0,
+                        va_degree: src1Params.va_degree || 0.0,
+                        s_sc_max_mva: src1Params.s_sc_max_mva || 1000.0,
+                        phase: parseInt(src1Params.phase, 10) || 1,
+                        conn: (src1Params.conn || 'wye').toLowerCase(),
+                        in_service: src1InService
+                    };
                 } else if (styleObj && styleObj.shapeELXXX === 'Three Winding Transformer') {
                     // Graph edge order is not always stencil [LV,MV,HV]. Pandapower reorders with
                     // updateThreeWindingTransformerConnections (hv = highest vn_kv, lv = lowest, mv = remaining).

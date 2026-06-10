@@ -131,6 +131,18 @@ export class Dialog {
                     });
                     label.textContent = param.label;
                     formGroup.appendChild(label);
+                    if (param.description) {
+                        const hint = document.createElement('div');
+                        Object.assign(hint.style, {
+                            fontSize: '12px',
+                            color: '#6c757d',
+                            lineHeight: '1.4',
+                            marginBottom: '4px',
+                            fontStyle: 'italic'
+                        });
+                        hint.textContent = param.description;
+                        formGroup.appendChild(hint);
+                    }
                 }
                 if (param.type === 'radio') {
                     input = this.createRadioGroup(param);
@@ -219,7 +231,9 @@ export class Dialog {
                         if (typeof opt === 'object' && opt.default) o.selected = true;
                         input.appendChild(o);
                     });
-                    if (!(param.options || []).some(o => typeof o === 'object' && o.default) && (param.options || []).length) {
+                    if (param.value != null && param.value !== '') {
+                        input.value = String(param.value);
+                    } else if (!(param.options || []).some(o => typeof o === 'object' && o.default) && (param.options || []).length) {
                         input.selectedIndex = 0;
                     }
                     this.inputs.set(param.id, input);
@@ -250,6 +264,9 @@ export class Dialog {
                         input.style.borderColor = '#ced4da';
                         input.style.boxShadow = 'none';
                     });
+                    if (param.step) input.step = param.step;
+                    if (param.min !== undefined) input.min = param.min;
+                    if (param.max !== undefined) input.max = param.max;
                     this.inputs.set(param.id, input);
                 }
 
