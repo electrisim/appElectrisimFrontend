@@ -6,7 +6,6 @@
 
 // Deferred: preserve original and apply override when mxGraph is available
 var originalGraphAddEdge = null;
-var originalConnect = null;
 var upgradedGraphs = typeof WeakSet !== 'undefined' ? new WeakSet() : {};
 
 function runUpgradeOnce(graph) {
@@ -74,8 +73,6 @@ function createBusResultPlaceholder(graph, busCell) {
         'fontColor=#6C757D',
         'fontStyle=0',
         'spacing=3',
-        'connectable=0',
-        'pointerEvents=0',
         'connectedTo=' + busCell.id
     ].join(';');
 
@@ -150,7 +147,7 @@ if (typeof window !== 'undefined') {
 
 // Shared result box style for loadFlow.js, loadflowOpenDss.js, shortCircuit.js
 // Light grey dashed border, semi-transparent background, readable text
-var RESULT_BOX_STYLE = 'shapeELXXX=Result;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;overflow=hidden;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3;connectable=0;pointerEvents=0';
+var RESULT_BOX_STYLE = 'shapeELXXX=Result;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;overflow=hidden;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3';
 
 /**
  * Insert a result box with proper geometry and styling.
@@ -830,8 +827,6 @@ function createResultPlaceholder(graph, parentEdge, componentCell, opts) {
         'fontColor=#6C757D',
         'fontStyle=0',
         'spacing=3',
-        'connectable=0',
-        'pointerEvents=0',
         'connectedTo=' + externalId
     ].join(';');
 
@@ -911,88 +906,9 @@ function createResultPlaceholder(graph, parentEdge, componentCell, opts) {
     }
 }
 
-/**
- * After mxConnectionHandler.connect creates an edge, tag it as Line / NotEditableLine
- * and attach result placeholders. Runs in a model transaction so later connects stay reliable.
- */
-function applyElxxxEdgeConnectionStyles(graph, edge) {
-    if (!graph || !edge || !graph.getModel) return;
-    var model = graph.getModel();
-    if (!model.isEdge(edge)) return;
-
-    var source = edge.source || model.getTerminal(edge, true);
-    var target = edge.target || model.getTerminal(edge, false);
-    if (!source || !target) return;
-
-    var isBusEndpoint = function (cell) {
-        if (!cell || !cell.style) return false;
-        return cell.style.includes('shapeELXXX=Bus') ||
-            cell.style.includes('shape=mxgraph.electrical.transmission.busbar');
-    };
-    var isSwitchEndpoint = function (cell) {
-        return !!(cell && cell.style && cell.style.includes('shapeELXXX=Switch'));
-    };
-    var isLineConnection =
-        (isBusEndpoint(source) && isBusEndpoint(target)) ||
-        (isSwitchEndpoint(source) && isSwitchEndpoint(target));
-
-    model.beginUpdate();
-    try {
-        model.setValue(edge, '');
-
-        if (isLineConnection) {
-            var listaParametry = mxUtils.createXmlDocument().createElement('object');
-            listaParametry.setAttribute('from_bus', source.mxObjectId);
-            listaParametry.setAttribute('to_bus', target.mxObjectId);
-            listaParametry.setAttribute('length_km', '0');
-            listaParametry.setAttribute('parallel', '1');
-            listaParametry.setAttribute('df', '1');
-            listaParametry.setAttribute('parameters', true);
-            listaParametry.setAttribute('name', 'Line');
-            listaParametry.setAttribute('Load_flow_parameters', '');
-            listaParametry.setAttribute('r_ohm_per_km', '0');
-            listaParametry.setAttribute('x_ohm_per_km', '0');
-            listaParametry.setAttribute('c_nf_per_km', '0');
-            listaParametry.setAttribute('g_us_per_km', '0');
-            listaParametry.setAttribute('max_i_ka', '0');
-            listaParametry.setAttribute('type', 'cs');
-            listaParametry.setAttribute('Short_circuit_parameters', '');
-            listaParametry.setAttribute('r0_ohm_per_km', 0.0);
-            listaParametry.setAttribute('x0_ohm_per_km', '0');
-            listaParametry.setAttribute('c0_nf_per_km', '0');
-            listaParametry.setAttribute('endtemp_degree', '0');
-
-            model.setValue(edge, listaParametry);
-            var lineStyle = model.getStyle(edge) || '';
-            model.setStyle(edge, lineStyle + ';shapeELXXX=Line');
-
-            var lineExistingId = edge.value &&
-                edge.value.attributes &&
-                edge.value.attributes.placeholderId &&
-                edge.value.attributes.placeholderId.nodeValue;
-            if (!lineExistingId) {
-                createResultPlaceholder(graph, edge, edge, {
-                    logicalShape: 'Result',
-                    width: 70,
-                    height: 80,
-                    positionX: 0.5
-                });
-            }
-        } else {
-            var edgeStyle = model.getStyle(edge) || '';
-            model.setStyle(edge, edgeStyle + ';shapeELXXX=NotEditableLine');
-        }
-    } catch (err) {
-        console.error('ELXXX: Error applying connection styles:', err);
-    } finally {
-        model.endUpdate();
-    }
-}
-
 function applyResultBoxesHook() {
     if (typeof mxGraph === 'undefined' || typeof mxConnectionHandler === 'undefined' || originalGraphAddEdge !== null) return;
     originalGraphAddEdge = mxGraph.prototype.addEdge;
-    originalConnect = mxConnectionHandler.prototype.connect;
     mxGraph.prototype.addEdge = function (edge, parent, source, target, index) {
         // Prevent recursive re-entry when our own placeholder creation triggers internal addEdge calls
         if (this._elxxxInAddEdge) {
@@ -1129,28 +1045,184 @@ function applyResultBoxesHook() {
     }
 };
 
-    // Chain from the original connect handler, then apply Electrisim edge tagging in a transaction.
+    //=============================================================================
+    // Connection Handler - Line Creation Logic
+    //=============================================================================
+    // This code extends mxConnectionHandler to set up Line parameters when
+    // connecting two Bus objects together
+    //=============================================================================
+
+    //rysowanie linii łączącej obiekty
+    //e - mxGraphModel 
+    //g - mxCell - finalne połączenie z atrybutami source i target
     mxConnectionHandler.prototype.connect = function (a, b, c, d) {
-        originalConnect.apply(this, arguments);
 
-        if (!(null != b || this.isCreateTarget(c) || this.graph.allowDanglingEdges)) return;
-
+    //console.log('connect tutaj')
+    if (null != b || this.isCreateTarget(c) || this.graph.allowDanglingEdges) {
+        var e = this.graph.getModel(),
+            f = !1,
+            g = null;
+        console.log(e)
+        e.beginUpdate();
         try {
-            var edge = this.graph.getSelectionCell();
-            var model = this.graph.getModel();
-            if (edge && model.isEdge(edge)) {
-                applyElxxxEdgeConnectionStyles(this.graph, edge);
+            if (null != a && null == b && !this.graph.isIgnoreTerminalEvent(c) && this.isCreateTarget(c) && (b = this.createTargetVertex(c, a), null != b)) {
+                d = this.graph.getDropTarget([b], c, d);
+                f = !0;
+                if (null != d && this.graph.getModel().isEdge(d)) d = this.graph.getDefaultParent();
+                else {
+                    var k = this.graph.getView().getState(d);
+                    if (null != k) {
+                        var l = e.getGeometry(b);
+                        l.x -= k.origin.x;
+                        l.y -= k.origin.y
+                    }
+                }
+                this.graph.addCell(b, d)
             }
-        } catch (err) {
-            console.error('ELXXX: Error in connect post-processing:', err);
+            var m = this.graph.getDefaultParent();
+            null != a && null != b && e.getParent(a) == e.getParent(b) && e.getParent(e.getParent(a)) != e.getRoot() && (m = e.getParent(a), null != a.geometry && a.geometry.relative && null != b.geometry && b.geometry.relative && (m = e.getParent(m)));
+            var n = k = null;
+            null != this.edgeState && (k = this.edgeState.cell.value, n = this.edgeState.cell.style);
+            g = this.insertEdge(m, null, k, a, b, n);
+            if (null != g) {
+                this.graph.setConnectionConstraint(g, a, !0, this.sourceConstraint);
+                this.graph.setConnectionConstraint(g, b, !1, this.constraintHandler.currentConstraint);
+                null != this.edgeState && e.setGeometry(g, this.edgeState.cell.geometry);
+                m = e.getParent(a);
+                if (this.isInsertBefore(g, a, b, c, d)) {
+                    for (l = a; null != l.parent && null != l.geometry && l.geometry.relative && l.parent != g.parent;) l = this.graph.model.getParent(l);
+                    null != l && null != l.parent && l.parent == g.parent && e.add(m, g, l.parent.getIndex(l))
+                }
+                var p = e.getGeometry(g);
+                null == p && (p = new mxGeometry, p.relative = !0, e.setGeometry(g, p));
+                if (null != this.waypoints &&
+                    0 < this.waypoints.length) {
+                    var q = this.graph.view.scale,
+                        r = this.graph.view.translate;
+                    p.points = [];
+                    for (a = 0; a < this.waypoints.length; a++) {
+                        var t = this.waypoints[a];
+                        p.points.push(new mxPoint(t.x / q - r.x, t.y / q - r.y))
+                    }
+                }
+                if (null == b) {
+                    var u = this.graph.view.translate,
+                        q = this.graph.view.scale,
+                        t = null != this.originalPoint ? new mxPoint(this.originalPoint.x / q - u.x, this.originalPoint.y / q - u.y) : new mxPoint(this.currentPoint.x / q - u.x, this.currentPoint.y / q - u.y);
+                    t.x -= this.graph.panDx / this.graph.view.scale;
+                    t.y -= this.graph.panDy / this.graph.view.scale;
+                    p.setTerminalPoint(t, !1)
+                }
+                this.fireEvent(new mxEventObject(mxEvent.CONNECT, "cell", g, "terminal", b, "event", c, "target", d, "terminalInserted", f))
+            }
+        } catch (x) {
+            mxLog.show(), mxLog.debug(x.message)
+        } finally {
+            e.endUpdate()
         }
-    };
 
-    console.log('ELXXX: addEdge and connect hooks installed for result placeholder support');
+        //ELXXX
+
+        //g - mxCell - linia
+        //e - mxGraph
+
+        //ustaw label        
+        e.setValue(g, '');
+
+        var parametry = e.getValue(g);
+
+        //jesli linia łączy dwa bus wtedy umożliwij wprowadzanie parametrów linii   
+        //do wyszukiwania fraza ELXXX Line
+        // Two endpoint patterns become a fully parameterised Line element:
+        //   • Bus ↔ Bus (classic pandapower line)
+        //   • Switch ↔ Switch (Bus1 → Switch1 → Line → Switch2 → Bus2 — one breaker per cable end)
+        // A Bus ↔ Switch edge is just a stub (NotEditableLine) — the Switch ↔ Bus connection
+        // itself carries no electrical parameters.
+        var isBusEndpoint = function (cell) {
+            if (!cell || !cell.style) return false;
+            return cell.style.includes('shapeELXXX=Bus') ||
+                cell.style.includes('shape=mxgraph.electrical.transmission.busbar');
+        };
+        var isSwitchEndpoint = function (cell) {
+            return !!(cell && cell.style && cell.style.includes('shapeELXXX=Switch'));
+        };
+        var isLineConnection =
+            (isBusEndpoint(g.source) && isBusEndpoint(g.target)) ||
+            (isSwitchEndpoint(g.source) && isSwitchEndpoint(g.target));
+        if (isLineConnection) {
+
+            //utworzenie parametrów linii
+            var listaParametry = mxUtils.createXmlDocument().createElement("object");
+            //listaParametry.setAttribute("label", parametry || "");
+            listaParametry.setAttribute("from_bus", g.source.mxObjectId);
+            listaParametry.setAttribute("to_bus", g.target.mxObjectId);
+
+            //INPUT
+            listaParametry.setAttribute("length_km", "0");
+
+            listaParametry.setAttribute("parallel", "1");
+            listaParametry.setAttribute("df", "1");
+
+            //możliwość wyboru z biblioteki
+            listaParametry.setAttribute("parameters", true);
+            // listaParametry.setAttribute("standard_type", false);
+            // listaParametry.setAttribute("line_type", true);
+            listaParametry.setAttribute("name", "Line");            
+
+            //Load_flow_parameters
+            listaParametry.setAttribute("Load_flow_parameters", "");
+            listaParametry.setAttribute("r_ohm_per_km", "0");
+            listaParametry.setAttribute("x_ohm_per_km", "0");
+            listaParametry.setAttribute("c_nf_per_km", "0");
+            listaParametry.setAttribute("g_us_per_km", "0");
+            listaParametry.setAttribute("max_i_ka", "0");
+            listaParametry.setAttribute("type", "cs");
+
+            //Short_circuit_parameters
+            listaParametry.setAttribute("Short_circuit_parameters", "");
+            listaParametry.setAttribute("r0_ohm_per_km", 0.0); //w specyfikacji PandaPower jako nan
+            listaParametry.setAttribute("x0_ohm_per_km", "0"); //w specyfikacji PandaPower jako nan
+            listaParametry.setAttribute("c0_nf_per_km", "0"); //w specyfikacji PandaPower jako nan
+            listaParametry.setAttribute("endtemp_degree", "0");                   
+
+           
+            //listaParametry.setAttribute("max_loading_percent", "0"); //w specyfikacji PandaPower jako nan
+            //listaParametry.setAttribute("endtemp_degree", "0"); //w specyfikacji PandaPower jako nan
+            //listaParametry.setAttribute("in_service", "True"); //in_service nie działa
+
+            e.setValue(g, listaParametry)
+
+            g.setStyle(g.getStyle() + ";shapeELXXX=Line")
+
+            // Create result placeholder for Line - as child of edge with relative positioning
+            try {
+                var lineExistingId = g.value &&
+                    g.value.attributes &&
+                    g.value.attributes.placeholderId &&
+                    g.value.attributes.placeholderId.nodeValue;
+
+                if (!lineExistingId) {
+                    createResultPlaceholder(this.graph, g, g, {
+                        logicalShape: 'Result',
+                        width: 70,
+                        height: 80,
+                        positionX: 0.5 // middle of the line
+                    });
+                }
+            } catch (err) {
+                console.error('ELXXX: Error creating placeholder for Line:', err);
+            }
+
+        }else{
+            g.setStyle(g.getStyle() + ";shapeELXXX=NotEditableLine")
+        }
+
+        this.select && this.selectCells(g, f ? b : null)
+    }
+};
 }
 
 // Apply hook when mxGraph is available
-var _mxGraphHookAttempts = 0;
 function waitForMxGraphAndApply() {
     if (typeof mxGraph !== 'undefined' && typeof mxConnectionHandler !== 'undefined') {
         applyResultBoxesHook();
@@ -1167,10 +1239,6 @@ function waitForMxGraphAndApply() {
         }, 2500);
         return;
     }
-    _mxGraphHookAttempts++;
-    if (_mxGraphHookAttempts === 200) {
-        console.warn('ELXXX: mxGraph/mxConnectionHandler not ready after 10s — result box connect hooks not installed');
-    }
     setTimeout(waitForMxGraphAndApply, 50);
 }
 if (document.readyState === 'loading') {
@@ -1181,5 +1249,4 @@ if (document.readyState === 'loading') {
 
 if (typeof window !== 'undefined') {
     window.upgradeResultPlaceholderStyles = upgradeResultPlaceholderStyles;
-    window.applyResultBoxesHook = applyResultBoxesHook;
 }
