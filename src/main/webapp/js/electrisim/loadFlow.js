@@ -1959,6 +1959,66 @@ function loadFlowPandaPower(a, b, c) {
     }
 
     // Highly optimized network element processors with batched operations
+    const flowVizEnabled = () =>
+        typeof window !== 'undefined' && typeof window.resolveBranchFlowDirection === 'function';
+
+    const trafoEndpointsFn = (branchCell, model) => {
+        try {
+            const { hv_bus, lv_bus } = getTransformerConnections(branchCell);
+            return { busFrom: hv_bus, busTo: lv_bus };
+        } catch (_) {
+            return getLineBusEndpointsForPayload(branchCell, model);
+        }
+    };
+
+    const trafo3wEndpointsFn = (branchCell, model) => {
+        try {
+            const { hv_bus, lv_bus } = getThreeWindingConnections(branchCell);
+            return { busFrom: hv_bus, busTo: lv_bus };
+        } catch (_) {
+            return getLineBusEndpointsForPayload(branchCell, model);
+        }
+    };
+
+    const impedanceEndpointsFn = (branchCell, model) => {
+        try {
+            return getImpedanceConnections(branchCell);
+        } catch (_) {
+            return getLineBusEndpointsForPayload(branchCell, model);
+        }
+    };
+
+    const switchEndpointsFn = (branchCell, model) => {
+        try {
+            const sw = getSwitchConnections(branchCell, model);
+            if (sw.et === 'b') {
+                return { busFrom: sw.bus, busTo: sw.element };
+            }
+            const cells = model.cells || {};
+            let elemCell = null;
+            for (const id in cells) {
+                if (!Object.prototype.hasOwnProperty.call(cells, id)) continue;
+                if (cellSemanticId(cells[id]) === sw.element) {
+                    elemCell = cells[id];
+                    break;
+                }
+            }
+            if (elemCell && (elemCell.edge || cellIsLineVertexForSwitch(elemCell))) {
+                return getLineBusEndpointsForPayload(elemCell, model);
+            }
+            return { busFrom: sw.bus, busTo: sw.element };
+        } catch (_) {
+            return getLineBusEndpointsForPayload(branchCell, model);
+        }
+    };
+
+    const applyFlowViz = (branchCell, cell, model, options) => {
+        if (!flowVizEnabled()) return null;
+        const dir = window.resolveBranchFlowDirection(cell, branchCell, model, options);
+        if (window.applyActivePowerArrow) window.applyActivePowerArrow(b, branchCell, dir);
+        return dir;
+    };
+
     const elementProcessors = {
         busbars: (data, b, grafka) => {
             const model = b.getModel();
@@ -1997,6 +2057,9 @@ function loadFlowPandaPower(a, b, c) {
                 cell.name = replaceUnderscores(cell.name);
                 const label = formatResultNameHeader(resultCell, cell.name, 'Bus');
                 const d = busDisplayPq(cell);
+                const qLine = (typeof window !== 'undefined' && window.formatBusNetReactiveQ)
+                    ? window.formatBusNetReactiveQ(d.q)
+                    : 'Q[MVar]: ' + formatNumber(d.q);
                 return {
                     resultCell,
                     resultString: `${label}
@@ -2004,7 +2067,7 @@ U[pu]: ${formatNumber(cell.vm_pu)}
 U[kV]: ${formatBusVmKvForCell(cell, resultCell)}
 U[deg]: ${formatNumber(cell.va_degree)}
 P[MW]: ${formatNumber(d.p)}
-Q[MVar]: ${formatNumber(d.q)}
+${qLine}
 PF: ${formatNumber(d.pf)}
 Q/P: ${formatNumber(d.qp)}`,
                     cell
@@ -2037,10 +2100,10 @@ Q/P: ${formatNumber(d.qp)}`,
                 }
                 cell.name = replaceUnderscores(cell.name);
                 const lineLabel = formatResultNameHeader(resultCell, cell.name, 'Line');
-
-                return {
-                    resultCell,
-                    resultString: `${lineLabel}
+                const dir = applyFlowViz(resultCell, cell, model, { getEndpointsFn: getLineBusEndpointsForPayload });
+                const resultString = (flowVizEnabled() && window.formatLineResultWithFlow)
+                    ? window.formatLineResultWithFlow(cell, dir, lineLabel)
+                    : `${lineLabel}
             P_from[MW]: ${formatNumber(cell.p_from_mw)}
             Q_from[MVar]: ${formatNumber(cell.q_from_mvar)}
             i_from[kA]: ${formatNumber(cell.i_from_ka)}
@@ -2049,9 +2112,9 @@ Q/P: ${formatNumber(d.qp)}`,
 
             P_to[MW]: ${formatNumber(cell.p_to_mw)}
             Q_to[MVar]: ${formatNumber(cell.q_to_mvar)}
-            i_to[kA]: ${formatNumber(cell.i_to_ka)}`,
-                    cell
-                };
+            i_to[kA]: ${formatNumber(cell.i_to_ka)}`;
+
+                return { resultCell, resultString, cell };
             });
 
             lineResults.filter(r => r !== null).forEach(({ resultCell, resultString, cell }) => {
@@ -2060,7 +2123,7 @@ Q/P: ${formatNumber(d.qp)}`,
                 // have been auto-created on the same midpoint. Consolidate by connectedTo=lineId.
                 const keep = updateOrCreateSinglePlaceholder(resultCell, resultString, resultCell, {
                     width: 70,
-                    height: 80,
+                    height: 96,
                     positionX: 0.5,
                     positionY: 0,
                 });
@@ -2079,10 +2142,13 @@ Q/P: ${formatNumber(d.qp)}`,
                 const resultCell = getResultGraphCell(cell);
                 if (!resultCell) return;
                 const label = formatResultNameHeader(resultCell, cell.name, 'External Grid');
+                const qLine = (typeof window !== 'undefined' && window.formatExternalGridReactiveQ)
+                    ? window.formatExternalGridReactiveQ(cell.q_mvar)
+                    : 'Q[MVar]: ' + formatNumber(cell.q_mvar);
                 const resultString = `${label}
             
             P[MW]: ${formatNumber(cell.p_mw)}
-            Q[MVar]: ${formatNumber(cell.q_mvar)}
+            ${qLine}
             PF: ${formatNumber(cell.pf)}
             Q/P: ${formatNumber(cell.q_p)}`;
 
@@ -2098,7 +2164,7 @@ Q/P: ${formatNumber(d.qp)}`,
                     b.getModel().setValue(existing, resultString);
                     processCellStyles(b, existing);
                 } else {
-                    const labelka = insertResultPlaceholder(parent, resultString, { width: 95, height: 58, positionX: -0.3 });
+                    const labelka = insertResultPlaceholder(parent, resultString, { width: 95, height: 68, positionX: -0.3 });
                     if (labelka) processCellStyles(b, labelka);
                 }
             });
@@ -2179,8 +2245,14 @@ Q/P: ${formatNumber(d.qp)}`,
                 if (!resultCell) return;
                 const trafoLabel = formatResultNameHeader(resultCell, cell.name, 'Trafo');
                 const tapBlock = formatTapControlOnTrafo(cell);
-
-                const resultString = `${trafoLabel}
+                const dir = applyFlowViz(resultCell, cell, b.getModel(), {
+                    pFromKey: 'p_hv_mw',
+                    pToKey: 'p_lv_mw',
+                    getEndpointsFn: trafoEndpointsFn
+                });
+                const resultString = (flowVizEnabled() && window.formatTrafoResultWithFlow)
+                    ? window.formatTrafoResultWithFlow(cell, dir, trafoLabel, tapBlock)
+                    : `${trafoLabel}
             P_HV[MW]: ${formatNumber(cell.p_hv_mw)}
             P_LV[MW]: ${formatNumber(cell.p_lv_mw)}
             i_HV[kA]: ${formatNumber(cell.i_hv_ka)}
@@ -2222,7 +2294,24 @@ ${tapBlock}`;
                 if (!resultCell) return;
                 const trafoLabel = formatResultNameHeader(resultCell, cell.name, 'Trafo3W');
                 const tapBlock = formatTapControlOnTrafo(cell);
-                const resultString = `${trafoLabel}
+                const dir = applyFlowViz(resultCell, cell, b.getModel(), {
+                    pFromKey: 'p_hv_mw',
+                    pToKey: 'p_lv_mw',
+                    getEndpointsFn: trafo3wEndpointsFn
+                });
+                const flowLine = (flowVizEnabled() && dir)
+                    ? (dir.nearZero
+                        ? 'P flow: ≈ 0 MW'
+                        : 'P flow: ' + dir.fromName + ' → ' + dir.toName + '  (' + formatNumber(dir.pMw) + ' MW)')
+                    : '';
+                const resultString = (flowVizEnabled() && flowLine)
+                    ? `${trafoLabel}
+            ${flowLine}
+            i_HV[kA]: ${formatNumber(cell.i_hv_ka)}
+            i_MV[kA]: ${formatNumber(cell.i_mv_ka)}
+            i_LV[kA]: ${formatNumber(cell.i_lv_ka)}
+            loading[%]: ${formatNumber(cell.loading_percent)}${tapBlock}`
+                    : `${trafoLabel}
             i_HV[kA]: ${formatNumber(cell.i_hv_ka)}
             i_MV[kA]: ${formatNumber(cell.i_mv_ka)}
             i_LV[kA]: ${formatNumber(cell.i_lv_ka)}
@@ -2308,9 +2397,12 @@ ${tapBlock}`;
                 const resultCell = getResultGraphCell(cell);
                 if (!resultCell) return;
                 const label = formatResultNameHeader(resultCell, cell.name, 'Load');
+                const qLine = (typeof window !== 'undefined' && window.formatElementReactiveQ)
+                    ? window.formatElementReactiveQ(cell.q_mvar, 'load')
+                    : 'Q[MVar]: ' + formatNumber(cell.q_mvar);
                 const resultString = `${label}
             P[MW]: ${formatNumber(cell.p_mw)}
-            Q[MVar]: ${formatNumber(cell.q_mvar)}`;
+            ${qLine}`;
 
                 const edge = (b.getEdges && b.getEdges(resultCell))?.[0];
                 const parent = edge || resultCell;
@@ -2356,7 +2448,14 @@ ${tapBlock}`;
                 if (!resultCell) return;
                 cell.name = replaceUnderscores(cell.name);
                 const label = formatResultNameHeader(resultCell, cell.name, 'Impedance');
-                const resultString = `${label}
+                const dir = applyFlowViz(resultCell, cell, model, { getEndpointsFn: impedanceEndpointsFn });
+                const extraLines = '\nPl[MW]: ' + formatNumber(cell.pl_mw) +
+                    '\nQl[MVar]: ' + formatNumber(cell.ql_mvar) +
+                    '\ni_from[kA]: ' + formatNumber(cell.i_from_ka) +
+                    '\ni_to[kA]: ' + formatNumber(cell.i_to_ka);
+                const resultString = (flowVizEnabled() && window.formatGenericBranchResultWithFlow)
+                    ? window.formatGenericBranchResultWithFlow(cell, dir, label, extraLines)
+                    : `${label}
             P_from[MW]: ${formatNumber(cell.p_from_mw)}
             Q_from[MVar]: ${formatNumber(cell.q_from_mvar)}
             P_to[MW]: ${formatNumber(cell.p_to_mw)}
@@ -2494,7 +2593,14 @@ ${tapBlock}`;
                 const resultCell = getResultGraphCell(cell);
                 if (!resultCell) return;
                 const label = formatResultNameHeader(resultCell, cell.name, 'TCSC');
-                const resultString = `${label}
+                const dir = applyFlowViz(resultCell, cell, b.getModel(), { getEndpointsFn: getLineBusEndpointsForPayload });
+                const extraLines = '\nFiring angle[degree]: ' + formatNumber(cell.thyristor_firing_angle_degree) +
+                    '\nx[Ohm]: ' + formatNumber(cell.x_ohm) +
+                    '\np_l[MW]: ' + formatNumber(cell.p_l_mw) +
+                    '\nq_l[MVar]: ' + formatNumber(cell.q_l_mvar);
+                const resultString = (flowVizEnabled() && window.formatGenericBranchResultWithFlow)
+                    ? window.formatGenericBranchResultWithFlow(cell, dir, label, extraLines)
+                    : `${label}
             Firing angle[degree]: ${formatNumber(cell.thyristor_firing_angle_degree)}
             x[Ohm]: ${formatNumber(cell.x_ohm)}
             p_from[MW]: ${formatNumber(cell.p_from_mw)}
@@ -2550,7 +2656,11 @@ ${tapBlock}`;
                 const resultCell = getResultGraphCell(cell);
                 if (!resultCell) return;
                 const label = formatResultNameHeader(resultCell, cell.name, 'DC Line');
-                const resultString = `${label}
+                const dir = applyFlowViz(resultCell, cell, b.getModel(), { getEndpointsFn: getLineBusEndpointsForPayload });
+                const extraLines = '\nPl[MW]: ' + formatNumber(cell.pl_mw);
+                const resultString = (flowVizEnabled() && window.formatGenericBranchResultWithFlow)
+                    ? window.formatGenericBranchResultWithFlow(cell, dir, label, extraLines)
+                    : `${label}
             P_from[MW]: ${formatNumber(cell.p_from_mw)}
             Q_from[MVar]: ${formatNumber(cell.q_from_mvar)}
             P_to[MW]: ${formatNumber(cell.p_to_mw)}
@@ -2578,11 +2688,11 @@ ${tapBlock}`;
                 if (!resultCell) return;
                 cell.name = cell.name != null ? replaceUnderscores(String(cell.name)) : 'Switch';
                 const hdr = formatResultNameHeader(resultCell, cell.name, 'Switch');
-                const cld = cell.closed;
-                const closedStr =
-                    cld === false || cld === 'false' ? 'false' : 'true';
-                const resultString = `${hdr}
-closed: ${closedStr}
+                const dir = applyFlowViz(resultCell, cell, model, { getEndpointsFn: switchEndpointsFn });
+                const resultString = (flowVizEnabled() && window.formatSwitchResultWithFlow)
+                    ? window.formatSwitchResultWithFlow(cell, dir, hdr)
+                    : `${hdr}
+closed: ${(cell.closed === false || cell.closed === 'false') ? 'false' : 'true'}
 P_from[MW]: ${formatNumber(cell.p_from_mw)}
 Q_from[MVar]: ${formatNumber(cell.q_from_mvar)}
 P_to[MW]: ${formatNumber(cell.p_to_mw)}
@@ -2712,6 +2822,10 @@ Loading[%]: ${formatNumber(cell.loading_percent, 1)}`;
             const resultProcessingStart = performance.now();
             console.log('Starting result visualization...');
             
+            if (typeof window !== 'undefined' && typeof window.clearFlowArrows === 'function') {
+                window.clearFlowArrows(b);
+            }
+
             // Begin model update transaction for better performance
             b.getModel().beginUpdate();
             
@@ -2759,6 +2873,10 @@ Loading[%]: ${formatNumber(cell.loading_percent, 1)}`;
                 }
             } catch (dashErr) {
                 console.warn('Network Health Dashboard render skipped:', dashErr);
+            }
+
+            if (typeof window !== 'undefined' && typeof window.showFlowConventionLegend === 'function') {
+                window.showFlowConventionLegend(b);
             }
 
             // Auto-snapshot every successful run so the user can compare A↔B

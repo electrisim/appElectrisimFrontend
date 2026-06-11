@@ -865,8 +865,16 @@
             const maxT = window.innerHeight - 60;
             panel.style.left = Math.max(4, Math.min(maxL, nl)) + 'px';
             panel.style.top  = Math.max(4, Math.min(maxT, nt)) + 'px';
+            if (typeof window.repositionFlowConventionLegend === 'function') {
+                window.repositionFlowConventionLegend();
+            }
         });
-        document.addEventListener('mouseup', () => { dragging = false; });
+        document.addEventListener('mouseup', () => {
+            if (dragging && typeof window.repositionFlowConventionLegend === 'function') {
+                window.repositionFlowConventionLegend();
+            }
+            dragging = false;
+        });
     }
 
     /* ---------------------------------------------------------------------

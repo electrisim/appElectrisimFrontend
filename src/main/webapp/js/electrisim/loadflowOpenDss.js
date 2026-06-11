@@ -11,7 +11,7 @@ import { showHarmonicAnalysisResultsDialog } from './dialogs/HarmonicAnalysisRes
 import { formatResultNameHeader, createDialogNameResolver } from './utils/attributeUtils.js';
 import { getThreeWindingConnections } from './utils/gridUtils.js';
 import ENV from './config/environment.js';
-import { getConnectedBusId } from './loadFlow.js';
+import { getConnectedBusId, getLineBusEndpointsForPayload } from './loadFlow.js';
 
 // Helper function to format bus IDs consistently (replace # with _)
 const formatBusId = (busId) => {
@@ -782,6 +782,26 @@ function loadFlowOpenDss(a, b, c) {
 // Element processors for OpenDSS (FROM BACKEND TO FRONTEND)
 // Updated to handle simplified backend response without output classes
 // OPTIMIZED: Uses cellIdMap for O(1) lookups instead of O(n) searches
+
+const flowVizEnabled = () =>
+    typeof window !== 'undefined' && typeof window.resolveBranchFlowDirection === 'function';
+
+const trafoEndpointsFnOpenDss = (branchCell, model) => {
+    try {
+        const { hv_bus, lv_bus } = getTransformerConnections(branchCell);
+        return { busFrom: hv_bus, busTo: lv_bus };
+    } catch (_) {
+        return getLineBusEndpointsForPayload(branchCell, model);
+    }
+};
+
+const applyFlowVizOpenDss = (graph, branchCell, cell, model, options) => {
+    if (!flowVizEnabled()) return null;
+    const dir = window.resolveBranchFlowDirection(cell, branchCell, model, options);
+    if (window.applyActivePowerArrow) window.applyActivePowerArrow(graph, branchCell, dir);
+    return dir;
+};
+
 const elementProcessors = {
     busbars: (data, b, grafka, cellIdMap) => {
         if (!Array.isArray(data)) {
@@ -840,8 +860,11 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
                 }
                 
                 const cellName = formatResultNameHeader(resultCell, cell.name, 'Line');
-                
-                const resultString = `${cellName}
+                const model = b.getModel();
+                const dir = applyFlowVizOpenDss(b, resultCell, cell, model, { getEndpointsFn: getLineBusEndpointsForPayload });
+                const resultString = (flowVizEnabled() && window.formatLineResultWithFlow)
+                    ? window.formatLineResultWithFlow(cell, dir, cellName)
+                    : `${cellName}
         P_from[MW]: ${fmtOpenDssFloat(cell.p_from_mw)}
         Q_from[MVar]: ${fmtOpenDssFloat(cell.q_from_mvar)}
         i_from[kA]: ${fmtOpenDssFloat(cell.i_from_ka)}
@@ -893,11 +916,14 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
                 const qVal = isSource1ph ? Number(cell.q_mvar) * 1000 : cell.q_mvar;
                 const pUnit = isSource1ph ? 'kW' : 'MW';
                 const qUnit = isSource1ph ? 'kVar' : 'MVar';
+                const qLine = (typeof window !== 'undefined' && window.formatExternalGridReactiveQ)
+                    ? window.formatExternalGridReactiveQ(qVal, qUnit)
+                    : 'Q[' + qUnit + ']: ' + fmtOpenDssFloat(qVal);
 
                 const resultString = `${displayName}
         
         P[${pUnit}]: ${fmtOpenDssFloat(pVal)}
-        Q[${qUnit}]: ${fmtOpenDssFloat(qVal)}
+        ${qLine}
         PF: ${fmtOpenDssFloat(cell.pf)}
         Q/P: ${fmtOpenDssFloat(cell.q_p)}`;
 
@@ -1041,8 +1067,15 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
                 }
                 
                 const cellName = formatResultNameHeader(resultCell, cell.name, 'Trafo');
-                
-                const resultString = `${cellName}
+                const model = b.getModel();
+                const dir = applyFlowVizOpenDss(b, resultCell, cell, model, {
+                    pFromKey: 'p_hv_mw',
+                    pToKey: 'p_lv_mw',
+                    getEndpointsFn: trafoEndpointsFnOpenDss
+                });
+                const resultString = (flowVizEnabled() && window.formatTrafoResultWithFlow)
+                    ? window.formatTrafoResultWithFlow(cell, dir, cellName, '')
+                    : `${cellName}
         P_HV[MW]: ${cell.p_hv_mw !== undefined ? cell.p_hv_mw.toFixed(3) : 'N/A'}
         Q_HV[MVAr]: ${cell.q_hv_mvar !== undefined ? cell.q_hv_mvar.toFixed(3) : 'N/A'}
         i_HV[kA]: ${fmtOpenDssFloat(cell.i_hv_ka)}
@@ -1431,6 +1464,9 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
         // PERFORMANCE OPTIMIZATION: Batch all DOM updates
         // This prevents layout thrashing and improves rendering speed
         const model = b.getModel();
+        if (typeof window !== 'undefined' && typeof window.clearFlowArrows === 'function') {
+            window.clearFlowArrows(b);
+        }
         model.beginUpdate();
         try {
             // Process busbars if present
@@ -1572,6 +1608,10 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
             }
         } catch (dashErr) {
             dssWarn('Network Health Dashboard render skipped:', dashErr);
+        }
+
+        if (typeof window !== 'undefined' && typeof window.showFlowConventionLegend === 'function') {
+            window.showFlowConventionLegend(b);
         }
 
         // Auto-snapshot every successful OpenDSS run for Scenario Compare.
