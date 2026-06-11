@@ -13,6 +13,69 @@
     var LEGEND_ID = 'electrisim-flow-convention-legend';
     var LEGEND_STYLE_ID = 'electrisim-flow-convention-legend-style';
 
+    // Arrow long-axis length range (px). Scaled by P magnitude relative to the
+    // largest line flow in the network so big flows render as bigger arrows.
+    var ARROW_MIN_LEN = 12;
+    var ARROW_MAX_LEN = 30;
+    var ARROW_THICK_RATIO = 0.82;
+
+    function clamp01(t) {
+        return t < 0 ? 0 : (t > 1 ? 1 : t);
+    }
+
+    function toHex2(v) {
+        var s = Math.max(0, Math.min(255, Math.round(v))).toString(16);
+        return s.length < 2 ? '0' + s : s;
+    }
+
+    function rgbHex(r, g, b) {
+        return '#' + toHex2(r) + toHex2(g) + toHex2(b);
+    }
+
+    /**
+     * Smooth loading→color gradient (green → amber → orange → red), shared by the
+     * line stroke and its flow arrow so both convey thermal loading consistently.
+     */
+    function loadingToColor(loadingPercent) {
+        var p = Number(loadingPercent);
+        if (isNaN(p)) return ARROW_COLOR;
+        var stops = [
+            [0, [46, 125, 50]],
+            [60, [249, 168, 37]],
+            [85, [239, 108, 0]],
+            [100, [198, 40, 40]]
+        ];
+        if (p <= stops[0][0]) return rgbHex(stops[0][1][0], stops[0][1][1], stops[0][1][2]);
+        var last = stops[stops.length - 1];
+        if (p >= last[0]) return rgbHex(last[1][0], last[1][1], last[1][2]);
+        for (var i = 1; i < stops.length; i++) {
+            if (p <= stops[i][0]) {
+                var lo = stops[i - 1];
+                var hi = stops[i];
+                var t = (p - lo[0]) / (hi[0] - lo[0]);
+                return rgbHex(
+                    lo[1][0] + (hi[1][0] - lo[1][0]) * t,
+                    lo[1][1] + (hi[1][1] - lo[1][1]) * t,
+                    lo[1][2] + (hi[1][2] - lo[1][2]) * t
+                );
+            }
+        }
+        return rgbHex(last[1][0], last[1][1], last[1][2]);
+    }
+
+    /** Perceptual 0..1 scale from |P| relative to the network's largest flow. */
+    function arrowScaleFromPower(pMw, maxAbsP) {
+        var p = Math.abs(Number(pMw));
+        var mx = Math.abs(Number(maxAbsP));
+        if (!isFinite(p) || !isFinite(mx) || mx <= 0) return 0.5;
+        return Math.sqrt(clamp01(p / mx));
+    }
+
+    function arrowLongLength(scale) {
+        var s = typeof scale === 'number' ? clamp01(scale) : 0.5;
+        return ARROW_MIN_LEN + (ARROW_MAX_LEN - ARROW_MIN_LEN) * s;
+    }
+
     function cellSemanticId(c) {
         if (!c) return '';
         return String(c.mxObjectId || '').replace('#', '_');
@@ -50,9 +113,32 @@
         return Boolean(cell && cell.style && cell.style.indexOf(FLOW_ARROW_TAG) >= 0);
     }
 
-    function isLineGraphVertex(cell) {
-        if (!cell || cell.edge || !cell.style) return false;
+    var LEGEND_DISMISS_KEY = 'electrisimFlowConventionLegendDismissed';
+
+    function isFlowLegendDismissed() {
+        try {
+            return String(localStorage.getItem(LEGEND_DISMISS_KEY) || '') === '1';
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function dismissFlowLegendPermanently() {
+        try {
+            localStorage.setItem(LEGEND_DISMISS_KEY, '1');
+        } catch (_) {
+            /* ignore */
+        }
+        hideFlowConventionLegend();
+    }
+
+    function isLineBranchCell(cell) {
+        if (!cell || !cell.style) return false;
         return cell.style.indexOf('shapeELXXX=Line') >= 0;
+    }
+
+    function isLineGraphVertex(cell) {
+        return isLineBranchCell(cell) && !cell.edge;
     }
 
     function edgesOfVertex(cell, model) {
@@ -214,13 +300,6 @@
         };
     }
 
-    function saveBaseStyle(model, branchCell) {
-        var style = model.getStyle(branchCell) || '';
-        if (style.indexOf('electrisimFlowBase=') >= 0) return;
-        var encoded = encodeURIComponent(style);
-        model.setStyle(branchCell, style + ';electrisimFlowBase=' + encoded);
-    }
-
     function restoreBaseStyles(model) {
         var cells = model.cells || {};
         for (var id in cells) {
@@ -274,17 +353,229 @@
         hideFlowConventionLegend();
     }
 
-    function triangleStyle(rotation) {
+    function cardinalFromDelta(dx, dy) {
+        if (Math.abs(dx) >= Math.abs(dy)) {
+            return dx >= 0 ? 'east' : 'west';
+        }
+        return dy >= 0 ? 'south' : 'north';
+    }
+
+    function flipCardinal(cardinal) {
+        if (cardinal === 'north') return 'south';
+        if (cardinal === 'south') return 'north';
+        if (cardinal === 'east') return 'west';
+        if (cardinal === 'west') return 'east';
+        return cardinal;
+    }
+
+    function flowMatchesSegmentForward(branchCell, directionInfo) {
+        if (!branchCell || !branchCell.source || !branchCell.target) return true;
+        var srcId = cellSemanticId(branchCell.source);
+        var tgtId = cellSemanticId(branchCell.target);
+        return directionInfo.flowFromId === srcId && directionInfo.flowToId === tgtId;
+    }
+
+    function appearanceFromCardinal(cardinal, scale, color) {
+        var len = arrowLongLength(scale);
+        var thick = len * ARROW_THICK_RATIO;
+        var horizontal = (cardinal === 'east' || cardinal === 'west');
+        return {
+            cardinal: cardinal,
+            w: horizontal ? len : thick,
+            h: horizontal ? thick : len,
+            color: color || ARROW_COLOR
+        };
+    }
+
+    function cardinalFromBusFlow(graph, model, directionInfo) {
+        var fromCell = findBusCellBySemanticId(model, directionInfo.flowFromId);
+        var toCell = findBusCellBySemanticId(model, directionInfo.flowToId);
+        var a = busCenterForRotation(graph, fromCell);
+        var b = busCenterForRotation(graph, toCell);
+        if (a && b) {
+            return cardinalFromDelta(b.x - a.x, b.y - a.y);
+        }
+        return 'east';
+    }
+
+    /**
+     * Use mxGraph triangle direction (north/south/east/west) from bus positions in view space.
+     * Do not use rotation on edge children — it is applied in the edge label frame and points sideways.
+     */
+    function flowArrowAppearance(graph, branchCell, model, directionInfo, arrowOpts) {
+        arrowOpts = arrowOpts || {};
+        var cardinal = cardinalFromBusFlow(graph, model, directionInfo);
+        if (branchCell && branchCell.edge) {
+            var segAnchor = branchAnchorAt(graph, branchCell, 0.45, directionInfo, model);
+            if (segAnchor && (Math.abs(segAnchor.dx) > 1e-3 || Math.abs(segAnchor.dy) > 1e-3)) {
+                cardinal = cardinalFromDelta(segAnchor.dx, segAnchor.dy);
+                if (!flowMatchesSegmentForward(branchCell, directionInfo)) {
+                    cardinal = flipCardinal(cardinal);
+                }
+            }
+        }
+        var pForScale = (arrowOpts.pMw !== undefined && arrowOpts.pMw !== null)
+            ? arrowOpts.pMw
+            : directionInfo.pMw;
+        var scale = arrowScaleFromPower(pForScale, arrowOpts.maxAbsP);
+        var color = (arrowOpts.loadingPercent !== undefined && arrowOpts.loadingPercent !== null)
+            ? loadingToColor(arrowOpts.loadingPercent)
+            : ARROW_COLOR;
+        return appearanceFromCardinal(cardinal, scale, color);
+    }
+
+    function getFlowBranchKey(branchCell) {
+        return String(branchCell.id || branchCell.mxObjectId || '');
+    }
+
+    function findFlowArrowForBranch(model, branchCell) {
+        var key = getFlowBranchKey(branchCell);
+        if (!key) return null;
+        var cells = model.cells || {};
+        for (var id in cells) {
+            if (!Object.prototype.hasOwnProperty.call(cells, id)) continue;
+            var c = cells[id];
+            if (!isFlowArrowCell(c)) continue;
+            var st = c.style || '';
+            if (st.indexOf('flowBranch=' + key) >= 0) return c;
+            if (model.getParent(c) === branchCell) return c;
+        }
+        return null;
+    }
+
+    function viewToModelPoint(graph, viewX, viewY) {
+        var scale = graph.view.scale || 1;
+        var tr = graph.view.translate || { x: 0, y: 0 };
+        return {
+            x: viewX / scale - tr.x,
+            y: viewY / scale - tr.y
+        };
+    }
+
+    /** Anchor on a line-as-vertex (view coordinates when state is available). */
+    function lineVertexAnchorAt(graph, branchCell, fraction) {
+        var state = graph.view && graph.view.getState(branchCell);
+        var vertical = lineVertexIsVertical(branchCell);
+        if (state) {
+            if (vertical) {
+                return {
+                    x: state.x + state.width / 2,
+                    y: state.y + state.height * fraction,
+                    dx: 0,
+                    dy: state.height || 1,
+                    inView: true
+                };
+            }
+            return {
+                x: state.x + state.width * fraction,
+                y: state.y + state.height / 2,
+                dx: state.width || 1,
+                dy: 0,
+                inView: true
+            };
+        }
+        var geo = branchCell.geometry;
+        if (!geo) return null;
+        if (vertical) {
+            return {
+                x: geo.x + (geo.width || 0) / 2,
+                y: geo.y + (geo.height || 0) * fraction,
+                dx: 0,
+                dy: geo.height || 1,
+                inView: false
+            };
+        }
+        return {
+            x: geo.x + (geo.width || 0) * fraction,
+            y: geo.y + (geo.height || 0) / 2,
+            dx: geo.width || 1,
+            dy: 0,
+            inView: false
+        };
+    }
+
+    function branchAnchorAt(graph, branchCell, fraction, directionInfo, model) {
+        if (branchCell.edge) {
+            var edgePt = edgeAnchorAt(graph, branchCell, fraction);
+            if (edgePt) edgePt.inView = true;
+            return edgePt;
+        }
+        if (isLineGraphVertex(branchCell) && directionInfo && model) {
+            var fromCell = findBusCellBySemanticId(model, directionInfo.flowFromId);
+            var toCell = findBusCellBySemanticId(model, directionInfo.flowToId);
+            var a = busCenterForRotation(graph, fromCell);
+            var b = busCenterForRotation(graph, toCell);
+            if (a && b) {
+                var usedView = !!(graph.view && fromCell && graph.view.getState(fromCell));
+                return {
+                    x: a.x + (b.x - a.x) * fraction,
+                    y: a.y + (b.y - a.y) * fraction,
+                    dx: b.x - a.x,
+                    dy: b.y - a.y,
+                    inView: usedView
+                };
+            }
+        }
+        if (isLineGraphVertex(branchCell)) {
+            return lineVertexAnchorAt(graph, branchCell, fraction);
+        }
+        return null;
+    }
+
+    function anchorToModelPoint(graph, anchor) {
+        if (anchor.inView) {
+            return viewToModelPoint(graph, anchor.x, anchor.y);
+        }
+        return { x: anchor.x, y: anchor.y };
+    }
+
+    /** Point and segment tangent on an edge path (view coordinates). */
+    function edgeAnchorAt(graph, edge, fraction) {
+        var state = graph.view.getState(edge);
+        if (!state || !state.absolutePoints || state.absolutePoints.length < 2) return null;
+        var pts = state.absolutePoints;
+        var total = 0;
+        var segs = [];
+        for (var i = 1; i < pts.length; i++) {
+            var dx = pts[i].x - pts[i - 1].x;
+            var dy = pts[i].y - pts[i - 1].y;
+            var len = Math.hypot(dx, dy);
+            segs.push({ len: len, dx: dx, dy: dy, x0: pts[i - 1].x, y0: pts[i - 1].y });
+            total += len;
+        }
+        if (total <= 0) return null;
+        var target = total * fraction;
+        var acc = 0;
+        for (var j = 0; j < segs.length; j++) {
+            var seg = segs[j];
+            if (acc + seg.len >= target || j === segs.length - 1) {
+                var segT = seg.len > 0 ? (target - acc) / seg.len : 0;
+                segT = Math.max(0, Math.min(1, segT));
+                return {
+                    x: seg.x0 + seg.dx * segT,
+                    y: seg.y0 + seg.dy * segT,
+                    dx: seg.dx,
+                    dy: seg.dy
+                };
+            }
+            acc += seg.len;
+        }
+        return null;
+    }
+
+    function triangleStyle(cardinal, branchKey, color) {
+        var c = color || ARROW_COLOR;
         return [
             FLOW_ARROW_TAG,
             'shape=triangle',
-            'fillColor=' + ARROW_COLOR,
-            'strokeColor=' + ARROW_COLOR,
+            'direction=' + (cardinal || 'east'),
+            'fillColor=' + c,
+            'strokeColor=' + c,
             'strokeWidth=1',
             'perimeter=none',
             'pointerEvents=0',
-            'opacity=90',
-            'rotation=' + (rotation || 0)
+            'opacity=92',
+            'flowBranch=' + branchKey
         ].join(';');
     }
 
@@ -292,112 +583,88 @@
         return Boolean(branchCell.style && branchCell.style.indexOf('direction=north') >= 0);
     }
 
-    function computeVertexArrowRotation(branchCell, model, directionInfo) {
-        var fromCell = findBusCellBySemanticId(model, directionInfo.flowFromId);
-        var toCell = findBusCellBySemanticId(model, directionInfo.flowToId);
-        if (fromCell && toCell && graphCenter(fromCell) && graphCenter(toCell)) {
-            var a = graphCenter(fromCell);
-            var b = graphCenter(toCell);
-            var dx = b.x - a.x;
-            var dy = b.y - a.y;
-            if (Math.abs(dx) >= Math.abs(dy)) {
-                return dx >= 0 ? 90 : 270;
+    function busCenterForRotation(graph, busCell) {
+        if (graph && graph.view && busCell) {
+            var st = graph.view.getState(busCell);
+            if (st) {
+                return { x: st.x + st.width / 2, y: st.y + st.height / 2 };
             }
-            return dy >= 0 ? 180 : 0;
         }
-        if (lineVertexIsVertical(branchCell)) {
-            return directionInfo.flowFromId === resolveGraphSideIds(branchCell, model).sideA ? 180 : 0;
-        }
-        return 90;
-    }
-
-    function graphCenter(cell) {
-        if (!cell || !cell.geometry) return null;
+        if (!busCell || !busCell.geometry) return null;
         return {
-            x: cell.geometry.x + (cell.geometry.width || 0) / 2,
-            y: cell.geometry.y + (cell.geometry.height || 0) / 2
+            x: busCell.geometry.x + (busCell.geometry.width || 0) / 2,
+            y: busCell.geometry.y + (busCell.geometry.height || 0) / 2
         };
     }
 
-    function upsertFlowArrowOverlay(graph, branchCell, directionInfo) {
+    function upsertFlowArrowOverlay(graph, branchCell, directionInfo, arrowOpts) {
         var model = graph.getModel();
-        var parent = branchCell;
-        var existing = null;
-        var n = model.getChildCount(parent);
-        for (var i = 0; i < n; i++) {
-            var ch = model.getChildAt(parent, i);
-            if (isFlowArrowCell(ch)) {
-                existing = ch;
-                break;
-            }
-        }
+        var branchKey = getFlowBranchKey(branchCell);
+        var existing = findFlowArrowForBranch(model, branchCell);
+        var anchor = branchAnchorAt(graph, branchCell, 0.45, directionInfo, model);
+        if (!anchor) return false;
 
-        var rotation = computeVertexArrowRotation(branchCell, model, directionInfo);
-        var style = triangleStyle(rotation);
-        var w = 14;
-        var h = 12;
+        var appearance = flowArrowAppearance(graph, branchCell, model, directionInfo, arrowOpts);
+        var style = triangleStyle(appearance.cardinal, branchKey, appearance.color);
+        var w = appearance.w;
+        var h = appearance.h;
+        var mp = anchorToModelPoint(graph, anchor);
+        var x = mp.x - w / 2;
+        var y = mp.y - h / 2;
+        var layer = graph.getDefaultParent();
 
         model.beginUpdate();
         try {
+            if (existing && model.getParent(existing) !== layer) {
+                model.remove(existing);
+                existing = null;
+            }
+
             if (existing) {
                 model.setStyle(existing, style);
                 var geoE = model.getGeometry(existing);
                 if (geoE) {
-                    geoE.x = 0.45;
-                    geoE.y = 0;
-                    geoE.relative = true;
+                    geoE.x = x;
+                    geoE.y = y;
+                    geoE.width = w;
+                    geoE.height = h;
+                    geoE.relative = false;
+                    geoE.offset = null;
                     model.setGeometry(existing, geoE);
                 }
             } else {
-                var arrow = graph.insertVertex(parent, null, '', 0.45, 0, w, h, style, true);
-                if (arrow) {
-                    var geo = model.getGeometry(arrow);
-                    if (geo) {
-                        geo.relative = true;
-                        if (typeof mxPoint !== 'undefined') {
-                            geo.offset = new mxPoint(-w / 2, -h / 2);
-                        }
-                        model.setGeometry(arrow, geo);
-                    }
-                }
+                graph.insertVertex(layer, null, '', x, y, w, h, style, false);
             }
+            return true;
         } finally {
             model.endUpdate();
         }
     }
 
-    function applyEdgeArrows(graph, branchCell, directionInfo) {
-        if (typeof mxUtils === 'undefined' || typeof mxConstants === 'undefined') return;
-        var model = graph.getModel();
-        saveBaseStyle(model, branchCell);
-        var style = model.getStyle(branchCell) || '';
-        style = mxUtils.setStyle(style, mxConstants.STYLE_STARTARROW, 'none');
-        style = mxUtils.setStyle(style, mxConstants.STYLE_ENDARROW, 'none');
-        style = mxUtils.setStyle(style, mxConstants.STYLE_STARTFILL, '0');
-        style = mxUtils.setStyle(style, mxConstants.STYLE_ENDFILL, '0');
-
-        if (directionInfo.arrowAtTarget === true) {
-            style = mxUtils.setStyle(style, mxConstants.STYLE_ENDARROW, 'block');
-            style = mxUtils.setStyle(style, mxConstants.STYLE_ENDFILL, '1');
-        } else if (directionInfo.arrowAtTarget === false) {
-            style = mxUtils.setStyle(style, mxConstants.STYLE_STARTARROW, 'block');
-            style = mxUtils.setStyle(style, mxConstants.STYLE_STARTFILL, '1');
-        }
-        model.setStyle(branchCell, style);
-    }
-
-    function applyActivePowerArrow(graph, branchCell, directionInfo, options) {
+    function applyActivePowerArrow(graph, branchCell, directionInfo, arrowOpts) {
         if (!graph || !branchCell || !directionInfo || !directionInfo.hasFlow) return;
+        if (!isLineBranchCell(branchCell)) return;
 
-        // Arrows only on line branches (edges or line-as-vertex). Transformers, switches,
-        // and other component symbols keep the P-flow text label but no overlay triangle —
-        // a triangle on the symbol does not align with the actual conductor path.
-        if (branchCell.edge) {
-            applyEdgeArrows(graph, branchCell, directionInfo);
-            return;
+        var attempts = 0;
+        function paint() {
+            if (!graph.getModel().contains(branchCell)) return;
+            if (graph.view && typeof graph.view.validate === 'function') {
+                graph.view.validate();
+            }
+            if (upsertFlowArrowOverlay(graph, branchCell, directionInfo, arrowOpts)) return;
+            if (attempts < 10) {
+                attempts += 1;
+                if (typeof requestAnimationFrame !== 'undefined') {
+                    requestAnimationFrame(paint);
+                } else {
+                    setTimeout(paint, 32);
+                }
+            }
         }
-        if (isLineGraphVertex(branchCell)) {
-            upsertFlowArrowOverlay(graph, branchCell, directionInfo);
+        if (typeof requestAnimationFrame !== 'undefined') {
+            requestAnimationFrame(paint);
+        } else {
+            setTimeout(paint, 0);
         }
     }
 
@@ -615,6 +882,7 @@
 
     function showFlowConventionLegend(graph) {
         if (typeof document === 'undefined') return;
+        if (isFlowLegendDismissed()) return;
         ensureLegendStyles();
         hideFlowConventionLegend();
 
@@ -622,17 +890,19 @@
         panel.id = LEGEND_ID;
         panel.innerHTML = [
             '<strong>Power flow convention</strong>',
-            '<span class="eflow-arrow">→</span> Arrow on <b>lines only</b> = active power (P) direction.',
-            'Transformers & switches: read <b>P flow:</b> in the result box (no arrow on symbol).',
+            '<span class="eflow-arrow">→</span> Arrow on <b>lines</b> = active power (P) direction.',
+            '<b>Arrow size</b> ∝ P magnitude (bigger arrow = more MW).',
+            '<b>Arrow & line color</b> = loading: <span style="color:#2E7D32">green</span> → <span style="color:#F9A825">amber</span> → <span style="color:#C62828">red</span> (≥100%).',
+            '<b>Branch terminals:</b> +P/+Q = leaving bus into branch; − = into bus from branch.',
             '<b>Reactive labels:</b> “out of bus (inductive draw)” / “into bus (capacitive supply)”.',
-            'On buses: +Q = inductive absorbed, −Q = capacitive supplied. Q may flow opposite to P.',
+            'On buses & loads: +Q = inductive absorbed/consumed; −Q = capacitive supplied.',
             '<button type="button">Dismiss</button>'
         ].join('<br>');
 
         var btn = panel.querySelector('button');
         if (btn) {
             btn.addEventListener('click', function () {
-                hideFlowConventionLegend();
+                dismissFlowLegendPermanently();
             });
         }
         document.body.appendChild(panel);
@@ -642,9 +912,29 @@
         setTimeout(function () { positionFlowLegendPanel(panel); }, 450);
     }
 
+    /** Recolor a line cell stroke using the smooth loading gradient (overrides 3-bucket color). */
+    function applyLoadingLineColor(graph, lineCell, loadingPercent) {
+        if (!graph || !lineCell) return;
+        var p = Number(loadingPercent);
+        if (isNaN(p)) return;
+        var color = loadingToColor(p);
+        var model = graph.getModel();
+        var style = model.getStyle(lineCell) || '';
+        if (typeof mxUtils !== 'undefined' && typeof mxConstants !== 'undefined') {
+            style = mxUtils.setStyle(style, mxConstants.STYLE_STROKECOLOR, color);
+        } else if (style.indexOf('strokeColor=') >= 0) {
+            style = style.replace(/strokeColor=[^;]*/, 'strokeColor=' + color);
+        } else {
+            style += ';strokeColor=' + color;
+        }
+        model.setStyle(lineCell, style);
+    }
+
     window.clearFlowArrows = clearFlowArrows;
     window.resolveBranchFlowDirection = resolveBranchFlowDirection;
     window.applyActivePowerArrow = applyActivePowerArrow;
+    window.loadingFlowColor = loadingToColor;
+    window.applyLoadingLineColor = applyLoadingLineColor;
     window.formatLineResultWithFlow = formatLineResultWithFlow;
     window.formatTrafoResultWithFlow = formatTrafoResultWithFlow;
     window.formatSwitchResultWithFlow = formatSwitchResultWithFlow;

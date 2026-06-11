@@ -2015,7 +2015,13 @@ function loadFlowPandaPower(a, b, c) {
     const applyFlowViz = (branchCell, cell, model, options) => {
         if (!flowVizEnabled()) return null;
         const dir = window.resolveBranchFlowDirection(cell, branchCell, model, options);
-        if (window.applyActivePowerArrow) window.applyActivePowerArrow(b, branchCell, dir);
+        if (window.applyActivePowerArrow) {
+            window.applyActivePowerArrow(b, branchCell, dir, {
+                loadingPercent: cell.loading_percent,
+                maxAbsP: options && options.maxAbsP,
+                pMw: dir && dir.pMw
+            });
+        }
         return dir;
     };
 
@@ -2092,6 +2098,13 @@ Q/P: ${formatNumber(d.qp)}`,
 
         lines: (data, b, grafka) => {
             const model = b.getModel();
+            let maxAbsP = 0;
+            data.forEach(c => {
+                const pf = Math.abs(Number(c.p_from_mw));
+                const pt = Math.abs(Number(c.p_to_mw));
+                const a = Math.max(Number.isFinite(pf) ? pf : 0, Number.isFinite(pt) ? pt : 0);
+                if (a > maxAbsP) maxAbsP = a;
+            });
             const lineResults = data.map(cell => {
                 const resultCell = getResultGraphCell(cell);
                 if (!resultCell) {
@@ -2100,7 +2113,7 @@ Q/P: ${formatNumber(d.qp)}`,
                 }
                 cell.name = replaceUnderscores(cell.name);
                 const lineLabel = formatResultNameHeader(resultCell, cell.name, 'Line');
-                const dir = applyFlowViz(resultCell, cell, model, { getEndpointsFn: getLineBusEndpointsForPayload });
+                const dir = applyFlowViz(resultCell, cell, model, { getEndpointsFn: getLineBusEndpointsForPayload, maxAbsP });
                 const resultString = (flowVizEnabled() && window.formatLineResultWithFlow)
                     ? window.formatLineResultWithFlow(cell, dir, lineLabel)
                     : `${lineLabel}
@@ -2132,6 +2145,9 @@ Q/P: ${formatNumber(d.qp)}`,
                     const isEdgeParent = typeof model.isEdge === 'function' && model.isEdge(keepParent);
                     processCellStyles(b, keep, isEdgeParent);
                     processLoadingColor(grafka, resultCell, cell.loading_percent);
+                    if (flowVizEnabled() && window.applyLoadingLineColor) {
+                        window.applyLoadingLineColor(b, resultCell, cell.loading_percent);
+                    }
                 }
             });
         },

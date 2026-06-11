@@ -798,7 +798,13 @@ const trafoEndpointsFnOpenDss = (branchCell, model) => {
 const applyFlowVizOpenDss = (graph, branchCell, cell, model, options) => {
     if (!flowVizEnabled()) return null;
     const dir = window.resolveBranchFlowDirection(cell, branchCell, model, options);
-    if (window.applyActivePowerArrow) window.applyActivePowerArrow(graph, branchCell, dir);
+    if (window.applyActivePowerArrow) {
+        window.applyActivePowerArrow(graph, branchCell, dir, {
+            loadingPercent: cell.loading_percent,
+            maxAbsP: options && options.maxAbsP,
+            pMw: dir && dir.pMw
+        });
+    }
     return dir;
 };
 
@@ -848,7 +854,15 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
             dssWarn('lines data is not an array:', data);
             return;
         }
-        
+
+        let maxAbsP = 0;
+        data.forEach(c => {
+            const pf = Math.abs(Number(c.p_from_mw));
+            const pt = Math.abs(Number(c.p_to_mw));
+            const a = Math.max(Number.isFinite(pf) ? pf : 0, Number.isFinite(pt) ? pt : 0);
+            if (a > maxAbsP) maxAbsP = a;
+        });
+
         data.forEach(cell => {
             try {
                 // OPTIMIZED: O(1) lookup using cellIdMap
@@ -861,7 +875,7 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
                 
                 const cellName = formatResultNameHeader(resultCell, cell.name, 'Line');
                 const model = b.getModel();
-                const dir = applyFlowVizOpenDss(b, resultCell, cell, model, { getEndpointsFn: getLineBusEndpointsForPayload });
+                const dir = applyFlowVizOpenDss(b, resultCell, cell, model, { getEndpointsFn: getLineBusEndpointsForPayload, maxAbsP });
                 const resultString = (flowVizEnabled() && window.formatLineResultWithFlow)
                     ? window.formatLineResultWithFlow(cell, dir, cellName)
                     : `${cellName}
@@ -887,6 +901,9 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
                     if (labelka) b.orderCells(true, [labelka]);
                 }
                 processLoadingColor(grafka, resultCell, cell.loading_percent);
+                if (flowVizEnabled() && window.applyLoadingLineColor) {
+                    window.applyLoadingLineColor(b, resultCell, cell.loading_percent);
+                }
             } catch (error) {
                 console.error(`Error processing line ${cell.id}:`, error);
             }
