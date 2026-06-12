@@ -167,6 +167,49 @@ function formatShuntControlOnShunt(cell) {
     return `\n            step: ${formatNumber(sc.step, 0)} ${range}`;
 }
 
+function isResultPlaceholderStyle(style) {
+    return style && (
+        style.includes('shapeELXXX=ResultBus') ||
+        style.includes('shapeELXXX=Result') ||
+        style.includes('shapeELXXX=ResultExternalGrid')
+    );
+}
+
+function findAllPlaceholdersForComponent(graph, componentCell) {
+    const found = [];
+    if (!graph?.getModel || !componentCell) return found;
+    const model = graph.getModel();
+    const compId = String(componentCell.id);
+    const matches = (child, isDirectChild) => {
+        const st = model.getStyle(child) || '';
+        if (!isResultPlaceholderStyle(st)) return false;
+        if (isDirectChild) return true;
+        const m = st.match(/connectedTo=([^;]+)/);
+        return m ? String(m[1]).trim() === compId : false;
+    };
+    const scan = (parent, isDirect) => {
+        if (!parent) return;
+        const n = model.getChildCount(parent);
+        for (let i = 0; i < n; i++) {
+            const child = model.getChildAt(parent, i);
+            if (child && matches(child, isDirect)) found.push(child);
+        }
+    };
+    scan(componentCell, true);
+    const edges = (graph.getEdges && graph.getEdges(componentCell)) || componentCell.edges || [];
+    for (let i = 0; i < edges.length; i++) scan(edges[i], false);
+    return found;
+}
+
+function removeExtraPlaceholders(graph, keep, resultCell) {
+    const model = graph.getModel();
+    for (const ph of findAllPlaceholdersForComponent(graph, resultCell)) {
+        if (ph !== keep) {
+            try { model.remove(ph); } catch (_) { /* noop */ }
+        }
+    }
+}
+
 function updateOrCreatePlaceholder(graph, parent, text, opts) {
     const model = graph.getModel();
     const existing = findPlaceholder(graph, parent);
@@ -177,18 +220,47 @@ function updateOrCreatePlaceholder(graph, parent, text, opts) {
     return insertBox(graph, parent, text, opts);
 }
 
-/** Edge-attached injectors (External Grid, Generator, …): placeholder lives on the edge, not the vertex. */
-function updateEdgeAttachedPlaceholder(graph, resultCell, text, opts) {
+/**
+ * Update exactly one result box for a bus-connected component (trafo, shunt, ext grid, …).
+ * Matches loadFlow.js: prefer edge-attached placeholder, drop vertex duplicates.
+ */
+function updateSingleComponentResult(graph, resultCell, text, opts = {}) {
     const model = graph.getModel();
     const edge = (graph.getEdges && graph.getEdges(resultCell))?.[0];
-    const parent = edge || resultCell;
+    const preferredParent = edge || resultCell;
+
+    let keep = findPlaceholderForComponent(graph, resultCell);
+    if (!keep) keep = findPlaceholder(graph, preferredParent);
+    if (!keep) {
+        const all = findAllPlaceholdersForComponent(graph, resultCell);
+        if (all.length > 0) keep = all[0];
+    }
+
     if (edge) {
         const orphanOnVertex = findPlaceholder(graph, resultCell);
-        if (orphanOnVertex) {
+        if (orphanOnVertex && orphanOnVertex !== keep) {
             try { model.remove(orphanOnVertex); } catch (_) { /* noop */ }
         }
     }
-    return updateOrCreatePlaceholder(graph, parent, text, opts);
+
+    if (keep) {
+        model.setValue(keep, text);
+        removeExtraPlaceholders(graph, keep, resultCell);
+        return keep;
+    }
+
+    const insertOpts = { ...opts };
+    if (opts.tagComponent && insertOpts.connectedToId == null) {
+        insertOpts.connectedToId = resultCell.id;
+    }
+    const created = insertBox(graph, preferredParent, text, insertOpts);
+    if (created) removeExtraPlaceholders(graph, created, resultCell);
+    return created;
+}
+
+/** Edge-attached injectors (External Grid, Generator, …): placeholder lives on the edge, not the vertex. */
+function updateEdgeAttachedPlaceholder(graph, resultCell, text, opts) {
+    return updateSingleComponentResult(graph, resultCell, text, opts);
 }
 
 /**
@@ -262,26 +334,29 @@ Q/P: ${formatNumber(d.qp)}`;
             i_HV[kA]: ${formatNumber(cell.i_hv_ka)}
             i_LV[kA]: ${formatNumber(cell.i_lv_ka)}
             loading[%]: ${formatNumber(cell.loading_percent)}${tapBlock}`;
-            let existing = findPlaceholderForComponent(graph, resultCell);
-            if (!existing) {
-                const edge = (graph.getEdges && graph.getEdges(resultCell))?.[0];
-                existing = findPlaceholder(graph, edge || resultCell);
-            }
-            const parent = existing ? model.getParent(existing) : ((graph.getEdges && graph.getEdges(resultCell))?.[0] || resultCell);
-            updateOrCreatePlaceholder(graph, parent, text, { width: 68, height: 64, positionX: -0.3, connectedToId: resultCell.id });
+            const boxW = tapBlock ? 74 : 68;
+            const boxH = tapBlock ? 72 : 64;
+            updateSingleComponentResult(graph, resultCell, text, {
+                width: boxW, height: boxH, positionX: -0.3, tagComponent: true
+            });
             processLoadingColor(graph, resultCell, cell.loading_percent);
         });
 
         (dataJson.transformers3W || []).forEach((cell) => {
             const resultCell = resolveCell(cell);
             if (!resultCell) return;
-            const label = formatResultNameHeader(resultCell, replaceUnderscores(cell.name), 'Trafo 3W');
+            const label = formatResultNameHeader(resultCell, replaceUnderscores(cell.name), 'Trafo3W');
+            const tapBlock = formatTapControlOnTrafo(cell);
             const text = `${label}
-            P_HV[MW]: ${formatNumber(cell.p_hv_mw)}
-            P_MV[MW]: ${formatNumber(cell.p_mv_mw)}
-            P_LV[MW]: ${formatNumber(cell.p_lv_mw)}
-            loading[%]: ${formatNumber(cell.loading_percent)}`;
-            updateOrCreatePlaceholder(graph, resultCell, text, { width: 68, height: 64, positionX: -0.3 });
+            i_HV[kA]: ${formatNumber(cell.i_hv_ka)}
+            i_MV[kA]: ${formatNumber(cell.i_mv_ka)}
+            i_LV[kA]: ${formatNumber(cell.i_lv_ka)}
+            loading[%]: ${formatNumber(cell.loading_percent)}${tapBlock}`;
+            const boxW = tapBlock ? 74 : 60;
+            const boxH = tapBlock ? 58 : 50;
+            updateSingleComponentResult(graph, resultCell, text, {
+                width: boxW, height: boxH, positionX: -0.3, tagComponent: true
+            });
             processLoadingColor(graph, resultCell, cell.loading_percent);
         });
 
@@ -330,8 +405,23 @@ Q/P: ${formatNumber(d.qp)}`;
             const text = `${label}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}
-            U[pu]: ${formatNumber(cell.vm_pu)}${shuntCtl}`;
-            updateOrCreatePlaceholder(graph, resultCell, text, { width: 60, height: 44, positionX: -0.3 });
+            Um[pu]: ${formatNumber(cell.vm_pu)}${shuntCtl}`;
+            const boxW = shuntCtl ? 74 : 60;
+            const boxH = shuntCtl ? 58 : 50;
+            updateSingleComponentResult(graph, resultCell, text, {
+                width: boxW, height: boxH, positionX: -0.3
+            });
+        });
+
+        (dataJson.capacitors || []).forEach((cell) => {
+            const resultCell = resolveCell(cell);
+            if (!resultCell) return;
+            const label = formatResultNameHeader(resultCell, replaceUnderscores(cell.name), 'Capacitor');
+            const text = `${label}
+            P[MW]: ${formatNumber(cell.p_mw)}
+            Q[MVar]: ${formatNumber(cell.q_mvar)}
+            Um[pu]: ${formatNumber(cell.vm_pu)}`;
+            updateSingleComponentResult(graph, resultCell, text, { width: 60, height: 40, positionX: -0.3 });
         });
 
         (dataJson.loads || []).forEach((cell) => {
