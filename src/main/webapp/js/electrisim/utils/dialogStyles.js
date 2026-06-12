@@ -84,6 +84,60 @@ export const STUDY_MODAL_CONTENT_WRAPPER_STYLE = {
     boxSizing: 'border-box'
 };
 
+/**
+ * Prevent accidental dialog close/submit from Enter or implicit form submission.
+ * @param {HTMLFormElement} form
+ */
+export function preventAccidentalFormSubmit(form) {
+    if (!form || form._electrisimFormGuard) return;
+    form._electrisimFormGuard = true;
+    form.addEventListener('submit', (e) => e.preventDefault());
+    form.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+            e.preventDefault();
+        }
+    });
+}
+
+/** Apply {@link preventAccidentalFormSubmit} to every form under root. */
+export function preventAccidentalFormSubmitOnTree(root) {
+    if (!root || !root.querySelectorAll) return;
+    root.querySelectorAll('form').forEach(preventAccidentalFormSubmit);
+}
+
+/** Stop diagram/graph handlers from seeing pointer events inside the dialog shell. */
+export function isolateDialogShellPointerEvents(dialogPanel) {
+    if (!dialogPanel || dialogPanel._electrisimPointerIsolation) return;
+    dialogPanel._electrisimPointerIsolation = true;
+    const stop = (e) => e.stopPropagation();
+    dialogPanel.addEventListener('mousedown', stop);
+    dialogPanel.addEventListener('pointerdown', stop);
+}
+
+/**
+ * Close modal only when mousedown and click both occur on the backdrop.
+ * Avoids ghost clicks from native &lt;select&gt; / &lt;input type="number"&gt; controls.
+ * @param {HTMLElement} overlay
+ * @param {HTMLElement|null} dialogPanel
+ * @param {Function} onClose
+ */
+export function attachBackdropCloseHandler(overlay, dialogPanel, onClose) {
+    if (!overlay) return;
+    if (dialogPanel) isolateDialogShellPointerEvents(dialogPanel);
+    if (overlay._electrisimBackdropClose) return;
+    overlay._electrisimBackdropClose = true;
+    let pointerDownOnOverlay = false;
+    overlay.addEventListener('mousedown', (e) => {
+        pointerDownOnOverlay = (e.target === overlay);
+    });
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay && pointerDownOnOverlay && typeof onClose === 'function') {
+            onClose(e);
+        }
+        pointerDownOnOverlay = false;
+    });
+}
+
 export const DIALOG_STYLES = {
     // Common dialog container styles
     container: {

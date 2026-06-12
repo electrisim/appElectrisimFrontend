@@ -1,6 +1,6 @@
 import { Dialog } from '../Dialog.js';
 import { ensureSubscriptionFunctions } from '../ensureSubscriptionFunctions.js';
-import { SIMULATION_FORM_SCROLL_STYLE, SIMULATION_INFO_BANNER_STYLE, STUDY_MODAL_OVERLAY_STYLE, getStudyModalDialogBoxStyle, STUDY_MODAL_CONTENT_WRAPPER_STYLE } from '../utils/dialogStyles.js';
+import { SIMULATION_FORM_SCROLL_STYLE, SIMULATION_INFO_BANNER_STYLE, STUDY_MODAL_OVERLAY_STYLE, attachBackdropCloseHandler, getStudyModalDialogBoxStyle, preventAccidentalFormSubmit, STUDY_MODAL_CONTENT_WRAPPER_STYLE } from '../utils/dialogStyles.js';
 
 /**
  * HarmonicAnalysisDialog
@@ -118,6 +118,7 @@ export class HarmonicAnalysisDialog extends Dialog {
 
     createForm() {
         const form = document.createElement('form');
+        preventAccidentalFormSubmit(form);
         Object.assign(form.style, {
             display: 'flex',
             flexDirection: 'column',
@@ -343,10 +344,7 @@ export class HarmonicAnalysisDialog extends Dialog {
 
         cancelButton.onclick = (e) => {
             e.preventDefault();
-            this.destroy();
-            if (this.ui && typeof this.ui.hideDialog === 'function') {
-                this.ui.hideDialog();
-            }
+            this.closeDialog();
         };
 
         applyButton.onclick = async (e) => {
@@ -357,10 +355,7 @@ export class HarmonicAnalysisDialog extends Dialog {
                 const hasSubscription = await this.checkSubscriptionStatus();
 
                 if (!hasSubscription) {
-                    // Close the dialog first
-                    if (this.modalOverlay && this.modalOverlay.parentNode) {
-                        document.body.removeChild(this.modalOverlay);
-                    }
+                    this.closeDialog();
 
                     // Show subscription modal if no active subscription
                     if (window.showSubscriptionModal) {
@@ -375,10 +370,7 @@ export class HarmonicAnalysisDialog extends Dialog {
                 if (callback) {
                     callback(values);
                 }
-                this.destroy();
-                if (this.ui && typeof this.ui.hideDialog === 'function') {
-                    this.ui.hideDialog();
-                }
+                this.closeDialog();
             } catch (error) {
                 console.error('HarmonicAnalysisDialog: Error checking subscription status:', error);
                 if (error.message && error.message.includes('Token expired')) {
@@ -436,11 +428,7 @@ export class HarmonicAnalysisDialog extends Dialog {
         this.modalOverlay.appendChild(dialogBox);
         document.body.appendChild(this.modalOverlay);
 
-        this.modalOverlay.addEventListener('click', (e) => {
-            if (e.target === this.modalOverlay) {
-                this.destroy();
-            }
-        });
+        attachBackdropCloseHandler(this.modalOverlay, dialogBox, () => this.closeDialog());
     }
 
     displayDialog() {
@@ -457,6 +445,7 @@ export class HarmonicAnalysisDialog extends Dialog {
 
     createButton(text, backgroundColor, hoverColor) {
         const button = document.createElement('button');
+        button.type = 'button';
         button.textContent = text;
         Object.assign(button.style, {
             padding: '8px 16px',

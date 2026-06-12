@@ -108,6 +108,7 @@ class OpenDss1phDialogBase extends Dialog {
 
     createButton(text, bgColor, hoverColor) {
         const button = document.createElement('button');
+        button.type = 'button';
         button.textContent = text;
         Object.assign(button.style, {
             padding: '8px 16px',
@@ -339,16 +340,14 @@ class OpenDss1phDialogBase extends Dialog {
 
         cancelButton.onclick = (e) => {
             e.preventDefault();
-            this.destroy();
-            if (this.ui?.hideDialog) this.ui.hideDialog();
+            this.closeDialog();
         };
 
         applyButton.onclick = (e) => {
             e.preventDefault();
             const values = this.getFormValues();
             this.callback?.(values);
-            this.destroy();
-            if (this.ui?.hideDialog) this.ui.hideDialog();
+            this.closeDialog();
         };
 
         buttonContainer.appendChild(cancelButton);

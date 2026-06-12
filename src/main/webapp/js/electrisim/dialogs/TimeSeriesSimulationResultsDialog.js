@@ -112,11 +112,11 @@
 
             overlay.appendChild(dialog);
             document.body.appendChild(overlay);
-            overlay.addEventListener('click', (e) => {
-                if (e.target === overlay) {
+            import('../utils/dialogStyles.js').then(({ attachBackdropCloseHandler }) => {
+                attachBackdropCloseHandler(overlay, dialog, () => {
                     this.charts.forEach(c => c.destroy?.());
                     document.body.removeChild(overlay);
-                }
+                });
             });
 
             activateTab('charts');

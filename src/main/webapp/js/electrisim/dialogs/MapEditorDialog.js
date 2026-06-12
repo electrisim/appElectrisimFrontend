@@ -6,6 +6,7 @@
 import { Dialog } from '../Dialog.js';
 import { MapEditor, NODE_TYPES } from '../map/MapEditor.js';
 import { mapToElectricalModel } from '../map/mapToElectricalModel.js';
+import { attachBackdropCloseHandler } from '../utils/dialogStyles.js';
 
 export class MapEditorDialog extends Dialog {
     constructor(editorUi) {
@@ -338,14 +339,13 @@ export class MapEditorDialog extends Dialog {
     _showAsModal(container) {
         const overlay = document.createElement('div');
         overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;';
-        overlay.onclick = (e) => { if (e.target === overlay) this._close(); };
         const box = document.createElement('div');
         box.style.cssText = 'background:#fff;border-radius:8px;padding:12px;max-height:95vh;overflow:auto;box-shadow:0 4px 20px rgba(0,0,0,0.2);';
-        box.onclick = (e) => e.stopPropagation();
         box.appendChild(container);
         overlay.appendChild(box);
         document.body.appendChild(overlay);
         this.modalOverlay = overlay;
+        attachBackdropCloseHandler(overlay, box, () => this._close());
     }
 
     _saveMap() {
@@ -520,8 +520,7 @@ export class MapEditorDialog extends Dialog {
         btnRow.appendChild(placeBtn);
         box.appendChild(btnRow);
         overlay.appendChild(box);
-        overlay.onclick = (e) => { if (e.target === overlay) document.body.removeChild(overlay); };
-        box.onclick = (e) => e.stopPropagation();
+        attachBackdropCloseHandler(overlay, box, () => document.body.removeChild(overlay));
         document.body.appendChild(overlay);
     }
 

@@ -294,6 +294,7 @@ export class LibraryDialogManager {
 
     createButton(text, bgColor, hoverColor) {
         const button = document.createElement('button');
+        button.type = 'button';
         button.textContent = text;
         Object.assign(button.style, {
             padding: '12px 24px',

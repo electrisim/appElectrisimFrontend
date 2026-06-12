@@ -1,5 +1,5 @@
 import { Dialog } from '../Dialog.js';
-import { DIALOG_STYLES } from '../utils/dialogStyles.js';
+import { DIALOG_STYLES, attachBackdropCloseHandler } from '../utils/dialogStyles.js';
 
 export class EconomicAnalysisResultsDialog extends Dialog {
     constructor(results, editorUi, options = {}) {
@@ -595,6 +595,7 @@ export class EconomicAnalysisResultsDialog extends Dialog {
             borderTop: '1px solid #e9ecef'
         });
         const closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
         closeBtn.textContent = 'Close';
         Object.assign(closeBtn.style, {
             ...DIALOG_STYLES.button,
@@ -603,10 +604,7 @@ export class EconomicAnalysisResultsDialog extends Dialog {
         });
         closeBtn.addEventListener('mouseenter', () => { closeBtn.style.backgroundColor = DIALOG_STYLES.buttonHover.backgroundColor; });
         closeBtn.addEventListener('mouseleave', () => { closeBtn.style.backgroundColor = DIALOG_STYLES.button.backgroundColor; });
-        closeBtn.onclick = () => {
-            this.destroy();
-            this.ui && typeof this.ui.hideDialog === 'function' && this.ui.hideDialog();
-        };
+        closeBtn.onclick = () => this.closeDialog();
         buttonDiv.appendChild(closeBtn);
         container.appendChild(buttonDiv);
 
@@ -648,12 +646,7 @@ export class EconomicAnalysisResultsDialog extends Dialog {
         document.body.appendChild(overlay);
         this.modalOverlay = overlay;
 
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) {
-                this.destroy();
-                if (document.body.contains(overlay)) document.body.removeChild(overlay);
-            }
-        });
+        attachBackdropCloseHandler(overlay, dialogBox, () => this.destroy());
     }
 
     destroy() {

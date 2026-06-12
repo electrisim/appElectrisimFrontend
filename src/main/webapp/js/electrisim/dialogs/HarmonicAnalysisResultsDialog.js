@@ -4,6 +4,7 @@
  */
 
 import { createDialogNameResolver } from '../utils/attributeUtils.js';
+import { attachBackdropCloseHandler } from '../utils/dialogStyles.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 
@@ -425,9 +426,7 @@ export function showHarmonicAnalysisResultsDialog(dataJson, graph) {
     };
 
     closeBtn.addEventListener('click', destroy);
-    overlay.addEventListener('click', e => {
-        if (e.target === overlay) destroy();
-    });
+    attachBackdropCloseHandler(overlay, box, destroy);
 
     box.appendChild(titleBar);
     box.appendChild(body);

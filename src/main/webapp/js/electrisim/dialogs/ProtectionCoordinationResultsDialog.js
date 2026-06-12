@@ -1,4 +1,5 @@
 // ProtectionCoordinationResultsDialog.js
+import { attachBackdropCloseHandler } from '../utils/dialogStyles.js';
 //
 // Renders the backend response from /protection_coordination as:
 //   - Summary card
@@ -62,9 +63,7 @@ export class ProtectionCoordinationResultsDialog {
         dialog.appendChild(closeRow);
 
         overlay.appendChild(dialog);
-        overlay.onclick = (e) => {
-            if (e.target === overlay) overlay.remove();
-        };
+        attachBackdropCloseHandler(overlay, dialog, () => overlay.remove());
 
         document.body.appendChild(overlay);
 

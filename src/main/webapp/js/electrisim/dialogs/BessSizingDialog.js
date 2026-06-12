@@ -1,7 +1,7 @@
 // BessSizingDialog.js - Dialog for BESS Sizing parameters
 import { Dialog } from '../Dialog.js';
 import { ensureSubscriptionFunctions } from '../ensureSubscriptionFunctions.js';
-import { SIMULATION_FORM_SCROLL_STYLE, SIMULATION_INFO_BANNER_STYLE } from '../utils/dialogStyles.js';
+import { SIMULATION_FORM_SCROLL_STYLE, SIMULATION_INFO_BANNER_STYLE, preventAccidentalFormSubmit } from '../utils/dialogStyles.js';
 
 console.log('BessSizingDialog.js LOADED');
 
@@ -593,6 +593,7 @@ export class BessSizingDialog extends Dialog {
 
         // Create form
         const form = document.createElement('form');
+        preventAccidentalFormSubmit(form);
         Object.assign(form.style, {
             display: 'flex',
             flexDirection: 'column',
@@ -687,10 +688,7 @@ export class BessSizingDialog extends Dialog {
         
         cancelButton.onclick = (e) => {
             e.preventDefault();
-            this.destroy();
-            if (this.ui && typeof this.ui.hideDialog === 'function') {
-                this.ui.hideDialog();
-            }
+            this.closeDialog();
         };
 
         applyButton.onclick = async (e) => {
@@ -705,10 +703,7 @@ export class BessSizingDialog extends Dialog {
                 if (!hasSubscription) {
                     console.log('BessSizingDialog: No subscription, showing modal...');
                     // Close the dialog first
-                    this.destroy();
-                    if (this.ui && typeof this.ui.hideDialog === 'function') {
-                        this.ui.hideDialog();
-                    }
+                    this.closeDialog();
                     
                     // Show subscription modal if no active subscription
                     if (window.showSubscriptionModal) {
@@ -741,10 +736,7 @@ export class BessSizingDialog extends Dialog {
                     this.callback(values);
                 }
                 
-                this.destroy();
-                if (this.ui && typeof this.ui.hideDialog === 'function') {
-                    this.ui.hideDialog();
-                }
+                this.closeDialog();
             } catch (error) {
                 console.error('BessSizingDialog: Error checking subscription status:', error);
                 // Provide more helpful error messages based on error type

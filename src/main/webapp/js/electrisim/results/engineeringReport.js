@@ -321,7 +321,10 @@
 
         overlay.querySelector('.erm-cancel').addEventListener('click', cancel);
         overlay.querySelector('.erm-submit').addEventListener('click', submit);
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) cancel(); });
+        const dialogPanel = overlay.querySelector(`#${META_DIALOG_ID}`);
+        import('../utils/dialogStyles.js').then(({ attachBackdropCloseHandler }) => {
+            attachBackdropCloseHandler(overlay, dialogPanel, cancel);
+        });
         overlay.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') cancel();
             else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey || e.target.id !== 'erm-notes')) submit();

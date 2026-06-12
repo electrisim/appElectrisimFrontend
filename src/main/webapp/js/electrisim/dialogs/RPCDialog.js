@@ -995,7 +995,6 @@ export class RPCDialog extends Dialog {
         Object.assign(form.style, {
             display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', boxSizing: 'border-box'
         });
-
         let includeControllerGroup = null;
 
         this.parameters.forEach((param, index) => {
@@ -1091,7 +1090,6 @@ export class RPCDialog extends Dialog {
         const cleanupAndClose = () => {
             if (this._previewChart) { this._previewChart.destroy(); this._previewChart = null; }
             this.destroy();
-            if (this.ui?.hideDialog) this.ui.hideDialog();
         };
 
         cancelButton.onclick = (e) => {

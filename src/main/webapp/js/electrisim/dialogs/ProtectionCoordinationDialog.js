@@ -3,7 +3,7 @@
 // gate before the callback fires.
 import { Dialog } from '../Dialog.js';
 import { ensureSubscriptionFunctions } from '../ensureSubscriptionFunctions.js';
-import { getDrawioStudyDialogHeight, SIMULATION_FORM_SCROLL_STYLE, SIMULATION_INFO_BANNER_STYLE } from '../utils/dialogStyles.js';
+import { getDrawioStudyDialogHeight, SIMULATION_FORM_SCROLL_STYLE, SIMULATION_INFO_BANNER_STYLE, preventAccidentalFormSubmit } from '../utils/dialogStyles.js';
 
 export class ProtectionCoordinationDialog extends Dialog {
     constructor(editorUi) {
@@ -285,6 +285,7 @@ export class ProtectionCoordinationDialog extends Dialog {
 
     createForm() {
         const form = document.createElement('form');
+        preventAccidentalFormSubmit(form);
         Object.assign(form.style, {
             display: 'flex',
             flexDirection: 'column',
@@ -443,6 +444,7 @@ export class ProtectionCoordinationDialog extends Dialog {
 
     createButton(text, backgroundColor, hoverColor) {
         const button = document.createElement('button');
+        button.type = 'button';
         button.textContent = text;
         Object.assign(button.style, {
             padding: '8px 16px',
@@ -519,10 +521,7 @@ export class ProtectionCoordinationDialog extends Dialog {
 
         cancelButton.onclick = (e) => {
             e.preventDefault();
-            this.destroy();
-            if (this.ui && typeof this.ui.hideDialog === 'function') {
-                this.ui.hideDialog();
-            }
+            this.closeDialog();
         };
 
         applyButton.onclick = async (e) => {
@@ -543,10 +542,7 @@ export class ProtectionCoordinationDialog extends Dialog {
                     return;
                 }
                 if (callback) callback(values);
-                this.destroy();
-                if (this.ui && typeof this.ui.hideDialog === 'function') {
-                    this.ui.hideDialog();
-                }
+                this.closeDialog();
             } catch (error) {
                 console.error('ProtectionCoordinationDialog: subscription check failed:', error);
                 alert('Unable to verify subscription status. Please try again.');

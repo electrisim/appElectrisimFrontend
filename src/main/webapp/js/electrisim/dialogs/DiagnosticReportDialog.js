@@ -134,13 +134,12 @@
             overlay.appendChild(dialog);
             document.body.appendChild(overlay);
 
-            // Close on overlay click
-            overlay.addEventListener('click', (e) => {
-                if (e.target === overlay) {
+            import('../utils/dialogStyles.js').then(({ attachBackdropCloseHandler }) => {
+                attachBackdropCloseHandler(overlay, dialog, () => {
                     if (overlay.parentNode) {
                         document.body.removeChild(overlay);
                     }
-                }
+                });
             });
 
             // Close on Escape key

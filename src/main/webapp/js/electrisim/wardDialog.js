@@ -184,10 +184,7 @@ export class WardDialog extends Dialog {
         
         cancelButton.onclick = (e) => {
             e.preventDefault();
-            this.destroy();
-            if (this.ui && typeof this.ui.hideDialog === 'function') {
-                this.ui.hideDialog();
-            }
+            this.closeDialog();
         };
 
         applyButton.onclick = (e) => {
@@ -199,10 +196,7 @@ export class WardDialog extends Dialog {
                 this.callback(values);
             }
             
-            this.destroy();
-            if (this.ui && typeof this.ui.hideDialog === 'function') {
-                this.ui.hideDialog();
-            }
+            this.closeDialog();
         };
 
         buttonContainer.appendChild(cancelButton);
@@ -422,6 +416,7 @@ export class WardDialog extends Dialog {
     
     createButton(text, bgColor, hoverColor) {
         const button = document.createElement('button');
+        button.type = 'button';
         button.textContent = text;
         Object.assign(button.style, {
             padding: '8px 16px',

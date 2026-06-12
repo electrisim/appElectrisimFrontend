@@ -1,4 +1,5 @@
 // OptimalPowerFlowDialog.js - Dialog for Optimal Power Flow parameters
+import { attachBackdropCloseHandler, preventAccidentalFormSubmit } from '../utils/dialogStyles.js';
 
 // Create a standalone dialog that doesn't inherit from Dialog
 (function() {
@@ -233,6 +234,7 @@
 
                 // Create form
                 const form = document.createElement('form');
+                preventAccidentalFormSubmit(form);
                 const values = [];
 
                 const opfTypeParam = this.parameters.find((p) => p.id === 'opf_type');
@@ -502,12 +504,7 @@
                 overlay.appendChild(dialog);
                 document.body.appendChild(overlay);
 
-                // Close on overlay click
-                overlay.addEventListener('click', (e) => {
-                    if (e.target === overlay) {
-                        closeOverlay();
-                    }
-                });
+                attachBackdropCloseHandler(overlay, dialog, closeOverlay);
 
                 document.addEventListener('keydown', onEscapeKey);
             }

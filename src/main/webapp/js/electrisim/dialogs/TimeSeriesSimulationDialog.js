@@ -7,6 +7,7 @@ import {
     formatProfileValues,
     normalizeProfileLength
 } from '../utils/timeSeriesProfiles.js';
+import { attachBackdropCloseHandler } from '../utils/dialogStyles.js';
 
 const LOAD_TYPES = new Set(['Load', 'Asymmetric Load']);
 const GEN_TYPES = new Set(['Generator', 'Static Generator', 'Asymmetric Static Generator', 'PV System', 'PVSystem']);
@@ -348,7 +349,7 @@ class TimeSeriesSimulationDialog {
 
         overlay.appendChild(dialog);
         document.body.appendChild(overlay);
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) document.body.removeChild(overlay); });
+        attachBackdropCloseHandler(overlay, dialog, () => document.body.removeChild(overlay));
 
         this.syncAllProfileHints(timeStepsInput.value);
     }

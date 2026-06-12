@@ -1132,7 +1132,9 @@
         };
         panel.querySelector('.esc-close').addEventListener('click', closeAll);
         panel.querySelector('.esc-close-btn').addEventListener('click', closeAll);
-        overlay.addEventListener('click', closeAll);
+        import('../utils/dialogStyles.js').then(({ attachBackdropCloseHandler }) => {
+            attachBackdropCloseHandler(overlay, panel, closeAll);
+        });
 
         // Click-to-focus on table rows.
         panel.querySelectorAll('tr[data-target-idx]').forEach((tr) => {

@@ -2,7 +2,7 @@
 // VERSION: 2024-10-18 - Updated with correct OpenDSS parameters
 import { Dialog } from '../Dialog.js';
 import { ensureSubscriptionFunctions } from '../ensureSubscriptionFunctions.js';
-import { SIMULATION_FORM_SCROLL_STYLE, SIMULATION_INFO_BANNER_STYLE, STUDY_MODAL_OVERLAY_STYLE, getStudyModalDialogBoxStyle, STUDY_MODAL_CONTENT_WRAPPER_STYLE } from '../utils/dialogStyles.js';
+import { SIMULATION_FORM_SCROLL_STYLE, SIMULATION_INFO_BANNER_STYLE, STUDY_MODAL_OVERLAY_STYLE, attachBackdropCloseHandler, getStudyModalDialogBoxStyle, preventAccidentalFormSubmit, STUDY_MODAL_CONTENT_WRAPPER_STYLE } from '../utils/dialogStyles.js';
 
 console.log('🔥 LoadFlowDialog.js LOADED - Version 2024-10-18 14:30 - WITH NEW OPENDSS PARAMETERS');
 
@@ -340,6 +340,7 @@ export class LoadFlowDialog extends Dialog {
             width: '100%',
             boxSizing: 'border-box'
         });
+        preventAccidentalFormSubmit(form);
 
         /** Pandapower-only: wraps "Include controller" + three controller checkboxes */
         let includeControllerGroup = null;
@@ -761,10 +762,7 @@ export class LoadFlowDialog extends Dialog {
         
         cancelButton.onclick = (e) => {
             e.preventDefault();
-            this.destroy();
-            if (this.ui && typeof this.ui.hideDialog === 'function') {
-                this.ui.hideDialog();
-            }
+            this.closeDialog();
         };
 
         applyButton.onclick = async (e) => {
@@ -851,10 +849,7 @@ export class LoadFlowDialog extends Dialog {
                     callback(values);
                 }
                 
-                this.destroy();
-                if (this.ui && typeof this.ui.hideDialog === 'function') {
-                    this.ui.hideDialog();
-                }
+                this.closeDialog();
             } catch (error) {
                 console.error('LoadFlowDialog: Error checking subscription status:', error);
                 alert('Unable to verify subscription status. Please try again.');
@@ -901,11 +896,7 @@ export class LoadFlowDialog extends Dialog {
         this.modalOverlay.appendChild(dialogBox);
         document.body.appendChild(this.modalOverlay);
 
-        this.modalOverlay.addEventListener('click', (e) => {
-            if (e.target === this.modalOverlay) {
-                this.destroy();
-            }
-        });
+        attachBackdropCloseHandler(this.modalOverlay, dialogBox, () => this.destroy());
     }
 
     displayDialog() {
@@ -923,6 +914,7 @@ export class LoadFlowDialog extends Dialog {
 
     createButton(text, backgroundColor, hoverColor) {
         const button = document.createElement('button');
+        button.type = 'button';
         button.textContent = text;
         Object.assign(button.style, {
             padding: '8px 16px',

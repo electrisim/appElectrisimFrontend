@@ -576,10 +576,7 @@ export class ThreeWindingTransformerDialog extends Dialog {
         
         cancelButton.onclick = (e) => {
             e.preventDefault();
-            this.destroy();
-            if (this.ui && typeof this.ui.hideDialog === 'function') {
-                this.ui.hideDialog();
-            }
+            this.closeDialog();
         };
 
         applyButton.onclick = (e) => {
@@ -591,10 +588,7 @@ export class ThreeWindingTransformerDialog extends Dialog {
                 this.callback(values);
             }
             
-            this.destroy();
-            if (this.ui && typeof this.ui.hideDialog === 'function') {
-                this.ui.hideDialog();
-            }
+            this.closeDialog();
         };
 
         rightButtons.appendChild(cancelButton);
@@ -936,6 +930,7 @@ export class ThreeWindingTransformerDialog extends Dialog {
     
     createButton(text, bgColor, hoverColor) {
         const button = document.createElement('button');
+        button.type = 'button';
         button.textContent = text;
         Object.assign(button.style, {
             padding: '8px 16px',

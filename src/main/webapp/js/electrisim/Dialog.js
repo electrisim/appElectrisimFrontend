@@ -1,5 +1,16 @@
 // Dialog.js - Base class for all dialogs
-import { DIALOG_STYLES, getDrawioStudyDialogHeight, getStudyModalDialogBoxStyle, SIMULATION_FORM_SCROLL_STYLE, SIMULATION_INFO_BANNER_STYLE, STUDY_MODAL_CONTENT_WRAPPER_STYLE, STUDY_MODAL_OVERLAY_STYLE } from './utils/dialogStyles.js';
+import {
+    DIALOG_STYLES,
+    attachBackdropCloseHandler,
+    getDrawioStudyDialogHeight,
+    getStudyModalDialogBoxStyle,
+    preventAccidentalFormSubmit,
+    preventAccidentalFormSubmitOnTree,
+    SIMULATION_FORM_SCROLL_STYLE,
+    SIMULATION_INFO_BANNER_STYLE,
+    STUDY_MODAL_CONTENT_WRAPPER_STYLE,
+    STUDY_MODAL_OVERLAY_STYLE
+} from './utils/dialogStyles.js';
 
 // Try to import performance utils, but don't fail if not available
 let EventListenerRegistry;
@@ -106,7 +117,7 @@ export class Dialog {
             width: '100%',
             boxSizing: 'border-box'
         });
-
+        preventAccidentalFormSubmit(form);
 
         // Create form fields from parameters
         if (this.parameters && Array.isArray(this.parameters)) {
@@ -295,10 +306,7 @@ export class Dialog {
         
         cancelButton.onclick = (e) => {
             e.preventDefault();
-            this.destroy();
-            if (this.ui && typeof this.ui.hideDialog === 'function') {
-                this.ui.hideDialog();
-            }
+            this.closeDialog();
         };
 
         applyButton.onclick = (e) => {
@@ -310,10 +318,7 @@ export class Dialog {
                 this.callback(values);
             }
             
-            this.destroy();
-            if (this.ui && typeof this.ui.hideDialog === 'function') {
-                this.ui.hideDialog();
-            }
+            this.closeDialog();
         };
 
         buttonContainer.appendChild(cancelButton);
@@ -326,6 +331,7 @@ export class Dialog {
             Object.assign(buttonContainer.style, { flexShrink: '0' });
             container.appendChild(buttonContainer);
             this.container = container;
+            preventAccidentalFormSubmitOnTree(container);
             const w = this.studyModalBoxWidth != null ? this.studyModalBoxWidth : 720;
             this.mountStudyModalShell(w);
             return;
@@ -336,6 +342,7 @@ export class Dialog {
         }
 
         this.container = container;
+        preventAccidentalFormSubmitOnTree(container);
 
         // Use DrawIO's dialog system like externalGridDialog does
         if (useDrawIODialog) {
@@ -382,11 +389,8 @@ export class Dialog {
         this.modalOverlay.appendChild(dialogBox);
         document.body.appendChild(this.modalOverlay);
 
-        this.modalOverlay.addEventListener('click', (e) => {
-            if (e.target === this.modalOverlay) {
-                this.destroy();
-            }
-        });
+        preventAccidentalFormSubmitOnTree(this.container);
+        attachBackdropCloseHandler(this.modalOverlay, dialogBox, () => this.destroy());
     }
 
     calculateContentHeight() {
@@ -491,6 +495,7 @@ export class Dialog {
         });
         contentWrapper.appendChild(content);
         dialogContainer.appendChild(contentWrapper);
+        preventAccidentalFormSubmitOnTree(content);
 
         // Add buttons
         const buttonContainer = document.createElement('div');
@@ -503,6 +508,7 @@ export class Dialog {
         });
 
         const cancelButton = document.createElement('button');
+        cancelButton.type = 'button';
         cancelButton.textContent = 'Cancel';
         Object.assign(cancelButton.style, {
             padding: '8px 16px',
@@ -512,14 +518,10 @@ export class Dialog {
             borderRadius: '4px',
             cursor: 'pointer'
         });
-        cancelButton.onclick = () => {
-            this.destroy();
-            if (document.body.contains(overlay)) {
-                document.body.removeChild(overlay);
-            }
-        };
+        cancelButton.onclick = () => this.closeDialog();
 
         const okButton = document.createElement('button');
+        okButton.type = 'button';
         okButton.textContent = this.submitButtonText;
         Object.assign(okButton.style, {
             padding: '8px 16px',
@@ -570,6 +572,21 @@ export class Dialog {
         overlay.appendChild(dialogContainer);
         document.body.appendChild(overlay);
         this.modalOverlay = overlay;
+        attachBackdropCloseHandler(overlay, dialogContainer, () => {
+            this.destroy();
+            if (document.body.contains(overlay)) {
+                document.body.removeChild(overlay);
+            }
+        });
+    }
+
+    /** Close whether shown via custom overlay, fallback modal, or Draw.io showDialog. */
+    closeDialog() {
+        const customOverlay = !!(this.modalOverlay && document.body.contains(this.modalOverlay));
+        this.destroy();
+        if (!customOverlay && this.ui && typeof this.ui.hideDialog === 'function') {
+            this.ui.hideDialog();
+        }
     }
 
     createRadioGroup(param) {
@@ -754,6 +771,7 @@ export class Dialog {
 
     createButton(text, bgColor, hoverColor) {
         const button = document.createElement('button');
+        button.type = 'button';
         button.textContent = text;
         Object.assign(button.style, {
             padding: '8px 16px',
@@ -846,4 +864,23 @@ export class Dialog {
         success.textContent = message;
         return success;
     }
-} 
+}
+
+function patchEditorUiShowDialogFormGuard() {
+    const tryPatch = () => {
+        const proto = window.EditorUi?.prototype;
+        if (!proto || proto._electrisimFormGuardPatched) return !!proto;
+        const original = proto.showDialog;
+        proto.showDialog = function(elt, ...args) {
+            preventAccidentalFormSubmitOnTree(elt);
+            return original.call(this, elt, ...args);
+        };
+        proto._electrisimFormGuardPatched = true;
+        return true;
+    };
+    if (!tryPatch()) {
+        window.addEventListener('load', tryPatch, { once: true });
+    }
+}
+
+patchEditorUiShowDialogFormGuard();

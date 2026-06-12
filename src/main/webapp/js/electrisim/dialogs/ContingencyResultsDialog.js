@@ -1,4 +1,5 @@
 // ContingencyResultsDialog.js — N-1 / contingency analysis results with expandable violation details.
+import { attachBackdropCloseHandler } from '../utils/dialogStyles.js';
 
 export class ContingencyResultsDialog {
     constructor(results) {
@@ -74,7 +75,7 @@ export class ContingencyResultsDialog {
         shell.appendChild(footer);
 
         overlay.appendChild(shell);
-        overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+        attachBackdropCloseHandler(overlay, shell, () => overlay.remove());
         document.body.appendChild(overlay);
     }
 

@@ -3,6 +3,7 @@
 
 import { domCache } from './domCache.js';
 import { batchDOM } from './batchDOM.js';
+import { attachBackdropCloseHandler, preventAccidentalFormSubmit } from './dialogStyles.js';
 
 class DialogHelper {
     constructor() {
@@ -25,6 +26,7 @@ class DialogHelper {
             width: '100%',
             boxSizing: 'border-box'
         });
+        preventAccidentalFormSubmit(form);
 
         // Create all form elements using DocumentFragment for better performance
         const elementSpecs = [];
@@ -311,6 +313,7 @@ class DialogHelper {
 
         dialogBox.appendChild(contentWrapper);
         modalOverlay.appendChild(dialogBox);
+        attachBackdropCloseHandler(modalOverlay, dialogBox, () => this.closeDialog(dialogId));
 
         // Use batch DOM operation to insert
         await batchDOM.write(() => {

@@ -1,7 +1,7 @@
 // ShortCircuitDialog.js - Dialog for Short Circuit parameters with tabs for Pandapower and OpenDSS
 import { Dialog } from '../Dialog.js';
 import { ensureSubscriptionFunctions } from '../ensureSubscriptionFunctions.js';
-import { getDrawioStudyDialogHeight, SIMULATION_FORM_SCROLL_STYLE, SIMULATION_INFO_BANNER_STYLE } from '../utils/dialogStyles.js';
+import { getDrawioStudyDialogHeight, SIMULATION_FORM_SCROLL_STYLE, SIMULATION_INFO_BANNER_STYLE, preventAccidentalFormSubmit } from '../utils/dialogStyles.js';
 
 export class ShortCircuitDialog extends Dialog {
     constructor(editorUi) {
@@ -203,6 +203,7 @@ export class ShortCircuitDialog extends Dialog {
 
     createForm() {
         const form = document.createElement('form');
+        preventAccidentalFormSubmit(form);
         Object.assign(form.style, {
             display: 'flex',
             flexDirection: 'column',
@@ -367,6 +368,7 @@ export class ShortCircuitDialog extends Dialog {
 
     createButton(text, backgroundColor, hoverColor) {
         const button = document.createElement('button');
+        button.type = 'button';
         button.textContent = text;
         Object.assign(button.style, {
             padding: '8px 16px',
@@ -443,10 +445,7 @@ export class ShortCircuitDialog extends Dialog {
 
         cancelButton.onclick = (e) => {
             e.preventDefault();
-            this.destroy();
-            if (this.ui && typeof this.ui.hideDialog === 'function') {
-                this.ui.hideDialog();
-            }
+            this.closeDialog();
         };
 
         applyButton.onclick = async (e) => {
@@ -470,10 +469,7 @@ export class ShortCircuitDialog extends Dialog {
                     callback(values);
                 }
 
-                this.destroy();
-                if (this.ui && typeof this.ui.hideDialog === 'function') {
-                    this.ui.hideDialog();
-                }
+                this.closeDialog();
             } catch (error) {
                 console.error('ShortCircuitDialog: Error checking subscription status:', error);
                 alert('Unable to verify subscription status. Please try again.');

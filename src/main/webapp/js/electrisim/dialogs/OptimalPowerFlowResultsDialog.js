@@ -694,8 +694,8 @@
             overlay.appendChild(shell);
             document.body.appendChild(overlay);
 
-            overlay.addEventListener('click', (e) => {
-                if (e.target === overlay) overlay.remove();
+            import('../utils/dialogStyles.js').then(({ attachBackdropCloseHandler }) => {
+                attachBackdropCloseHandler(overlay, shell, () => overlay.remove());
             });
         }
     }
