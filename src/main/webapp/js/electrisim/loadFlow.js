@@ -2028,35 +2028,9 @@ function loadFlowPandaPower(a, b, c) {
     const elementProcessors = {
         busbars: (data, b, grafka) => {
             const model = b.getModel();
-            const busDisplayPq = (cell) => {
-                const pInjN = Number(cell.p_mw);
-                const qInjN = Number(cell.q_mvar);
-                const magInj = Math.hypot(
-                    Number.isFinite(pInjN) ? pInjN : 0,
-                    Number.isFinite(qInjN) ? qInjN : 0
-                );
-                // Prefer pandapower lumped injection when it is non-trivial (gen/load/ext_grid on this bus).
-                // Use branch-terminal sums only for pass-through buses (e.g. LV with trafo + stub line while sgen is on aux).
-                if (magInj >= 1e-6) {
-                    return { p: cell.p_mw, q: cell.q_mvar, pf: cell.pf, qp: cell.q_p };
-                }
-                const pBr = cell.p_branch_mw;
-                const qBr = cell.q_branch_mvar;
-                const hasBr =
-                    pBr !== undefined && pBr !== null && qBr !== undefined && qBr !== null;
-                const pN = Number(pBr);
-                const qN = Number(qBr);
-                const magBr = hasBr ? Math.hypot(Number.isFinite(pN) ? pN : 0, Number.isFinite(qN) ? qN : 0) : 0;
-                if (hasBr && magBr >= 1e-6) {
-                    const p = Number.isFinite(pN) ? pN : 0;
-                    const q = Number.isFinite(qN) ? qN : 0;
-                    const denom = Math.sqrt(p * p + q * q);
-                    const pf = denom > 1e-12 ? p / denom : 0;
-                    const qp = Math.abs(p) > 1e-12 ? q / p : 0;
-                    return { p, q, pf, qp };
-                }
-                return { p: cell.p_mw, q: cell.q_mvar, pf: cell.pf, qp: cell.q_p };
-            };
+            const busDisplayPq = (typeof window !== 'undefined' && window.busDisplayPq)
+                ? window.busDisplayPq
+                : (cell) => ({ p: cell.p_mw, q: cell.q_mvar, pf: cell.pf, qp: cell.q_p });
             const results = data.map(cell => {
                 const resultCell = getResultGraphCell(cell);
                 if (!resultCell) return null;

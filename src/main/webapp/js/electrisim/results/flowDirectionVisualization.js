@@ -296,7 +296,10 @@
             pMw: pMw,
             arrowAtTarget: arrowAtTarget,
             pFrom: pFrom,
-            pTo: pTo
+            pTo: pTo,
+            // True when flow direction is opposite to the branch's stored from/to orientation,
+            // i.e. fromName refers to the result row's *_to_* terminal and toName to *_from_*.
+            reversed: !nearZero && flowFromId === busTo && busFrom !== busTo
         };
     }
 
@@ -678,7 +681,7 @@
         return 'Q=' + formatNum(qn) + ' MVar into bus (capacitive supply)';
     }
 
-    /** Net bus injection Q (res_bus): + = absorbed/inductive, − = supplied/capacitive. */
+    /** Net nodal bus Q (elements + branch terminals): + = absorbed/inductive, − = supplied/capacitive. */
     function formatBusNetReactiveQ(qMvar) {
         var qn = Number(qMvar);
         if (!Number.isFinite(qn)) return 'Q=N/A';
@@ -731,16 +734,23 @@
         var hdr = headerLine || 'Line';
         var fromName = directionInfo ? directionInfo.fromName : '?';
         var toName = directionInfo ? directionInfo.toName : '?';
+        // fromName/toName are ordered by flow direction; when that is opposite to the branch's
+        // stored orientation, pair each bus name with the terminal values that belong to it.
+        var rev = !!(directionInfo && directionInfo.reversed);
+        var qAtFrom = rev ? cell.q_to_mvar : cell.q_from_mvar;
+        var iAtFrom = rev ? cell.i_to_ka : cell.i_from_ka;
+        var qAtTo = rev ? cell.q_from_mvar : cell.q_to_mvar;
+        var iAtTo = rev ? cell.i_from_ka : cell.i_to_ka;
         if (!directionInfo || directionInfo.nearZero) {
-            return hdr + '\nP flow: ≈ 0 MW\n' + formatLineTerminalBlock(fromName, cell.q_from_mvar, cell.i_from_ka) +
+            return hdr + '\nP flow: ≈ 0 MW\n' + formatLineTerminalBlock(fromName, qAtFrom, iAtFrom) +
                 '\nLoading: ' + formatNum(cell.loading_percent, 1) + ' %\n' +
-                formatLineTerminalBlock(toName, cell.q_to_mvar, cell.i_to_ka);
+                formatLineTerminalBlock(toName, qAtTo, iAtTo);
         }
         return hdr + '\nP flow: ' + fromName + ' → ' + toName +
             '  (' + formatNum(directionInfo.pMw) + ' MW)\n' +
-            formatLineTerminalBlock(fromName, cell.q_from_mvar, cell.i_from_ka) +
+            formatLineTerminalBlock(fromName, qAtFrom, iAtFrom) +
             '\nLoading: ' + formatNum(cell.loading_percent, 1) + ' %\n' +
-            formatLineTerminalBlock(toName, cell.q_to_mvar, cell.i_to_ka);
+            formatLineTerminalBlock(toName, qAtTo, iAtTo);
     }
 
     function formatTrafoResultWithFlow(cell, directionInfo, headerLine, tapBlock) {
@@ -773,11 +783,14 @@
             flowLine = 'P flow: ' + directionInfo.fromName + ' → ' + directionInfo.toName +
                 '  (' + formatNum(directionInfo.pMw) + ' MW)';
         }
+        var revSw = !!(directionInfo && directionInfo.reversed);
+        var qSwFrom = revSw ? cell.q_to_mvar : cell.q_from_mvar;
+        var qSwTo = revSw ? cell.q_from_mvar : cell.q_to_mvar;
         return hdr + '\nclosed: ' + closedStr + '\n' + flowLine +
-            '\n' + formatLineTerminalBlock(directionInfo ? directionInfo.fromName : 'from', cell.q_from_mvar, cell.i_ka) +
+            '\n' + formatLineTerminalBlock(directionInfo ? directionInfo.fromName : 'from', qSwFrom, cell.i_ka) +
             '\nLoading: ' + formatNum(cell.loading_percent, 1) + ' %\n' +
             '@' + (directionInfo ? directionInfo.toName : 'to') + ': ' +
-            formatBranchTerminalQ(cell.q_to_mvar);
+            formatBranchTerminalQ(qSwTo);
     }
 
     function formatGenericBranchResultWithFlow(cell, directionInfo, headerLine, extraLines) {
@@ -790,11 +803,16 @@
             flowLine = 'P flow: ' + directionInfo.fromName + ' → ' + directionInfo.toName +
                 '  (' + formatNum(directionInfo.pMw) + ' MW)';
         }
+        var revGb = !!(directionInfo && directionInfo.reversed);
+        var pGbFrom = revGb ? cell.p_to_mw : cell.p_from_mw;
+        var qGbFrom = revGb ? cell.q_to_mvar : cell.q_from_mvar;
+        var pGbTo = revGb ? cell.p_from_mw : cell.p_to_mw;
+        var qGbTo = revGb ? cell.q_from_mvar : cell.q_to_mvar;
         return hdr + '\n' + flowLine +
-            '\n@' + (directionInfo ? directionInfo.fromName : 'from') + ': P=' + formatNum(cell.p_from_mw) +
-            ', ' + formatBranchTerminalQ(cell.q_from_mvar) +
-            '\n@' + (directionInfo ? directionInfo.toName : 'to') + ': P=' + formatNum(cell.p_to_mw) +
-            ', ' + formatBranchTerminalQ(cell.q_to_mvar) + extraLines;
+            '\n@' + (directionInfo ? directionInfo.fromName : 'from') + ': P=' + formatNum(pGbFrom) +
+            ', ' + formatBranchTerminalQ(qGbFrom) +
+            '\n@' + (directionInfo ? directionInfo.toName : 'to') + ': P=' + formatNum(pGbTo) +
+            ', ' + formatBranchTerminalQ(qGbTo) + extraLines;
     }
 
     var DASHBOARD_ID = 'electrisim-health-dashboard';
@@ -930,6 +948,53 @@
         model.setStyle(lineCell, style);
     }
 
+    /**
+     * P/Q shown on bus result boxes: net nodal balance (element injection + signed branch terminals).
+     * Falls back to legacy injection / through-flow when nodal fields are absent (older backend).
+     */
+    function busDisplayPq(cell) {
+        var pN = Number(cell.p_nodal_mw);
+        var qN = Number(cell.q_nodal_mvar);
+        if (Number.isFinite(pN) && Number.isFinite(qN)) {
+            var denom = Math.sqrt(pN * pN + qN * qN);
+            var pfN = Number(cell.pf_nodal);
+            var qpN = Number(cell.q_p_nodal);
+            return {
+                p: pN,
+                q: qN,
+                pf: denom > 1e-12 ? pN / denom : (Number.isFinite(pfN) ? pfN : 0),
+                qp: Math.abs(pN) > 1e-12 ? qN / pN : (Number.isFinite(qpN) ? qpN : 0)
+            };
+        }
+        var pInjN = Number(cell.p_mw);
+        var qInjN = Number(cell.q_mvar);
+        var magInj = Math.hypot(
+            Number.isFinite(pInjN) ? pInjN : 0,
+            Number.isFinite(qInjN) ? qInjN : 0
+        );
+        if (magInj >= 1e-6) {
+            return { p: cell.p_mw, q: cell.q_mvar, pf: cell.pf, qp: cell.q_p };
+        }
+        var pBr = cell.p_branch_mw;
+        var qBr = cell.q_branch_mvar;
+        var hasBr = pBr !== undefined && pBr !== null && qBr !== undefined && qBr !== null;
+        var pBrN = Number(pBr);
+        var qBrN = Number(qBr);
+        var magBr = hasBr ? Math.hypot(Number.isFinite(pBrN) ? pBrN : 0, Number.isFinite(qBrN) ? qBrN : 0) : 0;
+        if (hasBr && magBr >= 1e-6) {
+            var p = Number.isFinite(pBrN) ? pBrN : 0;
+            var q = Number.isFinite(qBrN) ? qBrN : 0;
+            var denomBr = Math.sqrt(p * p + q * q);
+            return {
+                p: p,
+                q: q,
+                pf: denomBr > 1e-12 ? p / denomBr : 0,
+                qp: Math.abs(p) > 1e-12 ? q / p : 0
+            };
+        }
+        return { p: cell.p_mw, q: cell.q_mvar, pf: cell.pf, qp: cell.q_p };
+    }
+
     window.clearFlowArrows = clearFlowArrows;
     window.resolveBranchFlowDirection = resolveBranchFlowDirection;
     window.applyActivePowerArrow = applyActivePowerArrow;
@@ -941,6 +1006,7 @@
     window.formatGenericBranchResultWithFlow = formatGenericBranchResultWithFlow;
     window.formatBranchTerminalQ = formatBranchTerminalQ;
     window.formatBusNetReactiveQ = formatBusNetReactiveQ;
+    window.busDisplayPq = busDisplayPq;
     window.formatElementReactiveQ = formatElementReactiveQ;
     window.formatExternalGridReactiveQ = formatExternalGridReactiveQ;
     window.showFlowConventionLegend = showFlowConventionLegend;

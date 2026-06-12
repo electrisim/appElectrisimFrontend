@@ -81,22 +81,8 @@ function insertBox(graph, parentCell, text, opts) {
 }
 
 function busDisplayPq(cell) {
-    const pInjN = Number(cell.p_mw);
-    const qInjN = Number(cell.q_mvar);
-    const magInj = Math.hypot(Number.isFinite(pInjN) ? pInjN : 0, Number.isFinite(qInjN) ? qInjN : 0);
-    if (magInj >= 1e-6) {
-        return { p: cell.p_mw, q: cell.q_mvar, pf: cell.pf, qp: cell.q_p };
-    }
-    const pBr = cell.p_branch_mw;
-    const qBr = cell.q_branch_mvar;
-    const pN = Number(pBr);
-    const qN = Number(qBr);
-    const magBr = Math.hypot(Number.isFinite(pN) ? pN : 0, Number.isFinite(qN) ? qN : 0);
-    if (pBr != null && qBr != null && magBr >= 1e-6) {
-        const p = Number.isFinite(pN) ? pN : 0;
-        const q = Number.isFinite(qN) ? qN : 0;
-        const denom = Math.sqrt(p * p + q * q);
-        return { p, q, pf: denom > 1e-12 ? p / denom : 0, qp: Math.abs(p) > 1e-12 ? q / p : 0 };
+    if (typeof window !== 'undefined' && window.busDisplayPq) {
+        return window.busDisplayPq(cell);
     }
     return { p: cell.p_mw, q: cell.q_mvar, pf: cell.pf, qp: cell.q_p };
 }
