@@ -18,6 +18,10 @@
     var ARROW_MIN_LEN = 12;
     var ARROW_MAX_LEN = 30;
     var ARROW_THICK_RATIO = 0.82;
+    // Line result boxes sit near the midpoint (relative position ~0.5 on the branch).
+    var RESULT_BOX_LINE_FRACTION = 0.5;
+    var ARROW_FRACTION_CANDIDATES = [0.28, 0.72, 0.2, 0.8];
+    var ARROW_BOX_PAD = 10;
 
     function clamp01(t) {
         return t < 0 ? 0 : (t > 1 ? 1 : t);
@@ -525,6 +529,109 @@
         return null;
     }
 
+    function isResultPlaceholderCell(cell) {
+        if (!cell || !cell.style) return false;
+        var st = cell.style;
+        return st.indexOf('shapeELXXX=Result') >= 0 ||
+            st.indexOf('shapeELXXX=ResultBus') >= 0 ||
+            st.indexOf('shapeELXXX=ResultExternalGrid') >= 0;
+    }
+
+    function findLineResultPlaceholder(graph, branchCell) {
+        if (!graph || !branchCell) return null;
+        if (typeof window !== 'undefined' && typeof window.findResultPlaceholder === 'function') {
+            var ph = window.findResultPlaceholder(graph, branchCell);
+            if (ph) return ph;
+        }
+        var model = graph.getModel();
+        if (!model) return null;
+        var n = model.getChildCount(branchCell);
+        for (var i = 0; i < n; i++) {
+            var ch = model.getChildAt(branchCell, i);
+            if (isResultPlaceholderCell(ch)) return ch;
+        }
+        return null;
+    }
+
+    function viewBoundsOfCell(graph, cell) {
+        if (!graph || !graph.view || !cell) return null;
+        var st = graph.view.getState(cell);
+        if (!st) return null;
+        return {
+            x: st.x,
+            y: st.y,
+            width: st.width,
+            height: st.height
+        };
+    }
+
+    function rectsOverlap(a, b, pad) {
+        pad = pad || 0;
+        return !(
+            a.x + a.width + pad < b.x - pad ||
+            b.x + b.width + pad < a.x - pad ||
+            a.y + a.height + pad < b.y - pad ||
+            b.y + b.height + pad < a.y - pad
+        );
+    }
+
+    function arrowRectAtAnchor(anchor, w, h) {
+        return {
+            x: anchor.x - w / 2,
+            y: anchor.y - h / 2,
+            width: w,
+            height: h
+        };
+    }
+
+    /**
+     * Pick a point along the branch away from the mid-line result box (fraction ~0.5).
+     */
+    function resolveArrowAnchor(graph, branchCell, model, directionInfo, arrowW, arrowH) {
+        var placeholder = findLineResultPlaceholder(graph, branchCell);
+        var boxBounds = viewBoundsOfCell(graph, placeholder);
+        var useView = !!(graph.view && branchCell && graph.view.getState(branchCell));
+
+        var i;
+        var anchor;
+        for (i = 0; i < ARROW_FRACTION_CANDIDATES.length; i++) {
+            anchor = branchAnchorAt(graph, branchCell, ARROW_FRACTION_CANDIDATES[i], directionInfo, model);
+            if (!anchor) continue;
+            if (!boxBounds) return anchor;
+            if (!anchor.inView && !useView) return anchor;
+            if (!rectsOverlap(arrowRectAtAnchor(anchor, arrowW, arrowH), boxBounds, ARROW_BOX_PAD)) {
+                return anchor;
+            }
+        }
+
+        anchor = branchAnchorAt(graph, branchCell, ARROW_FRACTION_CANDIDATES[0], directionInfo, model);
+        if (anchor && boxBounds && anchor.inView) {
+            var mid = branchAnchorAt(graph, branchCell, RESULT_BOX_LINE_FRACTION, directionInfo, model);
+            if (mid) {
+                var bx = boxBounds.x + boxBounds.width / 2;
+                var by = boxBounds.y + boxBounds.height / 2;
+                var awayX = mid.x - bx;
+                var awayY = mid.y - by;
+                var awayLen = Math.hypot(awayX, awayY);
+                if (awayLen > 1e-3) {
+                    var push = Math.max(14, Math.min(arrowW, arrowH) * 0.35);
+                    anchor.x += (awayX / awayLen) * push;
+                    anchor.y += (awayY / awayLen) * push;
+                }
+            }
+        }
+        return anchor;
+    }
+
+    function sendFlowArrowToBack(graph, arrowCell) {
+        if (!graph || !arrowCell || typeof graph.orderCells !== 'function') return;
+        try {
+            graph.orderCells(false, [arrowCell]);
+        } catch (_) {
+            /* ignore */
+        }
+    }
+
     function anchorToModelPoint(graph, anchor) {
         if (anchor.inView) {
             return viewToModelPoint(graph, anchor.x, anchor.y);
@@ -604,23 +711,25 @@
         var model = graph.getModel();
         var branchKey = getFlowBranchKey(branchCell);
         var existing = findFlowArrowForBranch(model, branchCell);
-        var anchor = branchAnchorAt(graph, branchCell, 0.45, directionInfo, model);
-        if (!anchor) return false;
-
         var appearance = flowArrowAppearance(graph, branchCell, model, directionInfo, arrowOpts);
         var style = triangleStyle(appearance.cardinal, branchKey, appearance.color);
         var w = appearance.w;
         var h = appearance.h;
+        var anchor = resolveArrowAnchor(graph, branchCell, model, directionInfo, w, h);
+        if (!anchor) return false;
+
         var mp = anchorToModelPoint(graph, anchor);
         var x = mp.x - w / 2;
         var y = mp.y - h / 2;
         var layer = graph.getDefaultParent();
+        var arrowCell = existing;
 
         model.beginUpdate();
         try {
             if (existing && model.getParent(existing) !== layer) {
                 model.remove(existing);
                 existing = null;
+                arrowCell = null;
             }
 
             if (existing) {
@@ -636,12 +745,16 @@
                     model.setGeometry(existing, geoE);
                 }
             } else {
-                graph.insertVertex(layer, null, '', x, y, w, h, style, false);
+                arrowCell = graph.insertVertex(layer, null, '', x, y, w, h, style, false);
             }
-            return true;
         } finally {
             model.endUpdate();
         }
+
+        if (arrowCell) {
+            sendFlowArrowToBack(graph, arrowCell);
+        }
+        return !!arrowCell;
     }
 
     function applyActivePowerArrow(graph, branchCell, directionInfo, arrowOpts) {

@@ -198,4 +198,28 @@ const m9 = win.computeNetworkHealthMetrics({
 });
 assert(Math.abs(m9.totalGen - 8) < 1e-6, 'pvsystems summed correctly');
 
+// --- Test 10: pandapower negative sgen + ext_grid export (offshore export) ---
+console.log('\nTest 10: pandapower signs — 30 sgens × −15 MW, export −431.613 MW');
+const sgens30pp = Array.from({ length: 30 }, (_, i) => ({
+    id: 'sg' + i, name: 'sg' + i, p_mw: -15, q_mvar: 0,
+}));
+const m10 = win.computeNetworkHealthMetrics({
+    busbars: [{ id: 'b1', name: 'b1', vm_pu: 1.0 }],
+    lines: [{ id: 'l1', name: 'l1', loading_percent: 40, pl_mw: 2.0 }],
+    transformers: [{ id: 't1', name: 't1', loading_percent: 50, pl_mw: 5.68 }],
+    staticgenerators: sgens30pp,
+    externalgrids: [{ id: 'eg1', name: 'eg1', p_mw: -431.613 }],
+    loads: [{ id: 'ld1', name: 'ld1', p_mw: 3 }],
+    shunts: [
+        { id: 'sh1', name: 'sh1', p_mw: 0.1 },
+        { id: 'sh2', name: 'sh2', p_mw: 0.1 },
+        { id: 'sh3', name: 'sh3', p_mw: 0.1 },
+    ],
+});
+console.log('  ->', { gen: m10.totalGen, load: m10.totalLoad, losses: m10.totalLosses });
+assert(Math.abs(m10.totalGen - 450) < 1e-6, 'negative pandapower sgens counted as 450 MW gen');
+assert(Math.abs(m10.totalLoad - 3.3) < 1e-6, 'loads + shunt P summed');
+assert(Math.abs(m10.totalLosses - 15.087) < 0.01,
+    'system losses from balance (~15.1 MW), not branch pl_mw only (7.68 MW)');
+
 console.log('\nAll dashboard smoke tests passed.');

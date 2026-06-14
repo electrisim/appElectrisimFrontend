@@ -894,15 +894,26 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
                 const fallbackStyle = (typeof window !== 'undefined' && window.RESULT_BOX_STYLE) || 'shapeELXXX=Result';
                 const parent = resultCell;
                 const existing = findFn ? findFn(b, parent) : null;
+                let keep = existing;
                 if (existing) {
                     b.getModel().setValue(existing, resultString);
                 } else {
-                    const labelka = insertFn ? insertFn(b, parent, resultString, { width: 95, height: 100, positionX: 0.5, positionY: 0, isLine: true }) : b.insertVertex(parent, null, resultString, 0, 0, 95, 100, fallbackStyle, true);
-                    if (labelka) b.orderCells(true, [labelka]);
+                    keep = insertFn ? insertFn(b, parent, resultString, { width: 95, height: 100, positionX: 0.5, positionY: 0, isLine: true }) : b.insertVertex(parent, null, resultString, 0, 0, 95, 100, fallbackStyle, true);
+                    if (keep && typeof b.orderCells === 'function') b.orderCells(true, [keep]);
+                }
+                if (keep && typeof b.orderCells === 'function') {
+                    b.orderCells(true, [keep]);
                 }
                 processLoadingColor(grafka, resultCell, cell.loading_percent);
                 if (flowVizEnabled() && window.applyLoadingLineColor) {
                     window.applyLoadingLineColor(b, resultCell, cell.loading_percent);
+                }
+                if (flowVizEnabled() && dir && window.applyActivePowerArrow) {
+                    window.applyActivePowerArrow(b, resultCell, dir, {
+                        loadingPercent: cell.loading_percent,
+                        maxAbsP: maxAbsP,
+                        pMw: dir.pMw
+                    });
                 }
             } catch (error) {
                 console.error(`Error processing line ${cell.id}:`, error);

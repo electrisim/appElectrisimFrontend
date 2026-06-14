@@ -74,6 +74,25 @@
         return { pos, neg };
     };
 
+    // Active-power injection at a bus element (MW). pandapower load-flow results
+    // use negative p_mw for gen/sgen; OpenDSS and some UI exports use positive.
+    const busInjectMw = (p) => {
+        const v = num(p);
+        if (v === null || v === 0) return 0;
+        return v < 0 ? -v : v;
+    };
+
+    const sumBusInject = (arr, key = 'p_mw') => (Array.isArray(arr)
+        ? arr.reduce((s, r) => s + busInjectMw(r?.[key]), 0)
+        : 0);
+
+    const sumBusWithdraw = (arr, key = 'p_mw') => (Array.isArray(arr)
+        ? arr.reduce((s, r) => {
+            const v = num(r?.[key]);
+            return v === null || v <= 0 ? s : s + v;
+        }, 0)
+        : 0);
+
     function classifyVoltage(vmPu) {
         const v = num(vmPu);
         if (v === null) return 'unknown';
@@ -151,27 +170,30 @@
         const motors       = arr('motors');
         const storages     = arr('storages');
         const pvSystems    = arr('pvsystems', 'pvSystems');
+        const shunts       = arr('shunts');
+        const capacitors   = arr('capacitors');
+        const impedances   = arr('impedances');
+        const dclines      = arr('dclines', 'dcline');
 
         // Generation accounting — gross output of every injecting element.
         // pandapower / OpenDSS sign conventions:
         //   ext_grid:           +p_mw → import (gen/supply from grid)
         //                       −p_mw → export (grid backfeed; not network load)
-        //   gen / sgen / pv:    +p_mw → injection (gen) almost always, but we
-        //                       still split by sign to be robust to user setups.
+        //   gen / sgen / pv:    −p_mw → injection in pandapower; +p_mw in OpenDSS
         //   asymmetric_sgen:    p_total = p_a_mw + p_b_mw + p_c_mw
         //   storage:            +p_mw → charging (load), −p_mw → discharging (gen)
         const extSplit  = splitBySign(extGrids);
-        const genSplit  = splitBySign(generators);
-        const sgenSplit = splitBySign(sgens);
-        const pvSplit   = splitBySign(pvSystems);
         const stoSplit  = splitBySign(storages);
 
-        // Asymmetric: split per element after summing its three phases.
-        let asymSgenGen = 0, asymSgenLoad = 0;
+        const genInjectMw  = sumBusInject(generators);
+        const sgenInjectMw = sumBusInject(sgens);
+        const pvInjectMw   = sumBusInject(pvSystems);
+
+        // Asymmetric static generators are always sources; loads are always sinks.
+        let asymSgenGen = 0;
         for (const r of asymSgens) {
             const tot = (num(r?.p_a_mw) || 0) + (num(r?.p_b_mw) || 0) + (num(r?.p_c_mw) || 0);
-            if (tot >= 0) asymSgenGen  += tot;
-            else          asymSgenLoad += -tot;
+            asymSgenGen += busInjectMw(tot);
         }
         let asymLoadLoad = 0, asymLoadGen = 0;
         for (const r of asymLoads) {
@@ -180,14 +202,18 @@
             else          asymLoadGen  += -tot;
         }
 
+        const shuntLoadMw    = sumBusWithdraw(shunts);
+        const capacitorLoadMw = sumBusWithdraw(capacitors);
+
         // Detailed breakdown — surfaced via tooltip & console for transparency.
         const breakdownGen = [
             { label: 'External Grid (import)',     value: extSplit.pos,  count: extGrids.length },
-            { label: 'Synchronous generators',     value: genSplit.pos,  count: generators.length },
-            { label: 'Static generators',          value: sgenSplit.pos, count: sgens.length },
+            { label: 'Synchronous generators',     value: genInjectMw,   count: generators.length },
+            { label: 'Static generators',          value: sgenInjectMw,  count: sgens.length },
             { label: 'Asymmetric static gens',     value: asymSgenGen,   count: asymSgens.length },
-            { label: 'PV systems',                 value: pvSplit.pos,   count: pvSystems.length },
+            { label: 'PV systems',                 value: pvInjectMw,    count: pvSystems.length },
             { label: 'Storage (discharge)',        value: stoSplit.neg,  count: storages.length },
+            { label: 'Asymmetric loads (gen)',     value: asymLoadGen,   count: asymLoads.length },
         ].filter(x => x.count > 0 || x.value > 0.0001);
 
         const breakdownLoad = [
@@ -195,18 +221,32 @@
             { label: 'Asymmetric loads',           value: asymLoadLoad,          count: asymLoads.length },
             { label: 'Motors',                     value: sumOf(motors, 'p_mw'), count: motors.length },
             { label: 'Storage (charge)',           value: stoSplit.pos,          count: storages.length },
+            { label: 'Shunt reactors',             value: shuntLoadMw,           count: shunts.length },
+            { label: 'Capacitors',                 value: capacitorLoadMw,     count: capacitors.length },
         ].filter(x => x.count > 0 || x.value > 0.0001);
 
         const totalGen  = breakdownGen .reduce((s, r) => s + r.value, 0);
         const totalLoad = breakdownLoad.reduce((s, r) => s + r.value, 0);
 
-        // Losses = line + transformer pl_mw if present, otherwise gen - load
-        const lineLosses    = sumOf(lines,    'pl_mw');
-        const trafoLosses   = sumOf(trafos,   'pl_mw');
-        const trafo3wLosses = sumOf(trafos3w, 'pl_mw');
-        let   totalLosses   = lineLosses + trafoLosses + trafo3wLosses;
-        if (!totalLosses && totalGen) {
-            totalLosses = Math.max(0, totalGen - totalLoad);
+        // Branch losses (lines, trafos, impedances, DC lines) — matches backend economic analysis.
+        const branchLosses =
+            sumOf(lines, 'pl_mw') +
+            sumOf(trafos, 'pl_mw') +
+            sumOf(trafos3w, 'pl_mw') +
+            sumOf(impedances, 'pl_mw') +
+            sumOf(dclines, 'pl_mw');
+
+        // System losses from active-power balance (injections − withdrawals incl. grid export).
+        const totalInjections =
+            extSplit.pos + genInjectMw + sgenInjectMw + pvInjectMw +
+            asymSgenGen + asymLoadGen + stoSplit.neg;
+        const totalWithdrawals = totalLoad + extSplit.neg;
+
+        let totalLosses = 0;
+        if (totalInjections > 0.0001 || totalWithdrawals > 0.0001) {
+            totalLosses = Math.max(0, totalInjections - totalWithdrawals);
+        } else if (branchLosses > 0) {
+            totalLosses = branchLosses;
         }
         const lossPct = totalGen ? (totalLosses / totalGen) * 100 : 0;
 

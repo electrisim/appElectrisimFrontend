@@ -2101,10 +2101,10 @@ Q/P: ${formatNumber(d.qp)}`,
             Q_to[MVar]: ${formatNumber(cell.q_to_mvar)}
             i_to[kA]: ${formatNumber(cell.i_to_ka)}`;
 
-                return { resultCell, resultString, cell };
+                return { resultCell, resultString, cell, dir };
             });
 
-            lineResults.filter(r => r !== null).forEach(({ resultCell, resultString, cell }) => {
+            lineResults.filter(r => r !== null).forEach(({ resultCell, resultString, cell, dir }) => {
                 // Line may have a placeholder on the line cell itself (line-as-edge: child of the
                 // edge) or, in parallel Bus–Switch–Bus topologies, one from a sibling switch may
                 // have been auto-created on the same midpoint. Consolidate by connectedTo=lineId.
@@ -2122,6 +2122,16 @@ Q/P: ${formatNumber(d.qp)}`,
                     if (flowVizEnabled() && window.applyLoadingLineColor) {
                         window.applyLoadingLineColor(b, resultCell, cell.loading_percent);
                     }
+                    if (typeof b.orderCells === 'function') {
+                        b.orderCells(true, [keep]);
+                    }
+                }
+                if (flowVizEnabled() && dir && window.applyActivePowerArrow) {
+                    window.applyActivePowerArrow(b, resultCell, dir, {
+                        loadingPercent: cell.loading_percent,
+                        maxAbsP: maxAbsP,
+                        pMw: dir.pMw
+                    });
                 }
             });
         },
