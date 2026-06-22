@@ -16,6 +16,7 @@
         // Core utilities - loaded on demand
         utils: [
             'utils/cellUtils',
+            'utils/inServiceCellStyle',
             'utils/pageVisibilityManager',
             'utils/performanceMonitor',
             'utils/autoInitOptimizers'

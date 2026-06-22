@@ -309,7 +309,7 @@ function createResultPlaceholdersForCompositeBlock(graph, cells) {
         }
 
         var isExtGrid = (componentShape === 'External Grid' || componentShape === 'Source 1ph');
-        var isBessTrafoOrStorage = (componentShape === 'Transformer' || componentShape === 'Storage');
+        var isBessTrafoOrStorage = (componentShape === 'Transformer' || componentShape === 'Transformer 1ph' || componentShape === 'Storage');
         createResultPlaceholder(graph, edgeCell, componentCell, {
             logicalShape: isExtGrid ? 'ResultExternalGrid' : 'Result',
             width: isExtGrid ? 95 : 70,
@@ -386,12 +386,12 @@ function isLineStyle(style) {
 }
 
 /**
- * Helper to detect if a shape is a Transformer (2-winding or 3-winding)
+ * Helper to detect if a shape is a Transformer (2-winding, 3-winding, or OpenDSS 1ph)
  * Transformers should only have ONE result placeholder, not one per edge
  */
 function isTransformerShape(shape) {
     if (!shape) return false;
-    return shape === 'Transformer' || shape === 'Three Winding Transformer';
+    return shape === 'Transformer' || shape === 'Three Winding Transformer' || shape === 'Transformer 1ph';
 }
 
 /**

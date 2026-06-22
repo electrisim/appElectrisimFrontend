@@ -850,6 +850,284 @@ window.buildDiagramFromModelJson = function (graph, jsonText) {
 };
 
 // Extract component insertion logic into separate function
+function parseImportTable(objWrapper, fallback = { data: [] }) {
+    try {
+        if (objWrapper?._object) {
+            return JSON.parse(objWrapper._object);
+        }
+        if (typeof objWrapper === 'string') {
+            return JSON.parse(objWrapper);
+        }
+    } catch (e) {
+        console.warn('JSON parse failed:', e);
+    }
+    return fallback;
+}
+
+/** Layout constants for OpenDSS 1ph radial feeder import (one row per cabinet). */
+const OPENDSS_1PH_BUS_W = 120;
+const OPENDSS_1PH_BUS_H = 10;
+const OPENDSS_1PH_ROW_HEIGHT = 260;
+const OPENDSS_1PH_FEEDER_X_OFFSET = -300;
+const OPENDSS_1PH_TAP_GAP = 56;
+const OPENDSS_1PH_LV_GAP = 56;
+const OPENDSS_1PH_LOAD_BELOW_LV = 48;
+const OPENDSS_1PH_SOURCE_ABOVE = 110;
+const OPENDSS_1PH_EDGE_BASE =
+    'edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;';
+const OPENDSS_1PH_LINE_EDGE_STYLE =
+    OPENDSS_1PH_EDGE_BASE +
+    'exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;' +
+    'entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;shapeELXXX=Line 1ph';
+/** HV bus (right side) → transformer (left winding pin). */
+const OPENDSS_1PH_EDGE_HV_TO_TRAFO =
+    OPENDSS_1PH_EDGE_BASE +
+    'exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;' +
+    'entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;shapeELXXX=NotEditableLine';
+/** Transformer (right winding pin) → LV bus (left side). */
+const OPENDSS_1PH_EDGE_TRAFO_TO_LV =
+    OPENDSS_1PH_EDGE_BASE +
+    'exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;' +
+    'entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;shapeELXXX=NotEditableLine';
+/** LV bus (bottom) → Load 1ph top connection pin (entryY=0). */
+const OPENDSS_1PH_EDGE_LV_TO_LOAD =
+    OPENDSS_1PH_EDGE_BASE +
+    'exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;' +
+    'entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;shapeELXXX=NotEditableLine';
+const OPENDSS_1PH_EDGE_SOURCE =
+    OPENDSS_1PH_EDGE_BASE +
+    'exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;' +
+    'entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;shapeELXXX=NotEditableLine';
+
+function importOpenDss1phJunctionBusStyle() {
+    return vertexStyleImportedBusbar('Bus');
+}
+
+/**
+ * Build a vertical single-phase radial feeder using OpenDSS-only palette elements.
+ * Layout: vertical 3 kV backbone (left) with horizontal taps per row:
+ *   HV bus — Transformer 1ph — LV bus — Load 1ph (below LV).
+ */
+function insertOpenDss1phFeederImport(grafka, parent, layoutCenterX, startY, bundle) {
+    const lineRows = bundle.line_1ph?.data || [];
+    const trafoRows = bundle.trafo_1ph?.data || [];
+    const loadRows = bundle.load_1ph?.data || [];
+    const sourceRows = bundle.source_1ph?.data || [];
+    const feederNodes = bundle.feeder_nodes?.data || [];
+
+    const feedLeft = layoutCenterX + OPENDSS_1PH_FEEDER_X_OFFSET - OPENDSS_1PH_BUS_W / 2;
+    const [trW, trH] = vertexSizeFromElectrisimSymbol('sym-transformer', 40, 60);
+    const [ldW, ldH] = vertexSizeFromElectrisimSymbol('sym-load', 47, 56);
+    const tapBlockW = OPENDSS_1PH_TAP_GAP + trW + OPENDSS_1PH_LV_GAP + OPENDSS_1PH_BUS_W;
+    const trafoLeft = feedLeft + OPENDSS_1PH_BUS_W + OPENDSS_1PH_TAP_GAP;
+    const lvLeft = trafoLeft + trW + OPENDSS_1PH_LV_GAP;
+
+    const junctionByBusName = Object.create(null);
+    const rowByHvBus = Object.create(null);
+
+    feederNodes.forEach(([busName, orderIdx]) => {
+        const row = Number(orderIdx);
+        const rowY = startY + OPENDSS_1PH_SOURCE_ABOVE + row * OPENDSS_1PH_ROW_HEIGHT;
+        const junction = grafka.insertVertex(
+            parent,
+            null,
+            '',
+            feedLeft,
+            rowY,
+            OPENDSS_1PH_BUS_W,
+            OPENDSS_1PH_BUS_H,
+            importOpenDss1phJunctionBusStyle(),
+        );
+        configureBusAttributes(grafka, junction, {
+            name: String(busName),
+            vn_kv: '3',
+        });
+        junctionByBusName[String(busName)] = junction;
+        rowByHvBus[String(busName)] = rowY;
+    });
+
+    lineRows.forEach((row) => {
+        const [name, fromBus, toBus, lengthKm, rOhm, xOhm, cNf] = row;
+        const fromVertex = junctionByBusName[String(fromBus)];
+        const toVertex = junctionByBusName[String(toBus)];
+        if (!fromVertex || !toVertex) {
+            console.warn(`Skipping Line 1ph ${name}: junction not found`, { fromBus, toBus });
+            return;
+        }
+        const lineEdge = grafka.insertEdge(
+            parent,
+            null,
+            String(name),
+            fromVertex,
+            toVertex,
+            OPENDSS_1PH_LINE_EDGE_STYLE,
+        );
+        if (typeof window.configureLine1phAttributes === 'function') {
+            window.configureLine1phAttributes(grafka, lineEdge, {
+                name: String(name),
+                length_km: String(lengthKm),
+                r_ohm_per_km: String(rOhm),
+                x_ohm_per_km: String(xOhm),
+                c_nf_per_km: String(cNf),
+                phase: 1,
+                conn: 'wye',
+                in_service: true,
+            });
+        }
+    });
+
+    const lvBusByName = Object.create(null);
+    const trafoByHv = Object.create(null);
+    const trStyle = vertexStyleFromElectrisimSymbol('sym-transformer', 'Transformer 1ph');
+
+    trafoRows.forEach((row) => {
+        const [
+            name, hvBus, lvBusName, snKva, vnHvKv, vnLvKv, vkPercent, vkrPercent, inService,
+        ] = row;
+        const hvVertex = junctionByBusName[String(hvBus)];
+        const rowY = rowByHvBus[String(hvBus)];
+        if (!hvVertex || rowY == null) {
+            console.warn(`Skipping Transformer 1ph ${name}: HV junction ${hvBus} not found`);
+            return;
+        }
+
+        const trafoY = rowY + OPENDSS_1PH_BUS_H / 2 - trH / 2;
+        const trafoVertex = grafka.insertVertex(
+            parent,
+            null,
+            '',
+            trafoLeft,
+            trafoY,
+            trW,
+            trH,
+            trStyle,
+        );
+        if (typeof window.configureTransformer1phAttributes === 'function') {
+            window.configureTransformer1phAttributes(grafka, trafoVertex, {
+                name: String(name),
+                sn_kva: String(snKva),
+                vn_hv_kv: String(vnHvKv),
+                vn_lv_kv: String(vnLvKv),
+                vk_percent: String(vkPercent),
+                vkr_percent: String(vkrPercent),
+                phase: 1,
+                conn: 'wye',
+                in_service: inService !== false,
+            });
+        }
+        grafka.insertEdge(parent, null, '', hvVertex, trafoVertex, OPENDSS_1PH_EDGE_HV_TO_TRAFO);
+
+        const lvBusVertex = grafka.insertVertex(
+            parent,
+            null,
+            '',
+            lvLeft,
+            rowY,
+            OPENDSS_1PH_BUS_W,
+            OPENDSS_1PH_BUS_H,
+            importOpenDss1phJunctionBusStyle(),
+        );
+        configureBusAttributes(grafka, lvBusVertex, {
+            name: String(lvBusName),
+            vn_kv: String(vnLvKv),
+        });
+        lvBusByName[String(lvBusName)] = lvBusVertex;
+        trafoByHv[String(hvBus)] = { trafoVertex, lvBus: lvBusVertex, lvBusName: String(lvBusName) };
+
+        grafka.insertEdge(parent, null, '', trafoVertex, lvBusVertex, OPENDSS_1PH_EDGE_TRAFO_TO_LV);
+    });
+
+    const loadStyle = vertexStyleFromElectrisimSymbol('sym-load', 'Load 1ph');
+    loadRows.forEach((row) => {
+        const [name, lvBusName, pKw, qKvar, kv, pf, conn, inService] = row;
+        let lvBusVertex = lvBusByName[String(lvBusName)];
+        if (!lvBusVertex) {
+            const trafoEntry = Object.values(trafoByHv).find((t) => t.lvBusName === String(lvBusName));
+            lvBusVertex = trafoEntry?.lvBus;
+        }
+        if (!lvBusVertex) {
+            console.warn(`Skipping Load 1ph ${name}: LV bus ${lvBusName} not found`);
+            return;
+        }
+        const loadX = lvBusVertex.geometry.x + OPENDSS_1PH_BUS_W / 2 - ldW / 2;
+        const loadY = lvBusVertex.geometry.y + OPENDSS_1PH_BUS_H + OPENDSS_1PH_LOAD_BELOW_LV;
+        const loadVertex = grafka.insertVertex(
+            parent,
+            null,
+            '',
+            loadX,
+            loadY,
+            ldW,
+            ldH,
+            loadStyle,
+        );
+        if (typeof window.configureLoad1phAttributes === 'function') {
+            window.configureLoad1phAttributes(grafka, loadVertex, {
+                name: String(name),
+                p_kw: String(pKw),
+                q_kvar: String(qKvar),
+                kv: String(kv),
+                pf: String(pf),
+                phase: 1,
+                conn: conn || 'wye',
+                in_service: inService !== false,
+            });
+        }
+        // LV bus → load top pin (child terminal at relative y=0)
+        grafka.insertEdge(parent, null, '', lvBusVertex, loadVertex, OPENDSS_1PH_EDGE_LV_TO_LOAD);
+    });
+
+    sourceRows.forEach((row) => {
+        const [name, busName, vmPu, vaDegree, sScMax, inService] = row;
+        const junction = junctionByBusName[String(busName)];
+        if (!junction) {
+            console.warn(`Skipping Source 1ph ${name}: junction ${busName} not found`);
+            return;
+        }
+        const [srcW, srcH] = vertexSizeFromElectrisimSymbol('sym-ext-grid', 56, 56);
+        const anchorX = junction.geometry.x + OPENDSS_1PH_BUS_W / 2 - srcW / 2;
+        const anchorY = junction.geometry.y - OPENDSS_1PH_SOURCE_ABOVE;
+        const srcStyle = vertexStyleFromElectrisimSymbol('sym-ext-grid', 'Source 1ph');
+        const srcVertex = grafka.insertVertex(
+            parent,
+            null,
+            '',
+            anchorX,
+            anchorY,
+            srcW,
+            srcH,
+            srcStyle,
+        );
+        if (typeof window.configureSource1phAttributes === 'function') {
+            window.configureSource1phAttributes(grafka, srcVertex, {
+                name: String(name),
+                vm_pu: String(vmPu),
+                va_degree: String(vaDegree),
+                s_sc_max_mva: String(sScMax),
+                phase: 1,
+                conn: 'wye',
+                in_service: inService !== false,
+            });
+        }
+        grafka.insertEdge(parent, null, '', srcVertex, junction, OPENDSS_1PH_EDGE_SOURCE);
+    });
+
+    // Frame imported feeder so the full diagram is visible after drop.
+    try {
+        if (typeof grafka.fitWindow === 'function') {
+            const n = feederNodes.length || 1;
+            const totalH = OPENDSS_1PH_SOURCE_ABOVE + n * OPENDSS_1PH_ROW_HEIGHT + ldH + 80;
+            const totalW = tapBlockW + OPENDSS_1PH_BUS_W + 80;
+            grafka.fitWindow(
+                new mxRectangle(feedLeft - 60, startY - 20, totalW, totalH),
+                30,
+            );
+        }
+    } catch (e) {
+        console.warn('Could not auto-fit OpenDSS 1ph import:', e);
+    }
+}
+
 async function insertComponentsForData(grafka, a, target, point, data) {
     // Show progress indicator for large component sets
     const totalComponents = Object.values(data._object).reduce((sum, obj) => {
@@ -909,6 +1187,21 @@ async function insertComponentsForData(grafka, a, target, point, data) {
     grafka.getModel().beginUpdate();
 
     try {
+        const importMeta = parseImportTable(data?._object?.meta, {});
+        if (importMeta.single_phase && importMeta.import_mode === 'opendss_1ph') {
+            const layoutCenterX = x;
+            const startY = y;
+            insertOpenDss1phFeederImport(grafka, parent, layoutCenterX, startY, {
+                line_1ph: parseImportTable(data?._object?.line_1ph),
+                trafo_1ph: parseImportTable(data?._object?.trafo_1ph),
+                load_1ph: parseImportTable(data?._object?.load_1ph),
+                source_1ph: parseImportTable(data?._object?.source_1ph),
+                feeder_nodes: parseImportTable(data?._object?.feeder_nodes),
+            });
+            grafka.getModel().endUpdate();
+            return;
+        }
+
         let switchData = { data: [] };
         try {
             if (data._object?.switch?._object) {

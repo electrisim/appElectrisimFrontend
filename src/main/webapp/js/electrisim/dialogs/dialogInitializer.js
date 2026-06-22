@@ -1,5 +1,6 @@
 // dialogInitializer.js - Ensures proper dialog initialization
 import { installTransformerTerminalLabelOverlay } from '../utils/transformerTerminalLabels.js';
+import '../utils/inServiceCellStyle.js';
 import { EditDataDialog } from './EditDataDialog.js';
 import { LoadFlowDialog } from './LoadFlowDialog.js';
 import { OpenDSSLoadFlowDialog } from './OpenDSSLoadFlowDialog.js';

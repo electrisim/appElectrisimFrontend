@@ -336,8 +336,8 @@ const downloadPandapowerResults = (dataJson, graph) => {
                 const row = [
                     shunt.name || 'N/A',
                     dialogNameFor(shunt) || '—',
-                    shunt.p_mw ? shunt.p_mw.toFixed(3) : 'N/A',
-                    shunt.q_mvar ? shunt.q_mvar.toFixed(3) : 'N/A',
+                    shunt.p_mw != null && shunt.p_mw !== '' && !Number.isNaN(Number(shunt.p_mw)) ? Number(shunt.p_mw).toFixed(3) : 'N/A',
+                    shunt.q_mvar != null && shunt.q_mvar !== '' && !Number.isNaN(Number(shunt.q_mvar)) ? Number(shunt.q_mvar).toFixed(3) : 'N/A',
                     shunt.vm_pu ? shunt.vm_pu.toFixed(3) : 'N/A',
                     stepCol
                 ];
