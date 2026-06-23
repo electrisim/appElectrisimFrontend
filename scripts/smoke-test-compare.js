@@ -218,8 +218,50 @@ console.log('\nTest 6: transformers3w lowercase (OpenDSS) tolerance');
     assert(r.severity === 'worsened', 'overload on 3W trafo flagged worsened');
 }
 
-// ---------- Test 7: KPI delta directions ---------------------------------
-console.log('\nTest 7: KPI delta direction signs');
+// ---------- Test 7: cross-sheet mxCell ids match by topology --------------
+console.log('\nTest 7: cross-sheet mxCell ids match by topology');
+{
+    const sheet1 = {
+        busbars: [
+            { name: 'mxCell_158', id: 'cPM_1', vm_pu: 1.02 },
+            { name: 'mxCell_161', id: 'cPM_2', vm_pu: 1.01 },
+            { name: 'mxCell_164', id: 'cPM_3', vm_pu: 1.06 },
+        ],
+        lines: [
+            { name: 'mxCell_183', id: 'mxCell#183', busFrom: 'mxCell_158', busTo: 'mxCell_161', loading_percent: 25 },
+        ],
+        transformers: [
+            { name: 'mxCell_170', id: 'mxCell#170', busFrom: 'mxCell_161', busTo: 'mxCell_164', loading_percent: 55 },
+        ],
+        externalgrids: [{ name: 'mxCell_173', id: 'mxCell#173', bus: 'mxCell_158' }],
+        storages: [{ name: 'mxCell_179', id: 'mxCell#179', bus: 'mxCell_164', p_mw: -40, q_mvar: 0 }],
+    };
+    const sheet2 = {
+        busbars: [
+            { name: 'mxCell_200', id: 'isAD_1', vm_pu: 1.01 },
+            { name: 'mxCell_203', id: 'isAD_2', vm_pu: 1.00 },
+            { name: 'mxCell_206', id: 'isAD_3', vm_pu: 1.04 },
+        ],
+        lines: [
+            { name: 'mxCell_213', id: 'mxCell#213', busFrom: 'mxCell_200', busTo: 'mxCell_203', loading_percent: 28 },
+        ],
+        transformers: [
+            { name: 'mxCell_212', id: 'mxCell#212', busFrom: 'mxCell_203', busTo: 'mxCell_206', loading_percent: 58 },
+        ],
+        externalgrids: [{ name: 'mxCell_215', id: 'mxCell#215', bus: 'mxCell_200' }],
+        storages: [{ name: 'mxCell_221', id: 'mxCell#221', bus: 'mxCell_206', p_mw: -40, q_mvar: 15 }],
+    };
+    const d = win.computeScenarioDelta(sheet1, sheet2);
+    assert(d.perBus.length === 3, 'three buses matched across sheets');
+    assert(d.addedRemoved.added.length === 0, 'no false added elements');
+    assert(d.addedRemoved.removed.length === 0, 'no false removed elements');
+    assert(d.perBranch.length >= 1, 'branches matched across sheets');
+    const lv = d.perBus.find(r => Math.abs((r.vm_pu_curr || 0) - 1.04) < 0.001);
+    assert(!!lv, 'LV bus voltage delta computed');
+}
+
+// ---------- Test 8: KPI delta directions ---------------------------------
+console.log('\nTest 8: KPI delta direction signs');
 {
     const cur = JSON.parse(JSON.stringify(baseRun));
     cur.lines[1].pl_mw = 0.50; // increase losses
@@ -232,8 +274,8 @@ console.log('\nTest 7: KPI delta direction signs');
         'gen direction set');
 }
 
-// ---------- Test 8: snapshot store counts metadata -----------------------
-console.log('\nTest 8: snapshotStore.summariseCounts');
+// ---------- Test 9: snapshot store counts metadata -----------------------
+console.log('\nTest 9: snapshotStore.summariseCounts');
 {
     const I = win._snapshotStoreInternals;
     assert(!!I, 'snapshot store internals exposed');
@@ -253,8 +295,8 @@ console.log('\nTest 8: snapshotStore.summariseCounts');
     assert(counts.loads === 4,                   'counts.loads = 4');
 }
 
-// ---------- Test 9: snapshot store engine inference ---------------------
-console.log('\nTest 9: snapshotStore.inferEngine');
+// ---------- Test 10: snapshot store engine inference ---------------------
+console.log('\nTest 10: snapshotStore.inferEngine');
 {
     const I = win._snapshotStoreInternals;
     assert(I.inferEngine({}) === 'pandapower',                       'default engine pandapower');
@@ -262,8 +304,8 @@ console.log('\nTest 9: snapshotStore.inferEngine');
     assert(I.inferEngine({ opendss_commands: [] }) === 'opendss',     'opendss inferred from commands');
 }
 
-// ---------- Test 10: save → setBaseline → getBaseline (LS fallback) -----
-console.log('\nTest 10: snapshot store save → setBaseline → getBaseline (LS path)');
+// ---------- Test 11: save → setBaseline → getBaseline (LS fallback) -----
+console.log('\nTest 11: snapshot store save → setBaseline → getBaseline (LS path)');
 {
     return win.saveSnapshot(baseRun, { engine: 'pandapower', label: 'Run A' })
         .then((id) => {

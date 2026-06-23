@@ -41,6 +41,14 @@ export const defaultStorageData = {
     charge_trigger: 0.0,
     time_charge_trig: 2.0,
     spectrum: 'default',
+    // Inverter control (OpenDSS InvControl — https://opendss.epri.com/InvControl.html)
+    inv_control_mode: 'NONE',
+    pf: 1.0,
+    vv_curve_preset: 'IEEE_1547',
+    vv_xarray: '0.92 0.98 1.02 1.08',
+    vv_yarray: '0.44 0 -0.44 -0.44',
+    wattpf_xarray: '0 0.5 1',
+    wattpf_yarray: '1 0.98 0.95',
     cost_per_unit_by_currency: "0"
 };
 
@@ -351,6 +359,73 @@ export class StorageDialog extends Dialog {
             }
         ];
 
+        // Inverter control parameters (OpenDSS InvControl on Storage)
+        this.inverterControlParameters = [
+            {
+                id: 'inv_control_mode',
+                label: 'Inverter Control Mode',
+                description: 'NONE: fixed P/Q from Power tab. FIXED_Q: constant kvar on Storage. FIXED_PF: constant power factor. VOLTVAR: Q-V droop via InvControl (requires Control Mode = Time in load flow dialog). WATTPF: active-power-dependent PF curve.',
+                type: 'select',
+                value: this.data.inv_control_mode || 'NONE',
+                options: [
+                    { value: 'NONE', label: 'None (fixed P/Q)' },
+                    { value: 'FIXED_Q', label: 'Fixed Q (constant kvar)' },
+                    { value: 'FIXED_PF', label: 'Fixed PF (constant power factor)' },
+                    { value: 'VOLTVAR', label: 'Q-V Droop (Volt-VAR / InvControl)' },
+                    { value: 'WATTPF', label: 'Watt-PF curve (InvControl)' }
+                ]
+            },
+            {
+                id: 'pf',
+                label: 'Power Factor (pf)',
+                description: 'Used when Inverter Control Mode = Fixed PF. Enter the lagging power factor magnitude (0.85–1.0). While the BESS is exporting (P &lt; 0), pf = 0.95 absorbs reactive power — comparable to Fixed Q with positive Q[MVar].',
+                type: 'number',
+                value: String(this.data.pf ?? 1.0),
+                step: '0.01',
+                min: '0.5',
+                max: '1'
+            },
+            {
+                id: 'vv_curve_preset',
+                label: 'Volt-VAR Curve Preset',
+                description: 'Preset Q-V droop curve for VOLTVAR mode. IEEE_1547-style: inject Q below 0.98 pu, absorb Q above 1.02 pu.',
+                type: 'select',
+                value: this.data.vv_curve_preset || 'IEEE_1547',
+                options: [
+                    { value: 'IEEE_1547', label: 'IEEE 1547-style (0.92/0.98/1.02/1.08 pu)' },
+                    { value: 'CUSTOM', label: 'Custom (edit X/Y arrays below)' }
+                ]
+            },
+            {
+                id: 'vv_xarray',
+                label: 'Volt-VAR X (voltage pu)',
+                description: 'Space-separated per-unit voltages for custom Volt-VAR curve (x-axis).',
+                type: 'text',
+                value: this.data.vv_xarray || '0.92 0.98 1.02 1.08'
+            },
+            {
+                id: 'vv_yarray',
+                label: 'Volt-VAR Y (Q pu of base)',
+                description: 'Space-separated reactive power values in pu of base kvar (+ inject, − absorb).',
+                type: 'text',
+                value: this.data.vv_yarray || '0.44 0 -0.44 -0.44'
+            },
+            {
+                id: 'wattpf_xarray',
+                label: 'Watt-PF X (P pu)',
+                description: 'Space-separated active power values in pu for Watt-PF curve.',
+                type: 'text',
+                value: this.data.wattpf_xarray || '0 0.5 1'
+            },
+            {
+                id: 'wattpf_yarray',
+                label: 'Watt-PF Y (power factor)',
+                description: 'Space-separated power factor values for Watt-PF curve.',
+                type: 'text',
+                value: this.data.wattpf_yarray || '1 0.98 0.95'
+            }
+        ];
+
         // Economic parameters (for Economic Analysis)
         this.economicParameters = [
             { id: 'cost_per_unit_by_currency', label: 'Cost per unit', description: 'Cost per unit for Economic Analysis CAPEX calculation', type: 'text', value: '' }
@@ -358,7 +433,7 @@ export class StorageDialog extends Dialog {
     }
     
     getDescription() {
-        return '<strong>Configure Storage Parameters</strong><br>Set parameters for energy storage (BESS). <b>Power</b> &amp; <b>Energy</b> – shared pandapower/OpenDSS parameters. <b>Configuration</b> – naming, phases, connection. <b>Optimization (OPF)</b> – pandapower optimal power flow limits. <b>OpenDSS Parameters</b> – dispatch, efficiency, idling losses, triggers &amp; harmonics. See the <a href="https://electrisim.com/documentation.html#storage" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
+        return '<strong>Configure Storage Parameters</strong><br>Set parameters for energy storage (BESS). <b>Power</b> &amp; <b>Energy</b> – shared pandapower/OpenDSS parameters. <b>Configuration</b> – naming, phases, connection. <b>Optimization (OPF)</b> – pandapower optimal power flow limits. <b>OpenDSS Parameters</b> – dispatch, efficiency, triggers. <b>Inverter Control</b> – fixed Q/PF or Q-V droop (OpenDSS InvControl). See tutorial <code>templates/tutorials/bess_weak_grid_overvoltage.md</code> and the <a href="https://electrisim.com/documentation.html#storage" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
     
     show(callback) {
@@ -417,6 +492,7 @@ export class StorageDialog extends Dialog {
         const configTab = this.createTab('Configuration', 'config', this.currentTab === 'config');
         const optimizationTab = this.createTab('Optimization (OPF)', 'optimization', this.currentTab === 'optimization');
         const opendssTab = this.createTab('OpenDSS Parameters', 'opendss', this.currentTab === 'opendss');
+        const inverterTab = this.createTab('Inverter Control', 'inverter', this.currentTab === 'inverter');
         const economicTab = this.createTab('Economic', 'economic', this.currentTab === 'economic');
         
         tabContainer.appendChild(powerTab);
@@ -424,6 +500,7 @@ export class StorageDialog extends Dialog {
         tabContainer.appendChild(configTab);
         tabContainer.appendChild(optimizationTab);
         tabContainer.appendChild(opendssTab);
+        tabContainer.appendChild(inverterTab);
         tabContainer.appendChild(economicTab);
         container.appendChild(tabContainer);
 
@@ -445,6 +522,7 @@ export class StorageDialog extends Dialog {
         const configContent = this.createTabContent('config', this.configParameters);
         const optimizationContent = this.createTabContent('optimization', this.optimizationParameters);
         const opendssContent = this.createTabContent('opendss', this.opendssParameters);
+        const inverterContent = this.createTabContent('inverter', this.inverterControlParameters);
         const economicContent = this.createTabContent('economic', this.economicParameters);
         
         contentArea.appendChild(powerContent);
@@ -452,6 +530,7 @@ export class StorageDialog extends Dialog {
         contentArea.appendChild(configContent);
         contentArea.appendChild(optimizationContent);
         contentArea.appendChild(opendssContent);
+        contentArea.appendChild(inverterContent);
         contentArea.appendChild(economicContent);
         container.appendChild(contentArea);
 
@@ -493,13 +572,14 @@ export class StorageDialog extends Dialog {
         this.container = container;
         
         // Tab click handlers
-        const allTabs = [powerTab, energyTab, configTab, optimizationTab, opendssTab, economicTab];
-        const allContents = [powerContent, energyContent, configContent, optimizationContent, opendssContent, economicContent];
+        const allTabs = [powerTab, energyTab, configTab, optimizationTab, opendssTab, inverterTab, economicTab];
+        const allContents = [powerContent, energyContent, configContent, optimizationContent, opendssContent, inverterContent, economicContent];
         powerTab.onclick = () => this.switchTab('power', powerTab, allTabs.filter(t => t !== powerTab), powerContent, allContents.filter(c => c !== powerContent));
         energyTab.onclick = () => this.switchTab('energy', energyTab, allTabs.filter(t => t !== energyTab), energyContent, allContents.filter(c => c !== energyContent));
         configTab.onclick = () => this.switchTab('config', configTab, allTabs.filter(t => t !== configTab), configContent, allContents.filter(c => c !== configContent));
         optimizationTab.onclick = () => this.switchTab('optimization', optimizationTab, allTabs.filter(t => t !== optimizationTab), optimizationContent, allContents.filter(c => c !== optimizationContent));
         opendssTab.onclick = () => this.switchTab('opendss', opendssTab, allTabs.filter(t => t !== opendssTab), opendssContent, allContents.filter(c => c !== opendssContent));
+        inverterTab.onclick = () => this.switchTab('inverter', inverterTab, allTabs.filter(t => t !== inverterTab), inverterContent, allContents.filter(c => c !== inverterContent));
         economicTab.onclick = () => this.switchTab('economic', economicTab, allTabs.filter(t => t !== economicTab), economicContent, allContents.filter(c => c !== economicContent));
 
         // Show dialog using DrawIO's dialog system
@@ -809,7 +889,7 @@ export class StorageDialog extends Dialog {
         const values = {};
         
         // Collect all parameter values from all tabs
-        [...this.powerParameters, ...this.energyParameters, ...this.configParameters, ...this.optimizationParameters, ...this.opendssParameters, ...(this.economicParameters || [])].forEach(param => {
+        [...this.powerParameters, ...this.energyParameters, ...this.configParameters, ...this.optimizationParameters, ...this.opendssParameters, ...this.inverterControlParameters, ...(this.economicParameters || [])].forEach(param => {
             const input = this.inputs.get(param.id);
             if (input) {
                 if (param.id === 'cost_per_unit_by_currency') {
@@ -917,6 +997,17 @@ export class StorageDialog extends Dialog {
                     }
                     console.log(`  Updated OpenDSS ${attributeName}: ${oldValue} → ${opendssParam.value}`);
                 }
+
+                const inverterParam = this.inverterControlParameters.find(p => p.id === attributeName);
+                if (inverterParam) {
+                    const oldValue = inverterParam.value;
+                    if (inverterParam.type === 'checkbox') {
+                        inverterParam.value = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        inverterParam.value = attributeValue;
+                    }
+                    console.log(`  Updated Inverter ${attributeName}: ${oldValue} → ${inverterParam.value}`);
+                }
                 
                 const economicParam = (this.economicParameters || []).find(p => p.id === attributeName);
                 if (economicParam) {
@@ -924,7 +1015,7 @@ export class StorageDialog extends Dialog {
                     this.data[attributeName] = attributeValue;
                 }
                 
-                if (!powerParam && !energyParam && !configParam && !optimizationParam && !opendssParam && !economicParam) {
+                if (!powerParam && !energyParam && !configParam && !optimizationParam && !opendssParam && !inverterParam && !economicParam) {
                     console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
             }

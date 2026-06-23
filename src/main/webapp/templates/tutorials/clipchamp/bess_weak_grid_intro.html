@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Electrisim Tutorial Intro — BESS Weak Grid</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* Electrisim brand — https://electrisim.com/ (style.css) */
+    :root {
+      --primary: #2f5bea;
+      --primary-dark: #1e3fa8;
+      --primary-light: #e8eeff;
+      --accent-green: #10b981;
+      --accent-green-dark: #059669;
+      --text: #000000;
+      --muted: #646464;
+      --muted-light: #8390a4;
+      --white: #ffffff;
+      --slide-w: 1920px;
+      --slide-h: 1080px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #1a1a2e;
+      font-family: "Nunito", sans-serif;
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .slide {
+      width: var(--slide-w);
+      height: var(--slide-h);
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(145deg, #f8faff 0%, #eef3ff 45%, #e0eaff 100%);
+      page-break-after: always;
+    }
+
+    /* Decorative shapes (site-style geometry) */
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      opacity: 0.12;
+      background: var(--primary);
+    }
+    .orb-1 { width: 520px; height: 520px; top: -180px; right: -120px; }
+    .orb-2 { width: 320px; height: 320px; bottom: -80px; left: -60px; background: var(--accent-green); opacity: 0.08; }
+    .orb-3 { width: 140px; height: 140px; top: 420px; right: 280px; opacity: 0.06; }
+
+    .grid-lines {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(47, 91, 234, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(47, 91, 234, 0.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+    }
+
+    .bar-accent {
+      width: 85px;
+      height: 4px;
+      background: var(--primary);
+      border-radius: 2px;
+      margin: 0 auto 28px;
+    }
+
+    /* ── SLIDE 1: Title intro ── */
+    .slide-title .content {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 80px 120px;
+      z-index: 2;
+    }
+
+    .logo-row {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      margin-bottom: 48px;
+    }
+
+    .logo-row img {
+      height: 72px;
+      width: auto;
+    }
+
+    .logo-text {
+      font-family: "Josefin Sans", sans-serif;
+      font-size: 42px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.5px;
+    }
+
+    .badge-tutorial {
+      display: inline-block;
+      font-family: "Josefin Sans", sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--primary);
+      background: rgba(47, 91, 234, 0.1);
+      border: 1px solid rgba(47, 91, 234, 0.25);
+      padding: 10px 24px;
+      border-radius: 50px;
+      margin-bottom: 32px;
+    }
+
+    h1 {
+      font-family: "Josefin Sans", sans-serif;
+      font-size: 72px;
+      font-weight: 700;
+      line-height: 1.1;
+      color: var(--text);
+      max-width: 1400px;
+      margin-bottom: 24px;
+    }
+
+    h1 .highlight {
+      color: var(--primary);
+    }
+
+    .subtitle {
+      font-size: 28px;
+      color: var(--muted);
+      max-width: 1100px;
+      line-height: 1.5;
+      margin-bottom: 48px;
+    }
+
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      justify-content: center;
+      margin-bottom: 56px;
+    }
+
+    .tag {
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--muted);
+      background: var(--white);
+      border: 1px solid rgba(47, 91, 234, 0.15);
+      padding: 12px 22px;
+      border-radius: 50px;
+      box-shadow: 0 4px 16px rgba(47, 91, 234, 0.06);
+    }
+
+    .tag.opendss {
+      color: var(--accent-green-dark);
+      border-color: rgba(16, 185, 129, 0.35);
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(5, 150, 105, 0.05) 100%);
+    }
+
+    .footer-strip {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 72px;
+      background: linear-gradient(90deg, var(--primary) 0%, var(--primary-dark) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 64px;
+      z-index: 3;
+    }
+
+    .footer-strip span {
+      font-family: "Josefin Sans", sans-serif;
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--white);
+      letter-spacing: 0.5px;
+    }
+
+    .footer-strip .url {
+      opacity: 0.9;
+      font-weight: 400;
+      font-family: "Nunito", sans-serif;
+    }
+
+    /* Mini SLD diagram */
+    .sld-mini {
+      position: absolute;
+      right: 100px;
+      top: 50%;
+      transform: translateY(-55%);
+      width: 380px;
+      opacity: 0.85;
+      z-index: 1;
+    }
+
+    .sld-box {
+      fill: var(--white);
+      stroke: var(--primary);
+      stroke-width: 2;
+    }
+
+    .sld-line { stroke: var(--primary); stroke-width: 2.5; fill: none; }
+    .sld-label {
+      font-family: "Nunito", sans-serif;
+      font-size: 13px;
+      fill: var(--muted);
+      font-weight: 600;
+    }
+    .sld-voltage {
+      font-family: "Nunito", sans-serif;
+      font-size: 12px;
+      fill: #dc2626;
+      font-weight: 700;
+    }
+
+    /* ── SLIDE 2: What you'll learn ── */
+    .slide-outline .content {
+      padding: 88px 80px 120px;
+      z-index: 2;
+      position: relative;
+    }
+
+    .slide-outline h2 {
+      font-family: "Josefin Sans", sans-serif;
+      font-size: 64px;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+
+    .slide-outline .intro-line {
+      text-align: center;
+      font-size: 28px;
+      color: var(--muted);
+      margin-bottom: 48px;
+    }
+
+    .slide-outline .bar-accent {
+      width: 100px;
+      height: 5px;
+      margin-bottom: 40px;
+    }
+
+    .cases {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 28px;
+      max-width: 1760px;
+      margin: 0 auto;
+    }
+
+    .case-card {
+      background: var(--white);
+      border-radius: 20px;
+      padding: 40px 28px;
+      border: 2px solid rgba(47, 91, 234, 0.14);
+      box-shadow: 0 10px 32px rgba(47, 91, 234, 0.09);
+      text-align: center;
+      min-height: 300px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .case-num {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: var(--white);
+      font-family: "Josefin Sans", sans-serif;
+      font-size: 28px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 22px;
+    }
+
+    .case-card.highlight .case-num {
+      background: linear-gradient(135deg, var(--accent-green) 0%, var(--accent-green-dark) 100%);
+    }
+
+    .case-title {
+      font-family: "Josefin Sans", sans-serif;
+      font-size: 26px;
+      font-weight: 700;
+      margin-bottom: 14px;
+      line-height: 1.25;
+    }
+
+    .case-desc {
+      font-size: 20px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .footer-strip.footer-simple {
+      justify-content: center;
+    }
+
+    .footer-strip.footer-simple span {
+      font-size: 24px;
+      opacity: 1;
+    }
+
+    /* ── SLIDE 3: Outro ── */
+    .slide-outro .content {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      z-index: 2;
+      padding-bottom: 72px;
+    }
+
+    .slide-outro h2 {
+      font-family: "Josefin Sans", sans-serif;
+      font-size: 56px;
+      font-weight: 700;
+      margin-bottom: 20px;
+    }
+
+    .slide-outro p {
+      font-size: 26px;
+      color: var(--muted);
+      margin-bottom: 40px;
+    }
+
+    .cta-btn {
+      display: inline-block;
+      font-family: "Josefin Sans", sans-serif;
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--white);
+      background: var(--primary);
+      padding: 18px 48px;
+      border-radius: 50px;
+      text-decoration: none;
+      box-shadow: 0 8px 24px rgba(47, 91, 234, 0.35);
+    }
+
+    @media print {
+      body { background: white; }
+      .slide { page-break-after: always; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- SLIDE 1 — Title (use as 5–8 s intro in Clipchamp) -->
+  <section class="slide slide-title" id="slide-title">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+    <div class="grid-lines"></div>
+
+    <svg class="sld-mini" viewBox="0 0 380 320" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect class="sld-box" x="10" y="130" width="70" height="36" rx="4"/>
+      <text class="sld-label" x="45" y="152" text-anchor="middle">Grid</text>
+      <text class="sld-label" x="45" y="178" text-anchor="middle" font-size="10">weak</text>
+      <line class="sld-line" x1="80" y1="148" x2="120" y2="148"/>
+      <rect class="sld-box" x="120" y="130" width="70" height="36" rx="4"/>
+      <text class="sld-label" x="155" y="152" text-anchor="middle">Feeder</text>
+      <line class="sld-line" x1="190" y1="148" x2="230" y2="148"/>
+      <rect class="sld-box" x="230" y="118" width="56" height="56" rx="4"/>
+      <text class="sld-label" x="258" y="148" text-anchor="middle">TR</text>
+      <line class="sld-line" x1="286" y1="148" x2="320" y2="148"/>
+      <rect class="sld-box" x="320" y="130" width="50" height="36" rx="4"/>
+      <text class="sld-label" x="345" y="148" text-anchor="middle">POC</text>
+      <text class="sld-voltage" x="345" y="178" text-anchor="middle">V &gt; 1.05 pu</text>
+      <line class="sld-line" x1="345" y1="166" x2="345" y2="200"/>
+      <rect class="sld-box" x="310" y="200" width="70" height="40" rx="4" fill="#e8eeff"/>
+      <text class="sld-label" x="345" y="225" text-anchor="middle">BESS</text>
+    </svg>
+
+    <div class="content">
+      <div class="logo-row">
+        <img src="https://electrisim.com/assets/img/logo_Electrisim_removebg-preview.png" alt="Electrisim" onerror="this.style.display='none'" />
+        <span class="logo-text">Electrisim</span>
+      </div>
+      <div class="badge-tutorial">Tutorial · OpenDSS</div>
+      <div class="bar-accent"></div>
+      <h1>BESS <span class="highlight">Overvoltage</span><br/>in Weak Grids</h1>
+      <p class="subtitle">
+        Simulate battery export on a weak EHV connection and mitigate overvoltage<br/>
+        using inverter control — fixed Q, fixed PF, and Q-V droop (Volt-VAR).
+      </p>
+      <div class="tags">
+        <span class="tag opendss">OpenDSS Load Flow</span>
+        <span class="tag">Weak grid · Thevenin</span>
+        <span class="tag">InvControl · Volt-VAR</span>
+        <span class="tag">Scenario Compare</span>
+      </div>
+    </div>
+
+    <div class="footer-strip">
+      <span>Power System Analysis Software</span>
+      <span class="url">electrisim.com</span>
+    </div>
+  </section>
+
+  <!-- SLIDE 2 — 5 scenarios overview -->
+  <section class="slide slide-outline" id="slide-outline">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="grid-lines"></div>
+    <div class="content">
+      <h2>Five scenarios you will run</h2>
+      <p class="intro-line">Import the template · run OpenDSS · compare results in Scenario Compare</p>
+      <div class="bar-accent"></div>
+      <div class="cases">
+        <div class="case-card">
+          <div class="case-num">1</div>
+          <div class="case-title">Stiff grid baseline</div>
+          <div class="case-desc">High SCR, BESS export, voltages within limits</div>
+        </div>
+        <div class="case-card">
+          <div class="case-num">2</div>
+          <div class="case-title">Weak grid, no support</div>
+          <div class="case-desc">Low SCR — overvoltage at POC (&gt; 1.05 pu)</div>
+        </div>
+        <div class="case-card">
+          <div class="case-num">3</div>
+          <div class="case-title">Fixed Q control</div>
+          <div class="case-desc">Manual reactive absorption on BESS</div>
+        </div>
+        <div class="case-card">
+          <div class="case-num">4</div>
+          <div class="case-title">Fixed PF control</div>
+          <div class="case-desc">Constant power factor while exporting P</div>
+        </div>
+        <div class="case-card highlight">
+          <div class="case-num">5</div>
+          <div class="case-title">Q-V droop</div>
+          <div class="case-desc">IEEE-style Volt-VAR via InvControl</div>
+        </div>
+      </div>
+    </div>
+    <div class="footer-strip footer-simple">
+      <span class="url">electrisim.com</span>
+    </div>
+  </section>
+
+  <!-- SLIDE 3 — Outro / CTA -->
+  <section class="slide slide-outro" id="slide-outro">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="grid-lines"></div>
+    <div class="content">
+      <div class="logo-row" style="margin-bottom: 32px;">
+        <img src="https://electrisim.com/assets/img/logo_Electrisim_removebg-preview.png" alt="Electrisim" style="height: 64px;" onerror="this.style.display='none'" />
+      </div>
+      <h2>Try it in Electrisim</h2>
+      <p>Open-source power system analysis · Pandapower &amp; OpenDSS · From $5/month cloud</p>
+      <span class="cta-btn">app.electrisim.com</span>
+    </div>
+    <div class="footer-strip">
+      <span>electrisim.com</span>
+      <span class="url">Tutorial: BESS Overvoltage in Weak Grids</span>
+    </div>
+  </section>
+
+</body>
+</html>

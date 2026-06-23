@@ -59,6 +59,7 @@
 <template url="tutorials/OPF_basic_final.xml" title="Optimal Power Flow" libs="general;uml"/>
 <template url="tutorials/case9_contingency.drawio" title="Contingency analysis" libs="general;uml"/>
 <template url="tutorials/time_series_basic.drawio" title="Time Series Simulation" libs="general;uml"/>
+<template url="tutorials/bess_overvoltage.drawio" title="BESS Overvoltage in Weak Grids" libs="general;uml"/>
 <!--<template url="basic/flowchart.xml" title="flowchart" libs="general;flowchart"/>
 <template url="basic/orgchart.xml" title="orgChart" libs="general;basic;arrows"/>
 <template url="basic/swimlanes.xml" title="swimlaneDiagram" libs="general;flowchart;bpmn"/>

@@ -1,0 +1,42 @@
+! =============================================================================
+! Electrisim tutorial: BESS overvoltage on a weak grid (Case 2 baseline)
+! Import: File → Import → OpenDSS (.dss) in Electrisim
+! Tutorial: templates/tutorials/bess_weak_grid_overvoltage.md
+!
+! Topology: Grid (weak Vsource) ── Feeder ── POC_TR (110/33 kV) ── POC ── BESS
+!
+! After import, run OpenDSS Load Flow. Adjust Storage → Inverter Control for
+! Cases 3–5 (fixed Q, fixed PF, Q-V droop). Use Scenario Compare vs this run.
+! =============================================================================
+
+Clear
+
+New Circuit.BESS_WeakGrid basekv=110 pu=1.0 angle=0 phases=3 bus1=Grid
+
+! Weak grid at 110 kV: ~800 MVA short-circuit, R/X = 8 (Thevenin at source)
+! |Z| = 110^2/800 = 15.125 ohm  =>  R1=15.01 ohm, X1=1.876 ohm
+Edit Vsource.source Bus1=Grid phases=3 basekv=110 pu=1.0 angle=0 R1=15.01 X1=1.876 R0=15.01 X0=1.876
+
+Set voltagebases=[110, 33]
+calcv
+
+! Long feeder — high X/R (weakens voltage regulation toward POC)
+New Line.Feeder Bus1=Grid Bus2=POC_HV phases=3 Length=25 units=km r1=0.12 x1=0.38 c1=0
+
+! Step-down to POC (33 kV)
+New Transformer.POC_TR phases=3 windings=2
+~ wdg=1 bus=POC_HV conn=wye kV=110 kva=100000 %R=0.8 XHT=8
+~ wdg=2 bus=POC conn=wye kV=33 kva=100000 %R=0.8 XLT=8
+~ XHL=8
+
+! BESS at POC — 40 MW export (discharging), Case 2: no inverter voltage support
+New Storage.BESS phases=3 Bus1=POC kV=33 conn=wye kWRated=40000 kW=40000 kVA=50000 kvar=0 State=DISCHARGING kWhrated=100000 %stored=50
+
+! Optional: IEEE 1547-style Volt-VAR curve + InvControl (Case 5 — enable after import
+! by setting Storage inv_control_mode=VOLTVAR in UI, or uncomment below and re-import)
+! New XYCurve.BESS_VV npts=4 xarray=[0.92 0.98 1.02 1.08] yarray=[0.44 0 -0.44 -0.44]
+! New InvControl.BESS_Ctrl Mode=VOLTVAR DERList=[Storage.BESS] VVC_Curve1=BESS_VV RefReactivePower=VARMAX
+
+Set ControlMode=Static
+Set Mode=Snapshot
+Solve

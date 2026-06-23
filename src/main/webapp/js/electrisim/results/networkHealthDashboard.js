@@ -1260,6 +1260,10 @@ Violations:  ${metrics.issues.length}`;
                     baselineBtn.setAttribute('disabled', 'true');
                     baselineBtn.innerHTML = '<span class="ehd-spinner"></span> Saving…';
                     try {
+                        if (typeof window.enrichResultJsonWithDialogNames === 'function') {
+                            const g = resolveLiveGraphForCompare();
+                            if (g) window.enrichResultJsonWithDialogNames(dataJson, g);
+                        }
                         const id = await window.saveSnapshot(dataJson, {
                             label: 'Baseline ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                         });

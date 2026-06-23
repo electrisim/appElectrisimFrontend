@@ -889,17 +889,28 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
         Q_to[MVar]: ${fmtOpenDssFloat(cell.q_to_mvar)}
         i_to[kA]: ${fmtOpenDssFloat(cell.i_to_ka)}`;
 
+                const updateSingleFn = typeof window !== 'undefined' && window.updateOrCreateSinglePlaceholder;
                 const findFn = typeof window !== 'undefined' && window.findResultPlaceholder;
                 const insertFn = typeof window !== 'undefined' && window.insertResultBox;
                 const fallbackStyle = (typeof window !== 'undefined' && window.RESULT_BOX_STYLE) || 'shapeELXXX=Result';
                 const parent = resultCell;
-                const existing = findFn ? findFn(b, parent) : null;
-                let keep = existing;
-                if (existing) {
-                    b.getModel().setValue(existing, resultString);
+                let keep;
+                if (updateSingleFn) {
+                    keep = updateSingleFn(b, resultCell, resultString, parent, {
+                        width: 95,
+                        height: 100,
+                        positionX: 0.5,
+                        positionY: 0,
+                        isLine: true
+                    });
                 } else {
-                    keep = insertFn ? insertFn(b, parent, resultString, { width: 95, height: 100, positionX: 0.5, positionY: 0, isLine: true }) : b.insertVertex(parent, null, resultString, 0, 0, 95, 100, fallbackStyle, true);
-                    if (keep && typeof b.orderCells === 'function') b.orderCells(true, [keep]);
+                    const existing = findFn ? findFn(b, parent) : null;
+                    keep = existing;
+                    if (existing) {
+                        b.getModel().setValue(existing, resultString);
+                    } else {
+                        keep = insertFn ? insertFn(b, parent, resultString, { width: 95, height: 100, positionX: 0.5, positionY: 0, isLine: true }) : b.insertVertex(parent, null, resultString, 0, 0, 95, 100, fallbackStyle, true);
+                    }
                 }
                 if (keep && typeof b.orderCells === 'function') {
                     b.orderCells(true, [keep]);
@@ -1278,9 +1289,13 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
                 
                 const cellName = formatResultNameHeader(resultCell, cell.name, 'Storage');
                 
+                const invLine = cell.inv_control_mode && cell.inv_control_mode !== 'NONE'
+                    ? `\n        Mode: ${cell.inv_control_mode}` : '';
+                const vmLine = cell.vm_pu != null && !Number.isNaN(Number(cell.vm_pu))
+                    ? `\n        V[pu]: ${fmtOpenDssFloat(cell.vm_pu)}` : '';
                 const resultString = `${cellName}
         P[MW]: ${fmtOpenDssFloat(cell.p_mw)}
-        Q[MVar]: ${fmtOpenDssFloat(cell.q_mvar)}`;
+        Q[MVar]: ${fmtOpenDssFloat(cell.q_mvar)}${invLine}${vmLine}`;
 
                 const edge = (b.getEdges && b.getEdges(resultCell)) ? b.getEdges(resultCell)[0] : null;
                 const parent = edge || resultCell;
@@ -1628,6 +1643,13 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
             dssLog('    - obj[0].exportOpenDSSResults:', !!(obj && obj[0] && obj[0].exportOpenDSSResults));
         }
 
+        // Clear any Scenario Compare SLD highlight chips from a prior run.
+        try {
+            if (typeof window !== 'undefined' && typeof window.clearSldOverlay === 'function') {
+                window.clearSldOverlay();
+            }
+        } catch (overlayErr) { /* no-op */ }
+
         // Render the Network Health Dashboard for OpenDSS results too.
         // Self-contained, non-blocking, silently no-ops if not loaded.
         try {
@@ -1646,6 +1668,9 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
         // Fire-and-forget; failures must never affect the UI.
         try {
             if (typeof window !== 'undefined' && typeof window.saveSnapshot === 'function') {
+                if (typeof window.enrichResultJsonWithDialogNames === 'function') {
+                    try { window.enrichResultJsonWithDialogNames(dataJson, b); } catch (e) { /* ignore */ }
+                }
                 Promise.resolve(window.saveSnapshot(dataJson, { engine: 'opendss' }))
                     .catch((err) => dssWarn('Scenario snapshot skipped:', err));
             }
@@ -2659,6 +2684,9 @@ function collectNetworkDataStructured(graph) {
                         scaling: 'scaling',
                         type: 'type',
                         spectrum: { name: 'spectrum', optional: true },
+                        conn: 'conn',
+                        phases: 'phases',
+                        pf: 'pf',
                         // Additional parameters
                         max_e_mwh: 'max_e_mwh',
                         max_p_mw: 'max_p_mw',
@@ -2667,7 +2695,26 @@ function collectNetworkDataStructured(graph) {
                         min_q_mvar: 'min_q_mvar',
                         soc_percent: 'soc_percent',
                         min_e_mwh: 'min_e_mwh',
-                        in_service: { name: 'in_service', optional: true }
+                        in_service: { name: 'in_service', optional: true },
+                        // OpenDSS dispatch parameters
+                        state: 'state',
+                        disp_mode: 'disp_mode',
+                        pct_charge: 'pct_charge',
+                        pct_discharge: 'pct_discharge',
+                        pct_eff_charge: 'pct_eff_charge',
+                        pct_eff_discharge: 'pct_eff_discharge',
+                        pct_idling_kw: 'pct_idling_kw',
+                        pct_idling_kvar: 'pct_idling_kvar',
+                        discharge_trigger: 'discharge_trigger',
+                        charge_trigger: 'charge_trigger',
+                        time_charge_trig: 'time_charge_trig',
+                        // Inverter control (InvControl)
+                        inv_control_mode: 'inv_control_mode',
+                        vv_curve_preset: 'vv_curve_preset',
+                        vv_xarray: 'vv_xarray',
+                        vv_yarray: 'vv_yarray',
+                        wattpf_xarray: 'wattpf_xarray',
+                        wattpf_yarray: 'wattpf_yarray'
                     });
 
                     const storageInService = storageParams.in_service !== undefined
@@ -2696,7 +2743,27 @@ function collectNetworkDataStructured(graph) {
                         soc_percent: storageParams.soc_percent || 50.0,
                         min_e_mwh: storageParams.min_e_mwh || 0.0,
                         in_service: storageInService,
-                        spectrum: storageParams.spectrum || 'default'
+                        spectrum: storageParams.spectrum || 'default',
+                        conn: storageParams.conn || 'wye',
+                        phases: storageParams.phases ?? 3,
+                        pf: storageParams.pf,
+                        state: storageParams.state || 'IDLING',
+                        disp_mode: storageParams.disp_mode || 'DEFAULT',
+                        pct_charge: storageParams.pct_charge ?? 100,
+                        pct_discharge: storageParams.pct_discharge ?? 100,
+                        pct_eff_charge: storageParams.pct_eff_charge ?? 90,
+                        pct_eff_discharge: storageParams.pct_eff_discharge ?? 90,
+                        pct_idling_kw: storageParams.pct_idling_kw ?? 1,
+                        pct_idling_kvar: storageParams.pct_idling_kvar ?? 0,
+                        discharge_trigger: storageParams.discharge_trigger ?? 0,
+                        charge_trigger: storageParams.charge_trigger ?? 0,
+                        time_charge_trig: storageParams.time_charge_trig ?? 2.0,
+                        inv_control_mode: storageParams.inv_control_mode || 'NONE',
+                        vv_curve_preset: storageParams.vv_curve_preset || 'IEEE_1547',
+                        vv_xarray: storageParams.vv_xarray || '',
+                        vv_yarray: storageParams.vv_yarray || '',
+                        wattpf_xarray: storageParams.wattpf_xarray || '',
+                        wattpf_yarray: storageParams.wattpf_yarray || ''
                     };
                     
                     // Validate bus connection

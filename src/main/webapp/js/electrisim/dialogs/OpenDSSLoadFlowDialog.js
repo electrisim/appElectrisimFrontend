@@ -84,6 +84,7 @@ export class OpenDSSLoadFlowDialog extends Dialog {
 
     getDescription() {
         return '<strong>Configure OpenDSS load flow calculation parameters</strong><br>OpenDSS provides robust power flow analysis with advanced control capabilities. ' +
+            'For BESS <strong>Q-V droop (Volt-VAR)</strong> or <strong>Watt-PF</strong> inverter control, set Storage → Inverter Control and use <strong>Control Mode = Time</strong> (auto-enabled when InvControl is detected). ' +
             'See the <a href="https://electrisim.com/documentation.html#load-flow" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
 

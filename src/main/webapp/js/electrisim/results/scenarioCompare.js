@@ -4,7 +4,7 @@
  *  Given a baseline Load Flow result and the current Load Flow result,
  *  compute a structured delta and render it as:
  *    - A floating modal with KPI deltas, top movers and status migrations.
- *    - Coloured chips painted next to changed cells on the live SLD.
+ *    - Coloured delta chips on the live SLD (voltage / loading movers only).
  *
  *  Reuses the same metrics module the Network Health Dashboard / Engineering
  *  Report use (window.computeNetworkHealthMetrics) so the totals always
@@ -96,38 +96,177 @@
 
     /* ---------------------------------------------------------------------
      *  Element matching across two runs.
-     *  Build a stable identity key for each row using id → mxObjectId →
-     *  dialog name → name. Uses the existing graph cell lookup so the same
-     *  cell maps to the same key in both snapshots.
+     *  Prefer user dialog names (stable across sheets), then electrical
+     *  topology roles, then legacy id / mxCell fallbacks.
      * ------------------------------------------------------------------- */
-    function makeKeyResolver(graph) {
+    function isInternalMxName(str) {
+        if (str == null || str === '') return true;
+        const s = String(str).trim().replace(/#/g, '_');
+        return /^mxCell_\d+$/i.test(s);
+    }
+
+    function normalizeDialogKey(name) {
+        if (!name || isInternalMxName(name)) return null;
+        return String(name).trim().toLowerCase();
+    }
+
+    function rowBusAliases(row) {
+        const out = new Set();
+        const add = (v) => {
+            if (v == null || v === '') return;
+            const s = String(v);
+            out.add(s);
+            out.add(s.replace(/_/g, '#'));
+            out.add(s.replace(/#/g, '_'));
+            out.add(s.toLowerCase());
+        };
+        add(row?.name);
+        add(row?.id);
+        return out;
+    }
+
+    function busRefMatch(ref, aliases) {
+        if (ref == null || ref === '') return false;
+        const s = String(ref);
+        return aliases.has(s)
+            || aliases.has(s.replace(/_/g, '#'))
+            || aliases.has(s.replace(/#/g, '_'))
+            || aliases.has(s.toLowerCase());
+    }
+
+    function collectTransformers(json) {
+        return [
+            ...arrOf(json, 'transformers').map(x => Object.assign({ kind: 'transformer' }, x)),
+            ...arrOf(json, 'transformers3W', 'transformers3w').map(x => Object.assign({ kind: 'transformer3w' }, x)),
+        ];
+    }
+
+    function busTopologyKey(row, dataJson) {
+        if (!row || !dataJson) return null;
+        const aliases = rowBusAliases(row);
+        if (arrOf(dataJson, 'externalgrids').some(g => busRefMatch(g.bus, aliases))) {
+            return 'topo:bus:externalgrid';
+        }
+        if (arrOf(dataJson, 'storages').some(s => busRefMatch(s.bus, aliases))) {
+            return 'topo:bus:storage';
+        }
+        const trafos = collectTransformers(dataJson);
+        if (trafos.some(t => busRefMatch(t.busTo, aliases))) return 'topo:bus:trafo_lv';
+        if (trafos.some(t => busRefMatch(t.busFrom, aliases))) return 'topo:bus:trafo_hv';
+        if (trafos.some(t => busRefMatch(t.busHv, aliases))) return 'topo:bus:trafo_hv';
+        if (trafos.some(t => busRefMatch(t.busMv, aliases))) return 'topo:bus:trafo_mv';
+        if (trafos.some(t => busRefMatch(t.busLv, aliases))) return 'topo:bus:trafo_lv';
+        if (arrOf(dataJson, 'generators').some(g => busRefMatch(g.bus, aliases))) return 'topo:bus:generator';
+        if (arrOf(dataJson, 'staticgenerators').some(g => busRefMatch(g.bus, aliases))) return 'topo:bus:sgen';
+        if (arrOf(dataJson, 'loads').some(l => busRefMatch(l.bus, aliases))) return 'topo:bus:load';
+        const lineCount = arrOf(dataJson, 'lines').filter(l =>
+            busRefMatch(l.busFrom, aliases) || busRefMatch(l.busTo, aliases)).length;
+        if (lineCount > 0) return `topo:bus:line_node:${lineCount}`;
+        return null;
+    }
+
+    function endpointTopologyKey(ref, dataJson) {
+        if (ref == null || ref === '') return null;
+        return busTopologyKey({ name: ref, id: ref }, dataJson);
+    }
+
+    function lineTopologyKey(row, dataJson) {
+        const from = endpointTopologyKey(row.busFrom, dataJson);
+        const to   = endpointTopologyKey(row.busTo, dataJson);
+        if (from && to) return `topo:line:${[from, to].sort().join('::')}`;
+        return null;
+    }
+
+    function transformerTopologyKey(row, dataJson) {
+        if (row.busHv != null || row.busMv != null || row.busLv != null) {
+            const parts = [
+                endpointTopologyKey(row.busHv, dataJson),
+                endpointTopologyKey(row.busMv, dataJson),
+                endpointTopologyKey(row.busLv, dataJson),
+            ].filter(Boolean).sort();
+            if (parts.length >= 2) return `topo:trafo3w:${parts.join('::')}`;
+        }
+        const from = endpointTopologyKey(row.busFrom, dataJson);
+        const to   = endpointTopologyKey(row.busTo, dataJson);
+        if (from && to) return `topo:trafo2w:${[from, to].sort().join('::')}`;
+        return null;
+    }
+
+    function elementOnBusTopologyKey(prefix, row, dataJson) {
+        const busKey = busTopologyKey({ name: row.bus, id: row.bus }, dataJson);
+        return busKey ? `${prefix}:${busKey}` : null;
+    }
+
+    function topologyKeyForRow(row, category, dataJson) {
+        if (!row || !dataJson) return null;
+        const cat = String(category || '').toLowerCase();
+        if (cat === 'bus' || cat === 'busbars') return busTopologyKey(row, dataJson);
+        if (cat === 'line' || cat === 'lines') return lineTopologyKey(row, dataJson);
+        if (cat === 'transformer' || cat === 'transformers') return transformerTopologyKey(row, dataJson);
+        if (cat === 'transformer3w' || cat === 'transformers3w') return transformerTopologyKey(row, dataJson);
+        if (cat === 'externalgrids' || cat === 'externalgrid') {
+            return elementOnBusTopologyKey('topo:extgrid', row, dataJson);
+        }
+        if (cat === 'storages' || cat === 'storage') {
+            return elementOnBusTopologyKey('topo:storage', row, dataJson);
+        }
+        if (cat === 'generators' || cat === 'generator') {
+            return elementOnBusTopologyKey('topo:gen', row, dataJson);
+        }
+        if (cat === 'staticgenerators' || cat === 'sgen') {
+            return elementOnBusTopologyKey('topo:sgen', row, dataJson);
+        }
+        if (cat === 'loads' || cat === 'load') {
+            return elementOnBusTopologyKey('topo:load', row, dataJson);
+        }
+        if (cat === 'pvsystems' || cat === 'pv') {
+            return elementOnBusTopologyKey('topo:pv', row, dataJson);
+        }
+        if (cat === 'motors' || cat === 'motor') {
+            return elementOnBusTopologyKey('topo:motor', row, dataJson);
+        }
+        return null;
+    }
+
+    function makeKeyResolver(graph, dataJson) {
         const hasResolver =
             typeof window !== 'undefined' &&
             typeof window.buildGraphCellLookupMap   === 'function' &&
-            typeof window.resolveGraphCellForResult === 'function';
+            typeof window.resolveGraphCellForResult === 'function' &&
+            typeof window.getDialogNameFromCell     === 'function';
         let map = null;
         if (hasResolver && graph) {
             try { map = window.buildGraphCellLookupMap(graph); } catch (e) { map = null; }
         }
-        const cellKey = (cell) => {
-            if (!cell) return null;
-            if (cell.id != null) return `cell:${cell.id}`;
-            if (cell.mxObjectId)  return `mx:${String(cell.mxObjectId).replace(/#/g, '_')}`;
-            return null;
+        const dialogFromGraph = (row) => {
+            if (!map || !row) return null;
+            try {
+                const cell = window.resolveGraphCellForResult(map, row, graph);
+                if (!cell) return null;
+                const dn = window.getDialogNameFromCell(cell);
+                return normalizeDialogKey(dn);
+            } catch (e) { return null; }
         };
-        return (row) => {
+        return (row, category) => {
             if (!row) return null;
-            if (map) {
-                try {
-                    const cell = window.resolveGraphCellForResult(map, row, graph);
-                    const k = cellKey(cell);
-                    if (k) return k;
-                } catch (e) { /* fall through */ }
+            const cat = String(category || 'element').toLowerCase();
+
+            const storedDn = normalizeDialogKey(row.dialogName);
+            if (storedDn) return `dn:${cat}:${storedDn}`;
+
+            const graphDn = dialogFromGraph(row);
+            if (graphDn) return `dn:${cat}:${graphDn}`;
+
+            const topo = topologyKeyForRow(row, cat, dataJson);
+            if (topo) return topo;
+
+            if (row.id != null && row.id !== '' && !isInternalMxName(row.id)) {
+                return `id:${row.id}`;
             }
-            if (row.id != null && row.id !== '') return `id:${row.id}`;
             if (row.mxObjectId) return `mx:${String(row.mxObjectId).replace(/#/g, '_')}`;
-            if (row.dialogName) return `name:${row.dialogName}`;
-            if (row.name)       return `name:${row.name}`;
+            if (row.name && !isInternalMxName(row.name)) return `name:${row.name}`;
+            if (row.id != null && row.id !== '') return `id:${row.id}`;
+            if (row.name) return `name:${row.name}`;
             return null;
         };
     }
@@ -139,11 +278,17 @@
             typeof window.resolveGraphCellForResult === 'function' &&
             typeof window.getDialogNameFromCell     === 'function';
         if (!hasResolver || !graph) {
-            return (row) => row?.dialogName || row?.name || (row?.id != null ? String(row.id) : '');
+            return (row) => {
+                const dn = row?.dialogName;
+                if (dn && !isInternalMxName(dn)) return dn;
+                return row?.name || (row?.id != null ? String(row.id) : '');
+            };
         }
         let map;
         try { map = window.buildGraphCellLookupMap(graph); } catch (e) { map = null; }
         return (row) => {
+            const stored = row?.dialogName;
+            if (stored && !isInternalMxName(stored)) return stored;
             try {
                 const cell = map ? window.resolveGraphCellForResult(map, row, graph) : null;
                 if (cell) {
@@ -152,7 +297,7 @@
                 }
             } catch (e) { /* ignore */ }
             const n = row?.name;
-            if (n && !/^mxCell[#_]\d+$/i.test(String(n))) return String(n).replace(/_/g, '#');
+            if (n && !isInternalMxName(n)) return String(n).replace(/_/g, '#');
             return row?.id != null ? String(row.id) : '—';
         };
     }
@@ -173,7 +318,8 @@
         const ma = metricsFn ? metricsFn(a, graph) : null;
         const mb = metricsFn ? metricsFn(b, graph) : null;
 
-        const keyOf       = makeKeyResolver(graph);
+        const keyOfA      = makeKeyResolver(graph, a);
+        const keyOfB      = makeKeyResolver(graph, b);
         const nameOf      = makeDisplayNameResolver(graph);
 
         // ---- KPI delta ----
@@ -213,14 +359,14 @@
         const busesB = arrOf(b, 'busbars');
         const busAByKey = new Map();
         for (const r of busesA) {
-            const key = keyOf(r);
+            const key = keyOfA(r, 'bus');
             if (key) busAByKey.set(key, r);
         }
         const seenBusKeys = new Set();
         const perBus = [];
         const addedBuses = [], removedBuses = [];
         for (const r of busesB) {
-            const key = keyOf(r);
+            const key = keyOfB(r, 'bus');
             if (!key) continue;
             seenBusKeys.add(key);
             const peer = busAByKey.get(key);
@@ -267,14 +413,14 @@
         const brB = collectBranches(b);
         const brAByKey = new Map();
         for (const r of brA) {
-            const key = keyOf(r);
+            const key = keyOfA(r, r.kind || 'branch');
             if (key) brAByKey.set(key, r);
         }
         const seenBrKeys = new Set();
         const perBranch = [];
         const addedBranches = [], removedBranches = [];
         for (const r of brB) {
-            const key = keyOf(r);
+            const key = keyOfB(r, r.kind || 'branch');
             if (!key) continue;
             seenBrKeys.add(key);
             const peer = brAByKey.get(key);
@@ -345,11 +491,11 @@
             const aRows = arrOf(a, catKey);
             const bRows = arrOf(b, catKey);
             const aMap = new Map();
-            for (const r of aRows) { const k = keyOf(r); if (k) aMap.set(k, r); }
+            for (const r of aRows) { const k = keyOfA(r, catKey); if (k) aMap.set(k, r); }
             const bSeen = new Set();
             const added = [];
             for (const r of bRows) {
-                const k = keyOf(r); if (!k) continue;
+                const k = keyOfB(r, catKey); if (!k) continue;
                 bSeen.add(k);
                 if (!aMap.has(k)) added.push({ key: k, category: catKey, dialogName: nameOf(r), id: r.id, name: r.name });
             }
@@ -371,12 +517,80 @@
             addedRemoved.removed.push(...removed);
         }
 
+        // ---- Overvoltage mitigation (BESS / weak-grid tutorial helper) ----
+        const OV_THRESHOLD = VOLTAGE_OK_HIGH; // 1.05 pu
+        const overvoltageBuses = perBus.filter((r) => {
+            const baseOv = num(r.vm_pu_base) > OV_THRESHOLD;
+            const currOv = num(r.vm_pu_curr) > OV_THRESHOLD;
+            return baseOv || currOv;
+        });
+        const mitigatedBuses = overvoltageBuses.filter((r) => {
+            const baseOv = num(r.vm_pu_base) > OV_THRESHOLD;
+            const currOk = num(r.vm_pu_curr) <= OV_THRESHOLD;
+            return baseOv && currOk;
+        });
+        const worsenedOvBuses = overvoltageBuses.filter((r) => {
+            const baseOk = num(r.vm_pu_base) <= OV_THRESHOLD;
+            const currOv = num(r.vm_pu_curr) > OV_THRESHOLD;
+            return baseOk && currOv;
+        });
+        const partialMitigation = overvoltageBuses.filter((r) => {
+            const baseOv = num(r.vm_pu_base) > OV_THRESHOLD;
+            const currOv = num(r.vm_pu_curr) > OV_THRESHOLD;
+            return baseOv && currOv && r.delta < -1e-4;
+        });
+        const maxBaseV = perBus.reduce((m, r) => Math.max(m, num(r.vm_pu_base) || 0), 0);
+        const maxCurrV = perBus.reduce((m, r) => Math.max(m, num(r.vm_pu_curr) || 0), 0);
+
+        const storagesA = arrOf(a, 'storages');
+        const storagesB = arrOf(b, 'storages');
+        const storageQByKey = new Map();
+        for (const r of storagesA) {
+            const k = keyOfA(r, 'storages');
+            if (k) storageQByKey.set(k, { q_base: num(r.q_mvar), q_curr: null, name: nameOf(r) });
+        }
+        for (const r of storagesB) {
+            const k = keyOfB(r, 'storages');
+            if (!k) continue;
+            const entry = storageQByKey.get(k) || { q_base: null, q_curr: null, name: nameOf(r) };
+            entry.q_curr = num(r.q_mvar);
+            entry.inv_mode = r.inv_control_mode || '';
+            storageQByKey.set(k, entry);
+        }
+        const storageReactiveDelta = [];
+        for (const [k, v] of storageQByKey.entries()) {
+            if (v.q_base === null || v.q_curr === null) continue;
+            const dq = v.q_curr - v.q_base;
+            if (Math.abs(dq) > 1e-4) {
+                storageReactiveDelta.push({
+                    key: k, name: v.name, q_base: v.q_base, q_curr: v.q_curr,
+                    delta: dq, inv_mode: v.inv_mode || '',
+                });
+            }
+        }
+        storageReactiveDelta.sort((x, y) => Math.abs(y.delta) - Math.abs(x.delta));
+
+        const overvoltageMitigation = {
+            threshold_pu: OV_THRESHOLD,
+            max_vm_base: maxBaseV,
+            max_vm_curr: maxCurrV,
+            max_vm_delta: maxCurrV - maxBaseV,
+            mitigated_count: mitigatedBuses.length,
+            worsened_count: worsenedOvBuses.length,
+            partial_count: partialMitigation.length,
+            mitigated_buses: mitigatedBuses.slice(0, 8),
+            worsened_buses: worsenedOvBuses.slice(0, 5),
+            partial_buses: partialMitigation.slice(0, 5),
+            storage_reactive_delta: storageReactiveDelta.slice(0, 5),
+        };
+
         return {
             kpiDelta,
             perBus,
             perBranch,
             statusMigrations,
             addedRemoved,
+            overvoltageMitigation,
             metaA: {
                 counts: ma ? ma.counts : null,
                 converged: ma ? ma.converged : null,
@@ -582,17 +796,19 @@
                 color: ${COLOR_DANGER};
             }
 
-            /* SLD overlay chips ------------------------------------------- */
+            /* SLD overlay chips — fixed HTML layer on document.body (mxGraph's
+               overlay pane is SVG <g>, which cannot host HTML div chips). */
             #${OVERLAY_LAYER_ID} {
-                position: absolute; top: 0; left: 0;
+                position: fixed; top: 0; left: 0;
                 width: 100%; height: 100%;
+                overflow: visible;
                 pointer-events: none;
-                z-index: 50;
+                z-index: 9990;
             }
             .esc-chip-overlay {
-                position: absolute;
+                position: fixed;
                 pointer-events: auto;
-                padding: 2px 7px;
+                padding: 2px 4px 2px 7px;
                 border-radius: 999px;
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
                 font-size: 11px; font-weight: 700;
@@ -601,8 +817,25 @@
                 cursor: pointer;
                 transform: translate(-50%, -120%);
                 transition: transform 0.12s ease;
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
             }
             .esc-chip-overlay:hover { transform: translate(-50%, -120%) scale(1.06); }
+            .esc-chip-overlay .esc-chip-dismiss {
+                border: none;
+                background: rgba(255,255,255,0.28);
+                color: inherit;
+                border-radius: 999px;
+                width: 16px;
+                height: 16px;
+                padding: 0;
+                font-size: 12px;
+                line-height: 1;
+                cursor: pointer;
+                flex-shrink: 0;
+            }
+            .esc-chip-overlay .esc-chip-dismiss:hover { background: rgba(255,255,255,0.45); }
             .esc-chip-overlay.improved { background: #16a34a; color: #fff; }
             .esc-chip-overlay.worsened { background: #dc2626; color: #fff; }
             .esc-chip-overlay.changed  { background: #f59e0b; color: #fff; }
@@ -766,6 +999,84 @@
         </div>`;
     }
 
+    function overvoltageMitigationBlock(ov) {
+        if (!ov) return '';
+        const thr = ov.threshold_pu != null ? ov.threshold_pu : VOLTAGE_OK_HIGH;
+        const maxBase = num(ov.max_vm_base);
+        const maxCurr = num(ov.max_vm_curr);
+        const maxDelta = num(ov.max_vm_delta);
+        const mitigated = ov.mitigated_buses || [];
+        const partial = ov.partial_buses || [];
+        const worsened = ov.worsened_buses || [];
+        const storageQ = ov.storage_reactive_delta || [];
+
+        const busRow = (r, cls) => {
+            const sign = r.delta > 0 ? '+' : '';
+            return `<div class="esc-migration-row">
+                <span style="flex:1;font-weight:600;">${escapeHtml(r.dialogName || r.name || r.id)}</span>
+                <span style="font-variant-numeric:tabular-nums;">${r.vm_pu_base.toFixed(3)} → ${r.vm_pu_curr.toFixed(3)} pu</span>
+                <span class="esc-chip ${cls}">${sign}${r.delta.toFixed(3)} pu</span>
+            </div>`;
+        };
+
+        const storageRow = (s) => {
+            const sign = s.delta > 0 ? '+' : '';
+            const mode = s.inv_mode ? ` · ${escapeHtml(s.inv_mode)}` : '';
+            return `<div class="esc-migration-row">
+                <span style="flex:1;font-weight:600;">BESS ${escapeHtml(s.name)}${mode}</span>
+                <span style="font-variant-numeric:tabular-nums;">Q ${s.q_base.toFixed(2)} → ${s.q_curr.toFixed(2)} MVar</span>
+                <span class="esc-chip ${s.delta < 0 ? 'improved' : 'changed'}">${sign}${s.delta.toFixed(2)} MVar</span>
+            </div>`;
+        };
+
+        let summary = '';
+        if (maxBase !== null && maxCurr !== null) {
+            const cls = maxCurr < maxBase ? 'improved' : (maxCurr > maxBase ? 'worsened' : 'neutral');
+            const sign = maxDelta > 0 ? '+' : '';
+            summary = `<div style="font-size:12px;margin-bottom:10px;color:${COLOR_TEXT};">
+                Max bus voltage: <strong>${maxBase.toFixed(3)}</strong> → <strong>${maxCurr.toFixed(3)}</strong> pu
+                <span class="esc-chip ${cls}" style="margin-left:6px;">${sign}${(maxDelta || 0).toFixed(3)} pu</span>
+                <span style="color:${COLOR_MUTED};margin-left:8px;">(overvoltage threshold ${thr} pu)</span>
+            </div>`;
+        }
+
+        const mitigatedHtml = mitigated.length
+            ? mitigated.map((r) => busRow(r, 'improved')).join('')
+            : `<div class="esc-empty" style="margin:4px 0;">No buses fully mitigated below ${thr} pu.</div>`;
+        const partialHtml = partial.length
+            ? partial.map((r) => busRow(r, 'improved')).join('')
+            : '';
+        const worsenedHtml = worsened.length
+            ? worsened.map((r) => busRow(r, 'worsened')).join('')
+            : '';
+        const storageHtml = storageQ.length
+            ? storageQ.map(storageRow).join('')
+            : `<div class="esc-empty" style="margin:4px 0;">No BESS reactive power change detected.</div>`;
+
+        return `<div class="esc-migrations" style="margin-bottom:14px;">
+            <h4>Overvoltage mitigation (weak grid / BESS)</h4>
+            ${summary}
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div>
+                    <h5 class="esc-section-title">Fully mitigated<span class="esc-count">${ov.mitigated_count || 0}</span></h5>
+                    ${mitigatedHtml}
+                </div>
+                <div>
+                    <h5 class="esc-section-title">Partial improvement<span class="esc-count">${ov.partial_count || 0}</span></h5>
+                    ${partialHtml || `<div class="esc-empty" style="margin:4px 0;">—</div>`}
+                </div>
+            </div>
+            ${worsened.length ? `<div style="margin-top:10px;">
+                <h5 class="esc-section-title">New overvoltage<span class="esc-count">${ov.worsened_count || 0}</span></h5>
+                ${worsenedHtml}
+            </div>` : ''}
+            <div style="margin-top:10px;">
+                <h5 class="esc-section-title">BESS reactive response</h5>
+                ${storageHtml}
+            </div>
+        </div>`;
+    }
+
     function addedRemovedBlock(addedRemoved) {
         const ar = addedRemoved || { added: [], removed: [] };
         if (!ar.added.length && !ar.removed.length) return '';
@@ -827,45 +1138,64 @@
      * ------------------------------------------------------------------- */
     let _overlayState = null; // { graph, container, layer, items, listeners }
 
-    function ensureOverlayLayer(graph) {
-        const container = (graph && graph.container) || null;
-        if (!container) return null;
-        let layer = container.querySelector('#' + OVERLAY_LAYER_ID);
+    function ensureOverlayLayer() {
+        if (typeof document === 'undefined') return null;
+        let layer = document.getElementById(OVERLAY_LAYER_ID);
         if (!layer) {
             layer = document.createElement('div');
             layer.id = OVERLAY_LAYER_ID;
-            // The mxGraph container is positioned; ours is absolutely placed
-            // inside it so chips track the diagram on scroll.
-            const cs = window.getComputedStyle(container);
-            if (cs && cs.position === 'static') {
-                container.style.position = 'relative';
-            }
-            container.appendChild(layer);
+            document.body.appendChild(layer);
         }
         return layer;
     }
 
-    function chipPositionForCell(graph, cell) {
+    /** Viewport coordinates for a chip anchor (top-center of the cell shape). */
+    function chipScreenPosition(graph, cell) {
+        if (!graph?.view || !cell) return null;
         try {
-            const view = graph.view;
-            const state = view && view.getState ? view.getState(cell) : null;
-            if (state) {
-                // Place chip at top-center of the cell's bounding box, in
-                // container-local coordinates (state coords are already in
-                // container space when scrollbars are factored in).
-                const cx = state.x + state.width  / 2;
-                const cy = state.y;
-                return { x: cx, y: cy };
-            }
-            // Fallback: geometry × view scale + translate.
-            if (graph.getModel && cell.geometry) {
-                const g = cell.geometry;
-                const s = (view && view.scale) || 1;
-                const t = (view && view.translate) || { x: 0, y: 0 };
-                return { x: (g.x + g.width / 2 + t.x) * s, y: (g.y + t.y) * s };
-            }
+            if (typeof graph.view.validate === 'function') graph.view.validate();
         } catch (e) { /* ignore */ }
+        const state = graph.view.getState ? graph.view.getState(cell) : null;
+        if (state?.shape?.node?.getBoundingClientRect) {
+            const rect = state.shape.node.getBoundingClientRect();
+            if (rect.width > 0 || rect.height > 0) {
+                return { x: rect.left + rect.width / 2, y: rect.top };
+            }
+        }
+        const container = graph.container;
+        if (state && container?.getBoundingClientRect) {
+            const cr = container.getBoundingClientRect();
+            const cx = (typeof state.getCenterX === 'function')
+                ? state.getCenterX()
+                : (state.x + state.width / 2);
+            const scrollL = container.scrollLeft || 0;
+            const scrollT = container.scrollTop || 0;
+            return {
+                x: cr.left + cx - scrollL,
+                y: cr.top + state.y - scrollT,
+            };
+        }
+        if (typeof graph.getCellBounds === 'function' && container?.getBoundingClientRect) {
+            const bounds = graph.getCellBounds(cell, true);
+            if (bounds) {
+                const scale = graph.view.scale || 1;
+                const tr = graph.view.translate || { x: 0, y: 0 };
+                const cr = container.getBoundingClientRect();
+                const scrollL = container.scrollLeft || 0;
+                const scrollT = container.scrollTop || 0;
+                const sx = cr.left + (bounds.x + tr.x) * scale - scrollL;
+                const sy = cr.top + (bounds.y + tr.y) * scale - scrollT;
+                return {
+                    x: sx + (bounds.width * scale) / 2,
+                    y: sy,
+                };
+            }
+        }
         return null;
+    }
+
+    function chipPositionForCell(graph, cell) {
+        return chipScreenPosition(graph, cell);
     }
 
     function chipLabel(item) {
@@ -880,18 +1210,26 @@
     }
 
     function paintSldOverlay(graph, delta) {
-        if (!graph || !delta) return;
+        if (!graph || !delta) return 0;
         ensureStyle();
         clearSldOverlay();
-        const layer = ensureOverlayLayer(graph);
-        if (!layer) return;
+        const layer = ensureOverlayLayer();
+        if (!layer) return 0;
         const map = (typeof window.buildGraphCellLookupMap === 'function')
             ? window.buildGraphCellLookupMap(graph) : null;
         const resolveCell = (row) => {
             if (!row) return null;
             try {
                 if (map && typeof window.resolveGraphCellForResult === 'function') {
-                    return window.resolveGraphCellForResult(map, row, graph);
+                    const cell = window.resolveGraphCellForResult(map, row, graph);
+                    if (cell) return cell;
+                }
+                if (map && row.dialogName) {
+                    const dn = String(row.dialogName).trim().toLowerCase();
+                    if (dn) {
+                        const byDn = map.get(dn) || map.get('dn:' + dn);
+                        if (byDn) return byDn;
+                    }
                 }
             } catch (e) { /* ignore */ }
             return findCellById(graph, row.id, row);
@@ -903,25 +1241,25 @@
             const label = chipLabel({ kind: kind || row.kind, delta: row.delta });
             items.push({ cell, severity, label, row });
         };
-        // Prefer items whose band actually changed.
+        // Only paint meaningful movers on the SLD — skip neutral deltas and
+        // structural added/removed lists (those stay in the compare panel only;
+        // "+ added" chips clutter the diagram and are often key-mismatch noise).
         for (const r of (delta.perBus || [])) {
+            if (r.severity === 'neutral') continue;
             if (Math.abs(r.delta || 0) < 1e-3 && r.band_base === r.band_curr) continue;
             const sev = (r.severity === 'improved') ? 'improved'
                       : (r.severity === 'worsened') ? 'worsened' : 'changed';
             pushItem(r, sev, 'bus');
         }
         for (const r of (delta.perBranch || [])) {
+            if (r.severity === 'neutral') continue;
             if (Math.abs(r.delta || 0) < 0.5 && r.band_base === r.band_curr) continue;
             const sev = (r.severity === 'improved') ? 'improved'
                       : (r.severity === 'worsened') ? 'worsened' : 'changed';
             pushItem(r, sev, r.kind);
         }
-        for (const r of (delta.addedRemoved && delta.addedRemoved.added) || []) {
-            pushItem(r, 'added', 'added');
-        }
-        for (const r of (delta.addedRemoved && delta.addedRemoved.removed) || []) {
-            pushItem(r, 'removed', 'removed');
-        }
+
+        if (!items.length) return 0;
 
         const renderItems = () => {
             // Only re-render positions; keep DOM nodes for performance.
@@ -938,8 +1276,22 @@
         for (const it of items) {
             const el = document.createElement('div');
             el.className = 'esc-chip-overlay ' + it.severity;
-            el.textContent = it.label;
             el.title = (it.row.dialogName || it.row.name || it.row.id || '') + ' — click to focus';
+            const labelSpan = document.createElement('span');
+            labelSpan.className = 'esc-chip-label';
+            labelSpan.textContent = it.label;
+            const dismiss = document.createElement('button');
+            dismiss.type = 'button';
+            dismiss.className = 'esc-chip-dismiss';
+            dismiss.textContent = '×';
+            dismiss.title = 'Remove this highlight';
+            dismiss.setAttribute('aria-label', 'Remove highlight');
+            dismiss.addEventListener('click', (e) => {
+                e.stopPropagation();
+                el.remove();
+            });
+            el.appendChild(labelSpan);
+            el.appendChild(dismiss);
             el.addEventListener('click', () => {
                 focusCell(graph, it.cell);
             });
@@ -947,6 +1299,20 @@
             it.el = el;
         }
         renderItems();
+        let paintAttempts = 0;
+        const retryRender = () => {
+            renderItems();
+            const anyVisible = items.some((it) => it.el && it.el.style.display !== 'none');
+            if (!anyVisible && paintAttempts < 10) {
+                paintAttempts += 1;
+                if (typeof requestAnimationFrame === 'function') {
+                    requestAnimationFrame(retryRender);
+                }
+            }
+        };
+        if (typeof requestAnimationFrame === 'function') {
+            requestAnimationFrame(retryRender);
+        }
 
         // Track view changes so chips follow zoom / pan.
         const listeners = [];
@@ -964,17 +1330,25 @@
         } catch (e) { /* ignore */ }
         const onScroll = () => renderItems();
         const onResize = () => renderItems();
+        const onKeyDown = (e) => {
+            if (e.key === 'Escape') clearSldOverlay();
+        };
         try { graph.container && graph.container.addEventListener('scroll', onScroll, { passive: true }); } catch (e) {}
+        try { window.addEventListener('scroll', onScroll, { passive: true, capture: true }); } catch (e) {}
         try { window.addEventListener('resize', onResize); } catch (e) {}
+        try { window.addEventListener('keydown', onKeyDown); } catch (e) {}
 
         _overlayState = {
             graph, layer, items,
             cleanup: () => {
                 try { graph.container && graph.container.removeEventListener('scroll', onScroll); } catch (e) {}
+                try { window.removeEventListener('scroll', onScroll, true); } catch (e) {}
                 try { window.removeEventListener('resize', onResize); } catch (e) {}
+                try { window.removeEventListener('keydown', onKeyDown); } catch (e) {}
                 // mxEvent listeners are best-effort; mxGraph has no removeAll.
             },
         };
+        return items.length;
     }
 
     function clearSldOverlay() {
@@ -1031,7 +1405,11 @@
         }
 
         const baselineDataJson = baseline.dataJson || baseline;
-        const delta = computeScenarioDelta(baselineDataJson, currentDataJson, liveGraph);
+        let currentJson = currentDataJson;
+        if (typeof window.enrichResultJsonWithDialogNames === 'function' && liveGraph) {
+            try { window.enrichResultJsonWithDialogNames(currentJson, liveGraph); } catch (e) { /* ignore */ }
+        }
+        const delta = computeScenarioDelta(baselineDataJson, currentJson, liveGraph);
 
         // Click-target registry, same pattern the dashboard uses.
         const targets = [];
@@ -1096,6 +1474,8 @@
 
                 ${migrationsBlock(delta.statusMigrations || [])}
 
+                ${overvoltageMitigationBlock(delta.overvoltageMitigation)}
+
                 <div class="esc-grid2">
                     <div>
                         <h5 class="esc-section-title">Top Bus Voltage Movers
@@ -1124,11 +1504,15 @@
         document.body.appendChild(panel);
 
         const closeAll = () => {
+            clearSldOverlay();
             try { panel.remove(); } catch (e) {}
             try { overlay.remove(); } catch (e) {}
-            // Leave the SLD overlay alive intentionally — closing the panel
-            // shouldn't wipe the highlights if the user explicitly painted
-            // them. They can dismiss with the Clear Overlay button.
+        };
+        // Dismiss the modal (panel + backdrop) but keep the painted chips so
+        // the user can actually see the highlighted diagram underneath.
+        const dismissKeepOverlay = () => {
+            try { panel.remove(); } catch (e) {}
+            try { overlay.remove(); } catch (e) {}
         };
         panel.querySelector('.esc-close').addEventListener('click', closeAll);
         panel.querySelector('.esc-close-btn').addEventListener('click', closeAll);
@@ -1147,15 +1531,17 @@
             });
         });
 
-        // Highlight Differences → paint SLD chips.
+        // Highlight Differences → paint SLD chips, then close the modal so the
+        // diagram (and the chips) are visible. Chips persist until the user
+        // presses Esc, runs a new load flow, or reopens compare.
         panel.querySelector('.esc-paint-btn').addEventListener('click', () => {
-            paintSldOverlay(liveGraph, delta);
-            showToast('Highlighting ' + (
-                (delta.perBus.filter(r => r.severity !== 'neutral').length) +
-                (delta.perBranch.filter(r => r.severity !== 'neutral').length) +
-                (delta.addedRemoved.added.length) +
-                (delta.addedRemoved.removed.length)
-            ) + ' changed elements on the diagram.');
+            const painted = paintSldOverlay(resolveLiveGraph(liveGraph), delta);
+            if (painted) {
+                dismissKeepOverlay();
+                showToast(`Highlighting ${painted} changed element${painted === 1 ? '' : 's'} on the diagram. Press Esc to remove.`);
+            } else {
+                showToast('Could not place highlights on the diagram — try zooming to fit, then click again.');
+            }
         });
         panel.querySelector('.esc-clear-btn').addEventListener('click', () => {
             clearSldOverlay();
@@ -1182,6 +1568,7 @@
 
     function closeScenarioCompare() {
         if (typeof document === 'undefined') return;
+        clearSldOverlay();
         document.querySelectorAll(`#${PANEL_ID}, .esc-overlay`).forEach(n => n.remove());
     }
 
@@ -1201,5 +1588,8 @@
         classifyLoading,
         bandIndex,
         makeKeyResolver,
+        busTopologyKey,
+        topologyKeyForRow,
+        isInternalMxName,
     };
 })();

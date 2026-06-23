@@ -168,7 +168,13 @@ function insertResultBox(graph, parent, resultString, opts) {
     var isLine = (opts && opts.isLine) || (px === 0.5 || px === 0.2);
     var offsetY = isLine ? -h / 2 - 10 + offsetYDelta : -h / 2 - 5 + offsetYDelta;
     var offsetX = -w / 2 + offsetXDelta;
-    var cell = graph.insertVertex(parent, null, resultString, px, py, w, h, RESULT_BOX_STYLE, true);
+    var boxStyle = RESULT_BOX_STYLE;
+    if (opts && opts.connectedToId != null && opts.connectedToId !== '') {
+        boxStyle = typeof mxUtils !== 'undefined' && mxUtils.setStyle
+            ? mxUtils.setStyle(boxStyle, 'connectedTo', String(opts.connectedToId))
+            : boxStyle + ';connectedTo=' + String(opts.connectedToId);
+    }
+    var cell = graph.insertVertex(parent, null, resultString, px, py, w, h, boxStyle, true);
     if (cell && typeof mxPoint !== 'undefined') {
         var model = graph.getModel();
         var geo = model.getGeometry(cell);
@@ -251,11 +257,78 @@ function findResultPlaceholderForComponent(graph, componentCell) {
     return legacy;
 }
 
+/**
+ * Collect every result placeholder tied to a component (direct child or on incident edges
+ * via connectedTo=id). Line vertices often get one placeholder per stub edge from addEdge.
+ */
+function findAllResultPlaceholdersForComponent(graph, componentCell) {
+    var found = [];
+    if (!graph || !componentCell || !graph.getModel) return found;
+    var model = graph.getModel();
+    var compId = String(componentCell.id);
+    var isResultStyle = function(s) {
+        return s && (s.indexOf('shapeELXXX=ResultBus') >= 0 || s.indexOf('shapeELXXX=Result') >= 0 || s.indexOf('shapeELXXX=ResultExternalGrid') >= 0);
+    };
+    var matches = function(child, isDirectChild) {
+        var st = model.getStyle(child) || '';
+        if (!isResultStyle(st)) return false;
+        if (isDirectChild) return true;
+        var m = st.match(/connectedTo=([^;]+)/);
+        return m ? String(m[1]).trim() === compId : false;
+    };
+    var scan = function(parent, isDirectScan) {
+        if (!parent) return;
+        var n = model.getChildCount(parent);
+        for (var i = 0; i < n; i++) {
+            var child = model.getChildAt(parent, i);
+            if (child && matches(child, isDirectScan)) {
+                found.push({ placeholder: child, parent: parent });
+            }
+        }
+    };
+    scan(componentCell, true);
+    var edges = (graph.getEdges && graph.getEdges(componentCell)) || componentCell.edges || [];
+    for (var ei = 0; ei < edges.length; ei++) {
+        scan(edges[ei], false);
+    }
+    return found;
+}
+
+/**
+ * Update one result box for a component and remove duplicate placeholders.
+ */
+function updateOrCreateSinglePlaceholder(graph, componentCell, resultString, fallbackParent, opts) {
+    if (!graph || !componentCell || !graph.getModel) return null;
+    var model = graph.getModel();
+    var all = findAllResultPlaceholdersForComponent(graph, componentCell);
+    if (all.length > 0) {
+        var keep = all[0].placeholder;
+        model.setValue(keep, resultString);
+        for (var i = 1; i < all.length; i++) {
+            try { model.remove(all[i].placeholder); } catch (err) { /* ignore */ }
+        }
+        return keep;
+    }
+    var parent = fallbackParent || componentCell;
+    return insertResultBox(graph, parent, resultString, {
+        width: (opts && opts.width) || 70,
+        height: (opts && opts.height) || 50,
+        positionX: (opts && typeof opts.positionX === 'number') ? opts.positionX : 0.5,
+        positionY: (opts && typeof opts.positionY === 'number') ? opts.positionY : 0,
+        offsetXDelta: (opts && opts.offsetXDelta) || 0,
+        offsetYDelta: (opts && opts.offsetYDelta) || 0,
+        isLine: opts && opts.isLine,
+        connectedToId: componentCell.id
+    });
+}
+
 if (typeof window !== 'undefined') {
     window.RESULT_BOX_STYLE = RESULT_BOX_STYLE;
     window.insertResultBox = insertResultBox;
     window.findResultPlaceholder = findResultPlaceholder;
     window.findResultPlaceholderForComponent = findResultPlaceholderForComponent;
+    window.findAllResultPlaceholdersForComponent = findAllResultPlaceholdersForComponent;
+    window.updateOrCreateSinglePlaceholder = updateOrCreateSinglePlaceholder;
 }
 
 //=============================================================================
@@ -990,10 +1063,9 @@ function applyResultBoxesHook() {
                     }
                 }
 
-                // For Transformers (2-winding and 3-winding), only create ONE placeholder total
-                // Check if the component already has a placeholder on ANY of its edges
+                // Transformers and Line vertices: only ONE placeholder total (not one per stub edge)
                 var componentHasAnyPlaceholder = false;
-                if (isTransformerShape(componentShape) && componentCell.edges) {
+                if ((isTransformerShape(componentShape) || isLineStyle(componentCell.style || '')) && componentCell.edges) {
                     for (var e = 0; e < componentCell.edges.length; e++) {
                         var existingEdge = componentCell.edges[e];
                         if (!existingEdge) continue;
@@ -1002,7 +1074,7 @@ function applyResultBoxesHook() {
                             var edgeChild = this.model.getChildAt(existingEdge, j);
                             if (!edgeChild) continue;
                             var edgeChildStyle = this.model.getStyle(edgeChild) || '';
-                            if (edgeChildStyle && (edgeChildStyle.includes('shapeELXXX=Result') || 
+                            if (edgeChildStyle && (edgeChildStyle.includes('shapeELXXX=Result') ||
                                 edgeChildStyle.includes('shapeELXXX=ResultExternalGrid'))) {
                                 componentHasAnyPlaceholder = true;
                                 break;
@@ -1010,13 +1082,21 @@ function applyResultBoxesHook() {
                         }
                         if (componentHasAnyPlaceholder) break;
                     }
+                    if (!componentHasAnyPlaceholder) {
+                        var directChildCount = this.model.getChildCount(componentCell);
+                        for (var dc = 0; dc < directChildCount; dc++) {
+                            var directChild = this.model.getChildAt(componentCell, dc);
+                            if (directChild && isResultPlaceholderStyle(this.model.getStyle(directChild) || '')) {
+                                componentHasAnyPlaceholder = true;
+                                break;
+                            }
+                        }
+                    }
                 }
 
-                // Only create placeholder if:
-                // - This edge doesn't already have one, AND
-                // - For transformers: the component doesn't have any placeholder on any edge
-                var shouldCreatePlaceholder = !edgeHasPlaceholder && 
-                    (!isTransformerShape(componentShape) || !componentHasAnyPlaceholder);
+                var singlePlaceholderShape = isTransformerShape(componentShape) || isLineStyle(componentCell.style || '');
+                var shouldCreatePlaceholder = !edgeHasPlaceholder &&
+                    (!singlePlaceholderShape || !componentHasAnyPlaceholder);
 
                 if (shouldCreatePlaceholder) {
                     // Use a dedicated logical shape for External Grid result boxes

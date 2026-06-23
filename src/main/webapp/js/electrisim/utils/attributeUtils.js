@@ -103,6 +103,13 @@ export function collectBackendResultLookupKeys(backendRow) {
         }
     };
     add(backendRow.id);
+    if (backendRow.dialogName != null) {
+        const dn = String(backendRow.dialogName).trim();
+        if (dn) {
+            add(dn);
+            add(dn.toLowerCase());
+        }
+    }
     if (backendRow.name != null) {
         const n = String(backendRow.name);
         add(n);
@@ -117,7 +124,7 @@ export function collectBackendResultLookupKeys(backendRow) {
 }
 
 /**
- * Last-resort: walk vertices and match id or mxObjectId to backend row (map missed).
+ * Last-resort: walk all cells (vertices and edges) and match id, mxObjectId, or dialog name.
  */
 function resolveGraphCellByScanningVertices(graph, backendRow) {
     if (!graph?.getModel || !backendRow) return null;
@@ -128,9 +135,14 @@ function resolveGraphCellByScanningVertices(graph, backendRow) {
     const wantNameRaw = backendRow.name != null ? String(backendRow.name) : '';
     const wantIdStr = backendRow.id != null ? String(backendRow.id) : '';
     const wantIdNum = wantIdStr !== '' && !Number.isNaN(Number(wantIdStr)) ? Number(wantIdStr) : null;
+    const wantDn = backendRow.dialogName != null ? String(backendRow.dialogName).trim().toLowerCase() : '';
     for (const cid in cells) {
         const c = cells[cid];
-        if (!c || model.isEdge(c)) continue;
+        if (!c) continue;
+        if (wantDn) {
+            const dn = getDialogNameFromCell(c);
+            if (dn && dn.trim().toLowerCase() === wantDn) return c;
+        }
         if (wantIdStr !== '' && (String(c.id) === wantIdStr || (wantIdNum !== null && c.id === wantIdNum))) {
             return c;
         }
@@ -169,6 +181,14 @@ export function buildGraphCellLookupMap(graph) {
             addMxLookupKeys(keys, c.mxObjectId);
             keys.forEach(k => register(k, c));
         }
+        try {
+            const dn = getDialogNameFromCell(c);
+            if (dn) {
+                const norm = dn.trim().toLowerCase();
+                register(norm, c);
+                register('dn:' + norm, c);
+            }
+        } catch (e) { /* ignore */ }
     }
     return map;
 }
@@ -193,6 +213,59 @@ export function resolveGraphCellForResult(map, backendRow, graph) {
         if (scanned) return scanned;
     }
     return null;
+}
+
+/** Result JSON array keys that carry per-element load-flow rows. */
+const RESULT_JSON_ARRAY_KEYS = [
+    'busbars',
+    'lines',
+    'transformers',
+    'transformers3W',
+    'transformers3w',
+    'generators',
+    'staticgenerators',
+    'asymmetricstaticgenerators',
+    'externalgrids',
+    'pvsystems',
+    'storages',
+    'loads',
+    'asymmetricloads',
+    'motors',
+    'shunts',
+    'capacitors',
+    'impedances',
+    'dclines',
+];
+
+/**
+ * Stamp each result row with `dialogName` from the live graph so snapshots and
+ * Scenario Compare can match elements across sheets (different mxCell ids).
+ * Mutates and returns `dataJson`.
+ */
+export function enrichResultJsonWithDialogNames(dataJson, graph) {
+    if (!dataJson || !graph?.getModel) return dataJson;
+    let map;
+    try { map = buildGraphCellLookupMap(graph); } catch (e) { return dataJson; }
+    const resolveDialog = (row) => {
+        if (!row) return '';
+        if (row.dialogName && !looksLikeInternalGraphObjectId(row.dialogName)) {
+            return String(row.dialogName).trim();
+        }
+        try {
+            const cell = resolveGraphCellForResult(map, row, graph);
+            const dn = cell ? getDialogNameFromCell(cell) : '';
+            return dn && !looksLikeInternalGraphObjectId(dn) ? dn : '';
+        } catch (e) { return ''; }
+    };
+    for (const key of RESULT_JSON_ARRAY_KEYS) {
+        const arr = dataJson[key];
+        if (!Array.isArray(arr)) continue;
+        for (const row of arr) {
+            const dn = resolveDialog(row);
+            if (dn) row.dialogName = dn;
+        }
+    }
+    return dataJson;
 }
 
 /**
@@ -290,3 +363,4 @@ window.createDialogNameResolver = createDialogNameResolver;
 // loadFlow.js uses internally.
 window.buildGraphCellLookupMap = buildGraphCellLookupMap;
 window.resolveGraphCellForResult = resolveGraphCellForResult;
+window.enrichResultJsonWithDialogNames = enrichResultJsonWithDialogNames;

@@ -2865,6 +2865,13 @@ Loading[%]: ${formatNumber(cell.loading_percent, 1)}`;
                 resultCellLookupGraph = null;
             }
 
+            // Clear any Scenario Compare SLD highlight chips from a prior run.
+            try {
+                if (typeof window !== 'undefined' && typeof window.clearSldOverlay === 'function') {
+                    window.clearSldOverlay();
+                }
+            } catch (overlayErr) { /* no-op */ }
+
             // Render the Network Health Dashboard (post-simulation analytics panel).
             // Self-contained, non-blocking, and silently no-ops if unavailable.
             try {
@@ -2883,6 +2890,9 @@ Loading[%]: ${formatNumber(cell.loading_percent, 1)}`;
             // later. Fire-and-forget; failures must never affect the UI.
             try {
                 if (typeof window !== 'undefined' && typeof window.saveSnapshot === 'function') {
+                    if (typeof window.enrichResultJsonWithDialogNames === 'function') {
+                        try { window.enrichResultJsonWithDialogNames(dataJson, b); } catch (e) { /* ignore */ }
+                    }
                     Promise.resolve(window.saveSnapshot(dataJson, { engine: 'pandapower' }))
                         .catch((err) => console.warn('Scenario snapshot skipped:', err));
                 }

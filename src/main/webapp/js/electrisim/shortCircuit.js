@@ -330,16 +330,29 @@ window.shortCircuitPandaPower = function(a, b, c) {
                 ikss[kA]: ${formatNumber(cell.ikss_ka)}
                 ip[kA]: ${formatNumber(cell.ip_ka)}
                 ith[kA]: ${formatNumber(cell.ith_ka)}`;
+                const updateSingleFn = typeof window !== 'undefined' && window.updateOrCreateSinglePlaceholder;
                 const parent = resultCell;
-                const existing = findFn ? findFn(b, parent) : null;
-                if (existing) {
-                    b.getModel().setValue(existing, resultString);
+                let keep;
+                if (updateSingleFn) {
+                    keep = updateSingleFn(b, resultCell, resultString, parent, {
+                        width: 95,
+                        height: 70,
+                        positionX: 0.5,
+                        positionY: 0,
+                        isLine: true
+                    });
                 } else {
-                    const labelka = insertFn
-                        ? insertFn(b, parent, resultString, { width: 95, height: 70, positionX: 0.5, positionY: 0, isLine: true })
-                        : b.insertVertex(parent, null, resultString, 0.5, 0, 95, 70, fallbackStyle, true);
-                    if (labelka && b.orderCells) b.orderCells(true, [labelka]);
+                    const existing = findFn ? findFn(b, parent) : null;
+                    if (existing) {
+                        b.getModel().setValue(existing, resultString);
+                        keep = existing;
+                    } else {
+                        keep = insertFn
+                            ? insertFn(b, parent, resultString, { width: 95, height: 70, positionX: 0.5, positionY: 0, isLine: true })
+                            : b.insertVertex(parent, null, resultString, 0.5, 0, 95, 70, fallbackStyle, true);
+                    }
                 }
+                if (keep && b.orderCells) b.orderCells(true, [keep]);
             });
         },
         trafos_sc: (data, b, grafka, cellIdMap) => {

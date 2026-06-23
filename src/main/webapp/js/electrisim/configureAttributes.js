@@ -651,6 +651,16 @@ export function configureStorageAttributes(grafka, vertex, options = {}) {
     g.setAttribute("time_charge_trig", String(options.time_charge_trig ?? 2.0));
     g.setAttribute("spectrum", options.spectrum || "default");
 
+    // Inverter control (OpenDSS InvControl)
+    g.setAttribute("Inverter_control_parameters", "");
+    g.setAttribute("inv_control_mode", options.inv_control_mode || "NONE");
+    g.setAttribute("pf", String(options.pf ?? 1.0));
+    g.setAttribute("vv_curve_preset", options.vv_curve_preset || "IEEE_1547");
+    g.setAttribute("vv_xarray", options.vv_xarray || "0.92 0.98 1.02 1.08");
+    g.setAttribute("vv_yarray", options.vv_yarray || "0.44 0 -0.44 -0.44");
+    g.setAttribute("wattpf_xarray", options.wattpf_xarray || "0 0.5 1");
+    g.setAttribute("wattpf_yarray", options.wattpf_yarray || "1 0.98 0.95");
+
     // Economic parameters
     g.setAttribute("Economic_parameters", "");
     g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
