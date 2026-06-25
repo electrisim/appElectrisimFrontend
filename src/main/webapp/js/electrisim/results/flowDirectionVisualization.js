@@ -816,8 +816,11 @@
             return 'Q=' + formatNum(qn) + ' MVar (inductive setting)';
         }
         if (elementKind === 'externalgrid' || elementKind === 'generator') {
-            if (qn < 0) return 'Q=' + formatNum(qn) + ' MVar (inductive, supplied to network)';
-            if (qn > 0) return 'Q=' + formatNum(qn) + ' MVar (capacitive, absorbed from network)';
+            // pandapower source convention: +Q = reactive supplied INTO the network
+            // (supports inductive load); −Q = reactive ABSORBED from the network
+            // (e.g. soaking up line/cable capacitive charging).
+            if (qn > 0) return 'Q=' + formatNum(qn) + ' MVar (inductive, supplied to network)';
+            if (qn < 0) return 'Q=' + formatNum(qn) + ' MVar (capacitive, absorbed from network)';
             return 'Q≈0 (unity PF)';
         }
         if (qn > 0) return 'Q=' + formatNum(qn) + ' MVar (inductive, consumed)';
@@ -830,10 +833,13 @@
         unit = unit || 'MVar';
         if (!Number.isFinite(qn)) return 'Q=N/A';
         if (Math.abs(qn) < FLOW_EPSILON) return 'Q≈0 (unity PF)';
-        if (qn < 0) {
+        // pandapower source convention: +Q = reactive supplied INTO the network
+        // (supports inductive load); −Q = reactive ABSORBED from the network
+        // (e.g. soaking up line/cable capacitive charging — Ferranti effect).
+        if (qn > 0) {
             return 'Q=' + formatNum(qn) + ' ' + unit + ' (inductive, supplied to network)';
         }
-        if (qn > 0) {
+        if (qn < 0) {
             return 'Q=' + formatNum(qn) + ' ' + unit + ' (capacitive, absorbed from network)';
         }
         return 'Q≈0 (unity PF)';

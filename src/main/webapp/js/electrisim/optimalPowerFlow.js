@@ -2,6 +2,7 @@
 import ENV from './config/environment.js';
 import { resolveStudyOpfCostCurrency } from './utils/opfCostCurrency.js';
 import {
+    getConnectedBusId,
     getTransformerConnections,
     getThreeWindingConnections,
     updateTransformerBusConnections,
@@ -34,30 +35,6 @@ async function ensureElectrisimModule(modulePath) {
         console.warn(`Dynamic import failed for ${modulePath}:`, e2);
     }
 }
-
-//define buses to which the cell is connected
-const getConnectedBusId = (cell, isLine = false) => {
-    if (isLine) {                 
-        return {            
-            busFrom: cell.source?.mxObjectId?.replace('#', '_'),
-            busTo: cell.target?.mxObjectId?.replace('#', '_')
-        };            
-    }
-    const edge = cell.edges[0];
-    if (!edge) {
-        return null;
-    }
-
-    if (!edge.target && !edge.source) {
-        return null;
-    }
-
-    const bus = edge.target && edge.target.mxObjectId !== cell.mxObjectId ?
-        (edge.target ? edge.target.mxObjectId : null) : 
-        (edge.source ? edge.source.mxObjectId : null);
-
-    return bus ? bus.replace('#', '_') : null;
-};
 
 // Helper function to parse cell style
 const parseCellStyle = (style) => {

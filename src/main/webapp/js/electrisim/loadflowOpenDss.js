@@ -63,6 +63,24 @@ const fmtOpenDssFloat = (val, decimals = 3) => {
     return Number(val).toFixed(decimals);
 };
 
+/**
+ * Reactive Q label for source elements (External Grid, Generator, Source 1ph, PVSystem, Storage).
+ * pandapower source convention: +Q = reactive supplied INTO the network (supports inductive load);
+ * −Q = reactive ABSORBED from the network (e.g. line/cable capacitive charging — Ferranti effect).
+ */
+const openDssSourceReactiveQLine = (qVal, qUnit) => {
+    if (typeof window !== 'undefined' && typeof window.formatExternalGridReactiveQ === 'function') {
+        return window.formatExternalGridReactiveQ(qVal, qUnit);
+    }
+    const qn = Number(qVal);
+    if (!Number.isFinite(qn)) return 'Q[' + qUnit + ']: N/A';
+    if (Math.abs(qn) < 1e-6) return 'Q[' + qUnit + ']: ≈0 (unity PF)';
+    if (qn > 0) {
+        return 'Q=' + fmtOpenDssFloat(qn) + ' ' + qUnit + ' (inductive, supplied to network)';
+    }
+    return 'Q=' + fmtOpenDssFloat(qn) + ' ' + qUnit + ' (capacitive, absorbed from network)';
+};
+
 /** Read shapeELXXX from a graph cell style string. */
 const getShapeFromCell = (cell) => {
     if (!cell?.getStyle) return '';
@@ -955,9 +973,7 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
                 const qVal = isSource1ph ? Number(cell.q_mvar) * 1000 : cell.q_mvar;
                 const pUnit = isSource1ph ? 'kW' : 'MW';
                 const qUnit = isSource1ph ? 'kVar' : 'MVar';
-                const qLine = (typeof window !== 'undefined' && window.formatExternalGridReactiveQ)
-                    ? window.formatExternalGridReactiveQ(qVal, qUnit)
-                    : 'Q[' + qUnit + ']: ' + fmtOpenDssFloat(qVal);
+                const qLine = openDssSourceReactiveQLine(qVal, qUnit);
 
                 const resultString = `${displayName}
         
@@ -1012,9 +1028,11 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
                 const pUnit = isGen1ph ? 'kW' : 'MW';
                 const qUnit = isGen1ph ? 'kVar' : 'MVar';
 
+                const qLine = openDssSourceReactiveQLine(qVal, qUnit);
+
                 const resultString = `${displayName}
         P[${pUnit}]: ${fmtOpenDssFloat(pVal)}
-        Q[${qUnit}]: ${fmtOpenDssFloat(qVal)}
+        ${qLine}
         U[degree]: ${fmtOpenDssFloat(cell.va_degree)}
         Um[pu]: ${fmtOpenDssFloat(cell.vm_pu)}`;
 
@@ -1293,9 +1311,10 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
                     ? `\n        Mode: ${cell.inv_control_mode}` : '';
                 const vmLine = cell.vm_pu != null && !Number.isNaN(Number(cell.vm_pu))
                     ? `\n        V[pu]: ${fmtOpenDssFloat(cell.vm_pu)}` : '';
+                const qLine = openDssSourceReactiveQLine(cell.q_mvar, 'MVar');
                 const resultString = `${cellName}
         P[MW]: ${fmtOpenDssFloat(cell.p_mw)}
-        Q[MVar]: ${fmtOpenDssFloat(cell.q_mvar)}${invLine}${vmLine}`;
+        ${qLine}${invLine}${vmLine}`;
 
                 const edge = (b.getEdges && b.getEdges(resultCell)) ? b.getEdges(resultCell)[0] : null;
                 const parent = edge || resultCell;
@@ -1332,9 +1351,10 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
 
                 const cellName = formatResultNameHeader(resultCell, cell.name, 'PVSystem');
 
+                const qLine = openDssSourceReactiveQLine(cell.q_mvar, 'MVar');
                 const resultString = `${cellName}
         P[MW]: ${fmtOpenDssFloat(cell.p_mw)}
-        Q[MVar]: ${fmtOpenDssFloat(cell.q_mvar)}
+        ${qLine}
         Um[pu]: ${fmtOpenDssFloat(cell.vm_pu)}
         U[degree]: ${fmtOpenDssFloat(cell.va_degree)}
         Irradiance: ${fmtOpenDssFloat(cell.irradiance)}

@@ -488,8 +488,13 @@ import { attachBackdropCloseHandler, preventAccidentalFormSubmit } from '../util
 
                         closeOverlay();
 
-                        if (callback) {
-                            callback(values);
+                        try {
+                            if (callback) {
+                                callback(values);
+                            }
+                        } catch (error) {
+                            console.error('OptimalPowerFlowDialog: Error running optimal power flow:', error);
+                            alert('Optimal power flow calculation failed. Check that all components are connected to buses and try again.');
                         }
                     } catch (error) {
                         console.error('OptimalPowerFlowDialog: Error checking subscription status:', error);
