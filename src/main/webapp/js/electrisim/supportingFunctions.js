@@ -806,7 +806,7 @@ const debouncedComponentInsertion = (() => {
  * Called from app (import .py / .dss) after backend returns pandapower-compatible JSON.
  * Uses the same insertion path as dropping a "Pandapower Network" shape.
  */
-window.buildDiagramFromModelJson = function (graph, jsonText) {
+window.buildDiagramFromModelJson = async function (graph, jsonText) {
     if (!graph || !graph.view) {
         console.error('buildDiagramFromModelJson: invalid graph');
         return;
@@ -846,6 +846,13 @@ window.buildDiagramFromModelJson = function (graph, jsonText) {
         ip = { x: 100, y: 100 };
     }
     const point = { x: (ip.x + tr.x) * scale, y: (ip.y + tr.y) * scale };
+
+    const layout = await promptImportNetworkLayout();
+    if (!layout) {
+        return;
+    }
+    parsed._object._import_layout = layout;
+
     debouncedComponentInsertion(graph, null, null, point, parsed);
 };
 
@@ -864,10 +871,11 @@ function parseImportTable(objWrapper, fallback = { data: [] }) {
     return fallback;
 }
 
-/** Layout constants for OpenDSS 1ph radial feeder import (one row per cabinet). */
+/** Layout constants for OpenDSS 1ph radial feeder import (one row/column per cabinet). */
 const OPENDSS_1PH_BUS_W = 120;
 const OPENDSS_1PH_BUS_H = 10;
 const OPENDSS_1PH_ROW_HEIGHT = 260;
+const OPENDSS_1PH_COL_WIDTH = 260;
 const OPENDSS_1PH_FEEDER_X_OFFSET = -300;
 const OPENDSS_1PH_TAP_GAP = 56;
 const OPENDSS_1PH_LV_GAP = 56;
@@ -879,6 +887,11 @@ const OPENDSS_1PH_LINE_EDGE_STYLE =
     OPENDSS_1PH_EDGE_BASE +
     'exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;' +
     'entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;shapeELXXX=Line 1ph';
+/** Horizontal backbone segment between HV junctions (left → right). */
+const OPENDSS_1PH_LINE_EDGE_STYLE_H =
+    OPENDSS_1PH_EDGE_BASE +
+    'exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;' +
+    'entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;shapeELXXX=Line 1ph';
 /** HV bus (right side) → transformer (left winding pin). */
 const OPENDSS_1PH_EDGE_HV_TO_TRAFO =
     OPENDSS_1PH_EDGE_BASE +
@@ -898,17 +911,82 @@ const OPENDSS_1PH_EDGE_SOURCE =
     OPENDSS_1PH_EDGE_BASE +
     'exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;' +
     'entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;shapeELXXX=NotEditableLine';
+/** HV junction (bottom) → transformer HV pin (left) on a downward branch (horizontal layout). */
+const OPENDSS_1PH_EDGE_HV_TO_TRAFO_H =
+    OPENDSS_1PH_EDGE_BASE +
+    'exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;' +
+    'entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;shapeELXXX=NotEditableLine';
+/** Transformer 1ph LV pin (rotated 90°) → LV bus (top), horizontal layout branch. */
+const OPENDSS_1PH_EDGE_TRAFO_TO_LV_H =
+    OPENDSS_1PH_EDGE_BASE +
+    'exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;' +
+    'entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;shapeELXXX=NotEditableLine';
+
+/**
+ * Ask the user how to lay out an imported network (.dss / .py).
+ * @returns {Promise<'vertical'|'horizontal'|null>}
+ */
+function promptImportNetworkLayout() {
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.style.cssText =
+            'position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:100000;' +
+            'display:flex;align-items:center;justify-content:center;';
+        const box = document.createElement('div');
+        box.style.cssText =
+            'background:#fff;padding:24px 28px;border-radius:8px;' +
+            'box-shadow:0 4px 24px rgba(0,0,0,0.2);max-width:440px;' +
+            'font-family:Helvetica,Arial,sans-serif;';
+        box.innerHTML =
+            '<h3 style="margin:0 0 10px;font-size:18px;">Import diagram layout</h3>' +
+            '<p style="margin:0 0 18px;color:#444;line-height:1.45;font-size:14px;">' +
+            'Choose how to arrange the imported network on the canvas:</p>' +
+            '<ul style="margin:0 0 20px 18px;padding:0;color:#555;font-size:13px;line-height:1.5;">' +
+            '<li><strong>Vertical</strong> — main path runs top to bottom; branches extend to the right.</li>' +
+            '<li><strong>Horizontal</strong> — main path runs left to right; branches extend downward.</li>' +
+            '</ul>' +
+            '<div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">' +
+            '<button type="button" data-layout="cancel" style="padding:8px 14px;">Cancel</button>' +
+            '<button type="button" data-layout="horizontal" style="padding:8px 14px;">Horizontal</button>' +
+            '<button type="button" data-layout="vertical" style="padding:8px 14px;font-weight:600;">Vertical</button>' +
+            '</div>';
+        const finish = (layout) => {
+            if (overlay.parentNode) {
+                overlay.parentNode.removeChild(overlay);
+            }
+            resolve(layout);
+        };
+        box.addEventListener('click', (evt) => {
+            const btn = evt.target.closest('[data-layout]');
+            if (!btn) {
+                return;
+            }
+            const choice = btn.getAttribute('data-layout');
+            if (choice === 'cancel') {
+                finish(null);
+            } else if (choice === 'vertical' || choice === 'horizontal') {
+                finish(choice);
+            }
+        });
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+    });
+}
 
 function importOpenDss1phJunctionBusStyle() {
     return vertexStyleImportedBusbar('Bus');
 }
 
 /**
- * Build a vertical single-phase radial feeder using OpenDSS-only palette elements.
- * Layout: vertical 3 kV backbone (left) with horizontal taps per row:
- *   HV bus — Transformer 1ph — LV bus — Load 1ph (below LV).
+ * Build a single-phase radial network using OpenDSS-only palette elements.
+ * Vertical: main path top-to-bottom with branches to the right.
+ * @param {'vertical'|'horizontal'} layout
  */
-function insertOpenDss1phFeederImport(grafka, parent, layoutCenterX, startY, bundle) {
+function insertOpenDss1phFeederImport(grafka, parent, layoutCenterX, startY, bundle, layout = 'vertical') {
+    if (layout === 'horizontal') {
+        insertOpenDss1phFeederImportHorizontal(grafka, parent, layoutCenterX, startY, bundle);
+        return;
+    }
     const lineRows = bundle.line_1ph?.data || [];
     const trafoRows = bundle.trafo_1ph?.data || [];
     const loadRows = bundle.load_1ph?.data || [];
@@ -1112,7 +1190,7 @@ function insertOpenDss1phFeederImport(grafka, parent, layoutCenterX, startY, bun
         grafka.insertEdge(parent, null, '', srcVertex, junction, OPENDSS_1PH_EDGE_SOURCE);
     });
 
-    // Frame imported feeder so the full diagram is visible after drop.
+    // Frame imported network so the full diagram is visible after drop.
     try {
         if (typeof grafka.fitWindow === 'function') {
             const n = feederNodes.length || 1;
@@ -1125,6 +1203,234 @@ function insertOpenDss1phFeederImport(grafka, parent, layoutCenterX, startY, bun
         }
     } catch (e) {
         console.warn('Could not auto-fit OpenDSS 1ph import:', e);
+    }
+}
+
+/**
+ * Horizontal layout: main path left-to-right with branches downward:
+ *   Source 1ph (above first bus) — HV bus — … — Transformer 1ph — LV bus — Load 1ph.
+ */
+function insertOpenDss1phFeederImportHorizontal(grafka, parent, layoutCenterX, startY, bundle) {
+    const lineRows = bundle.line_1ph?.data || [];
+    const trafoRows = bundle.trafo_1ph?.data || [];
+    const loadRows = bundle.load_1ph?.data || [];
+    const sourceRows = bundle.source_1ph?.data || [];
+    const feederNodes = bundle.feeder_nodes?.data || [];
+
+    const feedTop = startY + OPENDSS_1PH_SOURCE_ABOVE;
+    const feedStartX = layoutCenterX + OPENDSS_1PH_FEEDER_X_OFFSET;
+    const [trW, trH] = vertexSizeFromElectrisimSymbol('sym-transformer', 40, 60);
+    const [ldW, ldH] = vertexSizeFromElectrisimSymbol('sym-load', 47, 56);
+    let trafoStyle = vertexStyleFromElectrisimSymbol('sym-transformer', 'Transformer 1ph');
+    let trafoW = trW;
+    let trafoH = trH;
+    [trafoW, trafoH] = [trafoH, trafoW];
+    trafoStyle = `${trafoStyle};rotation=${IMPORT_SLD_VERTICAL_ROTATION}`;
+    const tapBlockH = OPENDSS_1PH_TAP_GAP + trafoH + OPENDSS_1PH_LV_GAP + OPENDSS_1PH_BUS_H;
+
+    const junctionByBusName = Object.create(null);
+    const colByHvBus = Object.create(null);
+
+    feederNodes.forEach(([busName, orderIdx]) => {
+        const col = Number(orderIdx);
+        const colX = feedStartX + col * OPENDSS_1PH_COL_WIDTH;
+        const junction = grafka.insertVertex(
+            parent,
+            null,
+            '',
+            colX,
+            feedTop,
+            OPENDSS_1PH_BUS_W,
+            OPENDSS_1PH_BUS_H,
+            importOpenDss1phJunctionBusStyle(),
+        );
+        configureBusAttributes(grafka, junction, {
+            name: String(busName),
+            vn_kv: '3',
+        });
+        junctionByBusName[String(busName)] = junction;
+        colByHvBus[String(busName)] = colX;
+    });
+
+    lineRows.forEach((row) => {
+        const [name, fromBus, toBus, lengthKm, rOhm, xOhm, cNf] = row;
+        const fromVertex = junctionByBusName[String(fromBus)];
+        const toVertex = junctionByBusName[String(toBus)];
+        if (!fromVertex || !toVertex) {
+            console.warn(`Skipping Line 1ph ${name}: junction not found`, { fromBus, toBus });
+            return;
+        }
+        const lineEdge = grafka.insertEdge(
+            parent,
+            null,
+            String(name),
+            fromVertex,
+            toVertex,
+            OPENDSS_1PH_LINE_EDGE_STYLE_H,
+        );
+        if (typeof window.configureLine1phAttributes === 'function') {
+            window.configureLine1phAttributes(grafka, lineEdge, {
+                name: String(name),
+                length_km: String(lengthKm),
+                r_ohm_per_km: String(rOhm),
+                x_ohm_per_km: String(xOhm),
+                c_nf_per_km: String(cNf),
+                phase: 1,
+                conn: 'wye',
+                in_service: true,
+            });
+        }
+    });
+
+    const lvBusByName = Object.create(null);
+    const trafoByHv = Object.create(null);
+
+    trafoRows.forEach((row) => {
+        const [
+            name, hvBus, lvBusName, snKva, vnHvKv, vnLvKv, vkPercent, vkrPercent, inService,
+        ] = row;
+        const hvVertex = junctionByBusName[String(hvBus)];
+        const colX = colByHvBus[String(hvBus)];
+        if (!hvVertex || colX == null) {
+            console.warn(`Skipping Transformer 1ph ${name}: HV junction ${hvBus} not found`);
+            return;
+        }
+
+        const trafoX = colX + OPENDSS_1PH_BUS_W / 2 - trafoW / 2;
+        const trafoY = feedTop + OPENDSS_1PH_BUS_H + OPENDSS_1PH_TAP_GAP;
+        const trafoVertex = grafka.insertVertex(
+            parent,
+            null,
+            '',
+            trafoX,
+            trafoY,
+            trafoW,
+            trafoH,
+            trafoStyle,
+        );
+        if (typeof window.configureTransformer1phAttributes === 'function') {
+            window.configureTransformer1phAttributes(grafka, trafoVertex, {
+                name: String(name),
+                sn_kva: String(snKva),
+                vn_hv_kv: String(vnHvKv),
+                vn_lv_kv: String(vnLvKv),
+                vk_percent: String(vkPercent),
+                vkr_percent: String(vkrPercent),
+                phase: 1,
+                conn: 'wye',
+                in_service: inService !== false,
+            });
+        }
+        grafka.insertEdge(parent, null, '', hvVertex, trafoVertex, OPENDSS_1PH_EDGE_HV_TO_TRAFO_H);
+
+        const lvY = trafoY + trafoH + OPENDSS_1PH_LV_GAP;
+        const lvBusVertex = grafka.insertVertex(
+            parent,
+            null,
+            '',
+            colX,
+            lvY,
+            OPENDSS_1PH_BUS_W,
+            OPENDSS_1PH_BUS_H,
+            importOpenDss1phJunctionBusStyle(),
+        );
+        configureBusAttributes(grafka, lvBusVertex, {
+            name: String(lvBusName),
+            vn_kv: String(vnLvKv),
+        });
+        lvBusByName[String(lvBusName)] = lvBusVertex;
+        trafoByHv[String(hvBus)] = { trafoVertex, lvBus: lvBusVertex, lvBusName: String(lvBusName) };
+
+        grafka.insertEdge(parent, null, '', trafoVertex, lvBusVertex, OPENDSS_1PH_EDGE_TRAFO_TO_LV_H);
+    });
+
+    const loadStyle = vertexStyleFromElectrisimSymbol('sym-load', 'Load 1ph');
+    loadRows.forEach((row) => {
+        const [name, lvBusName, pKw, qKvar, kv, pf, conn, inService] = row;
+        let lvBusVertex = lvBusByName[String(lvBusName)];
+        if (!lvBusVertex) {
+            const trafoEntry = Object.values(trafoByHv).find((t) => t.lvBusName === String(lvBusName));
+            lvBusVertex = trafoEntry?.lvBus;
+        }
+        if (!lvBusVertex) {
+            console.warn(`Skipping Load 1ph ${name}: LV bus ${lvBusName} not found`);
+            return;
+        }
+        const loadX = lvBusVertex.geometry.x + OPENDSS_1PH_BUS_W / 2 - ldW / 2;
+        const loadY = lvBusVertex.geometry.y + OPENDSS_1PH_BUS_H + OPENDSS_1PH_LOAD_BELOW_LV;
+        const loadVertex = grafka.insertVertex(
+            parent,
+            null,
+            '',
+            loadX,
+            loadY,
+            ldW,
+            ldH,
+            loadStyle,
+        );
+        if (typeof window.configureLoad1phAttributes === 'function') {
+            window.configureLoad1phAttributes(grafka, loadVertex, {
+                name: String(name),
+                p_kw: String(pKw),
+                q_kvar: String(qKvar),
+                kv: String(kv),
+                pf: String(pf),
+                phase: 1,
+                conn: conn || 'wye',
+                in_service: inService !== false,
+            });
+        }
+        grafka.insertEdge(parent, null, '', lvBusVertex, loadVertex, OPENDSS_1PH_EDGE_LV_TO_LOAD);
+    });
+
+    sourceRows.forEach((row) => {
+        const [name, busName, vmPu, vaDegree, sScMax, inService] = row;
+        const junction = junctionByBusName[String(busName)];
+        if (!junction) {
+            console.warn(`Skipping Source 1ph ${name}: junction ${busName} not found`);
+            return;
+        }
+        const [srcW, srcH] = vertexSizeFromElectrisimSymbol('sym-ext-grid', 56, 56);
+        const anchorX = junction.geometry.x + OPENDSS_1PH_BUS_W / 2 - srcW / 2;
+        const anchorY = junction.geometry.y - OPENDSS_1PH_SOURCE_ABOVE;
+        const srcStyle = vertexStyleFromElectrisimSymbol('sym-ext-grid', 'Source 1ph');
+        const srcVertex = grafka.insertVertex(
+            parent,
+            null,
+            '',
+            anchorX,
+            anchorY,
+            srcW,
+            srcH,
+            srcStyle,
+        );
+        if (typeof window.configureSource1phAttributes === 'function') {
+            window.configureSource1phAttributes(grafka, srcVertex, {
+                name: String(name),
+                vm_pu: String(vmPu),
+                va_degree: String(vaDegree),
+                s_sc_max_mva: String(sScMax),
+                phase: 1,
+                conn: 'wye',
+                in_service: inService !== false,
+            });
+        }
+        grafka.insertEdge(parent, null, '', srcVertex, junction, OPENDSS_1PH_EDGE_SOURCE);
+    });
+
+    try {
+        if (typeof grafka.fitWindow === 'function') {
+            const n = feederNodes.length || 1;
+            const totalW = n * OPENDSS_1PH_COL_WIDTH + OPENDSS_1PH_BUS_W + 80;
+            const totalH = OPENDSS_1PH_SOURCE_ABOVE + OPENDSS_1PH_BUS_H + tapBlockH +
+                OPENDSS_1PH_LOAD_BELOW_LV + ldH + 80;
+            grafka.fitWindow(
+                new mxRectangle(feedStartX - 60, startY - 20, totalW, totalH),
+                30,
+            );
+        }
+    } catch (e) {
+        console.warn('Could not auto-fit OpenDSS 1ph horizontal import:', e);
     }
 }
 
@@ -1191,13 +1497,14 @@ async function insertComponentsForData(grafka, a, target, point, data) {
         if (importMeta.single_phase && importMeta.import_mode === 'opendss_1ph') {
             const layoutCenterX = x;
             const startY = y;
+            const layout = data?._object?._import_layout === 'horizontal' ? 'horizontal' : 'vertical';
             insertOpenDss1phFeederImport(grafka, parent, layoutCenterX, startY, {
                 line_1ph: parseImportTable(data?._object?.line_1ph),
                 trafo_1ph: parseImportTable(data?._object?.trafo_1ph),
                 load_1ph: parseImportTable(data?._object?.load_1ph),
                 source_1ph: parseImportTable(data?._object?.source_1ph),
                 feeder_nodes: parseImportTable(data?._object?.feeder_nodes),
-            });
+            }, layout);
             grafka.getModel().endUpdate();
             return;
         }
@@ -1278,43 +1585,47 @@ async function insertComponentsForData(grafka, a, target, point, data) {
 
         let busPositions = null;
         let importPandapowerVerticalSld = false;
+        const importLayoutChoice = data?._object?._import_layout === 'horizontal' ? 'horizontal' : 'vertical';
 
-        if (importAllBusesHaveGeo(busData)) {
-            busPositions = importBusPositionsFromGeo(busData, layoutCenterX, startY, IMPORT_GEO_SCALE);
-            importPandapowerVerticalSld = true;
-        } else if (
-            busCount > 0 &&
-            busCount <= IMPORT_MAX_BUSES_VERTICAL_FEEDER &&
-            externalGridData &&
-            Array.isArray(externalGridData.data) &&
-            externalGridData.data.length > 0
-        ) {
-            const rootRow = externalGridData.data[0];
-            const rootSlack = parseInt(String(rootRow[1]), 10);
-            if (Number.isFinite(rootSlack) && rootSlack >= 0 && rootSlack < busCount) {
-                const adj = importBuildBusAdjacencyForLayout(
-                    busCount,
-                    lineData,
-                    transformerData,
-                    switchData,
-                    busData,
-                );
-                busPositions = importLayoutBfsVerticalFeeder(
-                    busCount,
-                    adj,
-                    rootSlack,
-                    layoutCenterX,
-                    startY,
-                    IMPORT_VERTICAL_FEEDER_STEP,
-                    IMPORT_SIBLING_BUS_GAP,
-                );
-                if (busPositions) {
-                    importPandapowerVerticalSld = true;
+        if (importLayoutChoice === 'vertical') {
+            if (importAllBusesHaveGeo(busData)) {
+                busPositions = importBusPositionsFromGeo(busData, layoutCenterX, startY, IMPORT_GEO_SCALE);
+                importPandapowerVerticalSld = true;
+            } else if (
+                busCount > 0 &&
+                busCount <= IMPORT_MAX_BUSES_VERTICAL_FEEDER &&
+                externalGridData &&
+                Array.isArray(externalGridData.data) &&
+                externalGridData.data.length > 0
+            ) {
+                const rootRow = externalGridData.data[0];
+                const rootSlack = parseInt(String(rootRow[1]), 10);
+                if (Number.isFinite(rootSlack) && rootSlack >= 0 && rootSlack < busCount) {
+                    const adj = importBuildBusAdjacencyForLayout(
+                        busCount,
+                        lineData,
+                        transformerData,
+                        switchData,
+                        busData,
+                    );
+                    busPositions = importLayoutBfsVerticalFeeder(
+                        busCount,
+                        adj,
+                        rootSlack,
+                        layoutCenterX,
+                        startY,
+                        IMPORT_VERTICAL_FEEDER_STEP,
+                        IMPORT_SIBLING_BUS_GAP,
+                    );
+                    if (busPositions) {
+                        importPandapowerVerticalSld = true;
+                    }
                 }
             }
         }
 
         if (!busPositions) {
+            importPandapowerVerticalSld = false;
             const voltageGroups = {};
             for (let index = 0; index < busData.data.length; index++) {
                 const bus = busData.data[index];
@@ -1774,7 +2085,9 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                     x0x_max: x0x_max,
                 })
 
-                const edgeStyle = "edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=NotEditableLine";
+                const edgeStyle = importPandapowerVerticalSld
+                    ? 'edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=NotEditableLine'
+                    : 'edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=NotEditableLine';
 
                 if (busVertex) {
                     grafka.insertEdge(parent, null, "", vertex, busVertex, edgeStyle);
