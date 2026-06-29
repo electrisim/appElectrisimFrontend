@@ -80,8 +80,11 @@ async function checkSubscriptionStatus() {
     }
 }
 
-// Function to redirect to Stripe Checkout
-async function redirectToStripeCheckout(priceId) {
+// Function to redirect to Stripe Checkout.
+// Accepts either an explicit Stripe price ID, or a plan name ('personal' | 'company').
+// For the Company plan, an initial seat quantity can be supplied via options.quantity
+// (the customer can still adjust the seat count on the Stripe Checkout page).
+async function redirectToStripeCheckout(priceIdOrPlan, options = {}) {
     try {
         const token = getAuthToken();
         
@@ -90,13 +93,44 @@ async function redirectToStripeCheckout(priceId) {
             return handleUnauthenticated();
         }
 
-        const isProd = window.location.hostname === 'app.electrisim.com';
-        const defaultPriceId = isProd ? 'price_1RLjivAd4ULYw2Nb6oGrb9P1' : 'price_1RMDAEAd4ULYw2Nb9nhh8Wf2';
-        
+        // When no explicit plan/price is passed (e.g. the post-login redirect from
+        // a marketing CTA), derive the plan from the URL (?plan=) or a stored
+        // selection so a Company CTA still starts a Company checkout.
+        if (!priceIdOrPlan) {
+            let urlPlan = null;
+            try {
+                urlPlan = new URLSearchParams(window.location.search).get('plan');
+            } catch (e) { /* ignore */ }
+            let storedPlan = null;
+            try {
+                storedPlan = localStorage.getItem('selectedPlan');
+            } catch (e) { /* ignore */ }
+            priceIdOrPlan = (urlPlan || storedPlan || 'personal').toLowerCase();
+        }
+
+        // Resolve the requested plan to a concrete Stripe price ID.
+        let priceId = priceIdOrPlan;
+        let isCompany = false;
+        if (!priceIdOrPlan || priceIdOrPlan === 'personal') {
+            priceId = config.personalPriceId;
+        } else if (priceIdOrPlan === 'company') {
+            priceId = config.companyPriceId;
+            isCompany = true;
+        } else if (priceIdOrPlan === config.companyPriceId) {
+            isCompany = true;
+        }
+
+        const requestBody = { priceId };
+        if (isCompany) {
+            const quantity = parseInt(options.quantity, 10);
+            requestBody.quantity = Number.isInteger(quantity) && quantity >= 1 ? quantity : 1;
+        }
+
         console.log('Creating checkout session:', {
-            priceId: priceId || defaultPriceId,
-            apiUrl: `${API_BASE_URL}/stripe/create-checkout-session`,
-            isProduction: isProd
+            priceId,
+            isCompany,
+            quantity: requestBody.quantity,
+            apiUrl: `${API_BASE_URL}/stripe/create-checkout-session`
         });
         
         const response = await fetch(`${API_BASE_URL}/stripe/create-checkout-session`, {
@@ -105,9 +139,7 @@ async function redirectToStripeCheckout(priceId) {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
             },
-            body: JSON.stringify({
-                priceId: priceId || defaultPriceId
-            }),
+            body: JSON.stringify(requestBody),
         });
 
         if (response.status === 401) {
@@ -272,8 +304,9 @@ function showSubscriptionModal() {
         boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)'
     });
     priceInfo.innerHTML = `
-        <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">$5.00<span style="font-size: 16px; font-weight: normal;">/month</span></div>
-        <div style="font-size: 13px; opacity: 0.9;">Less than a cup of coffee!</div>
+        <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">$10<span style="font-size: 16px; font-weight: normal;">/month</span></div>
+        <div style="font-size: 13px; opacity: 0.9;">Personal plan &middot; cancel anytime</div>
+        <div style="font-size: 13px; opacity: 0.9; margin-top: 6px;">Company: $40 / user / month</div>
     `;
     
     // Features list
@@ -321,10 +354,15 @@ function showSubscriptionModal() {
         featuresList.appendChild(li);
     });
     
-    // Subscribe button
+    // Subscribe button (Personal plan)
     const subscribeButton = document.createElement('button');
     Object.assign(subscribeButton.style, DIALOG_STYLES.button);
-    subscribeButton.textContent = 'Subscribe Now';
+    subscribeButton.textContent = 'Subscribe Personal — $10/mo';
+
+    // Company plan button (per-seat, $40/user/month)
+    const companyButton = document.createElement('button');
+    Object.assign(companyButton.style, { ...DIALOG_STYLES.button, marginTop: '10px' });
+    companyButton.textContent = 'Get Company plan — $40/user/mo';
     
     // Cancel button
     const cancelButton = document.createElement('button');
@@ -340,7 +378,7 @@ function showSubscriptionModal() {
         try {
             subscribeButton.disabled = true;
             subscribeButton.textContent = 'Processing...';
-            await redirectToStripeCheckout();
+            await redirectToStripeCheckout('personal');
         } catch (error) {
             console.error('Subscription error:', error);
             const errorMsg = document.createElement('div');
@@ -349,7 +387,24 @@ function showSubscriptionModal() {
             modal.appendChild(errorMsg);
         } finally {
             subscribeButton.disabled = false;
-            subscribeButton.textContent = 'Subscribe Now';
+            subscribeButton.textContent = 'Subscribe Personal — $10/mo';
+        }
+    });
+
+    companyButton.addEventListener('click', async () => {
+        try {
+            companyButton.disabled = true;
+            companyButton.textContent = 'Processing...';
+            await redirectToStripeCheckout('company');
+        } catch (error) {
+            console.error('Company subscription error:', error);
+            const errorMsg = document.createElement('div');
+            Object.assign(errorMsg.style, DIALOG_STYLES.error);
+            errorMsg.textContent = 'An error occurred. Please try again.';
+            modal.appendChild(errorMsg);
+        } finally {
+            companyButton.disabled = false;
+            companyButton.textContent = 'Get Company plan — $40/user/mo';
         }
     });
     
@@ -383,6 +438,7 @@ function showSubscriptionModal() {
     modal.appendChild(priceInfo);
     modal.appendChild(featuresList);
     modal.appendChild(subscribeButton);
+    modal.appendChild(companyButton);
     modal.appendChild(cancelButton);
     
     overlay.appendChild(modal);
@@ -542,8 +598,9 @@ const SubscriptionManager = {
             boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)'
         });
         priceInfo.innerHTML = `
-            <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">$5.00<span style="font-size: 16px; font-weight: normal;">/month</span></div>
-            <div style="font-size: 13px; opacity: 0.9;">Less than a cup of coffee!</div>
+            <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">$10<span style="font-size: 16px; font-weight: normal;">/month</span></div>
+            <div style="font-size: 13px; opacity: 0.9;">Personal plan &middot; cancel anytime</div>
+            <div style="font-size: 13px; opacity: 0.9; margin-top: 6px;">Company: $40 / user / month</div>
         `;
         
         // Features list
@@ -591,10 +648,15 @@ const SubscriptionManager = {
             featuresList.appendChild(li);
         });
         
-        // Subscribe button
+        // Subscribe button (Personal plan)
         const subscribeButton = document.createElement('button');
         Object.assign(subscribeButton.style, DIALOG_STYLES.button);
-        subscribeButton.textContent = 'Subscribe Now';
+        subscribeButton.textContent = 'Subscribe Personal — $10/mo';
+
+        // Company plan button (per-seat, $40/user/month)
+        const companyButton = document.createElement('button');
+        Object.assign(companyButton.style, { ...DIALOG_STYLES.button, marginTop: '10px' });
+        companyButton.textContent = 'Get Company plan — $40/user/mo';
         
         // Cancel button
         const cancelButton = document.createElement('button');
@@ -610,7 +672,7 @@ const SubscriptionManager = {
             try {
                 subscribeButton.disabled = true;
                 subscribeButton.textContent = 'Processing...';
-                await redirectToStripeCheckout();
+                await redirectToStripeCheckout('personal');
             } catch (error) {
                 console.error('Subscription error:', error);
                 const errorMsg = document.createElement('div');
@@ -619,7 +681,24 @@ const SubscriptionManager = {
                 modal.appendChild(errorMsg);
             } finally {
                 subscribeButton.disabled = false;
-                subscribeButton.textContent = 'Subscribe Now';
+                subscribeButton.textContent = 'Subscribe Personal — $10/mo';
+            }
+        });
+
+        companyButton.addEventListener('click', async () => {
+            try {
+                companyButton.disabled = true;
+                companyButton.textContent = 'Processing...';
+                await redirectToStripeCheckout('company');
+            } catch (error) {
+                console.error('Company subscription error:', error);
+                const errorMsg = document.createElement('div');
+                Object.assign(errorMsg.style, DIALOG_STYLES.error);
+                errorMsg.textContent = 'An error occurred. Please try again.';
+                modal.appendChild(errorMsg);
+            } finally {
+                companyButton.disabled = false;
+                companyButton.textContent = 'Get Company plan — $40/user/mo';
             }
         });
         
@@ -653,6 +732,7 @@ const SubscriptionManager = {
         modal.appendChild(priceInfo);
         modal.appendChild(featuresList);
         modal.appendChild(subscribeButton);
+        modal.appendChild(companyButton);
         modal.appendChild(cancelButton);
         
         overlay.appendChild(modal);

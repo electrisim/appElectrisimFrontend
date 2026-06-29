@@ -11,6 +11,10 @@ const config = {
       apiBaseUrl: 'http://localhost:5502/api',
       frontendUrl: 'http://127.0.0.1:5501',
       stripePublishableKey: 'pk_test_51OOivlAd4ULYw2NbezAGuGZCcd12huJWoi4GHPmUZzz5SmuCaptFp9tcR8Tefcgpkzu8S5xkI1NG8P0VWQJktoxJ00IX6EC0nO',
+      // Stripe Price IDs (test mode). Replace the placeholders with the real
+      // price IDs once the $10 Personal and $40/seat Company prices are created.
+      personalPriceId: 'price_1TneZrAd4ULYw2Nb4XH8yZih',
+      companyPriceId: 'price_1Tnea9Ad4ULYw2NbUTbZvCAq',
       isDevelopment: true,
       mailFromTransactional: MAIL_FROM_TRANSACTIONAL
     },
@@ -22,6 +26,10 @@ const config = {
       apiBaseUrl: 'https://api.electrisim.com/api',
       frontendUrl: 'https://app.electrisim.com',
       stripePublishableKey: 'pk_live_51OOivlAd4ULYw2NbUnCgqV6KHAiRzkuoMJfcYKv1R5DsarBaly7QDOQCwwHI4GQUhYqA57SGHIOIwYleWKs0UQNe00fiZkcYco',
+      // Stripe Price IDs (live mode). Replace the placeholders with the real
+      // price IDs once the $10 Personal and $40/seat Company prices are created.
+      personalPriceId: 'price_1TneTZAd4ULYw2NbfzvJtGnY',
+      companyPriceId: 'price_1TneVuAd4ULYw2Nbf1u2ll71',
       isDevelopment: false,
       mailFromTransactional: MAIL_FROM_TRANSACTIONAL
     }

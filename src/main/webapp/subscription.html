@@ -75,54 +75,54 @@
         <h1 class="text-center mb-5">Choose Your Subscription Plan</h1>
         
         <div class="row">
-            <!-- Basic Plan -->
+            <!-- Community Edition -->
             <div class="col-md-4">
                 <div class="subscription-card h-100">
-                    <h3>Basic Plan</h3>
-                    <div class="price">$5.00 <span class="period">/month</span></div>
+                    <h3>Community Edition</h3>
+                    <div class="price">$0 <span class="period">/month</span></div>
                     <ul class="feature-list">
-                        <li>Access to all simulations</li>
-                        <li>Basic support</li>
-                        <li>Community access</li>
+                        <li>Deploy locally on your computer</li>
+                        <li>Full access to all algorithms</li>
+                        <li>Open-source code (Apache 2.0)</li>
+                        <li>No subscription, no card</li>
                     </ul>
-                    <button onclick="handleSubscriptionClick(isProd ? 'price_1RLjivAd4ULYw2Nb6oGrb9P1' : 'price_1RMDAEAd4ULYw2Nb9nhh8Wf2')" class="btn btn-primary w-100">
-                        Subscribe Now
-                    </button>
+                    <a href="https://github.com/electrisim/appElectrisimFrontend" target="_blank" rel="noopener" class="btn btn-outline-primary w-100">
+                        Get Source Code
+                    </a>
                 </div>
             </div>
             
-            <!-- Pro Plan -->
+            <!-- Personal Plan -->
             <div class="col-md-4">
                 <div class="subscription-card h-100 border-primary">
                     <div class="ribbon bg-primary text-white px-2 position-absolute top-0 end-0">Popular</div>
-                    <h3>Pro Plan</h3>
-                    <div class="price">$19.99 <span class="period">/month</span></div>
+                    <h3>Personal</h3>
+                    <div class="price">$10 <span class="period">/month</span></div>
                     <ul class="feature-list">
-                        <li>All Basic features</li>
-                        <li>Priority support</li>
-                        <li>Advanced analytics</li>
-                        <li>Custom simulations</li>
+                        <li>Cloud-based access, no install</li>
+                        <li>Secure cloud storage for models</li>
+                        <li>Priority email support</li>
+                        <li>Early access to new features</li>
                     </ul>
-                    <button onclick="handleSubscriptionClick(isProd ? 'price_1RLjivAd4ULYw2Nb6oGrb9P1' : 'price_1RMDAEAd4ULYw2Nb9nhh8Wf2')" class="btn btn-primary w-100">
+                    <button onclick="handleSubscriptionClick('personal')" class="btn btn-primary w-100">
                         Subscribe Now
                     </button>
                 </div>
             </div>
             
-            <!-- Enterprise Plan -->
+            <!-- Company Plan -->
             <div class="col-md-4">
                 <div class="subscription-card h-100">
-                    <h3>Enterprise Plan</h3>
-                    <div class="price">$49.99 <span class="period">/month</span></div>
+                    <h3>Company</h3>
+                    <div class="price">$40 <span class="period">/user / month</span></div>
                     <ul class="feature-list">
-                        <li>All Pro features</li>
-                        <li>24/7 priority support</li>
-                        <li>Dedicated account manager</li>
-                        <li>Custom integrations</li>
-                        <li>Team collaboration</li>
+                        <li>Everything in Personal</li>
+                        <li>Commercial-use license</li>
+                        <li>Per-seat billing for your whole team</li>
+                        <li>Choose the number of seats at checkout</li>
                     </ul>
-                    <button onclick="handleSubscriptionClick(isProd ? 'price_1RLjivAd4ULYw2Nb6oGrb9P1' : 'price_1RMDAEAd4ULYw2Nb9nhh8Wf2')" class="btn btn-primary w-100">
-                        Subscribe Now
+                    <button onclick="handleSubscriptionClick('company')" class="btn btn-primary w-100">
+                        Subscribe Team
                     </button>
                 </div>
             </div>
@@ -159,14 +159,13 @@
             window.location.href = 'login.html';
         };
         
-        // Add environment check
-        const isProd = window.location.hostname === 'app.electrisim.com';
-        
-        window.handleSubscriptionClick = async (priceId) => {
+        // Start checkout for the selected plan ('personal' | 'company').
+        // The Company plan is billed per-seat; the customer chooses the seat
+        // count on the Stripe Checkout page (adjustable quantity).
+        window.handleSubscriptionClick = async (plan) => {
             try {
-                const handler = new StripeSubscriptionHandler();
-                console.log('Starting subscription process for price:', priceId);
-                await handler.redirectToStripeCheckout(priceId);
+                console.log('Starting subscription process for plan:', plan);
+                await subscriptionHandler.redirectToStripeCheckout(plan);
             } catch (error) {
                 console.error('Error in subscription process:', error);
                 alert('An error occurred during the subscription process. Please try again.');

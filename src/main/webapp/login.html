@@ -214,12 +214,21 @@
                 }
                 
                 const apiUrl = config.apiBaseUrl;
-                const isProd = !config.isDevelopment;
-                const priceId = isProd 
-                    ? 'price_1RLjivAd4ULYw2Nb6oGrb9P1' 
-                    : 'price_1RMDAEAd4ULYw2Nb9nhh8Wf2';
-                
-                console.log('Fallback checkout: Creating session...', { apiUrl, priceId, isProd });
+
+                // Select plan from the URL (?plan=personal|company), falling back to
+                // a stored selection (set on page load) so it survives OAuth round-trips.
+                let storedPlan = null;
+                try { storedPlan = localStorage.getItem('selectedPlan'); } catch (e) { /* ignore */ }
+                const plan = (new URLSearchParams(window.location.search).get('plan') || storedPlan || 'personal').toLowerCase();
+                const isCompany = plan === 'company';
+                const priceId = isCompany ? config.companyPriceId : config.personalPriceId;
+
+                const checkoutBody = { priceId };
+                if (isCompany) {
+                    checkoutBody.quantity = 1;
+                }
+
+                console.log('Fallback checkout: Creating session...', { apiUrl, priceId, plan });
                 
                 try {
                     const response = await fetch(`${apiUrl}/stripe/create-checkout-session`, {
@@ -228,7 +237,7 @@
                             'Content-Type': 'application/json',
                             'Authorization': `Bearer ${token}`
                         },
-                        body: JSON.stringify({ priceId })
+                        body: JSON.stringify(checkoutBody)
                     });
                     
                     if (!response.ok) {
@@ -265,6 +274,13 @@
             const params = new URLSearchParams(window.location.search);
             const redirect = params.get('redirect');
             const registered = params.get('registered');
+
+            // Persist the chosen plan so it survives the OAuth redirect round-trip
+            // (the provider callback won't carry our ?plan= param back).
+            const planParam = params.get('plan');
+            if (planParam) {
+                try { localStorage.setItem('selectedPlan', planParam.toLowerCase()); } catch (e) { /* ignore */ }
+            }
             
             console.log('URL params - redirect:', redirect, 'registered:', registered);
             

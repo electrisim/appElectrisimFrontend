@@ -10,6 +10,7 @@ This tutorial demonstrates how a Battery Energy Storage System (BESS) can cause 
 |------|---------|
 | [`bess_weak_grid_overvoltage.dss`](bess_weak_grid_overvoltage.dss) | Import via **File → Import** (`.dss` / OpenDSS) — builds Grid, Feeder, POC transformer, and BESS (Case 2 baseline) |
 | [`clipchamp/bess_weak_grid_intro.html`](clipchamp/bess_weak_grid_intro.html) | **Clipchamp intro slides** (1920×1080, Electrisim branding) — see [`clipchamp/CLIPCHAMP_README.md`](clipchamp/CLIPCHAMP_README.md) |
+| [`soh_capability.py`](soh_capability.py) | **SOH-aware reactive capability** — shrinks the inverter's usable `q_avail_mvar` from battery State-of-Health / R_int before you trust the Volt-VAR headroom (see *SOH-aware reactive capability* below) |
 | This `.md` file | Step-by-step parameter changes for Cases 1–5 |
 
 ### Import the `.dss` template
@@ -145,6 +146,57 @@ Set ControlMode=Time
 
 **Expected:** BESS automatically absorbs Q when voltage exceeds ~1.02 pu; POC voltage reduced vs Case 2. Scenario Compare shows **Fully mitigated** buses and **BESS reactive response**.
 
+> **Reality check (Volt-VAR is a first layer, not a verdict):** Unity PF removes the *reactive* exchange, **not** the voltage sensitivity — on a weak feeder the `R·P` term still lifts POC voltage (that is exactly why Case 2 overvolts with `q_mvar = 0`). Reactive absorption only helps in proportion to the local **X/R**, and fixed Q / fixed PF can overcorrect or consume inverter kVA headroom as the operating point moves. The InvControl curve also assumes the requested Q is *physically deliverable* — which depends on the battery state (see **SOH-aware reactive capability** below). Treat Cases 3–5 as the quasi-static mechanism, then size the real envelope with the checks in **Verification scope** below.
+
+---
+
+## SOH-aware reactive capability (battery-state honesty)
+
+OpenDSS **InvControl** assumes the reactive headroom is bounded only by the inverter **kVA rating**. It does **not** shrink that headroom when the battery ages. But the Q you count on at the POC is only as honest as the **State-of-Health (SOH)** model underneath it: as cells degrade, internal resistance `R_int` rises, the DC-link voltage sags under load, the modulation ceiling drops, and the **deliverable** `q_avail_mvar` shrinks. If the SOH estimate is **inflated** (common when ML pipelines leak information across a cell's own charge/discharge cycles), the grid-code check can **pass on paper and fail in the field**.
+
+Use the helper script [`soh_capability.py`](soh_capability.py) to compute the realistic envelope **before** trusting the Volt-VAR result. It maps `R_int → V_dc → modulation/current-limit → Q_avail` for a given operating point.
+
+```bash
+python soh_capability.py
+```
+
+Representative result (3.45 MVA inverter class, `Q_req = 1.5 MVar`):
+
+| P (MW) | Q required | Q (honest SOH 80%) | Q (inflated SOH 95%) | Verdict flips? |
+|--------|-----------|--------------------|----------------------|----------------|
+| 2.5 | 1.5 | 1.78 | 2.09 | no |
+| **2.8** | **1.5** | **1.15 → FAIL** | **1.62 → PASS** | **YES** |
+| 3.0 | 1.5 | 0.11 | 1.17 | no (both fail) |
+
+At **P = 2.8 MW** the inflated model reports **1.62 MVar** available (compliant), while the honest aged battery delivers only **1.15 MVar** — a **0.35 MVar shortfall** exactly when voltage support is needed.
+
+**Workflow to fold this into the OpenDSS study:**
+
+1. Run `soh_capability.py` with your **aged-battery** datasheet (`R_int`, `OCV`, SOH) and inverter specs, at your worst-case export `P`.
+2. Take the resulting **`q_avail_mvar`** (honest case) as the inverter's effective reactive limit.
+3. In Electrisim, cap the BESS accordingly before re-running Case 5 — e.g. lower **`sn_mva`** so `√(P² + Q_req²) ≤ S_avail`, or scale the **Volt-VAR Y-array** so its maximum Q does not exceed `q_avail_mvar`.
+4. Re-run **OpenDSS Load Flow** and **Scenario Compare** with the honest limit vs the nameplate limit — if the mitigation verdict flips, the overvoltage is **not** actually mitigated at end-of-life.
+
+> **Scope of the SOH model:** instantaneous (grid-stability timescale). It does **not** model SOC energy depletion over multi-hour load flows, thermal derating, control-loop dynamics, or harmonic limits — validate the SOH estimator itself with **leakage-free, cell-independent** train/test splits before its output is allowed near a POC voltage assumption.
+
+Source / joint collaboration: Electrisim (Adam Kierad) × VolMax Studio Lab (Ivan Nestorov) — [electrisim-soh-capability-demo](https://github.com/VolMax-Studio/electrisim-soh-capability-demo) (Apache-2.0).
+
+---
+
+## Verification scope (what this quasi-static study does *not* cover)
+
+A snapshot OpenDSS load flow demonstrates the **mechanism** and sizes the steady-state reactive support. It is **not** a connection study. For a real weak-grid / low-SCR POC, complement it with:
+
+| Check | Why it matters on a weak grid |
+|-------|-------------------------------|
+| **Volt-Watt curtailment** | Backstop when Volt-VAR saturates — active-power reduction is sometimes the only lever once Q headroom is exhausted |
+| **Tap / regulator interaction** | OLTC and Volt-VAR can hunt or fight each other; check control time constants and hysteresis |
+| **Inverter capability curve** | Real P–Q limits, PF/Watt-priority behaviour, and the **SOH-shrunk** envelope above |
+| **Worst-case minimum load (and max export)** | Highest overvoltage risk usually occurs at light load with full export |
+| **Dynamic / EMT checks** | PLL stability at low SCR, current limiting, LVRT/HVRT ride-through, control interaction / sub-synchronous resonance, protection coordination, and harmonics |
+
+OpenDSS gives the quasi-static envelope; the dynamic/EMT behaviour is where low-SCR connections are actually won or lost.
+
 ---
 
 ## Using Scenario Compare
@@ -185,3 +237,4 @@ Pandapower in Electrisim supports BESS as fixed P/Q, OPF dispatch, and BESS sizi
 - [OpenDSS InvControl](https://opendss.epri.com/InvControl.html)
 - [OpenDSS Storage](https://opendss.epri.com/Storage.html)
 - [Smart inverter function calculation](https://opendss.epri.com/Calculationofthesmartinverterfun.html)
+- [SOH-aware reactive capability demo (VolMax × Electrisim)](https://github.com/VolMax-Studio/electrisim-soh-capability-demo) — `soh_capability.py`
