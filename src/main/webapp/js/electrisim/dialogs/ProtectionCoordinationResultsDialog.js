@@ -49,9 +49,26 @@ export class ProtectionCoordinationResultsDialog {
             this._renderChartPlaceholder(dialog);
         }
 
-        // Close button at the bottom
+        // Footer actions
         const closeRow = document.createElement('div');
         closeRow.style.cssText = 'display:flex; justify-content:flex-end; gap:8px; margin-top:24px; padding-top:16px; border-top:1px solid #e9ecef;';
+        if (!this.results.error) {
+            const reportBtn = document.createElement('button');
+            reportBtn.textContent = 'Download full report (.txt)';
+            reportBtn.style.cssText = `
+                padding: 8px 18px; background: #28a745; color: white; border: none; border-radius: 4px;
+                cursor: pointer; font-size: 14px;
+            `;
+            reportBtn.onclick = () => {
+                const fn = window.downloadProtectionCoordinationReport;
+                if (typeof fn === 'function') {
+                    fn(this.results);
+                } else {
+                    alert('Report export is not available. Reload the page and try again.');
+                }
+            };
+            closeRow.appendChild(reportBtn);
+        }
         const closeBtn = document.createElement('button');
         closeBtn.textContent = 'Close';
         closeBtn.style.cssText = `
@@ -114,14 +131,29 @@ export class ProtectionCoordinationResultsDialog {
                 <div><b>Grading margin t_diff:</b> ${this._safe(s.t_diff_s)} s</div>
             </div>
         `;
+        if (s.scenario_warning) {
+            const warn = document.createElement('div');
+            warn.style.cssText = 'margin-top:10px;padding:10px 12px;background:#fff3cd;border:1px solid #ffecb5;border-radius:4px;color:#664d03;font-size:12px;line-height:1.5;';
+            warn.textContent = s.scenario_warning;
+            section.appendChild(warn);
+        }
         dialog.appendChild(section);
     }
 
     _renderTrippingTable(dialog) {
         const scenarios = this.results.scenarios || [];
-        if (!scenarios.length) return;
         const section = document.createElement('div');
         section.innerHTML = '<h3 style="margin:8px 0 12px 0;">Tripping table</h3>';
+        if (!scenarios.length) {
+            const empty = document.createElement('div');
+            empty.style.cssText = 'padding:12px;border:1px solid #ffecb5;background:#fff3cd;color:#664d03;border-radius:6px;font-size:13px;line-height:1.5;margin-bottom:12px;';
+            empty.textContent = this.results.summary?.scenario_warning
+                || this.results.warning
+                || 'No fault scenarios were run, so there are no trip results. Use Fault location → "At selected busbar" if the model has no lines.';
+            section.appendChild(empty);
+            dialog.appendChild(section);
+            return;
+        }
         scenarios.forEach((sc, idx) => {
             const header = document.createElement('div');
             header.style.cssText = 'font-weight:600; margin:12px 0 4px 0; color:#343a40;';

@@ -54,6 +54,82 @@ function readSwitchProtectionAttrs(cell) {
     return out;
 }
 
+function _fmtProtVal(v, digits = 3) {
+    if (v == null || v === '') return '-';
+    const n = Number(v);
+    if (!isFinite(n)) return '-';
+    return n.toFixed(digits);
+}
+
+function _formatPickupSummary(settings) {
+    const parts = [];
+    if (settings.I_s_a != null) {
+        parts.push(`I_s=${_fmtProtVal(settings.I_s_a)} A (overload / IDMT pickup)`);
+    } else if (settings.I_s != null) {
+        parts.push(`I_s=${_fmtProtVal(settings.I_s)} kA (overload / IDMT pickup)`);
+    }
+    if (settings.I_g_a != null) {
+        parts.push(`I_g=${_fmtProtVal(settings.I_g_a)} A (primary / t> pickup)`);
+    } else if (settings.I_g != null) {
+        parts.push(`I_g=${_fmtProtVal(settings.I_g)} kA (primary / t> pickup)`);
+    }
+    if (settings.I_gg_a != null) {
+        parts.push(`I_gg=${_fmtProtVal(settings.I_gg_a)} A (instantaneous / t>> pickup)`);
+    } else if (settings.I_gg != null) {
+        parts.push(`I_gg=${_fmtProtVal(settings.I_gg)} kA (instantaneous / t>> pickup)`);
+    }
+    if (settings.rated_i_a != null) {
+        parts.push(`I_rated=${_fmtProtVal(settings.rated_i_a)} A`);
+    }
+    if (settings.pickup_current != null) {
+        parts.push(`I_pickup=${_fmtProtVal(settings.pickup_current)} A`);
+    }
+    return parts.length ? parts.join('; ') : '-';
+}
+
+function _appendDeviceSettingsSection(lines, dataJson) {
+    const devices = dataJson.devices || [];
+    lines.push('--- PROTECTION DEVICE SETTINGS ---');
+    lines.push('Computed/stored settings for each switch with an attached protection device.');
+    lines.push('OCR: overload pickup (I_s / I_g), overload delay (t_g or TMS+t_grade), instantaneous (I_gg, t_gg). Fuse: I_rated + curve.');
+    lines.push('Earth-fault (EF) pickup is not modeled in Electrisim.');
+    lines.push('');
+
+    if (!devices.length) {
+        lines.push('  (no device settings in response — check attach_summaries below)');
+        lines.push('');
+        return;
+    }
+
+    devices.forEach((d) => {
+        const s = d.settings || {};
+        const name = d.user_friendly_name || d.switch_name || d.switch_id || '?';
+        lines.push(`  Switch: ${name}`);
+        lines.push(`    Type: ${d.type || '-'} / ${d.subtype || '-'}`);
+        lines.push(`    Curve: ${d.curve_type || '-'}`);
+        if (s.tms != null) lines.push(`    TMS: ${s.tms}`);
+        if (s.t_grade != null) lines.push(`    t_grade [s] (overload grading delay): ${s.t_grade}`);
+        if (s.t_g != null) lines.push(`    t_g [s] (primary / overload trip time): ${s.t_g}`);
+        if (s.t_gg != null) lines.push(`    t_gg [s] (instantaneous trip time): ${s.t_gg}`);
+        lines.push(`    Pickup: ${_formatPickupSummary(s)}`);
+        if (s.overload_factor != null) lines.push(`    overload_factor: ${s.overload_factor}`);
+        if (s.ct_current_factor != null) lines.push(`    ct_current_factor: ${s.ct_current_factor}`);
+        if (s.safety_factor != null) lines.push(`    safety_factor: ${s.safety_factor}`);
+        lines.push('');
+    });
+}
+
+function _appendAttachSummariesSection(lines, dataJson) {
+    const summaries = dataJson.attach_summaries || [];
+    const skipped = summaries.filter(s => !s.attached);
+    if (!skipped.length) return;
+    lines.push('--- DEVICES NOT ATTACHED ---');
+    skipped.forEach(s => {
+        lines.push(`  ${s.user_friendly_name || s.switch_name || s.switch_id || '?'}: ${s.reason || 'unknown'}`);
+    });
+    lines.push('');
+}
+
 function downloadProtectionResultsText(dataJson) {
     try {
         const lines = [];
@@ -71,9 +147,31 @@ function downloadProtectionResultsText(dataJson) {
             lines.push(`Tripped (total across scenarios): ${s.n_tripped}`);
             lines.push(`Miscoordination warnings: ${s.n_miscoordination}`);
             lines.push(`Fault type: ${s.fault_type}, case: ${s.case}, t_diff: ${s.t_diff_s}s`);
+            if (s.fault_location_mode) {
+                lines.push(`Fault location mode: ${s.fault_location_mode}`);
+            }
+            if (s.scenario_warning) {
+                lines.push(`WARNING: ${s.scenario_warning}`);
+            }
             lines.push('');
         }
-        (dataJson.scenarios || []).forEach((sc, idx) => {
+
+        _appendDeviceSettingsSection(lines, dataJson);
+        _appendAttachSummariesSection(lines, dataJson);
+
+        lines.push('--- FAULT SCENARIOS & TRIP RESULTS ---');
+        const scenarios = dataJson.scenarios || [];
+        if (!scenarios.length) {
+            const warn = dataJson.summary?.scenario_warning
+                || dataJson.warning
+                || 'No fault scenarios were run — trip results are empty.';
+            lines.push(`  ${warn}`);
+            if (dataJson.summary?.fault_location_mode === 'line') {
+                lines.push('  Tip: models without lines need Fault location → "At selected busbar" and a chosen bus.');
+            }
+            lines.push('');
+        }
+        scenarios.forEach((sc, idx) => {
             const loc = sc.fault_location_mode === 'bus'
                 ? `bus fault at ${sc.fault_bus ?? '?'}`
                 : `line ${sc.sc_line_id}, fraction=${sc.sc_fraction}, fault bus=${sc.fault_bus ?? '?'}`;
@@ -234,8 +332,16 @@ function protectionCoordinationPandaPower(a, b, c) {
                     alert('Protection Coordination: ' + (dataJson.message || 'unknown error'));
                 }
 
-                if (values.export_results && dataJson && !dataJson.error) {
-                    downloadProtectionResultsText(dataJson);
+                if (dataJson && !dataJson.error) {
+                    const nScenarios = dataJson.summary?.n_scenarios ?? (dataJson.scenarios || []).length;
+                    if (nScenarios === 0) {
+                        const warn = dataJson.summary?.scenario_warning
+                            || 'No fault scenarios were run. Use "At selected busbar" if the model has no lines.';
+                        alert('Protection Coordination: ' + warn);
+                    }
+                    if (values.export_results) {
+                        downloadProtectionResultsText(dataJson);
+                    }
                 }
 
                 showResults(dataJson);
@@ -256,5 +362,6 @@ function protectionCoordinationPandaPower(a, b, c) {
 
 // Expose both as a module export and on window for the legacy Action wiring in app.min.js.
 window.protectionCoordinationPandaPower = protectionCoordinationPandaPower;
-export { protectionCoordinationPandaPower };
+window.downloadProtectionCoordinationReport = downloadProtectionResultsText;
+export { protectionCoordinationPandaPower, downloadProtectionResultsText };
 export default protectionCoordinationPandaPower;
