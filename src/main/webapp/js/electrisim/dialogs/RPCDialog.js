@@ -86,6 +86,17 @@ const GRID_CODE_TEMPLATES = {
             { p_pu: 1.0,  q_min_pu: -0.3287,  q_max_pu: 0.4108 }
         ]
     },
+    'polish_iriesp_ppm_fig2_400kv': {
+        name: 'Polish IRiESP \u2013 PPM P-Q/Pmax Fig. 2 @ 400 kV (Type D)',
+        description: 'NC RfG Art. 21(3)(c)(i) \u2014 P-Q/Pmax for Power Park Module at 400 kV PoC. At Pmax: \u00b10.33 Q/Pmax; from 10\u201390% P: \u22120.35 / +0.40 Q/Pmax; below 10% P: full technical capability (grey area, not plotted as a minimum envelope).',
+        rows: [
+            { p_pu: 0.0,  q_min_pu: 0.0,    q_max_pu: 0.0 },
+            { p_pu: 0.1,  q_min_pu: -0.35,  q_max_pu: 0.40 },
+            { p_pu: 0.5,  q_min_pu: -0.35,  q_max_pu: 0.40 },
+            { p_pu: 0.9,  q_min_pu: -0.35,  q_max_pu: 0.40 },
+            { p_pu: 1.0,  q_min_pu: -0.33,  q_max_pu: 0.33 }
+        ]
+    },
     'gb_grid_code': {
         name: 'GB Grid Code (UK, National Grid ESO)',
         description: 'National Grid ESO requirements for large power stations. cos\u03C6 = 0.95 underexcited, cos\u03C6 = 0.85 overexcited (lagging) at rated power.',
@@ -160,6 +171,57 @@ const GRID_CODE_TEMPLATES = {
     }
 };
 
+/** U-Q/Pmax grid-code envelopes (Q vs voltage at P = Pmax). */
+const UQ_GRID_CODE_TEMPLATES = {
+    'none': {
+        name: '-- Select U-Q Template --',
+        description: '',
+        rows: []
+    },
+    'custom_manual': {
+        name: 'Custom (manual U-Q table)',
+        description: 'Enter U (p.u.) and Q_min/Q_max in per-unit of P rated for the U-Q/Pmax study.',
+        rows: []
+    },
+    'polish_iriesp_type_d_uq_400kv': {
+        name: 'Polish IRiESP \u2013 PPM U-Q/Pmax @ 400 kV (Fig. 1)',
+        description: 'NC RfG Art. 21(3)(b)(i) \u2014 U-Q/Pmax at 400 kV PoC for Power Park Module (Fig. 1). Tapered envelope: Q_max = +0.33 at U \u2264 1.05 p.u., narrows above 1.05; Q_min follows sloped lower boundary below 0.95 p.u. (min +0.165 Q/Pmax at U = 0.875).',
+        rows: [
+            { u_pu: 0.875, q_min_pu: 0.165, q_max_pu: 0.33 },
+            { u_pu: 0.900, q_min_pu: 0.0, q_max_pu: 0.33 },
+            { u_pu: 0.925, q_min_pu: -0.165, q_max_pu: 0.33 },
+            { u_pu: 0.950, q_min_pu: -0.33, q_max_pu: 0.33 },
+            { u_pu: 1.000, q_min_pu: -0.33, q_max_pu: 0.33 },
+            { u_pu: 1.050, q_min_pu: -0.33, q_max_pu: 0.33 },
+            { u_pu: 1.075, q_min_pu: -0.33, q_max_pu: -0.12 },
+            { u_pu: 1.100, q_min_pu: -0.33, q_max_pu: -0.24 }
+        ]
+    },
+    'polish_iriesp_type_d_uq_110kv': {
+        name: 'Polish IRiESP \u2013 Type D U-Q/Pmax @ 110 kV',
+        description: 'Flat \u00b10.33 Q/Pmax band at Pmax for U = 0.875\u20131.10 p.u. (onshore wind farm precedent).',
+        rows: [
+            { u_pu: 0.875, q_min_pu: -0.33, q_max_pu: 0.33 },
+            { u_pu: 0.900, q_min_pu: -0.33, q_max_pu: 0.33 },
+            { u_pu: 0.950, q_min_pu: -0.33, q_max_pu: 0.33 },
+            { u_pu: 1.000, q_min_pu: -0.33, q_max_pu: 0.33 },
+            { u_pu: 1.050, q_min_pu: -0.33, q_max_pu: 0.33 },
+            { u_pu: 1.100, q_min_pu: -0.33, q_max_pu: 0.33 }
+        ]
+    },
+    'entsoe_ppm_uq_inner': {
+        name: 'ENTSO-E RfG \u2013 PPM U-Q/Pmax (EU minimum)',
+        description: 'Flat \u00b10.3287 Q/Pmax at Pmax across 0.9\u20131.1 p.u. (cos \u03C6 = 0.95 envelope).',
+        rows: [
+            { u_pu: 0.900, q_min_pu: -0.3287, q_max_pu: 0.3287 },
+            { u_pu: 0.950, q_min_pu: -0.3287, q_max_pu: 0.3287 },
+            { u_pu: 1.000, q_min_pu: -0.3287, q_max_pu: 0.3287 },
+            { u_pu: 1.050, q_min_pu: -0.3287, q_max_pu: 0.3287 },
+            { u_pu: 1.100, q_min_pu: -0.3287, q_max_pu: 0.3287 }
+        ]
+    }
+};
+
 /**
  * Scale a built-in grid code template to absolute MW/Mvar for RPC request / charts.
  * @param {string} templateKey — key in GRID_CODE_TEMPLATES (not 'none')
@@ -182,6 +244,83 @@ export function getGridTemplateRequirementsMw(templateKey, pRatedMw) {
 export function getGridTemplateDisplayName(templateKey) {
     const tpl = GRID_CODE_TEMPLATES[templateKey];
     return tpl && tpl.name ? tpl.name : '';
+}
+
+/**
+ * Scale a U-Q/Pmax grid-code template to absolute Mvar for RPC request / U-Q chart.
+ * @param {string} templateKey
+ * @param {number} pRatedMw
+ * @returns {{ u: number, qMin: number, qMax: number }[]}
+ */
+export function getUqGridTemplateRequirementsMw(templateKey, pRatedMw) {
+    const tpl = UQ_GRID_CODE_TEMPLATES[templateKey];
+    if (!tpl || !tpl.rows || tpl.rows.length === 0 || !(pRatedMw > 0)) {
+        return [];
+    }
+    return tpl.rows.map(r => ({
+        u: +(r.u_pu).toFixed(4),
+        qMin: +(r.q_min_pu * pRatedMw).toFixed(4),
+        qMax: +(r.q_max_pu * pRatedMw).toFixed(4)
+    }));
+}
+
+/** Display name for U-Q template key (for results UI). */
+export function getUqGridTemplateDisplayName(templateKey) {
+    const tpl = UQ_GRID_CODE_TEMPLATES[templateKey];
+    return tpl && tpl.name ? tpl.name : '';
+}
+
+/**
+ * Build U-Q chart geometry with straight horizontal closures at lowest/highest U.
+ * @param {object[]} rows
+ * @param {{ u: string, qMin: string, qMax: string }} keys
+ */
+export function buildUqChartGeometry(rows, keys = { u: 'u_pu', qMin: 'q_min_pu', qMax: 'q_max_pu' }) {
+    const sorted = [...rows].sort((a, b) => a[keys.u] - b[keys.u]);
+    if (!sorted.length) {
+        return { qMinPts: [], qMaxPts: [], closureDatasets: [], envelope: [] };
+    }
+
+    const qMinPts = sorted.map(r => ({ x: r[keys.qMin], y: r[keys.u] }));
+    const qMaxPts = sorted.map(r => ({ x: r[keys.qMax], y: r[keys.u] }));
+
+    const bottom = sorted[0];
+    const top = sorted[sorted.length - 1];
+    const closureDatasets = [];
+
+    if (bottom[keys.qMin] !== bottom[keys.qMax]) {
+        closureDatasets.push({
+            label: '_closure_bottom',
+            data: [
+                { x: bottom[keys.qMin], y: bottom[keys.u] },
+                { x: bottom[keys.qMax], y: bottom[keys.u] }
+            ]
+        });
+    }
+    if (top[keys.qMin] !== top[keys.qMax]) {
+        closureDatasets.push({
+            label: '_closure_top',
+            data: [
+                { x: top[keys.qMin], y: top[keys.u] },
+                { x: top[keys.qMax], y: top[keys.u] }
+            ]
+        });
+    }
+
+    const envelope = [];
+    for (const r of sorted) envelope.push({ x: r[keys.qMin], y: r[keys.u] });
+    if (top[keys.qMin] !== top[keys.qMax]) {
+        envelope.push({ x: top[keys.qMax], y: top[keys.u] });
+    }
+    for (let i = sorted.length - 1; i >= 0; i--) {
+        if (i === sorted.length - 1 && top[keys.qMin] !== top[keys.qMax]) continue;
+        envelope.push({ x: sorted[i][keys.qMax], y: sorted[i][keys.u] });
+    }
+    if (bottom[keys.qMin] !== bottom[keys.qMax]) {
+        envelope.push({ x: bottom[keys.qMin], y: bottom[keys.u] });
+    }
+
+    return { qMinPts, qMaxPts, closureDatasets, envelope };
 }
 
 /**
@@ -218,10 +357,11 @@ export function estimateRpcInstalledMw(graph, generatorCellIds = null) {
 
 export class RPCDialog extends Dialog {
     constructor(editorUi) {
-        super('Reactive Power Capability Analysis', 'Calculate');
+        super('Grid Code Compliance (P-Q & U-Q)', 'Calculate');
         this.ui = editorUi || window.App?.main?.editor?.editorUi;
         this.graph = this.ui?.editor?.graph;
         this.requirementRows = [];
+        this.uqRequirementRows = [];
 
         this.parameters = [
             {
@@ -328,9 +468,9 @@ export class RPCDialog extends Dialog {
     }
 
     getDescription() {
-        return '<strong>Reactive Power Capability (PQ Diagram)</strong><br>' +
-            'Sweeps active power of the power plant and determines the reactive power capability envelope at the PCC bus across multiple voltage levels. ' +
-            'Optionally compares against grid code requirements. ' +
+        return '<strong>Grid Code Compliance (P-Q & U-Q)</strong><br>' +
+            'Sweeps active power of the power plant and determines the reactive power capability envelope at the PCC bus across multiple voltage levels (P-Q/Pmax). ' +
+            'Optionally checks U-Q/Pmax at rated power versus grid-code voltage bands. ' +
             'To use manufacturer-style limits per unit, enable <em>Use Q capability curve</em> on each static generator and pick <strong>From static generator P–Q curve</strong> below. ' +
             'Use <strong>Include controller</strong> to run each power flow with pandapower controls where enabled in the diagram: DiscreteTapControl on 2- or 3-winding transformers and DiscreteShuntController on shunt reactors, independently (shunt reactors can use a per-step P/Q characteristic table in the shunt dialog). ' +
             'See the <a href="https://electrisim.com/documentation.html#reactive-power-capability" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
@@ -664,6 +804,213 @@ export class RPCDialog extends Dialog {
         return section;
     }
 
+    _createUqRequirementsSection() {
+        const section = document.createElement('div');
+        Object.assign(section.style, { marginTop: '16px' });
+
+        const title = document.createElement('label');
+        title.textContent = 'U-Q/Pmax Grid Code Requirements (at P = Pmax)';
+        Object.assign(title.style, {
+            display: 'block', fontWeight: '600', fontSize: '13px', color: '#495057', marginBottom: '6px'
+        });
+        section.appendChild(title);
+
+        const templateRow = document.createElement('div');
+        Object.assign(templateRow.style, {
+            display: 'flex', gap: '8px', alignItems: 'flex-end', marginBottom: '8px', flexWrap: 'wrap'
+        });
+
+        const templateGroup = document.createElement('div');
+        Object.assign(templateGroup.style, { flex: '1 1 280px' });
+        const templateLabel = document.createElement('label');
+        templateLabel.textContent = 'U-Q Template (optional)';
+        Object.assign(templateLabel.style, { display: 'block', fontSize: '12px', color: '#6c757d', marginBottom: '2px' });
+        templateGroup.appendChild(templateLabel);
+
+        const templateSelect = document.createElement('select');
+        Object.assign(templateSelect.style, {
+            width: '100%', padding: '6px 8px', border: '1px solid #ced4da',
+            borderRadius: '4px', fontSize: '13px', boxSizing: 'border-box'
+        });
+        Object.keys(UQ_GRID_CODE_TEMPLATES).forEach(key => {
+            const opt = document.createElement('option');
+            opt.value = key;
+            opt.textContent = UQ_GRID_CODE_TEMPLATES[key].name;
+            templateSelect.appendChild(opt);
+        });
+        templateGroup.appendChild(templateSelect);
+        templateRow.appendChild(templateGroup);
+        this._uqTemplateSelect = templateSelect;
+
+        const applyUqBtn = document.createElement('button');
+        applyUqBtn.type = 'button';
+        applyUqBtn.textContent = 'Apply';
+        Object.assign(applyUqBtn.style, {
+            padding: '6px 14px', fontSize: '13px', border: '1px solid #17a2b8',
+            borderRadius: '4px', backgroundColor: '#17a2b8', color: '#fff',
+            cursor: 'pointer', fontWeight: '500', whiteSpace: 'nowrap', alignSelf: 'flex-end'
+        });
+        applyUqBtn.onclick = () => this._applyUqTemplate(templateSelect.value);
+        templateRow.appendChild(applyUqBtn);
+        section.appendChild(templateRow);
+
+        this._uqTemplateDescEl = document.createElement('div');
+        Object.assign(this._uqTemplateDescEl.style, {
+            fontSize: '11px', color: '#0c5460', backgroundColor: '#d1ecf1',
+            border: '1px solid #bee5eb', borderRadius: '4px', padding: '5px 8px',
+            marginBottom: '8px', display: 'none', lineHeight: '1.4'
+        });
+        section.appendChild(this._uqTemplateDescEl);
+
+        this._uqPreviewContainer = document.createElement('div');
+        Object.assign(this._uqPreviewContainer.style, {
+            display: 'none', marginBottom: '10px', border: '1px solid #e9ecef',
+            borderRadius: '6px', padding: '8px', backgroundColor: '#fafbfc'
+        });
+        this._uqPreviewCanvas = document.createElement('canvas');
+        this._uqPreviewCanvas.width = 620;
+        this._uqPreviewCanvas.height = 260;
+        Object.assign(this._uqPreviewCanvas.style, { width: '100%', maxHeight: '260px' });
+        this._uqPreviewContainer.appendChild(this._uqPreviewCanvas);
+        section.appendChild(this._uqPreviewContainer);
+        this._uqPreviewChart = null;
+
+        templateSelect.onchange = () => {
+            const key = templateSelect.value;
+            const tpl = UQ_GRID_CODE_TEMPLATES[key];
+            if (tpl && tpl.description) {
+                this._uqTemplateDescEl.textContent = tpl.description;
+                this._uqTemplateDescEl.style.display = 'block';
+            } else {
+                this._uqTemplateDescEl.style.display = 'none';
+            }
+            this._renderUqTemplatePreview(key);
+            if (key !== 'none' && key !== 'custom_manual') {
+                this._applyUqTemplate(key, { silent: true });
+            } else if (key === 'none') {
+                const tbody = this._uqRequirementsBody;
+                if (tbody) {
+                    this.uqRequirementRows.forEach(r => { if (r.tr.parentNode) tbody.removeChild(r.tr); });
+                    this.uqRequirementRows = [];
+                }
+            }
+        };
+
+        const helpText = document.createElement('div');
+        helpText.textContent = 'U (p.u.) at PoC, Q_min/Q_max (Mvar) at maximum plant active power. Used for the U-Q/Pmax results chart and compliance check. Shares P rated (MW) from the P-Q section above.';
+        Object.assign(helpText.style, { fontSize: '11px', color: '#6c757d', marginBottom: '6px' });
+        section.appendChild(helpText);
+
+        const actionsRow = document.createElement('div');
+        Object.assign(actionsRow.style, { display: 'flex', justifyContent: 'flex-end', marginBottom: '4px' });
+        const addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.textContent = '+ Add Row';
+        Object.assign(addBtn.style, {
+            padding: '4px 10px', fontSize: '12px', border: '1px solid #17a2b8',
+            borderRadius: '4px', backgroundColor: '#fff', color: '#17a2b8', cursor: 'pointer'
+        });
+        section.appendChild(actionsRow);
+
+        const table = document.createElement('table');
+        Object.assign(table.style, { width: '100%', borderCollapse: 'collapse', fontSize: '13px' });
+        const thead = document.createElement('thead');
+        const headRow = document.createElement('tr');
+        ['U (p.u.)', 'Q_min (Mvar)', 'Q_max (Mvar)', ''].forEach(h => {
+            const th = document.createElement('th');
+            th.textContent = h;
+            Object.assign(th.style, {
+                padding: '4px 6px', borderBottom: '1px solid #dee2e6', textAlign: 'left',
+                fontWeight: '600', color: '#495057', fontSize: '12px'
+            });
+            headRow.appendChild(th);
+        });
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+
+        const tableBody = document.createElement('tbody');
+        table.appendChild(tableBody);
+        section.appendChild(table);
+
+        addBtn.onclick = () => this._addUqRequirementRow(tableBody);
+        actionsRow.appendChild(addBtn);
+
+        this.uqRequirementRows = [];
+        this._uqRequirementsBody = tableBody;
+
+        return section;
+    }
+
+    _applyUqTemplate(templateKey, options = {}) {
+        const silent = !!options.silent;
+        const tpl = UQ_GRID_CODE_TEMPLATES[templateKey];
+        if (!tpl || !tpl.rows || tpl.rows.length === 0) return;
+
+        let pRated = this._pRatedInput ? parseFloat(this._pRatedInput.value) : NaN;
+        if (!(pRated > 0)) {
+            const pMaxIn = this.inputs.get('pMaxMw');
+            const pMax = pMaxIn ? parseFloat(pMaxIn.value) : NaN;
+            if (!isNaN(pMax) && pMax > 0) pRated = pMax;
+        }
+        if (!(pRated > 0) && this.graph) {
+            pRated = estimateRpcInstalledMw(this.graph);
+        }
+        if (!(pRated > 0)) {
+            if (!silent) {
+                alert('Set P rated (MW) or ensure generators have p_mw so the U-Q template can be scaled.');
+            }
+            return;
+        }
+
+        const scaled = getUqGridTemplateRequirementsMw(templateKey, pRated);
+        const tbody = this._uqRequirementsBody;
+        if (!tbody) return;
+        this.uqRequirementRows.forEach(r => { if (r.tr.parentNode) tbody.removeChild(r.tr); });
+        this.uqRequirementRows = [];
+        scaled.forEach(row => this._addUqRequirementRow(tbody, row.u, row.qMin, row.qMax));
+    }
+
+    _addUqRequirementRow(tbody, uVal = '', qMinVal = '', qMaxVal = '') {
+        const tr = document.createElement('tr');
+        const inputs = {};
+        [
+            ['u', uVal],
+            ['qMin', qMinVal],
+            ['qMax', qMaxVal]
+        ].forEach(([key, val]) => {
+            const td = document.createElement('td');
+            Object.assign(td.style, { padding: '3px 4px' });
+            const inp = document.createElement('input');
+            inp.type = 'number';
+            inp.step = 'any';
+            inp.value = val !== '' ? String(val) : '';
+            Object.assign(inp.style, {
+                width: '100%', padding: '4px 6px', border: '1px solid #ced4da',
+                borderRadius: '3px', fontSize: '13px', boxSizing: 'border-box'
+            });
+            td.appendChild(inp);
+            tr.appendChild(td);
+            inputs[key] = inp;
+        });
+        const tdDel = document.createElement('td');
+        Object.assign(tdDel.style, { padding: '3px 4px', width: '30px', textAlign: 'center' });
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.textContent = '\u00d7';
+        Object.assign(delBtn.style, {
+            border: 'none', background: 'transparent', color: '#dc3545',
+            fontSize: '16px', cursor: 'pointer', fontWeight: '700'
+        });
+        delBtn.onclick = () => {
+            tbody.removeChild(tr);
+            this.uqRequirementRows = this.uqRequirementRows.filter(r => r.tr !== tr);
+        };
+        tdDel.appendChild(delBtn);
+        tr.appendChild(tdDel);
+        tbody.appendChild(tr);
+        this.uqRequirementRows.push({ tr, inputs });
+    }
+
     _loadChartJS() {
         if (window.Chart) return Promise.resolve();
         return new Promise((resolve, reject) => {
@@ -792,6 +1139,125 @@ export class RPCDialog extends Dialog {
         }).catch(err => console.warn('Could not load Chart.js for preview:', err));
     }
 
+    _renderUqTemplatePreview(templateKey) {
+        const tpl = UQ_GRID_CODE_TEMPLATES[templateKey];
+        if (!tpl || !tpl.rows || tpl.rows.length === 0) {
+            this._uqPreviewContainer.style.display = 'none';
+            if (this._uqPreviewChart) { this._uqPreviewChart.destroy(); this._uqPreviewChart = null; }
+            return;
+        }
+
+        this._uqPreviewContainer.style.display = 'block';
+
+        this._loadChartJS().then(() => {
+            const Chart = window.Chart;
+            if (!Chart) return;
+
+            if (this._uqPreviewChart) { this._uqPreviewChart.destroy(); this._uqPreviewChart = null; }
+
+            const rows = tpl.rows;
+            const { qMinPts, qMaxPts, closureDatasets, envelope } = buildUqChartGeometry(rows);
+
+            const closureChartDatasets = closureDatasets.map(c => ({
+                label: c.label,
+                data: c.data,
+                borderColor: '#17a2b8',
+                backgroundColor: 'transparent',
+                borderWidth: 2.5,
+                pointRadius: 0,
+                showLine: true,
+                order: 1
+            }));
+
+            const ctx = this._uqPreviewCanvas.getContext('2d');
+            this._uqPreviewChart = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [
+                        {
+                            label: 'Q_max (overexcited)',
+                            data: qMaxPts,
+                            borderColor: '#17a2b8',
+                            backgroundColor: 'transparent',
+                            borderWidth: 2.5,
+                            pointRadius: 3,
+                            pointBackgroundColor: '#17a2b8',
+                            showLine: true,
+                            order: 1
+                        },
+                        {
+                            label: 'Q_min (underexcited)',
+                            data: qMinPts,
+                            borderColor: '#dc3545',
+                            backgroundColor: 'transparent',
+                            borderWidth: 2.5,
+                            borderDash: [6, 3],
+                            pointRadius: 3,
+                            pointBackgroundColor: '#dc3545',
+                            showLine: true,
+                            order: 1
+                        },
+                        ...closureChartDatasets,
+                        {
+                            label: '_fill',
+                            data: envelope,
+                            borderColor: 'transparent',
+                            backgroundColor: 'rgba(23, 162, 184, 0.08)',
+                            fill: true,
+                            pointRadius: 0,
+                            showLine: true,
+                            order: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 300 },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: tpl.name + ' (at P = Pmax)',
+                            font: { size: 13, weight: '600' },
+                            color: '#212529',
+                            padding: { bottom: 8 }
+                        },
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                filter: (item) => !item.text.startsWith('_'),
+                                font: { size: 11 },
+                                boxWidth: 14,
+                                padding: 10
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => `Q/Pmax: ${ctx.parsed.x?.toFixed(4)}, U: ${ctx.parsed.y?.toFixed(3)} pu`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Q / P_max (pu)', font: { size: 11, weight: '600' } },
+                            grid: { color: 'rgba(0,0,0,0.06)' },
+                            ticks: { font: { size: 10 } },
+                            min: -0.4,
+                            max: 0.4
+                        },
+                        y: {
+                            title: { display: true, text: 'U (p.u.) at PoC', font: { size: 11, weight: '600' } },
+                            grid: { color: 'rgba(0,0,0,0.06)' },
+                            ticks: { font: { size: 10 } },
+                            min: 0.85,
+                            max: 1.10
+                        }
+                    }
+                }
+            });
+        }).catch(err => console.warn('Could not load Chart.js for U-Q preview:', err));
+    }
+
     _applyTemplate(templateKey) {
         const tpl = GRID_CODE_TEMPLATES[templateKey];
         if (!tpl || !tpl.rows || tpl.rows.length === 0) return;
@@ -916,6 +1382,14 @@ export class RPCDialog extends Dialog {
             qMin: parseFloat(r.inputs.qMin.value) || 0,
             qMax: parseFloat(r.inputs.qMax.value) || 0
         }));
+
+        values.uqRequirements = this.uqRequirementRows.map(r => ({
+            u: parseFloat(r.inputs.u.value) || 0,
+            qMin: parseFloat(r.inputs.qMin.value) || 0,
+            qMax: parseFloat(r.inputs.qMax.value) || 0
+        }));
+
+        values.uqGridCodeTemplateKey = this._uqTemplateSelect ? this._uqTemplateSelect.value : 'none';
 
         values.gridCodeTemplateKey = this._templateSelect ? this._templateSelect.value : 'none';
         const pr = this._pRatedInput ? parseFloat(this._pRatedInput.value) : NaN;
@@ -1073,6 +1547,7 @@ export class RPCDialog extends Dialog {
         });
 
         form.appendChild(this._createRequirementsSection());
+        form.appendChild(this._createUqRequirementsSection());
 
         contentArea.appendChild(form);
         container.appendChild(contentArea);
@@ -1089,6 +1564,7 @@ export class RPCDialog extends Dialog {
 
         const cleanupAndClose = () => {
             if (this._previewChart) { this._previewChart.destroy(); this._previewChart = null; }
+            if (this._uqPreviewChart) { this._uqPreviewChart.destroy(); this._uqPreviewChart = null; }
             this.destroy();
         };
 

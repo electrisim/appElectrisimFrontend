@@ -2,6 +2,8 @@ import {
     RPCDialog,
     getGridTemplateRequirementsMw,
     getGridTemplateDisplayName,
+    getUqGridTemplateRequirementsMw,
+    getUqGridTemplateDisplayName,
     estimateRpcInstalledMw
 } from './dialogs/RPCDialog.js';
 import { RPCResultsDialog } from './dialogs/RPCResultsDialog.js';
@@ -71,6 +73,120 @@ function _appendRpcProgressLine(state, text) {
     state.wrap.scrollTop = state.wrap.scrollHeight;
 }
 
+function _setRpcStreamFlag(in_data, useStream) {
+    const keys = Object.keys(in_data);
+    for (const key of keys) {
+        const item = in_data[key];
+        if (item && item.typ === 'RPCAnalysisPandaPower Parameters') {
+            in_data[key] = { ...item, rpc_stream: !!useStream };
+            return;
+        }
+    }
+}
+
+function _isRpcStreamFriendlyUrl(backendUrl) {
+    // Prefer NDJSON streaming everywhere, including dev tunnels (devtunnels.ms / ngrok / loca.lt).
+    // Streaming emits periodic progress events that keep the tunnel connection warm; a plain
+    // (non-streaming) POST sends no bytes until the computation finishes and long RPC runs then
+    // exceed the tunnel idle timeout -> 504 Gateway Timeout (surfaced in the browser as a CORS
+    // error because the 504 error page carries no Access-Control-Allow-Origin header).
+    return true;
+}
+
+function _isRpcNetworkStreamError(error) {
+    const msg = String(error && error.message ? error.message : error).toLowerCase();
+    return msg.includes('network error') ||
+        msg.includes('failed to fetch') ||
+        msg.includes('http2') ||
+        msg.includes('protocol error') ||
+        msg.includes('stream');
+}
+
+async function _fetchRpcResults(in_data, backendUrl, useStream, progressPre, app) {
+    _setRpcStreamFlag(in_data, useStream);
+
+    const response = await fetch(backendUrl, {
+        mode: 'cors',
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Accept: useStream ? 'application/x-ndjson, application/json' : 'application/json',
+            'Accept-Encoding': 'identity'
+        },
+        body: JSON.stringify(in_data)
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Server error:', errorText);
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const ct = (response.headers.get('Content-Type') || '').toLowerCase();
+    let dataJson = null;
+
+    if (useStream && ct.includes('ndjson') && response.body && typeof response.body.getReader === 'function') {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const parts = buffer.split('\n');
+            buffer = parts.pop() || '';
+            for (const line of parts) {
+                const trimmed = line.trim();
+                if (!trimmed) continue;
+                let evt;
+                try {
+                    evt = JSON.parse(trimmed);
+                } catch (pe) {
+                    console.warn('RPC stream parse line:', pe);
+                    continue;
+                }
+                if (evt.type === 'progress' && typeof evt.message === 'string') {
+                    _appendRpcProgressLine(progressPre, evt.message.trimEnd());
+                } else if (evt.type === 'error') {
+                    throw new Error(evt.message || 'Unknown RPC error');
+                } else if (evt.type === 'result' && evt.data) {
+                    dataJson = evt.data;
+                }
+            }
+        }
+        if (buffer.trim()) {
+            try {
+                const evt = JSON.parse(buffer.trim());
+                if (evt.type === 'result' && evt.data) dataJson = evt.data;
+                if (evt.type === 'error') {
+                    throw new Error(evt.message || 'Unknown RPC error');
+                }
+            } catch (e) {
+                if (e instanceof SyntaxError) { /* ignore trailing garbage */ }
+                else throw e;
+            }
+        }
+    } else {
+        let responseData;
+        const contentEncoding = response.headers.get('Content-Encoding');
+        if (contentEncoding === 'gzip' || contentEncoding === 'br') {
+            const buf = await response.arrayBuffer();
+            responseData = new TextDecoder('utf-8').decode(buf);
+        } else {
+            responseData = await response.text();
+        }
+        dataJson = JSON.parse(responseData);
+    }
+
+    if (!dataJson) {
+        throw new Error('empty response');
+    }
+    if (dataJson.error) {
+        throw new Error(dataJson.error);
+    }
+    return dataJson;
+}
+
 function rpcAnalysis(a, b, c) {
     console.log('RPC Analysis started');
 
@@ -129,9 +245,9 @@ function rpcAnalysis(a, b, c) {
 
         const app = a || window.App || window.apka;
         if (app && app.spinner) {
-            app.spinner.spin(document.body, 'Running Reactive Power Capability analysis...');
+            app.spinner.spin(document.body, 'Running grid code compliance analysis (P-Q & U-Q)...');
         } else if (window.apka && window.apka.spinner) {
-            window.apka.spinner.spin(document.body, 'Running Reactive Power Capability analysis...');
+            window.apka.spinner.spin(document.body, 'Running grid code compliance analysis (P-Q & U-Q)...');
         }
 
         try {
@@ -180,6 +296,30 @@ function rpcAnalysis(a, b, c) {
             }
             const gridCodeTemplateName = tplKey !== 'none' ? getGridTemplateDisplayName(tplKey) : '';
 
+            // U-Q/Pmax requirements (voltage-indexed at P = Pmax)
+            let uqRequirementRows = Array.isArray(values.uqRequirements) ? [...values.uqRequirements] : [];
+            uqRequirementRows = uqRequirementRows.filter(r => {
+                const u = parseFloat(r.u) || 0;
+                const qn = parseFloat(r.qMin) || 0;
+                const qx = parseFloat(r.qMax) || 0;
+                return Math.abs(u) + Math.abs(qn) + Math.abs(qx) > 1e-9;
+            });
+            const uqTplKey = values.uqGridCodeTemplateKey || 'none';
+            if (uqRequirementRows.length === 0 && uqTplKey !== 'none' && uqTplKey !== 'custom_manual' && pRated > 0) {
+                uqRequirementRows = getUqGridTemplateRequirementsMw(uqTplKey, pRated);
+            }
+            const uqGridCodeTemplateName = uqTplKey !== 'none' ? getUqGridTemplateDisplayName(uqTplKey) : '';
+
+            let uqRequirements = null;
+            if (uqRequirementRows.length > 0) {
+                const sortedUq = [...uqRequirementRows].sort((a, b) => a.u - b.u);
+                uqRequirements = {
+                    u_pu: sortedUq.map(r => r.u),
+                    q_req_max_mvar: sortedUq.map(r => r.qMax),
+                    q_req_min_mvar: sortedUq.map(r => r.qMin)
+                };
+            }
+
             // { "vKey": { p_mw: [...], q_req_max_mvar: [...], q_req_min_mvar: [...] } }
             let requirements = null;
             if (requirementRows.length > 0) {
@@ -223,8 +363,11 @@ function rpcAnalysis(a, b, c) {
                 run_control_shunt: runControlSh,
                 max_loading_percent: parseFloat(values.maxLoadingPercent) || 100,
                 requirements: requirements,
+                uq_requirements: uqRequirements,
                 grid_code_template_key: tplKey !== 'none' ? tplKey : null,
                 grid_code_template_name: gridCodeTemplateName || null,
+                uq_grid_code_template_key: uqTplKey !== 'none' ? uqTplKey : null,
+                uq_grid_code_template_name: uqGridCodeTemplateName || null,
                 frequency: parseFloat(values.frequency) || 50,
                 user_email: _getUserEmail(),
                 rpc_stream: true
@@ -247,85 +390,19 @@ function rpcAnalysis(a, b, c) {
             console.log('RPC Analysis - PCC bus name:', pccBusName);
 
             const progressPre = _createRpcProgressOverlay();
-
-            const response = await fetch(backendUrl, {
-                mode: 'cors',
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Accept: 'application/x-ndjson, application/json',
-                    // Avoid compressed streaming body (harder to read incrementally in browser)
-                    'Accept-Encoding': 'identity'
-                },
-                body: JSON.stringify(in_data)
-            });
-
-            if (!response.ok) {
-                _removeRpcProgressOverlay();
-                const errorText = await response.text();
-                console.error('Server error:', errorText);
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const ct = (response.headers.get('Content-Type') || '').toLowerCase();
+            const preferStream = _isRpcStreamFriendlyUrl(backendUrl);
             let dataJson = null;
 
-            if (ct.includes('ndjson') && response.body && typeof response.body.getReader === 'function') {
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                let buffer = '';
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-                    buffer += decoder.decode(value, { stream: true });
-                    const parts = buffer.split('\n');
-                    buffer = parts.pop() || '';
-                    for (const line of parts) {
-                        const trimmed = line.trim();
-                        if (!trimmed) continue;
-                        let evt;
-                        try {
-                            evt = JSON.parse(trimmed);
-                        } catch (pe) {
-                            console.warn('RPC stream parse line:', pe);
-                            continue;
-                        }
-                        if (evt.type === 'progress' && typeof evt.message === 'string') {
-                            _appendRpcProgressLine(progressPre, evt.message.trimEnd());
-                        } else if (evt.type === 'error') {
-                            _removeRpcProgressOverlay();
-                            if (app && app.spinner) app.spinner.stop();
-                            else if (window.apka && window.apka.spinner) window.apka.spinner.stop();
-                            alert('RPC Analysis Error: ' + (evt.message || 'Unknown error'));
-                            return;
-                        } else if (evt.type === 'result' && evt.data) {
-                            dataJson = evt.data;
-                        }
-                    }
-                }
-                if (buffer.trim()) {
-                    try {
-                        const evt = JSON.parse(buffer.trim());
-                        if (evt.type === 'result' && evt.data) dataJson = evt.data;
-                        if (evt.type === 'error') {
-                            _removeRpcProgressOverlay();
-                            if (app && app.spinner) app.spinner.stop();
-                            else if (window.apka && window.apka.spinner) window.apka.spinner.stop();
-                            alert('RPC Analysis Error: ' + (evt.message || 'Unknown error'));
-                            return;
-                        }
-                    } catch (e) { /* ignore trailing garbage */ }
-                }
-            } else {
-                let responseData;
-                const contentEncoding = response.headers.get('Content-Encoding');
-                if (contentEncoding === 'gzip' || contentEncoding === 'br') {
-                    const buf = await response.arrayBuffer();
-                    responseData = new TextDecoder('utf-8').decode(buf);
+            try {
+                dataJson = await _fetchRpcResults(in_data, backendUrl, preferStream, progressPre, app);
+            } catch (firstError) {
+                if (preferStream && _isRpcNetworkStreamError(firstError)) {
+                    console.warn('RPC streaming request failed, retrying without stream:', firstError);
+                    _appendRpcProgressLine(progressPre, 'Streaming unavailable — retrying with standard response…');
+                    dataJson = await _fetchRpcResults(in_data, backendUrl, false, progressPre, app);
                 } else {
-                    responseData = await response.text();
+                    throw firstError;
                 }
-                dataJson = JSON.parse(responseData);
             }
 
             _removeRpcProgressOverlay();
@@ -333,15 +410,6 @@ function rpcAnalysis(a, b, c) {
 
             if (app && app.spinner) app.spinner.stop();
             else if (window.apka && window.apka.spinner) window.apka.spinner.stop();
-
-            if (!dataJson) {
-                alert('RPC Analysis Error: empty response');
-                return;
-            }
-            if (dataJson.error) {
-                alert('RPC Analysis Error: ' + dataJson.error);
-                return;
-            }
 
             const resultsDialog = new RPCResultsDialog(editorUi);
             resultsDialog.show(dataJson);
@@ -351,7 +419,16 @@ function rpcAnalysis(a, b, c) {
             _removeRpcProgressOverlay();
             if (app && app.spinner) app.spinner.stop();
             else if (window.apka && window.apka.spinner) window.apka.spinner.stop();
-            alert('Reactive Power Capability analysis failed: ' + error.message);
+            const msg = String(error && error.message ? error.message : error).toLowerCase();
+            let hint = '';
+            if (msg.includes('504') || msg.includes('gateway timeout')) {
+                hint = ' The backend took too long and the tunnel/proxy timed out (504). ' +
+                    'Reduce the number of voltage levels or P steps, or run the backend on localhost for large models.';
+            } else if (_isRpcNetworkStreamError(error)) {
+                hint = ' Network/streaming error reaching the backend. ' +
+                    'Check the dev tunnel (devtunnels.ms) is running and reachable, or run the backend on localhost.';
+            }
+            alert('Grid code compliance analysis failed: ' + error.message + hint);
         }
     });
 }

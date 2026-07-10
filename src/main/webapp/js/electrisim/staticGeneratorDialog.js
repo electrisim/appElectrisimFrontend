@@ -1447,6 +1447,7 @@ export class StaticGeneratorDialog extends Dialog {
     _mountQCapabilityChartPanel(parentEl, insertBeforeEl) {
         const wrap = document.createElement('div');
         Object.assign(wrap.style, {
+            position: 'relative',
             margin: '0 0 8px 0',
             padding: '14px 16px',
             backgroundColor: '#ffffff',
@@ -1467,11 +1468,29 @@ export class StaticGeneratorDialog extends Dialog {
         svg.setAttribute('viewBox', '0 0 580 320');
         svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
         Object.assign(svg.style, { width: '100%', maxHeight: '300px', display: 'block' });
+        const tooltip = document.createElement('div');
+        Object.assign(tooltip.style, {
+            position: 'absolute',
+            display: 'none',
+            pointerEvents: 'none',
+            zIndex: '10',
+            padding: '6px 10px',
+            backgroundColor: '#212529',
+            color: '#fff',
+            fontSize: '12px',
+            borderRadius: '4px',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
+            whiteSpace: 'nowrap'
+        });
         wrap.appendChild(title);
         wrap.appendChild(sub);
         wrap.appendChild(status);
         wrap.appendChild(svg);
+        wrap.appendChild(tooltip);
         parentEl.insertBefore(wrap, insertBeforeEl);
+
+        this._qCapChartWrap = wrap;
+        this._qCapChartTooltip = tooltip;
 
         const redraw = () => this._redrawQCapabilityChartSvg(svg, status);
         this._qCapabilityChartRedraw = redraw;
@@ -1503,7 +1522,26 @@ export class StaticGeneratorDialog extends Dialog {
         redraw();
     }
 
+    _showQCapKnotTooltip(evt, pMw, qMvar, side) {
+        const tooltip = this._qCapChartTooltip;
+        const wrap = this._qCapChartWrap;
+        if (!tooltip || !wrap) return;
+        const fmt = (v) => (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(2));
+        tooltip.textContent = `${side}: P = ${fmt(pMw)} MW, Q = ${fmt(qMvar)} MVAr`;
+        tooltip.style.display = 'block';
+        const rect = wrap.getBoundingClientRect();
+        tooltip.style.left = `${evt.clientX - rect.left + 12}px`;
+        tooltip.style.top = `${evt.clientY - rect.top - 32}px`;
+    }
+
+    _hideQCapKnotTooltip() {
+        if (this._qCapChartTooltip) {
+            this._qCapChartTooltip.style.display = 'none';
+        }
+    }
+
     _redrawQCapabilityChartSvg(svg, statusEl) {
+        this._hideQCapKnotTooltip();
         while (svg.firstChild) {
             svg.removeChild(svg.firstChild);
         }
@@ -1574,6 +1612,7 @@ export class StaticGeneratorDialog extends Dialog {
 
         const xOf = (p) => ml + ((p - pMin) / (pMax - pMin)) * pw;
         const yOf = (q) => mt + ph - ((q - qMin) / (qMax - qMin)) * ph;
+        const fmt = (v) => (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(2));
 
         const add = (el) => svg.appendChild(el);
 
@@ -1638,18 +1677,48 @@ export class StaticGeneratorDialog extends Dialog {
         add(lineLower);
 
         for (let i = 0; i < parsed.length; i++) {
-            const cx = xOf(parsed[i].p_mw);
-            const cyMax = yOf(parsed[i].q_max_mvar);
-            const cyMin = yOf(parsed[i].q_min_mvar);
-            [cyMax, cyMin].forEach((cy) => {
+            const pt = parsed[i];
+            const cx = xOf(pt.p_mw);
+            const knots = [
+                { q: pt.q_max_mvar, side: 'Qmax', stroke: '#0d47a1' },
+                { q: pt.q_min_mvar, side: 'Qmin', stroke: '#e65100' }
+            ];
+            knots.forEach(({ q, side, stroke }) => {
+                const cy = yOf(q);
+                const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                g.style.cursor = 'pointer';
+
+                const hit = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                hit.setAttribute('cx', String(cx.toFixed(1)));
+                hit.setAttribute('cy', String(cy.toFixed(1)));
+                hit.setAttribute('r', '10');
+                hit.setAttribute('fill', 'transparent');
+
                 const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                 c.setAttribute('cx', String(cx.toFixed(1)));
                 c.setAttribute('cy', String(cy.toFixed(1)));
                 c.setAttribute('r', '4');
                 c.setAttribute('fill', '#fff');
-                c.setAttribute('stroke', '#495057');
+                c.setAttribute('stroke', stroke);
                 c.setAttribute('stroke-width', '1.5');
-                add(c);
+                c.setAttribute('pointer-events', 'none');
+
+                const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+                title.textContent = `${side}: P = ${fmt(pt.p_mw)} MW, Q = ${fmt(q)} MVAr`;
+
+                g.appendChild(hit);
+                g.appendChild(c);
+                g.appendChild(title);
+                g.addEventListener('mouseenter', (evt) => {
+                    this._showQCapKnotTooltip(evt, pt.p_mw, q, side);
+                });
+                g.addEventListener('mousemove', (evt) => {
+                    this._showQCapKnotTooltip(evt, pt.p_mw, q, side);
+                });
+                g.addEventListener('mouseleave', () => {
+                    this._hideQCapKnotTooltip();
+                });
+                add(g);
             });
         }
 
@@ -1690,7 +1759,6 @@ export class StaticGeneratorDialog extends Dialog {
         yl.textContent = 'Q [MVAr]';
         add(yl);
 
-        const fmt = (v) => (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(2));
         for (let g = 0; g <= gridN; g++) {
             const pv = pMin + (g / gridN) * (pMax - pMin);
             const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');

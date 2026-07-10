@@ -1,12 +1,13 @@
 import { attachBackdropCloseHandler } from '../utils/dialogStyles.js';
 import { applyLoadFlowResultsToGraph } from '../utils/applyLoadFlowResults.js';
+import { buildUqChartGeometry } from './RPCDialog.js';
 
 console.log('RPCResultsDialog.js LOADED');
 
 const RPC_POINT_KEY = (pMw) => String(parseFloat(pMw).toFixed(4));
 
-const RPC_CONVERGE_WARNING_RE = /^V=([\d.]+)pu, P=([\d.]+)MW: Q_(min|max) converged at ([\d.]+)% capability$/;
-const RPC_OVERLOAD_WARNING_RE = /^V=([\d.]+)pu, P=([\d.]+)MW: Q_(min|max) limited due to overload$/;
+const RPC_CONVERGE_WARNING_RE = /^V=([\d.]+)pu, P=([\d.]+)MW: Q_(min|max) limited to ([\d.]+)% capability \(power flow non-convergence at higher Q\)$/;
+const RPC_OVERLOAD_WARNING_RE = /^V=([\d.]+)pu, P=([\d.]+)MW: Q_(min|max) limited to ([\d.]+)% capability \(overload\)$/;
 
 function _formatRpcPMwRange(pValues) {
     const sorted = [...pValues].map(Number).sort((a, b) => a - b);
@@ -19,6 +20,47 @@ function _qDirectionLabel(qKey) {
     return qKey === 'min'
         ? 'underexcited reactive limit (Q_min, absorbing Q)'
         : 'overexcited reactive limit (Q_max, injecting Q)';
+}
+
+/** Build U-Q/Pmax series from rpc_results (Q at Pmax vs voltage). */
+function _extractUqCurveFromResults(data) {
+    if (data.uq_curve && data.uq_curve.u_pu && data.uq_curve.u_pu.length) {
+        return data.uq_curve;
+    }
+    const levels = data.voltage_levels || [];
+    const curves = data.curves || {};
+    const pRated = data.total_installed_mw || 0;
+    if (!levels.length || !(pRated > 0)) return null;
+
+    const u_pu = [];
+    const q_max_mvar = [];
+    const q_min_mvar = [];
+
+    levels.forEach(v => {
+        const vKey = String(parseFloat(v).toFixed(4));
+        const curve = curves[vKey];
+        if (!curve) return;
+        const pArr = curve.p_mw || [];
+        const qMaxArr = curve.q_max_mvar || [];
+        const qMinArr = curve.q_min_mvar || [];
+        let bestIdx = -1;
+        let bestDiff = Infinity;
+        pArr.forEach((p, i) => {
+            if (p == null) return;
+            const diff = Math.abs(Number(p) - pRated);
+            if (diff < bestDiff) {
+                bestDiff = diff;
+                bestIdx = i;
+            }
+        });
+        if (bestIdx < 0) return;
+        u_pu.push(parseFloat(v));
+        q_max_mvar.push(qMaxArr[bestIdx] != null ? qMaxArr[bestIdx] : null);
+        q_min_mvar.push(qMinArr[bestIdx] != null ? qMinArr[bestIdx] : null);
+    });
+
+    if (!u_pu.length) return null;
+    return { u_pu, q_max_mvar, q_min_mvar, p_mw: pRated };
 }
 
 /**
@@ -76,11 +118,13 @@ function _summarizeRpcWarnings(warnings) {
 
     const hasConvergenceWarnings = convergeGroups.size > 0;
     const intro = hasConvergenceWarnings
-        ? 'How to read “converged at X% capability”: for each active-power step, reactive power is applied ' +
-          'in descending steps (100%, 90%, 80%, …) until the load flow solver finds a stable solution. ' +
-          'If it stops at 50%, higher reactive setpoints did not converge. Typical reasons include high ' +
-          'line or transformer loading, voltage limits, tap-changer or shunt-controller action, weak grid ' +
-          'strength at the PCC, or the network model operating near its stability limit.'
+        ? 'How to read “limited to X% capability”: for each active-power step, the reactive setpoint is ' +
+          'resolved by bisection to the highest fraction of generator capability whose load flow still ' +
+          'converges (a stable solution). If it stops at, say, 65%, higher reactive setpoints did not ' +
+          'converge, so the red Q curve shows the achievable limit at those points — not the full ' +
+          'nameplate reactive capability. Typical reasons include voltage limits, weak grid strength at ' +
+          'the PCC, tap-changer or shunt-controller action, or the network model operating near its ' +
+          'stability limit.'
         : null;
 
     return { intro, summaries, otherWarnings, rawWarnings: warnings || [] };
@@ -93,6 +137,7 @@ export class RPCResultsDialog {
         this.pointLoadflows = {};
         this._pointBanner = null;
         this._activeVoltageKey = null;
+        this._viewMode = 'pq';
     }
 
     show(results) {
@@ -126,7 +171,7 @@ export class RPCResultsDialog {
             display: 'flex', justifyContent: 'space-between', alignItems: 'center'
         });
         const titleText = document.createElement('span');
-        titleText.textContent = 'Reactive Power Capability — PQ Diagram';
+        titleText.textContent = 'Grid Code Compliance — P-Q / U-Q';
         Object.assign(titleText.style, { fontWeight: '700', fontSize: '16px', color: '#212529' });
         titleBar.appendChild(titleText);
 
@@ -148,9 +193,18 @@ export class RPCResultsDialog {
             flex: '1 1 auto', overflowY: 'auto', padding: '20px 24px'
         });
 
+        const viewToggle = this._createViewToggle(data);
+        content.appendChild(viewToggle);
+
+        const pqContainer = document.createElement('div');
+        pqContainer.dataset.rpcView = 'pq';
+        const uqContainer = document.createElement('div');
+        uqContainer.dataset.rpcView = 'uq';
+        uqContainer.style.display = 'none';
+
         const voltageLevels = data.voltage_levels || [];
         if (voltageLevels.length === 0) {
-            content.textContent = 'No voltage levels in results.';
+            pqContainer.textContent = 'No voltage levels in results.';
         } else {
             const tabsHeader = document.createElement('div');
             Object.assign(tabsHeader.style, {
@@ -203,9 +257,16 @@ export class RPCResultsDialog {
                 tabPanels.push(panel);
             });
 
-            content.appendChild(tabsHeader);
-            tabPanels.forEach(p => content.appendChild(p));
+            pqContainer.appendChild(tabsHeader);
+            tabPanels.forEach(p => pqContainer.appendChild(p));
         }
+
+        this._buildUqChartPanel(uqContainer, data);
+
+        content.appendChild(pqContainer);
+        content.appendChild(uqContainer);
+        this._pqContainer = pqContainer;
+        this._uqContainer = uqContainer;
 
         if (data.warnings && data.warnings.length > 0) {
             content.appendChild(this._createWarningsSection(data.warnings));
@@ -257,6 +318,12 @@ export class RPCResultsDialog {
         }
         if (data.grid_code_template_name) {
             items.push(['Grid code requirement', data.grid_code_template_name]);
+        }
+        if (data.uq_grid_code_template_name) {
+            items.push(['U-Q requirement', data.uq_grid_code_template_name]);
+        }
+        if (data.uq_compliance !== null && data.uq_compliance !== undefined) {
+            items.push(['U-Q/Pmax compliance', data.uq_compliance ? 'COMPLIANT' : 'NON-COMPLIANT']);
         }
         items.forEach(([label, val]) => {
             const span = document.createElement('span');
@@ -331,6 +398,357 @@ export class RPCResultsDialog {
         }
 
         return section;
+    }
+
+    _createViewToggle(data) {
+        const bar = document.createElement('div');
+        Object.assign(bar.style, {
+            display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap'
+        });
+
+        const makeBtn = (label, mode) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = label;
+            btn.dataset.rpcViewMode = mode;
+            Object.assign(btn.style, {
+                padding: '8px 16px', borderRadius: '6px', border: '1px solid #dee2e6',
+                fontSize: '13px', fontWeight: '600', cursor: 'pointer', backgroundColor: '#fff',
+                color: '#495057'
+            });
+            btn.onclick = () => this._switchViewMode(mode, bar);
+            return btn;
+        };
+
+        bar.appendChild(makeBtn('P-Q / Pmax', 'pq'));
+        bar.appendChild(makeBtn('U-Q / Pmax', 'uq'));
+        this._viewToggleBar = bar;
+        this._switchViewMode(this._viewMode, bar);
+        return bar;
+    }
+
+    _switchViewMode(mode, bar) {
+        this._viewMode = mode;
+        if (bar) {
+            bar.querySelectorAll('button[data-rpc-view-mode]').forEach(btn => {
+                const active = btn.dataset.rpcViewMode === mode;
+                btn.style.backgroundColor = active ? '#007bff' : '#fff';
+                btn.style.color = active ? '#fff' : '#495057';
+                btn.style.borderColor = active ? '#007bff' : '#dee2e6';
+            });
+        }
+        if (this._pqContainer) this._pqContainer.style.display = mode === 'pq' ? 'block' : 'none';
+        if (this._uqContainer) this._uqContainer.style.display = mode === 'uq' ? 'block' : 'none';
+    }
+
+    _buildUqChartPanel(panel, data) {
+        const uqCurve = _extractUqCurveFromResults(data);
+        if (!uqCurve || !uqCurve.u_pu.length) {
+            panel.textContent = 'No U-Q/Pmax data available. Run RPC with multiple voltage levels and P sweep including Pmax.';
+            return;
+        }
+
+        const clickHint = document.createElement('div');
+        Object.assign(clickHint.style, {
+            fontSize: '12px', color: '#6c757d', marginBottom: '10px', lineHeight: '1.45'
+        });
+        const pAt = uqCurve.p_mw != null ? uqCurve.p_mw : data.total_installed_mw;
+        clickHint.textContent = `Reactive power capability at P = ${Number(pAt).toFixed(1)} MW (Pmax) vs PCC voltage. Click red points to show load flow on the diagram.`;
+        panel.appendChild(clickHint);
+
+        if (data.uq_compliance !== null && data.uq_compliance !== undefined) {
+            const badge = document.createElement('div');
+            Object.assign(badge.style, {
+                display: 'inline-block', padding: '4px 14px', borderRadius: '20px',
+                fontSize: '13px', fontWeight: '600', marginBottom: '12px',
+                backgroundColor: data.uq_compliance ? '#d4edda' : '#f8d7da',
+                color: data.uq_compliance ? '#155724' : '#721c24',
+                border: `1px solid ${data.uq_compliance ? '#c3e6cb' : '#f5c6cb'}`
+            });
+            badge.textContent = data.uq_compliance
+                ? 'U-Q/Pmax COMPLIANT — Requirements met at Pmax'
+                : 'U-Q/Pmax NON-COMPLIANT — Requirements not met at Pmax';
+            panel.appendChild(badge);
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 850;
+        canvas.height = 450;
+        Object.assign(canvas.style, { width: '100%', maxHeight: '450px' });
+        panel.appendChild(canvas);
+
+        const req = data.uq_requirements || {};
+        this._loadChartJS().then(() => {
+            this._renderUqChart(canvas, uqCurve, req, data, panel);
+        });
+
+        const tableWrap = document.createElement('div');
+        Object.assign(tableWrap.style, { marginTop: '16px', overflowX: 'auto' });
+        const table = document.createElement('table');
+        Object.assign(table.style, {
+            width: '100%', borderCollapse: 'collapse', fontSize: '12px'
+        });
+        const header = document.createElement('tr');
+        ['U (p.u.)', 'Q_max (Mvar)', 'Q_min (Mvar)', 'Req Q_max', 'Req Q_min', 'OK?'].forEach(h => {
+            const th = document.createElement('th');
+            th.textContent = h;
+            Object.assign(th.style, {
+                padding: '6px 8px', borderBottom: '2px solid #dee2e6', textAlign: 'left',
+                backgroundColor: '#f8f9fa'
+            });
+            header.appendChild(th);
+        });
+        table.appendChild(header);
+
+        const reqU = req.u_pu || [];
+        const reqQMax = req.q_req_max_mvar || [];
+        const reqQMin = req.q_req_min_mvar || [];
+        const pRated = data.total_installed_mw || 1;
+
+        uqCurve.u_pu.forEach((u, i) => {
+            const tr = document.createElement('tr');
+            const qMax = uqCurve.q_max_mvar[i];
+            const qMin = uqCurve.q_min_mvar[i];
+            let reqMax = '';
+            let reqMin = '';
+            let ok = '—';
+            if (reqU.length > 0) {
+                const uNum = Number(u);
+                const sorted = reqU.map((ru, j) => ({ u: Number(ru), qMax: Number(reqQMax[j]), qMin: Number(reqQMin[j]) }))
+                    .filter(r => !isNaN(r.u)).sort((a, b) => a.u - b.u);
+                if (sorted.length) {
+                    const us = sorted.map(r => r.u);
+                    const qmx = sorted.map(r => r.qMax);
+                    const qmn = sorted.map(r => r.qMin);
+                    reqMax = this._interp1d(uNum, us, qmx);
+                    reqMin = this._interp1d(uNum, us, qmn);
+                    if (qMax != null && qMin != null && reqMax !== '' && reqMin !== '') {
+                        ok = (qMax >= reqMax - 1e-4 && qMin <= reqMin + 1e-4) ? 'Yes' : 'No';
+                    }
+                }
+            }
+            [
+                Number(u).toFixed(3),
+                qMax != null ? Number(qMax).toFixed(2) : '—',
+                qMin != null ? Number(qMin).toFixed(2) : '—',
+                reqMax !== '' ? Number(reqMax).toFixed(2) : '—',
+                reqMin !== '' ? Number(reqMin).toFixed(2) : '—',
+                ok
+            ].forEach(text => {
+                const td = document.createElement('td');
+                td.textContent = text;
+                Object.assign(td.style, { padding: '5px 8px', borderBottom: '1px solid #eee' });
+                tr.appendChild(td);
+            });
+            table.appendChild(tr);
+        });
+        tableWrap.appendChild(table);
+        panel.appendChild(tableWrap);
+    }
+
+    _interp1d(x, xs, ys) {
+        if (!xs.length) return '';
+        if (xs.length === 1) return ys[0];
+        if (x <= xs[0]) return ys[0];
+        if (x >= xs[xs.length - 1]) return ys[ys.length - 1];
+        for (let i = 0; i < xs.length - 1; i++) {
+            if (x >= xs[i] && x <= xs[i + 1]) {
+                const t = (x - xs[i]) / (xs[i + 1] - xs[i]);
+                return ys[i] + t * (ys[i + 1] - ys[i]);
+            }
+        }
+        return ys[ys.length - 1];
+    }
+
+    _renderUqChart(canvas, uqCurve, reqData, fullData, panel) {
+        const Chart = window.Chart;
+        if (!Chart) return;
+
+        const uArr = uqCurve.u_pu || [];
+        const qMaxArr = uqCurve.q_max_mvar || [];
+        const qMinArr = uqCurve.q_min_mvar || [];
+        const pAt = uqCurve.p_mw != null ? uqCurve.p_mw : fullData.total_installed_mw;
+
+        const capMaxData = uArr.map((u, i) => ({
+            x: qMaxArr[i],
+            y: Number(u),
+            _rpcSide: 'q_max',
+            _rpcV: u,
+            _rpcP: pAt,
+            _rpcQ: qMaxArr[i]
+        })).filter(d => d.x !== null && d.x !== undefined && !isNaN(d.y));
+
+        const capMinData = uArr.map((u, i) => ({
+            x: qMinArr[i],
+            y: Number(u),
+            _rpcSide: 'q_min',
+            _rpcV: u,
+            _rpcP: pAt,
+            _rpcQ: qMinArr[i]
+        })).filter(d => d.x !== null && d.x !== undefined && !isNaN(d.y));
+
+        const datasets = [
+            {
+                label: 'Capability Q_max (overexcited)',
+                data: capMaxData,
+                borderColor: '#dc3545',
+                backgroundColor: '#dc3545',
+                borderWidth: 2,
+                pointRadius: 5,
+                pointHoverRadius: 7,
+                showLine: true,
+                order: 1
+            },
+            {
+                label: 'Capability Q_min (underexcited)',
+                data: capMinData,
+                borderColor: '#dc3545',
+                backgroundColor: '#dc3545',
+                borderWidth: 2,
+                borderDash: [6, 3],
+                pointRadius: 5,
+                pointHoverRadius: 7,
+                showLine: true,
+                order: 1
+            }
+        ];
+
+        const reqU = reqData.u_pu || [];
+        const reqQMax = reqData.q_req_max_mvar || [];
+        const reqQMin = reqData.q_req_min_mvar || [];
+        if (reqU.length > 0) {
+            const reqRows = reqU.map((u, i) => ({
+                u: Number(u),
+                qMin: reqQMin[i],
+                qMax: reqQMax[i]
+            }));
+            const {
+                qMinPts: reqMinPts,
+                qMaxPts: reqMaxPts,
+                closureDatasets,
+                envelope: reqEnvelope
+            } = buildUqChartGeometry(reqRows, { u: 'u', qMin: 'qMin', qMax: 'qMax' });
+
+            const reqLabel = fullData.uq_grid_code_template_name
+                ? ` (${fullData.uq_grid_code_template_name})`
+                : '';
+            datasets.push({
+                label: `Required Q_max${reqLabel}`,
+                data: reqMaxPts,
+                borderColor: '#0d6efd',
+                backgroundColor: 'transparent',
+                borderWidth: 2,
+                pointRadius: 2,
+                showLine: true,
+                order: 2
+            });
+            datasets.push({
+                label: `Required Q_min${reqLabel}`,
+                data: reqMinPts,
+                borderColor: '#0d6efd',
+                backgroundColor: 'transparent',
+                borderWidth: 2,
+                borderDash: [6, 3],
+                pointRadius: 2,
+                showLine: true,
+                order: 2
+            });
+            closureDatasets.forEach(c => {
+                datasets.push({
+                    label: c.label,
+                    data: c.data,
+                    borderColor: '#0d6efd',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    showLine: true,
+                    order: 2
+                });
+            });
+            if (reqEnvelope.length) {
+                datasets.push({
+                    label: 'U-Q Requirement Area',
+                    data: reqEnvelope,
+                    borderColor: 'transparent',
+                    backgroundColor: 'rgba(13, 110, 253, 0.06)',
+                    fill: true,
+                    pointRadius: 0,
+                    showLine: true,
+                    order: 4
+                });
+            }
+        }
+
+        const ctx = canvas.getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'scatter',
+            data: { datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                onClick: (evt, elements, chartInst) => {
+                    if (!elements?.length) return;
+                    const el = elements[0];
+                    const ds = chartInst.data.datasets[el.datasetIndex];
+                    if (!ds?.label?.startsWith('Capability Q_')) return;
+                    const raw = ds.data[el.index];
+                    if (!raw || raw._rpcSide == null) return;
+                    const vKey = String(parseFloat(raw._rpcV).toFixed(4));
+                    this._onCapabilityPointClick(vKey, raw._rpcSide, raw._rpcP, raw._rpcQ, panel);
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: `U-Q/Pmax Diagram — P = ${Number(pAt).toFixed(1)} MW${
+                            fullData.uq_grid_code_template_name
+                                ? ` · ${fullData.uq_grid_code_template_name}`
+                                : ''
+                        }`,
+                        font: { size: 15, weight: '600' },
+                        color: '#212529'
+                    },
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            filter: (item) => !item.text.includes('Area') && !item.text.startsWith('_'),
+                            font: { size: 12 }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => {
+                                const base = `Q: ${ctx.parsed.x?.toFixed(2)} Mvar, U: ${ctx.parsed.y?.toFixed(3)} pu`;
+                                if (ctx.dataset?.label?.startsWith('Capability Q_')) {
+                                    return `${base} — click to show load flow on diagram`;
+                                }
+                                return base;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Net Q at PCC (Mvar) — + overexcited, − underexcited',
+                            font: { size: 12, weight: '600' }
+                        },
+                        grid: { color: 'rgba(0,0,0,0.06)' }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Voltage at PCC (p.u.)',
+                            font: { size: 12, weight: '600' }
+                        },
+                        grid: { color: 'rgba(0,0,0,0.06)' },
+                        min: 0.85,
+                        max: 1.10
+                    }
+                }
+            }
+        });
+        this.chartInstances.push(chart);
     }
 
     _buildChartPanel(panel, curveData, reqData, complianceVal, voltageLevel, fullData) {
@@ -619,7 +1037,7 @@ export class RPCResultsDialog {
                     legend: {
                         position: 'bottom',
                         labels: {
-                            filter: (item) => !item.text.includes('Area'),
+                            filter: (item) => !item.text.includes('Area') && !item.text.startsWith('_'),
                             font: { size: 12 }
                         }
                     },
@@ -657,7 +1075,7 @@ export class RPCResultsDialog {
     }
 
     _downloadCSV(data) {
-        let csv = 'Voltage_pu,P_MW,Q_max_Mvar,Q_min_Mvar\n';
+        let csv = '# P-Q curves\nVoltage_pu,P_MW,Q_max_Mvar,Q_min_Mvar\n';
         const levels = data.voltage_levels || [];
         levels.forEach(v => {
             const vKey = String(parseFloat(v).toFixed(4));
@@ -670,6 +1088,23 @@ export class RPCResultsDialog {
                 csv += `${v},${p},${qMax[i] != null ? qMax[i] : ''},${qMin[i] != null ? qMin[i] : ''}\n`;
             });
         });
+
+        const uq = _extractUqCurveFromResults(data);
+        if (uq && uq.u_pu.length) {
+            csv += '\n# U-Q/Pmax at P=' + (uq.p_mw != null ? uq.p_mw : '') + ' MW\n';
+            csv += 'U_pu,Q_max_Mvar,Q_min_Mvar\n';
+            uq.u_pu.forEach((u, i) => {
+                csv += `${u},${uq.q_max_mvar[i] != null ? uq.q_max_mvar[i] : ''},${uq.q_min_mvar[i] != null ? uq.q_min_mvar[i] : ''}\n`;
+            });
+            const req = data.uq_requirements || {};
+            if (req.u_pu && req.u_pu.length) {
+                csv += '\n# U-Q requirements\nU_pu,Q_req_max_Mvar,Q_req_min_Mvar\n';
+                req.u_pu.forEach((u, i) => {
+                    csv += `${u},${req.q_req_max_mvar[i]},${req.q_req_min_mvar[i]}\n`;
+                });
+            }
+        }
+
         const blob = new Blob([csv], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
