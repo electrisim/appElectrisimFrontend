@@ -1703,12 +1703,8 @@ export class StaticGeneratorDialog extends Dialog {
                 c.setAttribute('stroke-width', '1.5');
                 c.setAttribute('pointer-events', 'none');
 
-                const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-                title.textContent = `${side}: P = ${fmt(pt.p_mw)} MW, Q = ${fmt(q)} MVAr`;
-
                 g.appendChild(hit);
                 g.appendChild(c);
-                g.appendChild(title);
                 g.addEventListener('mouseenter', (evt) => {
                     this._showQCapKnotTooltip(evt, pt.p_mw, q, side);
                 });
