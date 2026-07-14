@@ -1820,7 +1820,7 @@ function executeOpenDSSLoadFlow(parameters, app, graph) {
     // Reference: https://opendss.epri.com/PowerFlow.html
     const opendssData = {
         typ: "PowerFlowOpenDss Parameters",
-        frequency: opendssParams[0],           // Base frequency (50 or 60 Hz)
+        frequency: opendssParams[0],           // Base frequency (Hz)
         mode: opendssParams[1],                // Solution mode (Snapshot, Daily, Dutycycle, etc.)
         algorithm: opendssParams[2],           // Solution algorithm (Normal, Newton)
         loadmodel: opendssParams[3],           // Load model (Powerflow or Admittance)

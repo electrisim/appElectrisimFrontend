@@ -120,7 +120,8 @@ export class LoadFlowDialog extends Dialog {
                 type: 'radio',
                 options: [
                     { value: '50', label: '50 Hz', default: true },
-                    { value: '60', label: '60 Hz' }
+                    { value: '60', label: '60 Hz' },
+                    { value: '75', label: '75 Hz' }
                 ]
             },
             {
