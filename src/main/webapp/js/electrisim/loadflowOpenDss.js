@@ -9,6 +9,7 @@ import { LoadFlowDialog } from './dialogs/LoadFlowDialog.js';
 import { HarmonicAnalysisDialog } from './dialogs/HarmonicAnalysisDialog.js';
 import { showHarmonicAnalysisResultsDialog } from './dialogs/HarmonicAnalysisResultsDialog.js';
 import { formatResultNameHeader, createDialogNameResolver } from './utils/attributeUtils.js';
+import { highlightCalculationErrorElements, calculationErrorHighlightSuffix } from './utils/calculationErrorHighlight.js';
 import { getThreeWindingConnections } from './utils/gridUtils.js';
 import ENV from './config/environment.js';
 import { getConnectedBusId, getLineBusEndpointsForPayload } from './loadFlow.js';
@@ -1486,7 +1487,7 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
         dssLog('OpenDSS backend response:', dataJson);
 
         // Handle errors first
-        if (handleNetworkErrors(dataJson)) {
+        if (handleNetworkErrors(dataJson, b)) {
             return;
         }
 
@@ -1761,9 +1762,10 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
 }
 
 // Error handler for OpenDSS
-function handleNetworkErrors(dataJson) {
+function handleNetworkErrors(dataJson, graph) {
     if (dataJson.error) {
-        alert('OpenDSS calculation error: ' + dataJson.error);
+        const highlighted = highlightCalculationErrorElements(graph, dataJson.error);
+        alert('OpenDSS calculation error: ' + dataJson.error + calculationErrorHighlightSuffix(highlighted.length));
         return true;
     }
     return false;
@@ -1986,7 +1988,7 @@ function executeOpenDSSShortCircuit(parameters, app, graph) {
             const dataJson = await response.json();
             dssLog('OpenDSS short circuit response:', dataJson);
 
-            if (handleNetworkErrors(dataJson)) return;
+            if (handleNetworkErrors(dataJson, graph)) return;
 
             if (parameters.exportOpenDSSResults) {
                 downloadOpenDSSShortCircuitResults(dataJson, graph);

@@ -150,6 +150,92 @@ function matchBuiltInQCapabilityTemplate(sortedPts) {
  * Expand table knots to a polyline: straight segments (straightLineYValues) or
  * horizontal steps until the next P (constantYValue), matching pandapower naming.
  */
+/** Q setpoint modes for load flow when a Q capability curve is enabled. */
+export const Q_SETPOINT_MODE_OPTIONS = [
+    { value: 'manual', label: 'Manual (Power tab)' },
+    { value: 'capacitive_max', label: 'Capacitive max (q_max from curve)' },
+    { value: 'inductive_max', label: 'Inductive max (q_min from curve)' }
+];
+
+/**
+ * Interpolate Q at active power P from sorted curve points (matches pandapower curve styles).
+ * @param {Array<{p_mw:number,q_min_mvar:number,q_max_mvar:number}>} points
+ * @param {number} pMw
+ * @param {'q_min_mvar'|'q_max_mvar'} qKey
+ * @param {string} curveStyle
+ * @returns {number|null}
+ */
+export function interpQCapabilityAtP(points, pMw, qKey, curveStyle) {
+    if (!Array.isArray(points) || points.length < 2 || !Number.isFinite(pMw)) return null;
+    const p = points.map((pt) => Number(pt.p_mw));
+    const q = points.map((pt) => Number(pt[qKey]));
+    if (p.some((v) => !Number.isFinite(v)) || q.some((v) => !Number.isFinite(v))) return null;
+
+    const style = curveStyle === 'constantYValue' ? 'constantYValue' : 'straightLineYValues';
+    if (pMw <= p[0]) return q[0];
+    if (pMw >= p[p.length - 1]) return q[q.length - 1];
+
+    if (style === 'constantYValue') {
+        for (let i = 0; i < p.length - 1; i++) {
+            if (pMw >= p[i] && pMw < p[i + 1]) return q[i];
+        }
+        return q[q.length - 1];
+    }
+
+    for (let i = 0; i < p.length - 1; i++) {
+        if (pMw >= p[i] && pMw <= p[i + 1]) {
+            const span = p[i + 1] - p[i];
+            if (Math.abs(span) < 1e-12) return q[i];
+            const t = (pMw - p[i]) / span;
+            return q[i] + t * (q[i + 1] - q[i]);
+        }
+    }
+    return q[q.length - 1];
+}
+
+/**
+ * Effective sgen Q setpoint for load flow (mirrors backend apply_sgen_q_setpoint_from_curve).
+ */
+export function computeEffectiveSgenQSetpoint({
+    pMw,
+    qMvar,
+    qSetpointMode,
+    reactiveCapabilityCurve,
+    curveStyle,
+    curvePoints
+}) {
+    const mode = qSetpointMode || 'manual';
+    const curveOn = reactiveCapabilityCurve === true || reactiveCapabilityCurve === 'true';
+    const p = Number(pMw);
+    const qManual = Number(qMvar);
+
+    if (!curveOn || !Array.isArray(curvePoints) || curvePoints.length < 2) {
+        return {
+            qEffective: Number.isFinite(qManual) ? qManual : 0,
+            fromCurve: false,
+            sourceLabel: 'manual'
+        };
+    }
+
+    const style = curveStyle || 'straightLineYValues';
+    const qMax = interpQCapabilityAtP(curvePoints, p, 'q_max_mvar', style);
+    const qMin = interpQCapabilityAtP(curvePoints, p, 'q_min_mvar', style);
+
+    if (mode === 'capacitive_max' && qMax != null) {
+        return { qEffective: qMax, fromCurve: true, sourceLabel: 'capacitive_max', qMax, qMin };
+    }
+    if (mode === 'inductive_max' && qMin != null) {
+        return { qEffective: qMin, fromCurve: true, sourceLabel: 'inductive_max', qMax, qMin };
+    }
+    return {
+        qEffective: Number.isFinite(qManual) ? qManual : 0,
+        fromCurve: false,
+        sourceLabel: 'manual',
+        qMax,
+        qMin
+    };
+}
+
 function expandQCapabilityPolyline(parsed, qkey, curveStyle) {
     const n = parsed.length;
     const out = [];
@@ -198,6 +284,8 @@ export const defaultStaticGeneratorData = {
     reactive_capability_curve: false,
     curve_style: 'straightLineYValues',
     q_capability_curve_json: qCapabilityCurve15MwOffshoreWtgJson,
+    /** Load flow Q setpoint: manual | capacitive_max | inductive_max (when Q curve enabled) */
+    q_setpoint_mode: 'manual',
     /** OpenDSS harmonic (static gen) */
     spectrum: 'defaultgen',
     spectrum_csv: '',
@@ -240,10 +328,18 @@ export class StaticGeneratorDialog extends Dialog {
             {
                 id: 'q_mvar',
                 label: 'Reactive Power (MVar)',
-                description: 'The reactive power of the static generator',
+                description: 'Manual reactive power setpoint used when Q setpoint mode is Manual. For curve-based Q, choose Capacitive max or Inductive max below.',
                 type: 'number',
                 value: this.data.q_mvar.toString(),
                 step: '0.1'
+            },
+            {
+                id: 'q_setpoint_mode',
+                label: 'Q setpoint mode (load flow)',
+                description: 'How reactive power is chosen for load flow when the Q capability curve is enabled. Capacitive max uses q_max at the current P; inductive max uses q_min. Manual uses the Reactive Power value above exactly (including zero).',
+                type: 'select',
+                value: this.data.q_setpoint_mode || 'manual',
+                options: Q_SETPOINT_MODE_OPTIONS
             }
         ];
         
@@ -390,7 +486,7 @@ export class StaticGeneratorDialog extends Dialog {
             {
                 id: 'reactive_capability_curve',
                 label: 'Use Q capability curve',
-                description: 'If enabled, Qmin/Qmax vs active power follow the table below (pandapower static generator reactive capability). Power flow uses this when reactive limits are enforced. See <a href="https://pandapower.readthedocs.io/en/v3.4.0/elements/sgen.html#static-generator-reactive-power-capability-curve-characteristics" target="_blank" rel="noopener">pandapower sgen Q curve</a>.',
+                description: 'If enabled, Qmin/Qmax vs active power follow the table below (pandapower static generator reactive capability). <strong>Setpoint</strong> for load flow is chosen on the Power tab (Q setpoint mode). <strong>Limits</strong> are enforced when reactive limits apply in power flow. See <a href="https://pandapower.readthedocs.io/en/v3.4.0/elements/sgen.html#static-generator-reactive-power-capability-curve-characteristics" target="_blank" rel="noopener">pandapower sgen Q curve</a>.',
                 type: 'checkbox',
                 value: this.data.reactive_capability_curve
             },
@@ -657,6 +753,8 @@ export class StaticGeneratorDialog extends Dialog {
 
         // Create tab content containers
         const powerContent = this.createTabContent('power', this.powerParameters);
+        this._mountQSetpointHint(powerContent);
+        this._wrapQSetpointGroup(powerContent);
         const ratingContent = this.createTabContent('rating', this.ratingParameters);
         const shortCircuitContent = this.createTabContent('shortcircuit', this.shortCircuitParameters);
         const advancedContent = this.createTabContent('advanced', this.advancedParameters);
@@ -777,6 +875,7 @@ export class StaticGeneratorDialog extends Dialog {
         }
 
         this._syncQcapCurveToActivePowerIfPossible();
+        this._wireQSetpointHintListeners();
 
         // Add button container
         const buttonContainer = document.createElement('div');
@@ -868,6 +967,185 @@ export class StaticGeneratorDialog extends Dialog {
         return tab;
     }
     
+    _mountQSetpointHint(powerContent) {
+        const qRow = powerContent.querySelector('#q_mvar');
+        if (!qRow) return;
+        const parameterRow = qRow.closest('div');
+        if (!parameterRow || !parameterRow.parentElement) return;
+
+        const hint = document.createElement('div');
+        hint.id = 'q_setpoint_effective_hint';
+        Object.assign(hint.style, {
+            margin: '-8px 0 0 0',
+            padding: '10px 16px',
+            fontSize: '12px',
+            lineHeight: '1.45',
+            color: '#0c5460',
+            backgroundColor: '#d1ecf1',
+            border: '1px solid #bee5eb',
+            borderRadius: '8px'
+        });
+        parameterRow.parentElement.insertBefore(hint, parameterRow.nextSibling);
+        this._qSetpointHintEl = hint;
+        this._updateQSetpointHint();
+    }
+
+    _wireQSetpointHintListeners() {
+        const ids = ['p_mw', 'q_mvar', 'q_setpoint_mode', 'reactive_capability_curve', 'curve_style', 'q_capability_curve_json'];
+        const handler = () => this._updateQSetpointHint();
+        ids.forEach((id) => {
+            const el = this.inputs.get(id);
+            if (!el) return;
+            el.addEventListener('input', handler);
+            el.addEventListener('change', handler);
+        });
+    }
+
+    _updateQSetpointHint() {
+        const hint = this._qSetpointHintEl;
+        if (!hint) return;
+
+        const pIn = this.inputs.get('p_mw');
+        const qIn = this.inputs.get('q_mvar');
+        const modeIn = this.inputs.get('q_setpoint_mode');
+        const curveCb = this.inputs.get('reactive_capability_curve');
+        const styleIn = this.inputs.get('curve_style');
+        const jsonTa = this.inputs.get('q_capability_curve_json');
+
+        const curveOn = curveCb ? curveCb.checked : false;
+        const curvePoints = parseSortedQCapabilityPoints(jsonTa ? jsonTa.value : '');
+        const result = computeEffectiveSgenQSetpoint({
+            pMw: pIn ? parseFloat(pIn.value) : 0,
+            qMvar: qIn ? parseFloat(qIn.value) : 0,
+            qSetpointMode: modeIn ? modeIn.value : 'manual',
+            reactiveCapabilityCurve: curveOn,
+            curveStyle: styleIn ? styleIn.value : 'straightLineYValues',
+            curvePoints: curvePoints || []
+        });
+
+        const fmt = (v) => (Number.isFinite(v) ? (Math.round(v * 1000) / 1000).toString() : '—');
+        const pDisp = pIn ? parseFloat(pIn.value) : 0;
+        const mode = modeIn ? modeIn.value : 'manual';
+
+        if (!curveOn || mode === 'manual') {
+            hint.style.display = 'none';
+            return;
+        }
+        hint.style.display = 'block';
+
+        if (!result.fromCurve) {
+            hint.style.display = 'none';
+            return;
+        }
+
+        let modeText = 'capacitive max';
+        if (result.sourceLabel === 'inductive_max') modeText = 'inductive max';
+
+        hint.innerHTML =
+            `Load flow uses <strong>${fmt(result.qEffective)} MVar</strong> from the Q capability curve ` +
+            `(${modeText} at P = ${fmt(pDisp)} MW).`;
+    }
+
+    /**
+     * Visually group Reactive Power, effective-Q hint, and Q setpoint mode so their link is obvious.
+     */
+    _wrapQSetpointGroup(powerContent) {
+        const form = powerContent.querySelector('form');
+        const qInput = powerContent.querySelector('#q_mvar');
+        const modeInput = powerContent.querySelector('#q_setpoint_mode');
+        const hint = powerContent.querySelector('#q_setpoint_effective_hint');
+        if (!form || !qInput || !modeInput) return;
+
+        const qRow = qInput.parentElement && qInput.parentElement.parentElement;
+        const modeRow = modeInput.parentElement && modeInput.parentElement.parentElement;
+        if (!qRow || !modeRow || qRow === modeRow) return;
+
+        const fieldset = document.createElement('fieldset');
+        fieldset.className = 'sgen-q-setpoint-group';
+        Object.assign(fieldset.style, {
+            border: '1px solid #b6d4fe',
+            borderLeft: '4px solid #0d6efd',
+            borderRadius: '10px',
+            padding: '4px 14px 14px',
+            margin: '0',
+            backgroundColor: '#f8fbff',
+            boxShadow: 'inset 3px 0 0 rgba(13, 110, 253, 0.08)'
+        });
+
+        const legend = document.createElement('legend');
+        legend.textContent = 'Load flow Q setpoint — linked fields';
+        Object.assign(legend.style, {
+            fontSize: '12px',
+            fontWeight: '600',
+            color: '#084298',
+            padding: '0 8px',
+            lineHeight: '1.3'
+        });
+        fieldset.appendChild(legend);
+
+        const inner = document.createElement('div');
+        Object.assign(inner.style, {
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+            position: 'relative'
+        });
+
+        const bracketRail = document.createElement('div');
+        bracketRail.setAttribute('aria-hidden', 'true');
+        Object.assign(bracketRail.style, {
+            position: 'absolute',
+            left: '6px',
+            top: '12px',
+            bottom: '12px',
+            width: '14px',
+            borderLeft: '2px solid #6ea8fe',
+            borderTop: '2px solid #6ea8fe',
+            borderBottom: '2px solid #6ea8fe',
+            borderRadius: '4px 0 0 4px',
+            pointerEvents: 'none'
+        });
+
+        const connector = document.createElement('div');
+        connector.setAttribute('aria-hidden', 'true');
+        connector.innerHTML = '<span style="color:#0d6efd;font-weight:600;">&#8597;</span> Setpoint mode below determines how reactive power above is used in load flow';
+        Object.assign(connector.style, {
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+            fontSize: '11px',
+            color: '#495057',
+            padding: '2px 8px 2px 28px',
+            lineHeight: '1.35',
+            fontStyle: 'italic',
+            borderTop: '1px dashed #cfe2ff',
+            borderBottom: '1px dashed #cfe2ff',
+            backgroundColor: 'rgba(255, 255, 255, 0.65)'
+        });
+
+        [qRow, modeRow].forEach((row) => {
+            Object.assign(row.style, {
+                marginLeft: '22px',
+                backgroundColor: '#ffffff'
+            });
+        });
+        if (hint) {
+            Object.assign(hint.style, {
+                margin: '0 0 0 22px',
+                borderLeft: '3px solid #0dcaf0'
+            });
+        }
+
+        form.insertBefore(fieldset, qRow);
+        fieldset.appendChild(inner);
+        inner.appendChild(bracketRail);
+        inner.appendChild(qRow);
+        if (hint) inner.appendChild(hint);
+        inner.appendChild(connector);
+        inner.appendChild(modeRow);
+    }
+
     createTabContent(tabId, parameters) {
         if (tabId === 'economic' && parameters.length > 0 && parameters[0]?.id === 'cost_per_unit_by_currency') {
             const content = document.createElement('div');
@@ -1221,6 +1499,7 @@ export class StaticGeneratorDialog extends Dialog {
     
     destroy() {
         this._qCapabilityChartRedraw = null;
+        this._qSetpointHintEl = null;
         this._qcapTemplateBasePoints = null;
         this._qcapTemplatePRatedMw = null;
         this._qcapTemplateSnBase = null;
@@ -1375,6 +1654,9 @@ export class StaticGeneratorDialog extends Dialog {
         });
 
         syncHarmonicSpectrumTriStateFromDialogData(this.inputs, this.harmonicParameters, this.data);
+        if (typeof this._updateQSetpointHint === 'function') {
+            this._updateQSetpointHint();
+        }
         
         console.log('=== StaticGeneratorDialog.populateDialog completed ===');
     }
@@ -1438,6 +1720,9 @@ export class StaticGeneratorDialog extends Dialog {
 
         if (typeof this._qCapabilityChartRedraw === 'function') {
             this._qCapabilityChartRedraw();
+        }
+        if (typeof this._updateQSetpointHint === 'function') {
+            this._updateQSetpointHint();
         }
     }
 
@@ -1874,6 +2159,11 @@ export const columnDefsStaticGenerator = [
         field: "in_service",
         headerTooltip: "Specifies if the static generator is in service (True/False)",
         maxWidth: 100
+    },
+    {
+        field: "q_setpoint_mode",
+        headerTooltip: "Load flow Q setpoint: manual, capacitive_max (q_max from curve), or inductive_max (q_min from curve)",
+        maxWidth: 160
     },
     {
         field: "reactive_capability_curve",

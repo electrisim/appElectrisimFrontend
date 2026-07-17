@@ -599,6 +599,7 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         reactive_capability_curve: 'reactive_capability_curve',
                         curve_style: 'curve_style',
                         q_capability_curve_json: 'q_capability_curve_json',
+                        q_setpoint_mode: 'q_setpoint_mode',
                         spectrum: { name: 'spectrum', optional: true },
                         spectrum_csv: { name: 'spectrum_csv', optional: true },
                         Xdpp: { name: 'Xdpp', optional: true },

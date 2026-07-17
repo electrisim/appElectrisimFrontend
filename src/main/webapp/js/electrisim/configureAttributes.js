@@ -165,6 +165,7 @@ export function configureStaticGeneratorAttributes(grafka, vertex, options = {})
     g.setAttribute("reactive_capability_curve", qcapOn ? "true" : "false");
     g.setAttribute("curve_style", options.curve_style || "straightLineYValues");
     g.setAttribute("q_capability_curve_json", options.q_capability_curve_json || qCapabilityCurve15MwOffshoreWtgJson);
+    g.setAttribute("q_setpoint_mode", options.q_setpoint_mode || "manual");
 
     grafka.getModel().setValue(vertex, g)
 

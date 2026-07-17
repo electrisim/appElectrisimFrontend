@@ -1446,6 +1446,7 @@ const COMPONENT_TYPES = {
 import { DIALOG_STYLES } from './utils/dialogStyles.js';
 import { LoadFlowDialog } from './dialogs/LoadFlowDialog.js';
 import { formatResultNameHeader, createDialogNameResolver, buildGraphCellLookupMap, resolveGraphCellForResult } from './utils/attributeUtils.js';
+import { highlightCalculationErrorElements, calculationErrorHighlightSuffix } from './utils/calculationErrorHighlight.js';
 import ENV from './config/environment.js';
 
 // Advanced payload compression function to reduce data transfer size
@@ -1904,10 +1905,15 @@ function loadFlowPandaPower(a, b, c) {
 
     // Error handler
     function handleNetworkErrors(dataJson) {
+        const highlightFromTexts = (texts) =>
+            highlightCalculationErrorElements(b, texts);
+
         // Check for new diagnostic response format
         if (dataJson.error && dataJson.diagnostic) {
             console.log('Power flow failed with diagnostic information:', dataJson);
-            
+            const errorTexts = [dataJson.message, dataJson.exception, dataJson.error].filter(Boolean);
+            const highlighted = highlightFromTexts(errorTexts);
+
             // Show diagnostic dialog if available
             if (window.DiagnosticReportDialog) {
                 // Pass the entire response including message and exception
@@ -1918,7 +1924,7 @@ function loadFlowPandaPower(a, b, c) {
                 diagnosticDialog.show();
             } else {
                 // Fallback to alert if dialog is not available
-                alert(`Power flow calculation failed: ${dataJson.message}\n\nException: ${dataJson.exception}`);
+                alert(`Power flow calculation failed: ${dataJson.message}\n\nException: ${dataJson.exception}${calculationErrorHighlightSuffix(highlighted.length)}`);
             }
             return true;
         }
@@ -1926,7 +1932,8 @@ function loadFlowPandaPower(a, b, c) {
         // Handle simple error response (validation errors, etc.)
         if (dataJson.error && !dataJson.diagnostic) {
             console.error('Power flow calculation failed:', dataJson.error);
-            alert(`Power flow calculation failed:\n\n${dataJson.error}`);
+            const highlighted = highlightFromTexts([dataJson.error]);
+            alert(`Power flow calculation failed:\n\n${dataJson.error}${calculationErrorHighlightSuffix(highlighted.length)}`);
             return true;
         }
 
@@ -1950,7 +1957,9 @@ function loadFlowPandaPower(a, b, c) {
 
         if (errorTypes[errorType]) {
             for (let i = 1; i < dataJson.length; i++) {
-                alert(`${errorTypes[errorType]}${dataJson[i][0]} ${dataJson[i][1]} = ${dataJson[i][2]} (restriction: ${dataJson[i][3]})\nPower Flow did not converge`);
+                const row = dataJson[i];
+                const highlighted = highlightFromTexts([row && row[0], row && row[1]]);
+                alert(`${errorTypes[errorType]}${row[0]} ${row[1]} = ${row[2]} (restriction: ${row[3]})\nPower Flow did not converge${calculationErrorHighlightSuffix(highlighted.length)}`);
             }
             return true;
         }
@@ -3226,6 +3235,7 @@ Loading[%]: ${formatNumber(cell.loading_percent, 1)}`;
                                 reactive_capability_curve: 'reactive_capability_curve',
                                 curve_style: 'curve_style',
                                 q_capability_curve_json: 'q_capability_curve_json',
+                                q_setpoint_mode: 'q_setpoint_mode',
                                 in_service: { name: 'in_service', optional: true }
                             })
                         };
