@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Electrisim Tutorial Intro — PowerFactory Comparison</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --primary: #2f5bea;
+      --primary-dark: #1e3fa8;
+      --primary-light: #e8eeff;
+      --accent-green: #10b981;
+      --accent-green-dark: #059669;
+      --accent-purple: #7c3aed;
+      --text: #000000;
+      --muted: #646464;
+      --white: #ffffff;
+      --slide-w: 1920px;
+      --slide-h: 1080px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #1a1a2e;
+      font-family: "Nunito", sans-serif;
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .slide {
+      width: var(--slide-w);
+      height: var(--slide-h);
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(145deg, #f8faff 0%, #eef3ff 45%, #e0eaff 100%);
+      page-break-after: always;
+    }
+
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      opacity: 0.12;
+      background: var(--primary);
+    }
+    .orb-1 { width: 520px; height: 520px; top: -180px; right: -120px; }
+    .orb-2 { width: 320px; height: 320px; bottom: -80px; left: -60px; background: var(--accent-green); opacity: 0.08; }
+    .orb-3 { width: 140px; height: 140px; top: 420px; right: 280px; opacity: 0.06; }
+
+    .grid-lines {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(47, 91, 234, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(47, 91, 234, 0.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+    }
+
+    .bar-accent {
+      width: 85px;
+      height: 4px;
+      background: var(--primary);
+      border-radius: 2px;
+      margin: 0 auto 28px;
+    }
+
+    .slide-title .content {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 80px 120px;
+      z-index: 2;
+    }
+
+    .logo-row {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      margin-bottom: 48px;
+    }
+
+    .logo-row img { height: 72px; width: auto; }
+
+    .logo-text {
+      font-family: "Josefin Sans", sans-serif;
+      font-size: 42px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.5px;
+    }
+
+    .badge-tutorial {
+      display: inline-block;
+      font-family: "Josefin Sans", sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--primary);
+      background: rgba(47, 91, 234, 0.1);
+      border: 1px solid rgba(47, 91, 234, 0.25);
+      padding: 10px 24px;
+      border-radius: 50px;
+      margin-bottom: 32px;
+    }
+
+    h1 {
+      font-family: "Josefin Sans", sans-serif;
+      font-size: 72px;
+      font-weight: 700;
+      line-height: 1.1;
+      color: var(--text);
+      max-width: 1400px;
+      margin-bottom: 24px;
+    }
+
+    h1 .highlight { color: var(--primary); }
+
+    .subtitle {
+      font-size: 28px;
+      color: var(--muted);
+      max-width: 1100px;
+      line-height: 1.5;
+      margin-bottom: 48px;
+    }
+
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      justify-content: center;
+      margin-bottom: 56px;
+    }
+
+    .tag {
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--muted);
+      background: var(--white);
+      border: 1px solid rgba(47, 91, 234, 0.15);
+      padding: 12px 22px;
+      border-radius: 50px;
+      box-shadow: 0 4px 16px rgba(47, 91, 234, 0.06);
+    }
+
+    .tag.pandapower {
+      color: var(--accent-green-dark);
+      border-color: rgba(16, 185, 129, 0.35);
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(5, 150, 105, 0.05) 100%);
+    }
+
+    .footer-strip {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 72px;
+      background: linear-gradient(90deg, var(--primary) 0%, var(--primary-dark) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 64px;
+      z-index: 3;
+    }
+
+    .footer-strip span {
+      font-family: "Josefin Sans", sans-serif;
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--white);
+      letter-spacing: 0.5px;
+    }
+
+    .footer-strip .url {
+      opacity: 0.9;
+      font-weight: 400;
+      font-family: "Nunito", sans-serif;
+    }
+
+    .footer-strip.footer-simple { justify-content: center; }
+    .footer-strip.footer-simple span { font-size: 24px; opacity: 1; }
+
+    .sld-mini {
+      position: absolute;
+      right: 100px;
+      top: 50%;
+      transform: translateY(-55%);
+      width: 380px;
+      opacity: 0.85;
+      z-index: 1;
+    }
+
+    .sld-box { fill: var(--white); stroke: var(--primary); stroke-width: 2; }
+    .sld-line { stroke: var(--primary); stroke-width: 2.5; fill: none; }
+    .sld-label {
+      font-family: "Nunito", sans-serif;
+      font-size: 13px;
+      fill: var(--muted);
+      font-weight: 600;
+    }
+
+    .slide-outline .content {
+      padding: 88px 80px 120px;
+      z-index: 2;
+      position: relative;
+    }
+
+    .slide-outline h2 {
+      font-family: "Josefin Sans", sans-serif;
+      font-size: 64px;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+
+    .slide-outline .intro-line {
+      text-align: center;
+      font-size: 28px;
+      color: var(--muted);
+      margin-bottom: 48px;
+    }
+
+    .cases {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 28px;
+      max-width: 1760px;
+      margin: 0 auto;
+    }
+
+    .case-card {
+      background: var(--white);
+      border-radius: 20px;
+      padding: 36px 24px;
+      border: 2px solid rgba(47, 91, 234, 0.14);
+      box-shadow: 0 10px 32px rgba(47, 91, 234, 0.09);
+      text-align: center;
+      min-height: 320px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+    }
+
+    .case-num {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: var(--white);
+      font-family: "Josefin Sans", sans-serif;
+      font-size: 28px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 22px;
+    }
+
+    .case-card.highlight .case-num {
+      background: linear-gradient(135deg, var(--accent-green) 0%, var(--accent-green-dark) 100%);
+    }
+
+    .case-title {
+      font-family: "Josefin Sans", sans-serif;
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 14px;
+      line-height: 1.25;
+    }
+
+    .case-desc {
+      font-size: 18px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .slide-cheat .content {
+      padding: 72px 100px 120px;
+      z-index: 2;
+      position: relative;
+    }
+
+    .slide-cheat h2 {
+      font-family: "Josefin Sans", sans-serif;
+      font-size: 56px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    .slide-cheat .intro-line {
+      font-size: 24px;
+      color: var(--muted);
+      margin-bottom: 40px;
+    }
+
+    .cheat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      max-width: 1600px;
+    }
+
+    .cheat-box {
+      background: var(--white);
+      border-radius: 20px;
+      padding: 36px 40px;
+      border: 2px solid rgba(47, 91, 234, 0.14);
+      box-shadow: 0 10px 32px rgba(47, 91, 234, 0.08);
+    }
+
+    .cheat-box h3 {
+      font-family: "Josefin Sans", sans-serif;
+      font-size: 28px;
+      margin-bottom: 20px;
+      color: var(--primary);
+    }
+
+    .cheat-box ul {
+      list-style: none;
+      font-size: 22px;
+      line-height: 1.8;
+      color: var(--text);
+    }
+
+    .cheat-box li { margin-bottom: 8px; }
+
+    .formula {
+      font-family: "Josefin Sans", sans-serif;
+      font-size: 26px;
+      font-weight: 600;
+      background: var(--primary-light);
+      padding: 20px 28px;
+      border-radius: 12px;
+      margin-top: 16px;
+      color: var(--primary-dark);
+    }
+
+    .slide-outro .content {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      z-index: 2;
+      padding-bottom: 72px;
+    }
+
+    .slide-outro h2 {
+      font-family: "Josefin Sans", sans-serif;
+      font-size: 56px;
+      font-weight: 700;
+      margin-bottom: 20px;
+    }
+
+    .slide-outro p {
+      font-size: 26px;
+      color: var(--muted);
+      margin-bottom: 40px;
+      max-width: 900px;
+      line-height: 1.5;
+    }
+
+    .cta-btn {
+      display: inline-block;
+      font-family: "Josefin Sans", sans-serif;
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--white);
+      background: var(--primary);
+      padding: 18px 48px;
+      border-radius: 50px;
+      text-decoration: none;
+      box-shadow: 0 8px 24px rgba(47, 91, 234, 0.35);
+    }
+
+    @media print {
+      body { background: white; }
+      .slide { page-break-after: always; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- SLIDE 1 — Title -->
+  <section class="slide slide-title" id="slide-title">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+    <div class="grid-lines"></div>
+
+    <svg class="sld-mini" viewBox="0 0 380 320" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect class="sld-box" x="145" y="10" width="90" height="36" rx="4"/>
+      <text class="sld-label" x="190" y="32" text-anchor="middle">Grid 132 kV</text>
+      <line class="sld-line" x1="190" y1="46" x2="190" y2="80"/>
+      <rect class="sld-box" x="155" y="80" width="70" height="30" rx="4"/>
+      <text class="sld-label" x="190" y="100" text-anchor="middle">Line</text>
+      <line class="sld-line" x1="190" y1="110" x2="190" y2="145"/>
+      <rect class="sld-box" x="155" y="145" width="70" height="50" rx="4"/>
+      <text class="sld-label" x="190" y="172" text-anchor="middle">Trafo</text>
+      <line class="sld-line" x1="190" y1="195" x2="190" y2="230"/>
+      <rect class="sld-box" x="145" y="230" width="90" height="36" rx="4"/>
+      <text class="sld-label" x="190" y="252" text-anchor="middle">Load / Gen</text>
+    </svg>
+
+    <div class="content">
+      <div class="logo-row">
+        <img src="https://electrisim.com/assets/img/logo_Electrisim_removebg-preview.png" alt="Electrisim" onerror="this.style.display='none'" />
+        <span class="logo-text">Electrisim</span>
+      </div>
+      <div class="badge-tutorial">Tutorial · Electrisim ↔ PowerFactory</div>
+      <div class="bar-accent"></div>
+      <h1>Validating Electrisim against <span class="highlight">PowerFactory</span></h1>
+      <p class="subtitle">
+        Four transmission test models · pandapower load flow<br/>
+        Side-by-side comparison of P, Q, I, voltages, and losses
+      </p>
+      <div class="tags">
+        <span class="tag pandapower">Pandapower Load Flow</span>
+        <span class="tag">132/33 kV</span>
+        <span class="tag">2W &amp; 3W Transformers</span>
+        <span class="tag">Validation</span>
+      </div>
+    </div>
+
+    <div class="footer-strip">
+      <span>Power System Analysis Software</span>
+      <span class="url">electrisim.com</span>
+    </div>
+  </section>
+
+  <!-- SLIDE 2 — Agenda -->
+  <section class="slide slide-outline" id="slide-outline">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="grid-lines"></div>
+    <div class="content">
+      <h2>Four models to <span class="highlight" style="color: var(--primary);">compare</span></h2>
+      <p class="intro-line">File → New → Testing with other software → Comparing PowerFactory</p>
+      <div class="bar-accent"></div>
+      <div class="cases">
+        <div class="case-card">
+          <div class="case-num">1</div>
+          <div class="case-title">Test-1</div>
+          <div class="case-desc">Grid · Line · Load<br/>No transformer</div>
+        </div>
+        <div class="case-card">
+          <div class="case-num">2</div>
+          <div class="case-title">Test-2</div>
+          <div class="case-desc">Grid · Line · 2W trafo<br/>Load · 132/33 kV</div>
+        </div>
+        <div class="case-card highlight">
+          <div class="case-num">3</div>
+          <div class="case-title">Test-3</div>
+          <div class="case-desc">Grid · Line · 3W trafo<br/>Two 33 kV loads</div>
+        </div>
+        <div class="case-card">
+          <div class="case-num">4</div>
+          <div class="case-title">Test-4</div>
+          <div class="case-desc">Same as Test-3<br/>Static generators (export)</div>
+        </div>
+      </div>
+    </div>
+    <div class="footer-strip footer-simple">
+      <span class="url">electrisim.com</span>
+    </div>
+  </section>
+
+  <!-- SLIDE 3 — Loss mapping cheat sheet -->
+  <section class="slide slide-cheat" id="slide-cheat">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="grid-lines"></div>
+    <div class="content">
+      <h2>3W transformer: PowerFactory → Electrisim</h2>
+      <p class="intro-line">Map loss parameters before comparing load-flow results</p>
+      <div class="cheat-grid">
+        <div class="cheat-box">
+          <h3>PowerFactory</h3>
+          <ul>
+            <li>Copper losses HV–MV [kW]</li>
+            <li>Copper losses MV–LV [kW]</li>
+            <li>Copper losses LV–HV [kW]</li>
+            <li>(Often no iron-loss field)</li>
+          </ul>
+        </div>
+        <div class="cheat-box">
+          <h3>Electrisim / pandapower</h3>
+          <ul>
+            <li><strong>vkr_hv_percent</strong> ← HV–MV kW</li>
+            <li><strong>vkr_mv_percent</strong> ← MV–LV kW</li>
+            <li><strong>vkr_lv_percent</strong> ← LV–HV kW</li>
+            <li><strong>pfe_kw</strong> ← iron losses (0 if none)</li>
+            <li><strong>i0_percent</strong> ← no-load current</li>
+          </ul>
+          <div class="formula">vkr [%] = P<sub>cu</sub> [kW] ÷ (10 × S<sub>ref</sub> [MVA])</div>
+        </div>
+      </div>
+    </div>
+    <div class="footer-strip footer-simple">
+      <span class="url">electrisim.com</span>
+    </div>
+  </section>
+
+  <!-- SLIDE 4 — Outro -->
+  <section class="slide slide-outro" id="slide-outro">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="grid-lines"></div>
+    <div class="content">
+      <div class="logo-row" style="margin-bottom: 32px;">
+        <img src="https://electrisim.com/assets/img/logo_Electrisim_removebg-preview.png" alt="Electrisim" style="height: 64px;" onerror="this.style.display='none'" />
+      </div>
+      <h2>Try it in Electrisim</h2>
+      <p>Open the template under <strong>Testing with other software</strong> and run pandapower load flow on all four tabs.</p>
+      <span class="cta-btn">app.electrisim.com</span>
+    </div>
+    <div class="footer-strip">
+      <span>electrisim.com</span>
+      <span class="url">Tutorial: Comparing PowerFactory</span>
+    </div>
+  </section>
+
+</body>
+</html>

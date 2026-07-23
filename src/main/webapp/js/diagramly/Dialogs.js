@@ -2618,7 +2618,7 @@ var NewDialog = function(editorUi, compact, showName, callback, createOnly, canc
 		var templatesTab = mxUtils.button(mxResources.get('Templates', null, 'Templates'), function()
 		{
 			list.style.display = '';
-			div.style.left = '160px';
+			div.style.left = '262px';
 			setActiveTab(0);
 
 			div.scrollTop = 0;
@@ -2683,7 +2683,7 @@ var NewDialog = function(editorUi, compact, showName, callback, createOnly, canc
 					if (importListsCount > 0)
 					{
 						list.style.display = '';
-						div.style.left = '160px';
+						div.style.left = '262px';
 						list.innerHTML = '';
 
 						customCatCount = 0;
@@ -2811,7 +2811,7 @@ var NewDialog = function(editorUi, compact, showName, callback, createOnly, canc
 	var div = document.createElement('div');
 	div.style.border = '1px solid #d3d3d3';
 	div.style.position = 'absolute';
-	div.style.left = '160px';
+	div.style.left = '262px';
 	div.style.right = '34px';
 	var divTop = (showName) ? 72 : 40;
 	divTop += hasTabs? 30 : 0;
@@ -2822,7 +2822,7 @@ var NewDialog = function(editorUi, compact, showName, callback, createOnly, canc
 	div.style.overflow = 'auto';
 	
 	var list = document.createElement('div');
-	list.style.cssText = 'position:absolute;left:30px;width:128px;top:' + divTop + 'px;bottom:68px;margin-top:6px;overflow:auto;border:1px solid #d3d3d3;';
+	list.style.cssText = 'position:absolute;left:30px;width:220px;top:' + divTop + 'px;bottom:68px;margin-top:6px;overflow:auto;border:1px solid #d3d3d3;';
 	
 	var w = 140;
 	var h = 140;
@@ -3023,15 +3023,11 @@ var NewDialog = function(editorUi, compact, showName, callback, createOnly, canc
 				var entry = document.createElement('div');
 				var label = cat;
 				var templateList = customCats[cat];
+				var entryLabel = label + ' (' + templateList.length + ')';
 				
-				if (label.length > 18)
-				{
-					label = label.substring(0, 18) + '&hellip;';
-				}
-				
-				entry.style.cssText = 'display:block;cursor:pointer;padding:6px;white-space:nowrap;margin-bottom:-1px;overflow:hidden;text-overflow:ellipsis;user-select:none;';
-				entry.setAttribute('title', label + ' (' + templateList.length + ')');
-				mxUtils.write(entry, entry.getAttribute('title'));
+				entry.style.cssText = 'display:block;cursor:pointer;padding:6px;white-space:normal;line-height:1.35;word-break:break-word;margin-bottom:-1px;overflow:hidden;user-select:none;';
+				entry.setAttribute('title', entryLabel);
+				mxUtils.write(entry, entryLabel);
 				
 				if (itemPadding != null)
 				{
@@ -3079,14 +3075,11 @@ var NewDialog = function(editorUi, compact, showName, callback, createOnly, canc
 				label = cat.substring(0, 1).toUpperCase() + cat.substring(1);
 			}
 			
-			if (label.length > 18)
-			{
-				label = label.substring(0, 18) + '&hellip;';
-			}
+			var entryLabel = label + ' (' + templateList.length + ')';
 			
-			entry.style.cssText = 'display:block;cursor:pointer;padding:6px;white-space:nowrap;margin-bottom:-1px;overflow:hidden;text-overflow:ellipsis;user-select:none;';
-			entry.setAttribute('title', label + ' (' + templateList.length + ')');
-			mxUtils.write(entry, entry.getAttribute('title'));
+			entry.style.cssText = 'display:block;cursor:pointer;padding:6px;white-space:normal;line-height:1.35;word-break:break-word;margin-bottom:-1px;overflow:hidden;user-select:none;';
+			entry.setAttribute('title', entryLabel);
+			mxUtils.write(entry, entryLabel);
 			
 			if (itemPadding != null)
 			{
@@ -9525,16 +9518,9 @@ TemplatesDialog.prototype.init = function(editorUi, callback, cancelCallback,
 			}
 			
 			entry.className = 'geTemplateCatLink';
-			entry.setAttribute('title', label + ' (' + templateList.length + ')');
-			
-			label = mxUtils.htmlEntities(label);
-			
-			if (label.length > 15)
-			{
-				label = label.substring(0, 15) + '&hellip;';
-			}
-					
-			entry.innerHTML = label + ' (' + templateList.length + ')';
+			var fullLabel = label + ' (' + templateList.length + ')';
+			entry.setAttribute('title', fullLabel);
+			entry.innerHTML = mxUtils.htmlEntities(fullLabel);
 			
 			list.appendChild(entry);
 

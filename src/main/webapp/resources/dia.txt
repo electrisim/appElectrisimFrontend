@@ -59,6 +59,7 @@ background=Background
 backgroundColor=Background Color
 backgroundImage=Background Image
 basic=Basic
+testing_with_other_software=Testing with other software
 blankDrawing=Blank Drawing
 blankDiagram=Blank Diagram
 block=Block
