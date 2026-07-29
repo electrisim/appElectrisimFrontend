@@ -49,7 +49,7 @@ export const defaultThreeWindingTransformerData = {
     vkr0_hv_percent: 0.0,
     vkr0_mv_percent: 0.0,
     vkr0_lv_percent: 0.0,
-    vector_group: 'YNyn0d',
+    vector_group: 'YNynd',
     /** pandapower trafo3w max_loading_percent — OPF branch thermal limit (%), 0 = unset */
     max_loading_percent: 0.0,
 };

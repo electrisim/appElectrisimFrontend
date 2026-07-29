@@ -101,6 +101,36 @@ export function configureGeneratorAttributes(grafka, vertex, options = {}) {
     g.setAttribute("Xdpp", options.Xdpp || "0.20");
     g.setAttribute("XRdp", options.XRdp || "20");
 
+    // ANDES dynamics (transient / eigenvalue). Empty strings → backend defaults.
+    g.setAttribute("Dynamics_parameters", "");
+    g.setAttribute("dyn_machine_model", options.dyn_machine_model || "GENROU");
+    g.setAttribute("dyn_M", options.dyn_M != null ? String(options.dyn_M) : "");
+    g.setAttribute("dyn_H", options.dyn_H != null ? String(options.dyn_H) : "");
+    g.setAttribute("dyn_D", options.dyn_D != null ? String(options.dyn_D) : "");
+    g.setAttribute("dyn_ra", options.dyn_ra != null ? String(options.dyn_ra) : "");
+    g.setAttribute("dyn_xl", options.dyn_xl != null ? String(options.dyn_xl) : "");
+    g.setAttribute("dyn_xd", options.dyn_xd != null ? String(options.dyn_xd) : "");
+    g.setAttribute("dyn_xq", options.dyn_xq != null ? String(options.dyn_xq) : "");
+    g.setAttribute("dyn_xd1", options.dyn_xd1 != null ? String(options.dyn_xd1) : "");
+    g.setAttribute("dyn_xq1", options.dyn_xq1 != null ? String(options.dyn_xq1) : "");
+    g.setAttribute("dyn_xd2", options.dyn_xd2 != null ? String(options.dyn_xd2) : "");
+    g.setAttribute("dyn_xq2", options.dyn_xq2 != null ? String(options.dyn_xq2) : "");
+    g.setAttribute("dyn_Td10", options.dyn_Td10 != null ? String(options.dyn_Td10) : "");
+    g.setAttribute("dyn_Td20", options.dyn_Td20 != null ? String(options.dyn_Td20) : "");
+    g.setAttribute("dyn_Tq10", options.dyn_Tq10 != null ? String(options.dyn_Tq10) : "");
+    g.setAttribute("dyn_Tq20", options.dyn_Tq20 != null ? String(options.dyn_Tq20) : "");
+    g.setAttribute("dyn_exciter_model", options.dyn_exciter_model || "EXDC2");
+    g.setAttribute("dyn_exc_KA", options.dyn_exc_KA != null ? String(options.dyn_exc_KA) : "");
+    g.setAttribute("dyn_exc_TR", options.dyn_exc_TR != null ? String(options.dyn_exc_TR) : "");
+    g.setAttribute("dyn_exc_TA", options.dyn_exc_TA != null ? String(options.dyn_exc_TA) : "");
+    g.setAttribute("dyn_exc_TE", options.dyn_exc_TE != null ? String(options.dyn_exc_TE) : "");
+    g.setAttribute("dyn_exc_K", options.dyn_exc_K != null ? String(options.dyn_exc_K) : "");
+    g.setAttribute("dyn_governor_model", options.dyn_governor_model || "TGOV1");
+    g.setAttribute("dyn_gov_R", options.dyn_gov_R != null ? String(options.dyn_gov_R) : "");
+    g.setAttribute("dyn_gov_T1", options.dyn_gov_T1 != null ? String(options.dyn_gov_T1) : "");
+    g.setAttribute("dyn_gov_T2", options.dyn_gov_T2 != null ? String(options.dyn_gov_T2) : "");
+    g.setAttribute("dyn_gov_T3", options.dyn_gov_T3 != null ? String(options.dyn_gov_T3) : "");
+
     // Economic parameters
     g.setAttribute("Economic_parameters", "");
     g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
@@ -333,7 +363,7 @@ export function configureThreeWindingTransformerAttributes(grafka, vertex, optio
     g.setAttribute("vkr0_hv_percent", "0");
     g.setAttribute("vkr0_mv_percent", "0");
     g.setAttribute("vkr0_lv_percent", "0");
-    g.setAttribute("vector_group", "0");  //vector_group (list of String) - Vector group of the transformer3w
+    g.setAttribute("vector_group", "YNynd");  //vector_group (list of String) - Vector group of the transformer3w
 
 
     //OPTIONAL
@@ -589,6 +619,13 @@ export function configureMotorAttributes(grafka, vertex, options = {}) {
     g.setAttribute("lrc_pu", options.lrc_pu || "0");
     g.setAttribute("rx", options.rx ||"0");
     g.setAttribute("vn_kv", options.vn_kv || "0");
+
+    // Dynamic / motor starting (ANDES)
+    g.setAttribute("Dynamics_parameters", "");
+    g.setAttribute("Hm", options.Hm != null ? String(options.Hm) : "0.5");
+    g.setAttribute("tm_c1", options.tm_c1 != null ? String(options.tm_c1) : "0");
+    g.setAttribute("tm_c2", options.tm_c2 != null ? String(options.tm_c2) : "0");
+    g.setAttribute("tm_c3", options.tm_c3 != null ? String(options.tm_c3) : "1");
 
     //OPTIONAL
     g.setAttribute("Optional_parameters", "");

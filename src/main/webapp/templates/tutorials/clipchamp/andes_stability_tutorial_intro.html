@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Electrisim Tutorial — Transient Stability & Eigenvalue Analysis (ANDES)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --primary: #2f5bea;
+      --primary-dark: #1e3fa8;
+      --primary-light: #e8eeff;
+      --accent-green: #10b981;
+      --accent-green-dark: #059669;
+      --accent-orange: #f59e0b;
+      --text: #000000;
+      --muted: #646464;
+      --white: #ffffff;
+      --slide-w: 1920px;
+      --slide-h: 1080px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #1a1a2e; font-family: "Nunito", sans-serif; color: var(--text); -webkit-font-smoothing: antialiased; }
+    .slide {
+      width: var(--slide-w); height: var(--slide-h); position: relative; overflow: hidden;
+      background: linear-gradient(145deg, #f8faff 0%, #eef3ff 45%, #e0eaff 100%);
+      page-break-after: always;
+    }
+    .orb { position: absolute; border-radius: 50%; opacity: 0.12; background: var(--primary); }
+    .orb-1 { width: 520px; height: 520px; top: -180px; right: -120px; }
+    .orb-2 { width: 320px; height: 320px; bottom: -80px; left: -60px; background: var(--accent-green); opacity: 0.08; }
+    .grid-lines {
+      position: absolute; inset: 0;
+      background-image:
+        linear-gradient(rgba(47, 91, 234, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(47, 91, 234, 0.04) 1px, transparent 1px);
+      background-size: 48px 48px; pointer-events: none;
+    }
+    .bar-accent { width: 85px; height: 4px; background: var(--primary); border-radius: 2px; margin: 0 0 28px; }
+    .bar-accent.center { margin: 0 auto 28px; }
+    .badge-tutorial {
+      display: inline-block; font-family: "Josefin Sans", sans-serif; font-size: 15px; font-weight: 600;
+      letter-spacing: 2px; text-transform: uppercase; color: var(--white); background: var(--primary);
+      padding: 10px 24px; border-radius: 50px; margin-bottom: 28px;
+    }
+    h1 {
+      font-family: "Josefin Sans", sans-serif; font-size: 58px; font-weight: 700; line-height: 1.12;
+      color: var(--text); max-width: 980px; margin-bottom: 22px;
+    }
+    h1 .highlight { color: var(--primary); }
+    h2 {
+      font-family: "Josefin Sans", sans-serif; font-size: 48px; font-weight: 700; line-height: 1.15; margin-bottom: 12px;
+    }
+    h2 .highlight { color: var(--primary); }
+    .subtitle { font-size: 26px; color: var(--muted); max-width: 900px; line-height: 1.45; margin-bottom: 36px; }
+    .tags { display: flex; flex-wrap: wrap; gap: 14px; }
+    .tag {
+      display: inline-flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 600;
+      color: var(--muted); background: var(--white); border: 1.5px solid rgba(47, 91, 234, 0.22);
+      padding: 12px 20px; border-radius: 12px; box-shadow: 0 4px 16px rgba(47, 91, 234, 0.06);
+    }
+    .tag.andes {
+      color: var(--accent-green-dark); border-color: rgba(16, 185, 129, 0.4);
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(5, 150, 105, 0.05) 100%);
+    }
+    .footer-strip {
+      position: absolute; bottom: 0; left: 0; right: 0; height: 72px;
+      background: linear-gradient(90deg, var(--primary) 0%, var(--primary-dark) 100%);
+      display: flex; align-items: center; justify-content: center; gap: 18px; padding: 0 64px; z-index: 3;
+    }
+    .footer-strip span {
+      font-family: "Josefin Sans", sans-serif; font-size: 22px; font-weight: 600; color: var(--white); letter-spacing: 0.5px;
+    }
+    .footer-strip .dot { opacity: 0.55; }
+    .logo-corner {
+      position: absolute; top: 36px; right: 48px; z-index: 4; height: 52px;
+    }
+    .slide-title .layout {
+      position: absolute; inset: 0 0 72px 0; display: grid; grid-template-columns: 1.15fr 0.85fr;
+      align-items: center; padding: 64px 80px 40px; z-index: 2; gap: 40px;
+    }
+    .sld-panel {
+      background: rgba(255, 255, 255, 0.72); border: 1.5px solid rgba(47, 91, 234, 0.16);
+      border-radius: 24px; padding: 28px 20px 20px; box-shadow: 0 16px 40px rgba(47, 91, 234, 0.1);
+    }
+    .sld-panel .sld-caption {
+      text-align: center; font-family: "Josefin Sans", sans-serif; font-size: 16px; font-weight: 600;
+      color: var(--primary); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px;
+    }
+    .sld-line { stroke: #1a1a2e; stroke-width: 2.2; fill: none; }
+    .sld-bus { stroke: #1a1a2e; stroke-width: 5; }
+    .sld-label { font-family: "Nunito", sans-serif; font-size: 14px; fill: var(--muted); font-weight: 700; }
+    .sld-label-sm { font-family: "Nunito", sans-serif; font-size: 12px; fill: var(--primary); font-weight: 700; }
+    .slide-theory .content { position: relative; z-index: 2; padding: 72px 90px 120px; height: 100%; }
+    .intro-line { font-size: 24px; color: var(--muted); margin-bottom: 36px; max-width: 1600px; line-height: 1.4; }
+    .pipeline { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-bottom: 36px; }
+    .pipe-step {
+      background: var(--white); border-radius: 18px; padding: 28px 18px 24px;
+      border: 2px solid rgba(47, 91, 234, 0.14); box-shadow: 0 10px 28px rgba(47, 91, 234, 0.08);
+      text-align: center; position: relative; min-height: 200px;
+    }
+    .pipe-step::after {
+      content: "→"; position: absolute; right: -16px; top: 50%; transform: translateY(-50%);
+      font-size: 28px; color: var(--primary); font-weight: 700; z-index: 2;
+    }
+    .pipe-step:last-child::after { content: none; }
+    .pipe-num {
+      width: 44px; height: 44px; border-radius: 50%; background: var(--primary); color: var(--white);
+      font-family: "Josefin Sans", sans-serif; font-size: 20px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center; margin: 0 auto 14px;
+    }
+    .pipe-title { font-family: "Josefin Sans", sans-serif; font-size: 22px; font-weight: 700; margin-bottom: 10px; line-height: 1.2; }
+    .pipe-desc { font-size: 16px; color: var(--muted); line-height: 1.4; }
+    .pipe-step.ok .pipe-num { background: linear-gradient(135deg, var(--accent-green) 0%, var(--accent-green-dark) 100%); }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; max-width: 1740px; }
+    .info-card {
+      background: var(--white); border-radius: 20px; padding: 32px 36px;
+      border: 2px solid rgba(47, 91, 234, 0.14); box-shadow: 0 10px 32px rgba(47, 91, 234, 0.08);
+    }
+    .info-card h3 { font-family: "Josefin Sans", sans-serif; font-size: 26px; color: var(--primary); margin-bottom: 16px; }
+    .info-card ul { list-style: none; font-size: 20px; line-height: 1.65; color: var(--text); }
+    .info-card li { margin-bottom: 8px; padding-left: 22px; position: relative; }
+    .info-card li::before {
+      content: ""; position: absolute; left: 0; top: 11px; width: 9px; height: 9px;
+      border-radius: 50%; background: var(--primary);
+    }
+    .info-card.green { border-color: rgba(16, 185, 129, 0.28); }
+    .info-card.green h3 { color: var(--accent-green-dark); }
+    .info-card.green li::before { background: var(--accent-green); }
+    .agenda-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-top: 20px; }
+    .agenda-card {
+      background: var(--white); border-radius: 18px; padding: 28px 22px; text-align: center;
+      border: 2px solid rgba(47, 91, 234, 0.14); box-shadow: 0 10px 28px rgba(47, 91, 234, 0.08); min-height: 220px;
+    }
+    .agenda-num {
+      font-family: "Josefin Sans", sans-serif; font-size: 36px; font-weight: 700; color: var(--primary); margin-bottom: 12px;
+    }
+    .agenda-title { font-family: "Josefin Sans", sans-serif; font-size: 22px; font-weight: 700; margin-bottom: 10px; }
+    .agenda-desc { font-size: 16px; color: var(--muted); line-height: 1.4; }
+  </style>
+</head>
+<body>
+
+  <!-- ========== SLIDE 1: TITLE ========== -->
+  <section class="slide slide-title">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="grid-lines"></div>
+    <img class="logo-corner" src="https://electrisim.com/assets/img/logo_Electrisim_removebg-preview.png" alt="Electrisim" />
+    <div class="layout">
+      <div>
+        <span class="badge-tutorial">Tutorial · Electrisim · ANDES</span>
+        <div class="bar-accent"></div>
+        <h1>Transient Stability &amp;<br /><span class="highlight">Eigenvalue Analysis</span></h1>
+        <p class="subtitle">Time-domain swings and small-signal modes — powered by ANDES — directly from your Electrisim diagram.</p>
+        <div class="tags">
+          <span class="tag andes">ANDES TDS</span>
+          <span class="tag andes">ANDES EIG</span>
+          <span class="tag">Two-machine demo</span>
+          <span class="tag">Fault → ω, δ, V</span>
+        </div>
+      </div>
+      <div class="sld-panel">
+        <div class="sld-caption">Demo network</div>
+        <svg viewBox="0 0 420 280" width="100%" height="260" aria-hidden="true">
+          <!-- Area A -->
+          <text class="sld-label-sm" x="70" y="28">Area A</text>
+          <line class="sld-bus" x1="40" y1="80" x2="140" y2="80" />
+          <text class="sld-label" x="55" y="68">BusA_230</text>
+          <rect x="55" y="110" width="70" height="36" rx="6" fill="#fff" stroke="#2f5bea" stroke-width="2"/>
+          <text class="sld-label-sm" x="62" y="133">GenA</text>
+          <line class="sld-line" x1="90" y1="80" x2="90" y2="110" />
+          <rect x="55" y="20" width="70" height="28" rx="4" fill="#fff" stroke="#646464" stroke-width="1.5"/>
+          <text class="sld-label" x="68" y="39" style="font-size:11px">LoadA</text>
+          <line class="sld-line" x1="90" y1="48" x2="90" y2="80" />
+
+          <!-- Tie -->
+          <line class="sld-line" x1="140" y1="80" x2="280" y2="80" />
+          <text class="sld-label-sm" x="175" y="68">Tie_Line_AB</text>
+          <circle cx="210" y="80" r="6" fill="#f59e0b" />
+          <text class="sld-label" x="188" y="108" style="font-size:11px;fill:#f59e0b">fault→B</text>
+
+          <!-- Area B -->
+          <text class="sld-label-sm" x="310" y="28">Area B</text>
+          <line class="sld-bus" x1="280" y1="80" x2="380" y2="80" />
+          <text class="sld-label" x="295" y="68">BusB_230</text>
+          <rect x="295" y="110" width="70" height="36" rx="6" fill="#fff" stroke="#2f5bea" stroke-width="2"/>
+          <text class="sld-label-sm" x="310" y="133">GenB</text>
+          <line class="sld-line" x1="330" y1="80" x2="330" y2="110" />
+          <rect x="295" y="20" width="70" height="28" rx="4" fill="#fff" stroke="#646464" stroke-width="1.5"/>
+          <text class="sld-label" x="308" y="39" style="font-size:11px">LoadB</text>
+          <line class="sld-line" x1="330" y1="48" x2="330" y2="80" />
+
+          <text class="sld-label" x="100" y="200" style="font-size:13px">230 kV · weak tie · A → B transfer</text>
+          <text class="sld-label" x="100" y="230" style="font-size:13px;fill:#2f5bea">Import: transient_stability_two_machine_demo.py</text>
+        </svg>
+      </div>
+    </div>
+    <div class="footer-strip">
+      <span>Electrisim</span><span class="dot">•</span><span>electrisim.com</span><span class="dot">•</span><span>ANDES stability</span>
+    </div>
+  </section>
+
+  <!-- ========== SLIDE 2: TDS THEORY ========== -->
+  <section class="slide slide-theory">
+    <div class="orb orb-1"></div>
+    <div class="grid-lines"></div>
+    <img class="logo-corner" src="https://electrisim.com/assets/img/logo_Electrisim_removebg-preview.png" alt="Electrisim" />
+    <div class="content">
+      <span class="badge-tutorial">Theory · Transient Stability</span>
+      <div class="bar-accent"></div>
+      <h2>Large disturbance → <span class="highlight">time-domain response</span></h2>
+      <p class="intro-line">ANDES integrates the DAEs after a fault or line trip. Watch whether rotor swings decay or grow.</p>
+      <div class="pipeline">
+        <div class="pipe-step">
+          <div class="pipe-num">1</div>
+          <div class="pipe-title">Map network</div>
+          <div class="pipe-desc">Buses, lines, loads, GENROU + exciter + governor (defaults if empty)</div>
+        </div>
+        <div class="pipe-step">
+          <div class="pipe-num">2</div>
+          <div class="pipe-title">Power flow</div>
+          <div class="pipe-desc">Establish the pre-fault operating point</div>
+        </div>
+        <div class="pipe-step">
+          <div class="pipe-num">3</div>
+          <div class="pipe-title">Disturbance</div>
+          <div class="pipe-desc">Fault (tf / tc) and optional line Toggle</div>
+        </div>
+        <div class="pipe-step ok">
+          <div class="pipe-num">4</div>
+          <div class="pipe-title">Charts</div>
+          <div class="pipe-desc">ω, δ, bus V vs time — settle or lose sync</div>
+        </div>
+      </div>
+      <div class="two-col">
+        <div class="info-card">
+          <h3>What to look for</h3>
+          <ul>
+            <li>Speed ω swings after clear</li>
+            <li>Relative angle between machines</li>
+            <li>Voltage dip and recovery</li>
+          </ul>
+        </div>
+        <div class="info-card green">
+          <h3>Demo settings</h3>
+          <ul>
+            <li>Fault on BusB_230</li>
+            <li>Apply 1.0 s · Clear 1.10 s</li>
+            <li>tf = 10 s · 60 Hz · 100 MVA</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="footer-strip">
+      <span>Electrisim</span><span class="dot">•</span><span>Simulate → Transient Stability (ANDES)</span>
+    </div>
+  </section>
+
+  <!-- ========== SLIDE 3: EIG THEORY ========== -->
+  <section class="slide slide-theory">
+    <div class="orb orb-1"></div>
+    <div class="grid-lines"></div>
+    <img class="logo-corner" src="https://electrisim.com/assets/img/logo_Electrisim_removebg-preview.png" alt="Electrisim" />
+    <div class="content">
+      <span class="badge-tutorial">Theory · Small-Signal</span>
+      <div class="bar-accent"></div>
+      <h2>Eigenvalues on the <span class="highlight">s-plane</span></h2>
+      <p class="intro-line">Linearise around the operating point. Mode location = damping + oscillation frequency — no large fault required.</p>
+      <div class="two-col" style="margin-bottom: 28px;">
+        <div class="info-card">
+          <h3>How to read eigenvalues</h3>
+          <ul>
+            <li>Re(λ) &lt; 0 → stable (decaying)</li>
+            <li>Re(λ) &gt; 0 → unstable (growing)</li>
+            <li>Im(λ) → frequency f = |ω| / 2π</li>
+            <li>ζ = −σ / |λ| → damping ratio</li>
+          </ul>
+        </div>
+        <div class="info-card green">
+          <h3>Electrisim results</h3>
+          <ul>
+            <li>Verdict: stable / marginal / unstable</li>
+            <li>Counts: +, 0, − eigenvalues</li>
+            <li>Least-damped oscillatory modes</li>
+            <li>Participation factors (top modes)</li>
+          </ul>
+        </div>
+      </div>
+      <div class="info-card" style="max-width: 1740px;">
+        <h3>Why run both TDS and EIG?</h3>
+        <ul>
+          <li>EIG finds poorly damped modes quickly at the current dispatch</li>
+          <li>TDS shows the nonlinear response to a concrete fault clearing time</li>
+          <li>Together: design intuition for inertia, droop, and clearing — without leaving the browser</li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-strip">
+      <span>Electrisim</span><span class="dot">•</span><span>Simulate → Eigenvalue Analysis (ANDES)</span>
+    </div>
+  </section>
+
+  <!-- ========== SLIDE 4: AGENDA ========== -->
+  <section class="slide slide-theory">
+    <div class="orb orb-1"></div>
+    <div class="grid-lines"></div>
+    <img class="logo-corner" src="https://electrisim.com/assets/img/logo_Electrisim_removebg-preview.png" alt="Electrisim" />
+    <div class="content">
+      <span class="badge-tutorial">Live demo</span>
+      <div class="bar-accent"></div>
+      <h2>What we will do <span class="highlight">in Electrisim</span></h2>
+      <p class="intro-line">Import → walk the SLD → run TDS → discuss swings → run EIG on the same case.</p>
+      <div class="agenda-grid">
+        <div class="agenda-card">
+          <div class="agenda-num">01</div>
+          <div class="agenda-title">Import</div>
+          <div class="agenda-desc">File → Import<br/>transient_stability_two_machine_demo.py</div>
+        </div>
+        <div class="agenda-card">
+          <div class="agenda-num">02</div>
+          <div class="agenda-title">Topology</div>
+          <div class="agenda-desc">Area A / Area B<br/>weak tie · A→B flow</div>
+        </div>
+        <div class="agenda-card">
+          <div class="agenda-num">03</div>
+          <div class="agenda-title">TDS</div>
+          <div class="agenda-desc">Fault BusB<br/>1.0 → 1.10 s · tf=10</div>
+        </div>
+        <div class="agenda-card">
+          <div class="agenda-num">04</div>
+          <div class="agenda-title">EIG</div>
+          <div class="agenda-desc">s-plane · damping<br/>least-damped modes</div>
+        </div>
+      </div>
+    </div>
+    <div class="footer-strip">
+      <span>Electrisim</span><span class="dot">•</span><span>app.electrisim.com</span><span class="dot">•</span><span>docs: Transient Stability · Eigenvalue Analysis</span>
+    </div>
+  </section>
+
+</body>
+</html>

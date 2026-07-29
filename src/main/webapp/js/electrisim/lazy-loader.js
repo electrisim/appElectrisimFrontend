@@ -30,6 +30,13 @@
             'dialogs/ContingencyDialog',
             'dialogs/ContingencyResultsDialog',
             'dialogs/ShortCircuitDialog',
+            'dialogs/ArcFlashDialog',
+            'dialogs/MotorStartingDialog',
+            'dialogs/MotorStartingResultsDialog',
+            'dialogs/TransientStabilityDialog',
+            'dialogs/TransientStabilityResultsDialog',
+            'dialogs/EigenvalueAnalysisDialog',
+            'dialogs/EigenvalueResultsDialog',
             'dialogs/DiagnosticReportDialog'
         ],
         
@@ -75,6 +82,10 @@
             'loadflowOpenDss',
             'optimalPowerFlow',
             'shortCircuit',
+            'arcFlash',
+            'motorStarting',
+            'transientStability',
+            'eigenvalueAnalysis',
             'contingencyAnalysis',
             'timeSeriesSimulation'
         ],

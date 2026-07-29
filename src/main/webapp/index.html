@@ -12,6 +12,10 @@
     <!-- Module preload hints for analysis engines: makes browser fetch them earlier (HTTP/2 prioritized)
          and shrinks the window for transient script-load failures (see Smartlook error reports). -->
     <link rel="modulepreload" href="js/electrisim/shortCircuit.js">
+    <link rel="modulepreload" href="js/electrisim/arcFlash.js">
+    <link rel="modulepreload" href="js/electrisim/motorStarting.js">
+    <link rel="modulepreload" href="js/electrisim/transientStability.js">
+    <link rel="modulepreload" href="js/electrisim/eigenvalueAnalysis.js">
     <link rel="modulepreload" href="js/electrisim/loadFlow.js">
     <link rel="modulepreload" href="js/electrisim/loadflowOpenDss.js">
     <link rel="modulepreload" href="js/electrisim/optimalPowerFlow.js">
@@ -325,6 +329,10 @@
             { src: 'js/electrisim/loadDialog.js', type: 'module', async: true },
             { src: 'js/electrisim/asymmetricLoadDialog.js', type: 'module', async: true },
             { src: 'js/electrisim/shortCircuit.js', type: 'module', async: true },
+            { src: 'js/electrisim/arcFlash.js', type: 'module', async: true },
+            { src: 'js/electrisim/motorStarting.js', type: 'module', async: true },
+            { src: 'js/electrisim/transientStability.js', type: 'module', async: true },
+            { src: 'js/electrisim/eigenvalueAnalysis.js', type: 'module', async: true },
             { src: 'js/electrisim/impedanceDialog.js', type: 'module', async: true },
             { src: 'js/electrisim/wardDialog.js', type: 'module', async: true },
             { src: 'js/electrisim/extendedWardDialog.js', type: 'module', async: true },
@@ -698,6 +706,10 @@
 								'js/electrisim/dialogs/OptimalPowerFlowResultsDialog.js',
 								'js/electrisim/dialogs/TimeSeriesSimulationDialog.js',
 								'js/electrisim/dialogs/TimeSeriesSimulationResultsDialog.js',
+								'js/electrisim/dialogs/TransientStabilityDialog.js',
+								'js/electrisim/dialogs/TransientStabilityResultsDialog.js',
+								'js/electrisim/dialogs/EigenvalueAnalysisDialog.js',
+								'js/electrisim/dialogs/EigenvalueResultsDialog.js',
 								'js/electrisim/dialogs/ContingencyDialog.js',
 								'js/electrisim/dialogs/ShortCircuitDialog.js',
 								'js/electrisim/lineBaseDialog.js',
@@ -717,6 +729,10 @@
 								'js/electrisim/loadDialog.js',
 								'js/electrisim/asymmetricLoadDialog.js',
 								'js/electrisim/shortCircuit.js',
+								'js/electrisim/arcFlash.js',
+								'js/electrisim/motorStarting.js',
+								'js/electrisim/transientStability.js',
+								'js/electrisim/eigenvalueAnalysis.js',
 								'js/electrisim/impedanceDialog.js',
 								'js/electrisim/wardDialog.js',
 								'js/electrisim/extendedWardDialog.js',

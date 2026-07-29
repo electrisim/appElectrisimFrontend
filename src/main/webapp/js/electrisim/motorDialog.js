@@ -14,7 +14,11 @@ export const defaultMotorData = {
     efficiency_percent: 0.0,
     loading_percent: 0.0,
     scaling: 1.0,
-    in_service: true
+    in_service: true,
+    Hm: 0.5,
+    tm_c1: 0.0,
+    tm_c2: 0.0,
+    tm_c3: 1.0
 };
 
 export class MotorDialog extends Dialog {
@@ -151,6 +155,43 @@ export class MotorDialog extends Dialog {
             }
         ];
 
+        // Dynamic / motor-starting parameters (ANDES Motor3)
+        this.dynamicsParameters = [
+            {
+                id: 'Hm',
+                label: 'Inertia Constant Hm (s)',
+                description: 'Inertia constant for dynamic motor starting (ANDES Motor3). Default 0.5 s.',
+                type: 'number',
+                value: (this.data.Hm ?? 0.5).toString(),
+                step: '0.1',
+                min: '0.01'
+            },
+            {
+                id: 'tm_c1',
+                label: 'Load Torque c1',
+                description: 'Constant term of mechanical load torque Tm(ω) for dynamic starting',
+                type: 'number',
+                value: (this.data.tm_c1 ?? 0).toString(),
+                step: '0.01'
+            },
+            {
+                id: 'tm_c2',
+                label: 'Load Torque c2',
+                description: 'Linear (slip) coefficient of mechanical load torque',
+                type: 'number',
+                value: (this.data.tm_c2 ?? 0).toString(),
+                step: '0.01'
+            },
+            {
+                id: 'tm_c3',
+                label: 'Load Torque c3',
+                description: 'Quadratic coefficient of mechanical load torque (fan/pump ≈ 1)',
+                type: 'number',
+                value: (this.data.tm_c3 ?? 1).toString(),
+                step: '0.01'
+            }
+        ];
+
         // Economic parameters (for Economic Analysis)
         this.economicParameters = [
             { id: 'cost_per_unit_by_currency', label: 'Cost per unit', description: 'Cost per unit for Economic Analysis CAPEX calculation', type: 'text', value: '' }
@@ -216,12 +257,14 @@ export class MotorDialog extends Dialog {
         const electricalTab = this.createTab('Electrical', 'electrical', this.currentTab === 'electrical');
         const performanceTab = this.createTab('Performance', 'performance', this.currentTab === 'performance');
         const shortCircuitTab = this.createTab('Short Circuit', 'shortcircuit', this.currentTab === 'shortcircuit');
+        const dynamicsTab = this.createTab('Dynamics', 'dynamics', this.currentTab === 'dynamics');
         const economicTab = this.createTab('Economic', 'economic', this.currentTab === 'economic');
         
         tabContainer.appendChild(mechanicalTab);
         tabContainer.appendChild(electricalTab);
         tabContainer.appendChild(performanceTab);
         tabContainer.appendChild(shortCircuitTab);
+        tabContainer.appendChild(dynamicsTab);
         tabContainer.appendChild(economicTab);
         container.appendChild(tabContainer);
 
@@ -242,12 +285,14 @@ export class MotorDialog extends Dialog {
         const electricalContent = this.createTabContent('electrical', this.electricalParameters);
         const performanceContent = this.createTabContent('performance', this.performanceParameters);
         const shortCircuitContent = this.createTabContent('shortcircuit', this.shortCircuitParameters);
+        const dynamicsContent = this.createTabContent('dynamics', this.dynamicsParameters);
         const economicContent = this.createTabContent('economic', this.economicParameters);
         
         contentArea.appendChild(mechanicalContent);
         contentArea.appendChild(electricalContent);
         contentArea.appendChild(performanceContent);
         contentArea.appendChild(shortCircuitContent);
+        contentArea.appendChild(dynamicsContent);
         contentArea.appendChild(economicContent);
         container.appendChild(contentArea);
 
@@ -289,11 +334,12 @@ export class MotorDialog extends Dialog {
         this.container = container;
         
         // Tab click handlers
-        mechanicalTab.onclick = () => this.switchTab('mechanical', mechanicalTab, [electricalTab, performanceTab, shortCircuitTab, economicTab], mechanicalContent, [electricalContent, performanceContent, shortCircuitContent, economicContent]);
-        electricalTab.onclick = () => this.switchTab('electrical', electricalTab, [mechanicalTab, performanceTab, shortCircuitTab, economicTab], electricalContent, [mechanicalContent, performanceContent, shortCircuitContent, economicContent]);
-        performanceTab.onclick = () => this.switchTab('performance', performanceTab, [mechanicalTab, electricalTab, shortCircuitTab, economicTab], performanceContent, [mechanicalContent, electricalContent, shortCircuitContent, economicContent]);
-        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [mechanicalTab, electricalTab, performanceTab, economicTab], shortCircuitContent, [mechanicalContent, electricalContent, performanceContent, economicContent]);
-        economicTab.onclick = () => this.switchTab('economic', economicTab, [mechanicalTab, electricalTab, performanceTab, shortCircuitTab], economicContent, [mechanicalContent, electricalContent, performanceContent, shortCircuitContent]);
+        mechanicalTab.onclick = () => this.switchTab('mechanical', mechanicalTab, [electricalTab, performanceTab, shortCircuitTab, dynamicsTab, economicTab], mechanicalContent, [electricalContent, performanceContent, shortCircuitContent, dynamicsContent, economicContent]);
+        electricalTab.onclick = () => this.switchTab('electrical', electricalTab, [mechanicalTab, performanceTab, shortCircuitTab, dynamicsTab, economicTab], electricalContent, [mechanicalContent, performanceContent, shortCircuitContent, dynamicsContent, economicContent]);
+        performanceTab.onclick = () => this.switchTab('performance', performanceTab, [mechanicalTab, electricalTab, shortCircuitTab, dynamicsTab, economicTab], performanceContent, [mechanicalContent, electricalContent, shortCircuitContent, dynamicsContent, economicContent]);
+        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [mechanicalTab, electricalTab, performanceTab, dynamicsTab, economicTab], shortCircuitContent, [mechanicalContent, electricalContent, performanceContent, dynamicsContent, economicContent]);
+        dynamicsTab.onclick = () => this.switchTab('dynamics', dynamicsTab, [mechanicalTab, electricalTab, performanceTab, shortCircuitTab, economicTab], dynamicsContent, [mechanicalContent, electricalContent, performanceContent, shortCircuitContent, economicContent]);
+        economicTab.onclick = () => this.switchTab('economic', economicTab, [mechanicalTab, electricalTab, performanceTab, shortCircuitTab, dynamicsTab], economicContent, [mechanicalContent, electricalContent, performanceContent, shortCircuitContent, dynamicsContent]);
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
@@ -560,7 +606,7 @@ export class MotorDialog extends Dialog {
         const values = {};
         
         // Collect all parameter values from all tabs
-        [...this.mechanicalParameters, ...this.electricalParameters, ...this.performanceParameters, ...this.shortCircuitParameters, ...(this.economicParameters || [])].forEach(param => {
+        [...this.mechanicalParameters, ...this.electricalParameters, ...this.performanceParameters, ...this.shortCircuitParameters, ...this.dynamicsParameters, ...(this.economicParameters || [])].forEach(param => {
             const input = this.inputs.get(param.id);
             if (input) {
                 if (param.id === 'cost_per_unit_by_currency') {
@@ -655,6 +701,13 @@ export class MotorDialog extends Dialog {
                     }
                     console.log(`  Updated shortCircuit ${attributeName}: ${oldValue} → ${shortCircuitParam.value}`);
                 }
+
+                const dynamicsParam = (this.dynamicsParameters || []).find(p => p.id === attributeName);
+                if (dynamicsParam) {
+                    const oldValue = dynamicsParam.value;
+                    dynamicsParam.value = attributeValue;
+                    console.log(`  Updated dynamics ${attributeName}: ${oldValue} → ${dynamicsParam.value}`);
+                }
                 
                 const economicParam = (this.economicParameters || []).find(p => p.id === attributeName);
                 if (economicParam) {
@@ -662,7 +715,7 @@ export class MotorDialog extends Dialog {
                     this.data[attributeName] = attributeValue;
                 }
                 
-                if (!mechanicalParam && !electricalParam && !performanceParam && !shortCircuitParam && !economicParam) {
+                if (!mechanicalParam && !electricalParam && !performanceParam && !shortCircuitParam && !dynamicsParam && !economicParam) {
                     console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
             }

@@ -235,6 +235,7 @@ const RESULT_JSON_ARRAY_KEYS = [
     'capacitors',
     'impedances',
     'dclines',
+    'arc_flash',
 ];
 
 /**

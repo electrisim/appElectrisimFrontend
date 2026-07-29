@@ -38,7 +38,35 @@ export const defaultGeneratorData = {
     spectrum: 'defaultgen',
     spectrum_csv: '',
     Xdpp: 0.2,
-    XRdp: 20
+    XRdp: 20,
+    /** ANDES dynamics (empty string = backend defaults) */
+    dyn_machine_model: 'GENROU',
+    dyn_M: '',
+    dyn_H: '',
+    dyn_D: '',
+    dyn_ra: '',
+    dyn_xl: '',
+    dyn_xd: '',
+    dyn_xq: '',
+    dyn_xd1: '',
+    dyn_xq1: '',
+    dyn_xd2: '',
+    dyn_xq2: '',
+    dyn_Td10: '',
+    dyn_Td20: '',
+    dyn_Tq10: '',
+    dyn_Tq20: '',
+    dyn_exciter_model: 'EXDC2',
+    dyn_exc_KA: '',
+    dyn_exc_TR: '',
+    dyn_exc_TA: '',
+    dyn_exc_TE: '',
+    dyn_exc_K: '',
+    dyn_governor_model: 'TGOV1',
+    dyn_gov_R: '',
+    dyn_gov_T1: '',
+    dyn_gov_T2: '',
+    dyn_gov_T3: ''
 };
 
 export class GeneratorDialog extends Dialog {
@@ -312,6 +340,171 @@ export class GeneratorDialog extends Dialog {
         this.economicParameters = [
             { id: 'cost_per_unit_by_currency', label: 'Cost per unit', description: 'Cost per unit for Economic Analysis CAPEX calculation', type: 'text', value: '' }
         ];
+
+        // ANDES dynamics (transient / eigenvalue). Empty numeric fields → backend defaults.
+        this.dynamicsParameters = [
+            {
+                id: 'dyn_machine_model',
+                label: 'Machine Model',
+                symbol: 'dyn_machine_model',
+                description: 'ANDES synchronous machine model. Leave machine parameters empty to use textbook defaults.',
+                type: 'select',
+                value: this.data.dyn_machine_model,
+                options: [
+                    { value: 'GENROU', label: 'GENROU (round rotor)' },
+                    { value: 'GENCLS', label: 'GENCLS (classical)' }
+                ]
+            },
+            {
+                id: 'dyn_M',
+                label: 'Inertia M (=2H)',
+                symbol: 'dyn_M',
+                unit: 's',
+                description: 'Inertia constant M=2H (seconds). Empty → default 12 s.',
+                type: 'text',
+                value: String(this.data.dyn_M ?? '')
+            },
+            {
+                id: 'dyn_H',
+                label: 'Inertia H',
+                symbol: 'dyn_H',
+                unit: 's',
+                description: 'Alternative to M (M=2H). Used only if M is empty.',
+                type: 'text',
+                value: String(this.data.dyn_H ?? '')
+            },
+            {
+                id: 'dyn_D',
+                label: 'Damping D',
+                symbol: 'dyn_D',
+                unit: 'pu',
+                description: 'Damping coefficient. Empty → 0.',
+                type: 'text',
+                value: String(this.data.dyn_D ?? '')
+            },
+            {
+                id: 'dyn_xd',
+                label: 'xd',
+                symbol: 'dyn_xd',
+                unit: 'pu',
+                description: 'd-axis synchronous reactance (GENROU). Empty → default.',
+                type: 'text',
+                value: String(this.data.dyn_xd ?? '')
+            },
+            {
+                id: 'dyn_xq',
+                label: 'xq',
+                symbol: 'dyn_xq',
+                unit: 'pu',
+                description: 'q-axis synchronous reactance (GENROU). Empty → default.',
+                type: 'text',
+                value: String(this.data.dyn_xq ?? '')
+            },
+            {
+                id: 'dyn_xd1',
+                label: "xd'",
+                symbol: 'dyn_xd1',
+                unit: 'pu',
+                description: 'd-axis transient reactance. Empty → default.',
+                type: 'text',
+                value: String(this.data.dyn_xd1 ?? '')
+            },
+            {
+                id: 'dyn_xq1',
+                label: "xq'",
+                symbol: 'dyn_xq1',
+                unit: 'pu',
+                description: 'q-axis transient reactance. Empty → default.',
+                type: 'text',
+                value: String(this.data.dyn_xq1 ?? '')
+            },
+            {
+                id: 'dyn_xd2',
+                label: 'xd″',
+                symbol: 'dyn_xd2',
+                unit: 'pu',
+                description: 'd-axis subtransient reactance. Empty → default.',
+                type: 'text',
+                value: String(this.data.dyn_xd2 ?? '')
+            },
+            {
+                id: 'dyn_Td10',
+                label: "Td0'",
+                symbol: 'dyn_Td10',
+                unit: 's',
+                description: 'd-axis transient open-circuit time constant. Empty → default.',
+                type: 'text',
+                value: String(this.data.dyn_Td10 ?? '')
+            },
+            {
+                id: 'dyn_Tq10',
+                label: "Tq0'",
+                symbol: 'dyn_Tq10',
+                unit: 's',
+                description: 'q-axis transient open-circuit time constant. Empty → default.',
+                type: 'text',
+                value: String(this.data.dyn_Tq10 ?? '')
+            },
+            {
+                id: 'dyn_exciter_model',
+                label: 'Exciter Model',
+                symbol: 'dyn_exciter_model',
+                description: 'ANDES exciter. NONE omits the exciter.',
+                type: 'select',
+                value: this.data.dyn_exciter_model,
+                options: [
+                    { value: 'EXDC2', label: 'EXDC2' },
+                    { value: 'SEXS', label: 'SEXS (simple)' },
+                    { value: 'NONE', label: 'NONE' }
+                ]
+            },
+            {
+                id: 'dyn_exc_KA',
+                label: 'Exciter KA (EXDC2)',
+                symbol: 'dyn_exc_KA',
+                description: 'EXDC2 amplifier gain. Empty → default.',
+                type: 'text',
+                value: String(this.data.dyn_exc_KA ?? '')
+            },
+            {
+                id: 'dyn_exc_K',
+                label: 'Exciter K (SEXS)',
+                symbol: 'dyn_exc_K',
+                description: 'SEXS gain. Empty → default.',
+                type: 'text',
+                value: String(this.data.dyn_exc_K ?? '')
+            },
+            {
+                id: 'dyn_governor_model',
+                label: 'Governor Model',
+                symbol: 'dyn_governor_model',
+                description: 'ANDES turbine-governor. NONE omits the governor.',
+                type: 'select',
+                value: this.data.dyn_governor_model,
+                options: [
+                    { value: 'TGOV1', label: 'TGOV1' },
+                    { value: 'NONE', label: 'NONE' }
+                ]
+            },
+            {
+                id: 'dyn_gov_R',
+                label: 'Governor droop R',
+                symbol: 'dyn_gov_R',
+                unit: 'pu',
+                description: 'TGOV1 droop. Empty → 0.05.',
+                type: 'text',
+                value: String(this.data.dyn_gov_R ?? '')
+            },
+            {
+                id: 'dyn_gov_T1',
+                label: 'Governor T1',
+                symbol: 'dyn_gov_T1',
+                unit: 's',
+                description: 'TGOV1 time constant. Empty → default.',
+                type: 'text',
+                value: String(this.data.dyn_gov_T1 ?? '')
+            }
+        ];
     }
     
     getDescription() {
@@ -373,12 +566,14 @@ export class GeneratorDialog extends Dialog {
         const shortCircuitTab = this.createTab('Short Circuit', 'shortcircuit', this.currentTab === 'shortcircuit');
         const opfTab = this.createTab('OPF', 'opf', this.currentTab === 'opf');
         const harmonicTab = this.createTab('Harmonic', 'harmonic', this.currentTab === 'harmonic');
+        const dynamicsTab = this.createTab('Dynamics', 'dynamics', this.currentTab === 'dynamics');
         const economicTab = this.createTab('Economic', 'economic', this.currentTab === 'economic');
         
         tabContainer.appendChild(loadFlowTab);
         tabContainer.appendChild(shortCircuitTab);
         tabContainer.appendChild(opfTab);
         tabContainer.appendChild(harmonicTab);
+        tabContainer.appendChild(dynamicsTab);
         tabContainer.appendChild(economicTab);
         container.appendChild(tabContainer);
 
@@ -404,12 +599,14 @@ export class GeneratorDialog extends Dialog {
             triGen.csvValue = this.data.spectrum_csv || '';
         }
         const harmonicContent = this.createTabContent('harmonic', this.harmonicParameters);
+        const dynamicsContent = this.createTabContent('dynamics', this.dynamicsParameters);
         const economicContent = this.createTabContent('economic', this.economicParameters);
         
         contentArea.appendChild(loadFlowContent);
         contentArea.appendChild(shortCircuitContent);
         contentArea.appendChild(opfContent);
         contentArea.appendChild(harmonicContent);
+        contentArea.appendChild(dynamicsContent);
         contentArea.appendChild(economicContent);
         container.appendChild(contentArea);
 
@@ -451,11 +648,14 @@ export class GeneratorDialog extends Dialog {
         this.container = container;
         
         // Tab click handlers
-        loadFlowTab.onclick = () => this.switchTab('loadflow', loadFlowTab, [shortCircuitTab, opfTab, harmonicTab, economicTab], loadFlowContent, [shortCircuitContent, opfContent, harmonicContent, economicContent]);
-        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [loadFlowTab, opfTab, harmonicTab, economicTab], shortCircuitContent, [loadFlowContent, opfContent, harmonicContent, economicContent]);
-        opfTab.onclick = () => this.switchTab('opf', opfTab, [loadFlowTab, shortCircuitTab, harmonicTab, economicTab], opfContent, [loadFlowContent, shortCircuitContent, harmonicContent, economicContent]);
-        harmonicTab.onclick = () => this.switchTab('harmonic', harmonicTab, [loadFlowTab, shortCircuitTab, opfTab, economicTab], harmonicContent, [loadFlowContent, shortCircuitContent, opfContent, economicContent]);
-        economicTab.onclick = () => this.switchTab('economic', economicTab, [loadFlowTab, shortCircuitTab, opfTab, harmonicTab], economicContent, [loadFlowContent, shortCircuitContent, opfContent, harmonicContent]);
+        const allTabs = [loadFlowTab, shortCircuitTab, opfTab, harmonicTab, dynamicsTab, economicTab];
+        const allContents = [loadFlowContent, shortCircuitContent, opfContent, harmonicContent, dynamicsContent, economicContent];
+        loadFlowTab.onclick = () => this.switchTab('loadflow', loadFlowTab, allTabs.filter(t => t !== loadFlowTab), loadFlowContent, allContents.filter(c => c !== loadFlowContent));
+        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, allTabs.filter(t => t !== shortCircuitTab), shortCircuitContent, allContents.filter(c => c !== shortCircuitContent));
+        opfTab.onclick = () => this.switchTab('opf', opfTab, allTabs.filter(t => t !== opfTab), opfContent, allContents.filter(c => c !== opfContent));
+        harmonicTab.onclick = () => this.switchTab('harmonic', harmonicTab, allTabs.filter(t => t !== harmonicTab), harmonicContent, allContents.filter(c => c !== harmonicContent));
+        dynamicsTab.onclick = () => this.switchTab('dynamics', dynamicsTab, allTabs.filter(t => t !== dynamicsTab), dynamicsContent, allContents.filter(c => c !== dynamicsContent));
+        economicTab.onclick = () => this.switchTab('economic', economicTab, allTabs.filter(t => t !== economicTab), economicContent, allContents.filter(c => c !== economicContent));
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
@@ -776,7 +976,7 @@ export class GeneratorDialog extends Dialog {
         const values = {};
         
         // Collect all parameter values from all tabs
-        [...this.loadFlowParameters, ...this.shortCircuitParameters, ...this.opfParameters, ...this.harmonicParameters, ...this.economicParameters].forEach(param => {
+        [...this.loadFlowParameters, ...this.shortCircuitParameters, ...this.opfParameters, ...this.harmonicParameters, ...this.dynamicsParameters, ...this.economicParameters].forEach(param => {
             if (param.type === 'harmonicSpectrumTriState') {
                 if (this.inputs.get(param.triStateModeSelectId)) {
                     Object.assign(values, valuesFromHarmonicSpectrumTriState(this.inputs, {
@@ -892,6 +1092,11 @@ export class GeneratorDialog extends Dialog {
                 if (economicParam) {
                     economicParam.value = attributeValue.toString();
                 }
+                const dynamicsParam = this.dynamicsParameters && this.dynamicsParameters.find(p => p.id === attributeName);
+                if (dynamicsParam) {
+                    dynamicsParam.value = attributeValue != null ? String(attributeValue) : '';
+                    this.data[attributeName] = dynamicsParam.value;
+                }
                 if (attributeName === 'cost_per_unit_by_currency') {
                     this.data[attributeName] = attributeValue;
                 }
@@ -909,10 +1114,13 @@ export class GeneratorDialog extends Dialog {
                     this.data.opf_cp2_eur_per_mw2 =
                         attributeValue != null ? String(attributeValue).trim() : '';
                 }
-                if (!loadFlowParam && !shortCircuitParam && !opfParam && !harmonicParam && !economicParam && attributeName !== 'cost_per_unit_by_currency'
+                if (!loadFlowParam && !shortCircuitParam && !opfParam && !harmonicParam && !economicParam && !dynamicsParam && attributeName !== 'cost_per_unit_by_currency'
                     && attributeName !== 'spectrum' && attributeName !== 'spectrum_csv'
                     && attributeName !== 'opf_cost_currency'
-                    && attributeName !== 'opf_marginal_cost_eur_per_mwh' && attributeName !== 'opf_cp2_eur_per_mw2') {
+                    && attributeName !== 'opf_marginal_cost_eur_per_mwh' && attributeName !== 'opf_cp2_eur_per_mw2'
+                    && attributeName !== 'Dynamics_parameters' && attributeName !== 'Load_flow_parameters'
+                    && attributeName !== 'Short_circuit_parameters' && attributeName !== 'Harmonic_parameters'
+                    && attributeName !== 'Economic_parameters' && attributeName !== 'OPF_coupling_parameters') {
                     console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
             }
