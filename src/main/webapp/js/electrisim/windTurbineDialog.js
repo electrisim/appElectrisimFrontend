@@ -233,7 +233,7 @@ export function interpWindPowerAtV(points, vMs, approx = 'linear') {
     if (vMs <= v[0]) return p[0];
     if (vMs >= v[v.length - 1]) return p[p.length - 1];
 
-    const style = approx === 'constant' ? 'constant' : 'linear';
+    const style = approx === 'constant' || approx === 'step' ? 'constant' : 'linear';
     if (style === 'constant') {
         for (let i = 0; i < v.length - 1; i++) {
             if (vMs >= v[i] && vMs < v[i + 1]) return p[i];

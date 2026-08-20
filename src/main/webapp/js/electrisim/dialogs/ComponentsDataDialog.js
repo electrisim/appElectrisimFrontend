@@ -1464,7 +1464,7 @@ export class ComponentsDataDialog {
       }
       if (r === "wind_curve_approx") {
         o.cellEditor = "agSelectCellEditor";
-        o.cellEditorParams = { values: ["linear", "step"] };
+        o.cellEditorParams = { values: ["linear", "constant"] };
       }
     });
   }
