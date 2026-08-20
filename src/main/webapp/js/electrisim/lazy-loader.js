@@ -55,6 +55,7 @@
             'externalGridDialog',
             'generatorDialog',
             'staticGeneratorDialog',
+            'windTurbineDialog',
             'asymmetricStaticGeneratorDialog',
             'busDialog',
             'transformerBaseDialog',

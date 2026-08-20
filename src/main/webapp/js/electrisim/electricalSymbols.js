@@ -7,9 +7,12 @@ const BASE = 'images/electrical/';
 /** Longest side of the symbol on the diagram; keeps icons similar in size without stretching SVGs. */
 export const ELECTRISIM_SYMBOL_MAX = 56;
 
-function fit(nw, nh) {
+/** Transformers use a modest cap; vertical SLD uses dedicated ``sym-transformer-v`` sizing. */
+export const ELECTRISIM_TRANSFORMER_SYMBOL_MAX = 72;
+
+function fit(nw, nh, maxSide = ELECTRISIM_SYMBOL_MAX) {
   const m = Math.max(nw, nh);
-  const s = ELECTRISIM_SYMBOL_MAX / m;
+  const s = maxSide / m;
   return { w: Math.round(nw * s), h: Math.round(nh * s) };
 }
 
@@ -19,12 +22,16 @@ export const ELECTRICAL_SYMBOLS = {
   'sym-ext-grid': { url: BASE + 'sym-ext-grid.svg', ...fit(58, 58) },
   'sym-generator': { url: BASE + 'sym-generator.svg', ...fit(58, 58) },
   'sym-static-gen': { url: BASE + 'sym-static-gen.svg', ...fit(58, 58) },
+  'sym-wind-turbine': { url: BASE + 'sym-wind-turbine.svg', ...fit(58, 58) },
   'sym-asym-static-gen': { url: BASE + 'sym-asym-static-gen.svg', ...fit(64, 62) },
   'sym-source-dc': { url: BASE + 'sym-source-dc.svg', ...fit(100, 100) },
-  'sym-transformer': { url: BASE + 'sym-transformer.svg', ...fit(72, 48) },
-  'sym-3w-transformer': { url: BASE + 'sym-3w-transformer.svg', ...fit(72, 72) },
+  // Horizontal windings (left–right). fit(90,58) → ~72×46 at max 72.
+  'sym-transformer': { url: BASE + 'sym-transformer.svg', ...fit(90, 58, ELECTRISIM_TRANSFORMER_SYMBOL_MAX) },
+  // Vertical windings (top–bottom) for vertical SLD; circle Ø slightly under static-gen.
+  'sym-transformer-v': { url: BASE + 'sym-transformer-v.svg', w: 72, h: 108 },
+  'sym-3w-transformer': { url: BASE + 'sym-3w-transformer.svg', ...fit(72, 72, ELECTRISIM_TRANSFORMER_SYMBOL_MAX) },
   'sym-shunt': { url: BASE + 'sym-shunt.svg', ...fit(38, 58) },
-  'sym-capacitor': { url: BASE + 'sym-capacitor.svg', ...fit(50, 80) },
+  'sym-capacitor': { url: BASE + 'sym-capacitor.svg', ...fit(50, 75) },
   'sym-load': { url: BASE + 'sym-load.svg', ...fit(52, 62) },
   'sym-asym-load': { url: BASE + 'sym-asym-load.svg', ...fit(52, 62) },
   'sym-impedance': { url: BASE + 'sym-impedance.svg', ...fit(74, 28) },

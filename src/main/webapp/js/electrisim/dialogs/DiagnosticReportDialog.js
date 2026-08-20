@@ -25,9 +25,172 @@
             return false;
         }
 
+        getGraph() {
+            const app = (window.App && (window.App.main || window.App._instance)) || null;
+            return app && app.editor && app.editor.graph ? app.editor.graph : null;
+        }
+
+        /**
+         * Normalize backend element entries: number | string | {index,id,name}
+         */
+        normalizeElementRef(item) {
+            if (item == null) return null;
+            if (typeof item === 'object') {
+                const id = item.id != null ? String(item.id) : '';
+                const name = item.name != null ? String(item.name) : '';
+                const index = item.index != null ? item.index : null;
+                const label = name || id || (index != null ? String(index) : '');
+                if (!label) return null;
+                return { id: id || label, name: name || label, index, label };
+            }
+            const label = String(item);
+            return { id: label, name: label, index: null, label };
+        }
+
+        formatElementLabel(item) {
+            const ref = this.normalizeElementRef(item);
+            return ref ? ref.label : String(item);
+        }
+
+        collectHighlightIdentifiers(diagnosticData) {
+            if (typeof window.collectDiagnosticHighlightIds === 'function') {
+                return window.collectDiagnosticHighlightIds(diagnosticData);
+            }
+            const ids = [];
+            const data = diagnosticData || {};
+            const pushList = (list) => {
+                if (!Array.isArray(list)) return;
+                list.forEach((item) => {
+                    const ref = this.normalizeElementRef(item);
+                    if (!ref) return;
+                    // Skip bare integers — they collide with mxGraph cell ids
+                    if (ref.id && !/^\d+$/.test(ref.id)) ids.push(ref.id);
+                    if (ref.name && ref.name !== ref.id && !/^\d+$/.test(ref.name)) ids.push(ref.name);
+                });
+            };
+
+            if (data.disconnected_elements && typeof data.disconnected_elements === 'object') {
+                Object.keys(data.disconnected_elements).forEach((key) => {
+                    pushList(data.disconnected_elements[key]);
+                });
+            }
+            pushList(data.isolated_buses);
+            return ids;
+        }
+
+        highlightOnCanvas(identifiers) {
+            const graph = this.getGraph();
+            if (!graph || !identifiers || !identifiers.length) return [];
+            if (typeof window.highlightGraphElementsByIdentifiers === 'function') {
+                return window.highlightGraphElementsByIdentifiers(graph, identifiers);
+            }
+            if (typeof window.highlightCalculationErrorElements === 'function') {
+                // Fallback: wrap ids as quoted names so the text extractor can find them
+                return window.highlightCalculationErrorElements(
+                    graph,
+                    identifiers.map((id) => `Bus '${id}'`).join(' ')
+                );
+            }
+            return [];
+        }
+
+        focusElementOnCanvas(item) {
+            const ref = this.normalizeElementRef(item);
+            if (!ref) return;
+            this.highlightOnCanvas([ref.id, ref.name].filter(Boolean));
+        }
+
+        removeRestoreButton() {
+            if (this._restoreBtn && this._restoreBtn.parentNode) {
+                this._restoreBtn.parentNode.removeChild(this._restoreBtn);
+            }
+            this._restoreBtn = null;
+        }
+
+        dismissFully() {
+            this.removeRestoreButton();
+            if (this._overlay && this._overlay.parentNode) {
+                this._overlay.parentNode.removeChild(this._overlay);
+            }
+            if (this._escapeHandler) {
+                document.removeEventListener('keydown', this._escapeHandler);
+                this._escapeHandler = null;
+            }
+            this._overlay = null;
+            this._parked = false;
+        }
+
+        restoreDialog() {
+            if (!this._overlay) return;
+            this.removeRestoreButton();
+            this._overlay.style.display = 'flex';
+            this._parked = false;
+        }
+
+        parkDialogForCanvas(focusedLabel) {
+            if (!this._overlay) return;
+            this._overlay.style.display = 'none';
+            this._parked = true;
+            this.removeRestoreButton();
+
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            const label = focusedLabel ? String(focusedLabel) : '';
+            btn.textContent = label
+                ? `Back to diagnostic report (${label})`
+                : 'Back to diagnostic report';
+            btn.title = 'Return to the Power Flow Diagnostic Report';
+            btn.style.cssText = `
+                position: fixed; right: 20px; bottom: 20px; z-index: 10001;
+                padding: 10px 16px; background: #d32f2f; color: #fff; border: none;
+                border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;
+                box-shadow: 0 4px 14px rgba(0,0,0,0.35); font-family: Arial, sans-serif;
+            `;
+            btn.onmouseenter = () => { btn.style.background = '#b71c1c'; };
+            btn.onmouseleave = () => { btn.style.background = '#d32f2f'; };
+            btn.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.restoreDialog();
+            };
+            document.body.appendChild(btn);
+            this._restoreBtn = btn;
+        }
+
+        showElementAndHideDialog(item) {
+            const ref = this.normalizeElementRef(item);
+            this.focusElementOnCanvas(item);
+            this.parkDialogForCanvas(ref ? ref.label : '');
+        }
+
+        createClickableElementChip(item) {
+            const ref = this.normalizeElementRef(item);
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.textContent = ref ? ref.label : String(item);
+            chip.title = ref && ref.id && ref.id !== ref.label
+                ? `Show on diagram and hide report (${ref.id})`
+                : 'Show on diagram and hide report';
+            chip.style.cssText = `
+                display: inline-block; margin: 2px 4px 2px 0; padding: 2px 8px;
+                border: 1px solid #c62828; border-radius: 12px; background: #fff;
+                color: #b71c1c; font-size: 12px; cursor: pointer; line-height: 1.4;
+            `;
+            chip.onmouseenter = () => { chip.style.background = '#ffebee'; };
+            chip.onmouseleave = () => { chip.style.background = '#fff'; };
+            chip.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.showElementAndHideDialog(item);
+            };
+            return chip;
+        }
+
         show() {
             // Overlay
             const overlay = document.createElement('div');
+            this._overlay = overlay;
+            this._parked = false;
             overlay.style.cssText = `
                 position: fixed; top: 0; left: 0; right: 0; bottom: 0;
                 background: rgba(0,0,0,0.5); z-index: 10000;
@@ -115,6 +278,20 @@
             // Process diagnostic data
             this.processDiagnosticData(content);
 
+            // Highlight disconnected / isolated elements on the canvas
+            const highlightIds = this.collectHighlightIdentifiers(
+                typeof this.diagnosticData === 'object' ? this.diagnosticData : null
+            );
+            const highlighted = this.highlightOnCanvas(highlightIds);
+            if (highlighted && highlighted.length > 0) {
+                const tip = document.createElement('div');
+                tip.style.cssText = 'margin-top: 4px; padding: 10px 12px; background: #fff8e1; border: 1px solid #ffe082; border-radius: 4px; color: #e65100; font-size: 13px;';
+                tip.textContent = highlighted.length > 1
+                    ? `${highlighted.length} elements are highlighted in red on the diagram. Click a name below to hide this report and focus it — use “Back to diagnostic report” to return.`
+                    : 'The element is highlighted in red on the diagram. Click its name below to hide this report and focus it.';
+                content.insertBefore(tip, content.firstChild);
+            }
+
             dialog.appendChild(content);
 
             // Close button
@@ -127,7 +304,7 @@
                 padding: 8px 16px; background: #d32f2f; color: white; 
                 border: none; border-radius: 4px; cursor: pointer; font-size: 14px;
             `;
-            closeButton.onclick = () => document.body.removeChild(overlay);
+            closeButton.onclick = () => this.dismissFully();
             buttonContainer.appendChild(closeButton);
 
             dialog.appendChild(buttonContainer);
@@ -135,22 +312,19 @@
             document.body.appendChild(overlay);
 
             import('../utils/dialogStyles.js').then(({ attachBackdropCloseHandler }) => {
-                attachBackdropCloseHandler(overlay, dialog, () => {
-                    if (overlay.parentNode) {
-                        document.body.removeChild(overlay);
-                    }
-                });
+                attachBackdropCloseHandler(overlay, dialog, () => this.dismissFully());
             });
 
-            // Close on Escape key
+            // Escape: restore parked dialog first, otherwise close fully
             const handleEscape = (e) => {
-                if (e.key === 'Escape') {
-                    if (overlay.parentNode) {
-                        document.body.removeChild(overlay);
-                    }
-                    document.removeEventListener('keydown', handleEscape);
+                if (e.key !== 'Escape') return;
+                if (this._parked) {
+                    this.restoreDialog();
+                    return;
                 }
+                this.dismissFully();
             };
+            this._escapeHandler = handleEscape;
             document.addEventListener('keydown', handleEscape);
         }
 
@@ -334,25 +508,34 @@
             section.appendChild(sectionTitle);
 
             const description = document.createElement('p');
-            description.textContent = 'The following elements are not connected to the external grid:';
+            description.textContent = 'The following elements are not connected to the external grid (click a name to hide this report and locate it on the diagram):';
             description.style.cssText = 'margin: 0 0 12px 0; color: #bf360c;';
             section.appendChild(description);
 
-            const elementTypes = ['buses', 'loads', 'generators', 'trafos', 'sgens'];
+            const typeLabels = {
+                buses: 'Buses',
+                lines: 'Lines',
+                loads: 'Loads',
+                generators: 'Generators',
+                trafos: 'Transformers',
+                sgens: 'Static Generators'
+            };
+            const elementTypes = ['buses', 'lines', 'loads', 'generators', 'trafos', 'sgens'];
             elementTypes.forEach(elementType => {
                 if (disconnectedData[elementType] && disconnectedData[elementType].length > 0) {
                     const elementSection = document.createElement('div');
-                    elementSection.style.cssText = 'margin-bottom: 8px;';
+                    elementSection.style.cssText = 'margin-bottom: 10px;';
 
-                    const elementTitle = document.createElement('span');
-                    elementTitle.textContent = `${elementType.charAt(0).toUpperCase() + elementType.slice(1)}: `;
-                    elementTitle.style.cssText = 'font-weight: bold; color: #d84315;';
+                    const elementTitle = document.createElement('div');
+                    elementTitle.textContent = `${typeLabels[elementType] || elementType}:`;
+                    elementTitle.style.cssText = 'font-weight: bold; color: #d84315; margin-bottom: 4px;';
                     elementSection.appendChild(elementTitle);
 
-                    const elementList = document.createElement('span');
-                    elementList.textContent = disconnectedData[elementType].join(', ');
-                    elementList.style.cssText = 'color: #bf360c;';
-                    elementSection.appendChild(elementList);
+                    const chips = document.createElement('div');
+                    disconnectedData[elementType].forEach((item) => {
+                        chips.appendChild(this.createClickableElementChip(item));
+                    });
+                    elementSection.appendChild(chips);
 
                     section.appendChild(elementSection);
                 }
@@ -506,20 +689,16 @@
             section.appendChild(sectionTitle);
 
             const description = document.createElement('p');
-            description.textContent = 'The following buses are not connected to any power source:';
+            description.textContent = 'The following buses are not connected to any power source (click a name to hide this report and locate it on the diagram):';
             description.style.cssText = 'margin: 0 0 12px 0; color: #c62828;';
             section.appendChild(description);
 
-            const busList = document.createElement('ul');
-            busList.style.cssText = 'margin: 0; padding-left: 20px; color: #c62828;';
-
-            isolatedBuses.forEach(bus => {
-                const listItem = document.createElement('li');
-                listItem.textContent = `Bus ${bus}`;
-                busList.appendChild(listItem);
+            const chips = document.createElement('div');
+            (isolatedBuses || []).forEach((bus) => {
+                chips.appendChild(this.createClickableElementChip(bus));
             });
 
-            section.appendChild(busList);
+            section.appendChild(chips);
             content.appendChild(section);
         }
 

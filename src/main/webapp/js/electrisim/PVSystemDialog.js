@@ -72,6 +72,18 @@ export const defaultPVSystemData = {
     pminnovars: 0.0,
     pmpp_percent: 100.0,
     in_service: true,
+    // OpenDSS InvControl
+    inv_control_mode: 'NONE',
+    vv_curve_preset: 'IEEE_1547',
+    vv_xarray: '0.92 0.98 1.02 1.08',
+    vv_yarray: '0.44 0 -0.44 -0.44',
+    vw_curve_preset: 'IEEE_1547',
+    vw_xarray: '1.06 1.1',
+    vw_yarray: '1 0',
+    wattpf_xarray: '0 0.5 1',
+    wattpf_yarray: '1 0.98 0.95',
+    wattvar_xarray: '0.2 0.5 1',
+    wattvar_yarray: '0.44 0.22 0',
     cost_per_unit_by_currency: "0"
 };
 
@@ -596,6 +608,105 @@ export class PVSystemDialog extends Dialog {
             }
         ];
 
+        // OpenDSS InvControl (Volt-VAR / Volt-Watt / Watt-PF / Watt-VAR)
+        this.inverterControlParameters = [
+            {
+                id: 'inv_control_mode',
+                label: 'Inverter Control Mode',
+                description: 'NONE: fixed P/Q from Snapshot tab. VOLTVAR/VOLTWATT/WATTPF/WATTVAR/DYNAMICREACCURR use OpenDSS InvControl (requires Control Mode = Time in OpenDSS load flow).',
+                type: 'select',
+                value: this.data.inv_control_mode || 'NONE',
+                options: [
+                    { value: 'NONE', label: 'None (fixed P/Q)' },
+                    { value: 'FIXED_Q', label: 'Fixed Q (constant kvar)' },
+                    { value: 'FIXED_PF', label: 'Fixed PF (constant power factor)' },
+                    { value: 'VOLTVAR', label: 'Q-V Droop (Volt-VAR / InvControl)' },
+                    { value: 'VOLTWATT', label: 'Volt-Watt (InvControl)' },
+                    { value: 'WATTPF', label: 'Watt-PF curve (InvControl)' },
+                    { value: 'WATTVAR', label: 'Watt-VAR curve (InvControl)' },
+                    { value: 'DYNAMICREACCURR', label: 'Dynamic reactive current (InvControl)' }
+                ]
+            },
+            {
+                id: 'vv_curve_preset',
+                label: 'Volt-VAR Curve Preset',
+                description: 'Preset Q-V droop curve for VOLTVAR mode.',
+                type: 'select',
+                value: this.data.vv_curve_preset || 'IEEE_1547',
+                options: [
+                    { value: 'IEEE_1547', label: 'IEEE 1547-style (0.92/0.98/1.02/1.08 pu)' },
+                    { value: 'CUSTOM', label: 'Custom (edit X/Y arrays below)' }
+                ]
+            },
+            {
+                id: 'vv_xarray',
+                label: 'Volt-VAR X (voltage pu)',
+                description: 'Space-separated per-unit voltages for custom Volt-VAR curve.',
+                type: 'text',
+                value: this.data.vv_xarray || '0.92 0.98 1.02 1.08'
+            },
+            {
+                id: 'vv_yarray',
+                label: 'Volt-VAR Y (Q pu of base)',
+                description: 'Space-separated reactive power values in pu of base kvar.',
+                type: 'text',
+                value: this.data.vv_yarray || '0.44 0 -0.44 -0.44'
+            },
+            {
+                id: 'vw_curve_preset',
+                label: 'Volt-Watt Curve Preset',
+                description: 'Preset P-V curtailment curve for VOLTWATT mode.',
+                type: 'select',
+                value: this.data.vw_curve_preset || 'IEEE_1547',
+                options: [
+                    { value: 'IEEE_1547', label: 'IEEE 1547-style (1.06→1.0, 1.10→0)' },
+                    { value: 'CUSTOM', label: 'Custom (edit X/Y arrays below)' }
+                ]
+            },
+            {
+                id: 'vw_xarray',
+                label: 'Volt-Watt X (voltage pu)',
+                description: 'Space-separated per-unit voltages for custom Volt-Watt curve.',
+                type: 'text',
+                value: this.data.vw_xarray || '1.06 1.1'
+            },
+            {
+                id: 'vw_yarray',
+                label: 'Volt-Watt Y (P pu)',
+                description: 'Space-separated active power values in pu of rated P.',
+                type: 'text',
+                value: this.data.vw_yarray || '1 0'
+            },
+            {
+                id: 'wattpf_xarray',
+                label: 'Watt-PF X (P pu)',
+                description: 'Space-separated active power values in pu for Watt-PF curve.',
+                type: 'text',
+                value: this.data.wattpf_xarray || '0 0.5 1'
+            },
+            {
+                id: 'wattpf_yarray',
+                label: 'Watt-PF Y (power factor)',
+                description: 'Space-separated power factor values for Watt-PF curve.',
+                type: 'text',
+                value: this.data.wattpf_yarray || '1 0.98 0.95'
+            },
+            {
+                id: 'wattvar_xarray',
+                label: 'Watt-VAR X (P pu)',
+                description: 'Space-separated active power values in pu for Watt-VAR curve.',
+                type: 'text',
+                value: this.data.wattvar_xarray || '0.2 0.5 1'
+            },
+            {
+                id: 'wattvar_yarray',
+                label: 'Watt-VAR Y (Q pu)',
+                description: 'Space-separated reactive power values in pu for Watt-VAR curve.',
+                type: 'text',
+                value: this.data.wattvar_yarray || '0.44 0.22 0'
+            }
+        ];
+
         // Economic parameters (for Economic Analysis)
         this.economicParameters = [
             { id: 'cost_per_unit_by_currency', label: 'Cost per unit', description: 'Cost per unit for Economic Analysis CAPEX calculation', type: 'text', value: '' }
@@ -603,7 +714,7 @@ export class PVSystemDialog extends Dialog {
     }
 
     getDescription() {
-        return '<strong>Configure PVSystem Parameters</strong><br>Set comprehensive parameters for photovoltaic system with inverter control and power management capabilities organized into tabs for different analysis types. See the <a href="https://electrisim.com/documentation.html#pvsystem" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
+        return '<strong>Configure PVSystem Parameters</strong><br>Set PV array, inverter, and <b>Inverter Control</b> (OpenDSS InvControl: Volt-VAR, Volt-Watt, Watt-PF, Watt-VAR). Use Control Mode = Time in the OpenDSS load flow dialog when InvControl modes are active. See the <a href="https://electrisim.com/documentation.html#pvsystem" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
 
     show(callback) {
@@ -662,6 +773,7 @@ export class PVSystemDialog extends Dialog {
         const shortCircuitTab = this.createTab('Short Circuit', 'shortcircuit', false);
         const harmonicTab = this.createTab('Harmonic', 'harmonic', false);
         const dynamicTab = this.createTab('Dynamic', 'dynamic', false);
+        const inverterTab = this.createTab('Inverter Control', 'inverter', false);
         const economicTab = this.createTab('Economic', 'economic', false);
 
         tabContainer.appendChild(snapshotTab);
@@ -669,6 +781,7 @@ export class PVSystemDialog extends Dialog {
         tabContainer.appendChild(shortCircuitTab);
         tabContainer.appendChild(harmonicTab);
         tabContainer.appendChild(dynamicTab);
+        tabContainer.appendChild(inverterTab);
         tabContainer.appendChild(economicTab);
         container.appendChild(tabContainer);
 
@@ -695,6 +808,7 @@ export class PVSystemDialog extends Dialog {
         }
         const harmonicContent = this.createTabContentWithSubTabs('harmonic', this.harmonicParameters);
         const dynamicContent = this.createTabContentWithSubTabs('dynamic', this.dynamicParameters);
+        const inverterContent = this.createTabContent('inverter', this.inverterControlParameters);
         const economicContent = this.createTabContent('economic', this.economicParameters);
 
         contentArea.appendChild(snapshotContent);
@@ -702,6 +816,7 @@ export class PVSystemDialog extends Dialog {
         contentArea.appendChild(shortCircuitContent);
         contentArea.appendChild(harmonicContent);
         contentArea.appendChild(dynamicContent);
+        contentArea.appendChild(inverterContent);
         contentArea.appendChild(economicContent);
         container.appendChild(contentArea);
 
@@ -709,7 +824,7 @@ export class PVSystemDialog extends Dialog {
         // Set snapshot content to be visible by default
         snapshotContent.style.display = 'block';
         // Call switchTab to properly style the active tab and hide others
-        this.switchTab('snapshot', snapshotTab, [timeDependentTab, shortCircuitTab, harmonicTab, dynamicTab, economicTab], snapshotContent, [timeDependentContent, shortCircuitContent, harmonicContent, dynamicContent, economicContent]);
+        this.switchTab('snapshot', snapshotTab, [timeDependentTab, shortCircuitTab, harmonicTab, dynamicTab, inverterTab, economicTab], snapshotContent, [timeDependentContent, shortCircuitContent, harmonicContent, dynamicContent, inverterContent, economicContent]);
 
         // Add button container
         const buttonContainer = document.createElement('div');
@@ -748,12 +863,15 @@ export class PVSystemDialog extends Dialog {
         this.container = container;
 
         // Tab click handlers
-        snapshotTab.onclick = () => this.switchTab('snapshot', snapshotTab, [timeDependentTab, shortCircuitTab, harmonicTab, dynamicTab, economicTab], snapshotContent, [timeDependentContent, shortCircuitContent, harmonicContent, dynamicContent, economicContent]);
-        timeDependentTab.onclick = () => this.switchTab('timedependent', timeDependentTab, [snapshotTab, shortCircuitTab, harmonicTab, dynamicTab, economicTab], timeDependentContent, [snapshotContent, shortCircuitContent, harmonicContent, dynamicContent, economicContent]);
-        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [snapshotTab, timeDependentTab, harmonicTab, dynamicTab, economicTab], shortCircuitContent, [snapshotContent, timeDependentContent, harmonicContent, dynamicContent, economicContent]);
-        harmonicTab.onclick = () => this.switchTab('harmonic', harmonicTab, [snapshotTab, timeDependentTab, shortCircuitTab, dynamicTab, economicTab], harmonicContent, [snapshotContent, timeDependentContent, shortCircuitContent, dynamicContent, economicContent]);
-        dynamicTab.onclick = () => this.switchTab('dynamic', dynamicTab, [snapshotTab, timeDependentTab, shortCircuitTab, harmonicTab, economicTab], dynamicContent, [snapshotContent, timeDependentContent, shortCircuitContent, harmonicContent, economicContent]);
-        economicTab.onclick = () => this.switchTab('economic', economicTab, [snapshotTab, timeDependentTab, shortCircuitTab, harmonicTab, dynamicTab], economicContent, [snapshotContent, timeDependentContent, shortCircuitContent, harmonicContent, dynamicContent]);
+        const allTabs = [snapshotTab, timeDependentTab, shortCircuitTab, harmonicTab, dynamicTab, inverterTab, economicTab];
+        const allContents = [snapshotContent, timeDependentContent, shortCircuitContent, harmonicContent, dynamicContent, inverterContent, economicContent];
+        snapshotTab.onclick = () => this.switchTab('snapshot', snapshotTab, allTabs.filter(t => t !== snapshotTab), snapshotContent, allContents.filter(c => c !== snapshotContent));
+        timeDependentTab.onclick = () => this.switchTab('timedependent', timeDependentTab, allTabs.filter(t => t !== timeDependentTab), timeDependentContent, allContents.filter(c => c !== timeDependentContent));
+        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, allTabs.filter(t => t !== shortCircuitTab), shortCircuitContent, allContents.filter(c => c !== shortCircuitContent));
+        harmonicTab.onclick = () => this.switchTab('harmonic', harmonicTab, allTabs.filter(t => t !== harmonicTab), harmonicContent, allContents.filter(c => c !== harmonicContent));
+        dynamicTab.onclick = () => this.switchTab('dynamic', dynamicTab, allTabs.filter(t => t !== dynamicTab), dynamicContent, allContents.filter(c => c !== dynamicContent));
+        inverterTab.onclick = () => this.switchTab('inverter', inverterTab, allTabs.filter(t => t !== inverterTab), inverterContent, allContents.filter(c => c !== inverterContent));
+        economicTab.onclick = () => this.switchTab('economic', economicTab, allTabs.filter(t => t !== economicTab), economicContent, allContents.filter(c => c !== economicContent));
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
@@ -1297,7 +1415,7 @@ export class PVSystemDialog extends Dialog {
         const values = {};
 
         // Collect all parameter values from all tabs
-        [...this.snapshotLoadFlowParameters, ...this.timeDependentParameters, ...this.shortCircuitParameters, ...this.harmonicParameters, ...this.dynamicParameters, ...(this.economicParameters || [])].forEach(param => {
+        [...this.snapshotLoadFlowParameters, ...this.timeDependentParameters, ...this.shortCircuitParameters, ...this.harmonicParameters, ...this.dynamicParameters, ...(this.inverterControlParameters || []), ...(this.economicParameters || [])].forEach(param => {
             if (param.type === 'harmonicSpectrumTriState') {
                 if (this.inputs.get(param.triStateModeSelectId)) {
                     Object.assign(values, valuesFromHarmonicSpectrumTriState(this.inputs, {
@@ -1409,6 +1527,15 @@ export class PVSystemDialog extends Dialog {
                         dynamicParam.value = attributeValue === 'true' || attributeValue === true;
                     } else {
                         dynamicParam.value = attributeValue;
+                    }
+                }
+
+                const inverterParam = this.inverterControlParameters?.find(p => p.id === attributeName);
+                if (inverterParam) {
+                    if (inverterParam.type === 'checkbox') {
+                        inverterParam.value = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        inverterParam.value = attributeValue;
                     }
                 }
 

@@ -6,6 +6,7 @@
 // Pandapower-only: supported by Pandapower load flow / short circuit; excluded when using OpenDSS
 // Order matters: longer names first so "B2B VSC" matches before "VSC"
 const PANDAPOWER_ONLY_TYP_PREFIXES = [
+    'ParkController',
     'B2B VSC',
     'Three Winding Transformer',
     'DC Line',
@@ -21,6 +22,7 @@ const PANDAPOWER_ONLY_TYP_PREFIXES = [
 
 // Display names for UI (match the "Elements supported exclusively" list)
 const PANDAPOWER_ONLY_DISPLAY_NAMES = {
+    'ParkController': 'Park Controller (steady-state)',
     'Three Winding Transformer': 'Three Winding Transformer',
     'SVC': 'SVC',
     'TCSC': 'TCSC',
@@ -35,8 +37,11 @@ const PANDAPOWER_ONLY_DISPLAY_NAMES = {
 };
 
 // OpenDSS-only: supported by OpenDSS; excluded when using Pandapower
-const OPENDSS_ONLY_TYP_PREFIXES = ['PVSystem', 'Load 1ph', 'Line 1ph', 'Source 1ph', 'Generator 1ph', 'Transformer 1ph'];
+const OPENDSS_ONLY_TYP_PREFIXES = ['StorageController', 'RegControl', 'CapControl', 'PVSystem', 'Load 1ph', 'Line 1ph', 'Source 1ph', 'Generator 1ph', 'Transformer 1ph'];
 const OPENDSS_ONLY_DISPLAY_NAMES = {
+    'StorageController': 'StorageController',
+    'RegControl': 'RegControl',
+    'CapControl': 'CapControl',
     'PVSystem': 'PVSystem',
     'Load 1ph': 'Load 1ph',
     'Line 1ph': 'Line 1ph',

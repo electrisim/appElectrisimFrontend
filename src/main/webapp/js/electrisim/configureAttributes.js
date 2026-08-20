@@ -1,6 +1,17 @@
 // Export all configure functions and make them globally available
 
 import { qCapabilityCurve15MwOffshoreWtgJson } from './staticGeneratorDialog.js';
+import {
+    defaultWindPowerCurveJson,
+    DEFAULT_WIND_SPEED_MS,
+    WIND_POWER_CURVE_DEFAULT_RATED_MW,
+    computeWindTurbinePMw
+} from './windTurbineDialog.js';
+import {
+    defaultQCap2dState,
+    serializeQCap2d,
+    flattenQCap2dToPqPoints
+} from './utils/qCapabilityVoltageDependent.js';
 
 /** Default scaling for load/gen/sgen etc.: use "1" when value is "0", null, undefined, or empty */
 function defaultScaling(value) {
@@ -130,6 +141,9 @@ export function configureGeneratorAttributes(grafka, vertex, options = {}) {
     g.setAttribute("dyn_gov_T1", options.dyn_gov_T1 != null ? String(options.dyn_gov_T1) : "");
     g.setAttribute("dyn_gov_T2", options.dyn_gov_T2 != null ? String(options.dyn_gov_T2) : "");
     g.setAttribute("dyn_gov_T3", options.dyn_gov_T3 != null ? String(options.dyn_gov_T3) : "");
+    g.setAttribute("dyn_pss_model", options.dyn_pss_model || "NONE");
+    g.setAttribute("dyn_pss_A1", options.dyn_pss_A1 != null ? String(options.dyn_pss_A1) : "");
+    g.setAttribute("dyn_pss_A2", options.dyn_pss_A2 != null ? String(options.dyn_pss_A2) : "");
 
     // Economic parameters
     g.setAttribute("Economic_parameters", "");
@@ -197,11 +211,105 @@ export function configureStaticGeneratorAttributes(grafka, vertex, options = {})
     g.setAttribute("q_capability_curve_json", options.q_capability_curve_json || qCapabilityCurve15MwOffshoreWtgJson);
     g.setAttribute("q_setpoint_mode", options.q_setpoint_mode || "manual");
 
+    // ANDES renewable / inverter dynamics. Empty key parameters defer to ANDES defaults.
+    g.setAttribute("Dynamics_parameters", "");
+    g.setAttribute("dyn_plant_kind", options.dyn_plant_kind || "NONE");
+    g.setAttribute("dyn_Sn", options.dyn_Sn != null ? String(options.dyn_Sn) : "");
+    g.setAttribute("dyn_reg_Tg", options.dyn_reg_Tg != null ? String(options.dyn_reg_Tg) : "");
+    g.setAttribute("dyn_ree_Vref0", options.dyn_ree_Vref0 != null ? String(options.dyn_ree_Vref0) : "");
+    g.setAttribute("dyn_repca_Kp", options.dyn_repca_Kp != null ? String(options.dyn_repca_Kp) : "");
+    g.setAttribute("dyn_wt_H", options.dyn_wt_H != null ? String(options.dyn_wt_H) : "");
+    g.setAttribute("dyn_wt_DAMP", options.dyn_wt_DAMP != null ? String(options.dyn_wt_DAMP) : "");
+    g.setAttribute("dyn_dg_Tg", options.dyn_dg_Tg != null ? String(options.dyn_dg_Tg) : "");
+
     grafka.getModel().setValue(vertex, g)
 
     //podpisz 
     grafka.insertVertex(vertex, null, 'Static Generator', 0.5, 1.1, 0, 0, null, true);
     
+}
+
+export function configureWindTurbineAttributes(grafka, vertex, options = {}) {
+    const windSpeed = options.wind_speed_ms != null ? String(options.wind_speed_ms) : String(DEFAULT_WIND_SPEED_MS);
+    const curveJson = options.wind_power_curve_json || defaultWindPowerCurveJson;
+    const approx = options.wind_curve_approx || 'linear';
+    const computedP = options.p_mw != null
+        ? String(options.p_mw)
+        : String(computeWindTurbinePMw(parseFloat(windSpeed), curveJson, approx));
+
+    var g = mxUtils.createXmlDocument().createElement("object");
+    g.setAttribute("name", options.name || "Wind Turbine");
+    g.setAttribute("Load_flow_parameters", "");
+    g.setAttribute("wind_speed_ms", windSpeed);
+    g.setAttribute("wind_power_curve_json", curveJson);
+    g.setAttribute("wind_curve_approx", approx);
+    g.setAttribute("p_mw", computedP);
+    g.setAttribute("q_mvar", options.q_mvar || "0");
+    g.setAttribute("sn_mva", options.sn_mva || String(WIND_POWER_CURVE_DEFAULT_RATED_MW));
+    g.setAttribute("scaling", defaultScaling(options.scaling));
+    g.setAttribute("type", options.type || "Wye");
+
+    g.setAttribute("Short_circuit_parameters", "");
+    g.setAttribute("k", options.k || "0");
+    g.setAttribute("rx", options.rx || "0");
+    g.setAttribute("generator_type", options.generator_type || "current_source");
+    g.setAttribute("lrc_pu", options.lrc_pu || "0.0");
+    g.setAttribute("max_ik_ka", options.max_ik_ka || "0.0");
+    g.setAttribute("kappa", options.kappa || "0.0");
+    g.setAttribute("current_source", options.current_source != null ? options.current_source : true);
+
+    g.setAttribute("OPF_parameters", "");
+    g.setAttribute("controllable", String(options.controllable ?? false));
+    g.setAttribute("min_p_mw", String(options.min_p_mw ?? "0"));
+    g.setAttribute("max_p_mw", String(options.max_p_mw ?? WIND_POWER_CURVE_DEFAULT_RATED_MW));
+    g.setAttribute("min_q_mvar", String(options.min_q_mvar ?? "-1"));
+    g.setAttribute("max_q_mvar", String(options.max_q_mvar ?? "1"));
+    g.setAttribute("opf_marginal_cost_eur_per_mwh", String(options.opf_marginal_cost_eur_per_mwh ?? ""));
+    g.setAttribute("opf_cp2_eur_per_mw2", String(options.opf_cp2_eur_per_mw2 ?? ""));
+    g.setAttribute("opf_cost_currency", String(options.opf_cost_currency ?? "EUR"));
+
+    g.setAttribute("Harmonic_parameters", "");
+    g.setAttribute("spectrum", options.spectrum || "defaultgen");
+    g.setAttribute("spectrum_csv", options.spectrum_csv || "");
+    g.setAttribute("Xdpp", options.Xdpp || "0.20");
+    g.setAttribute("XRdp", options.XRdp || "20");
+
+    g.setAttribute("Economic_parameters", "");
+    g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
+
+    const qcapOn = options.reactive_capability_curve === true || options.reactive_capability_curve === 'true';
+    g.setAttribute("reactive_capability_curve", qcapOn ? "true" : "false");
+    g.setAttribute("curve_style", options.curve_style || "straightLineYValues");
+    const q2d = serializeQCap2d(defaultQCap2dState());
+    const q1dDefault = JSON.stringify(
+        flattenQCap2dToPqPoints(defaultQCap2dState(), WIND_POWER_CURVE_DEFAULT_RATED_MW)
+    );
+    g.setAttribute("q_capability_curve_json", options.q_capability_curve_json || q1dDefault);
+    g.setAttribute("q_setpoint_mode", options.q_setpoint_mode || "manual");
+    g.setAttribute(
+        "q_cap_voltage_dependent",
+        String(options.q_cap_voltage_dependent !== false && options.q_cap_voltage_dependent !== 'false')
+    );
+    g.setAttribute("q_cap_input_model", options.q_cap_input_model || q2d.q_cap_input_model);
+    g.setAttribute("q_cap_scale_min_percent", String(options.q_cap_scale_min_percent ?? q2d.q_cap_scale_min_percent));
+    g.setAttribute("q_cap_scale_max_percent", String(options.q_cap_scale_max_percent ?? q2d.q_cap_scale_max_percent));
+    g.setAttribute("q_cap_u_json", options.q_cap_u_json || q2d.q_cap_u_json);
+    g.setAttribute("q_cap_p_json", options.q_cap_p_json || q2d.q_cap_p_json);
+    g.setAttribute("q_cap_qmax_json", options.q_cap_qmax_json || q2d.q_cap_qmax_json);
+    g.setAttribute("q_cap_qmin_json", options.q_cap_qmin_json || q2d.q_cap_qmin_json);
+
+    g.setAttribute("Dynamics_parameters", "");
+    g.setAttribute("dyn_plant_kind", options.dyn_plant_kind || "WIND");
+    g.setAttribute("dyn_Sn", options.dyn_Sn != null ? String(options.dyn_Sn) : "");
+    g.setAttribute("dyn_reg_Tg", options.dyn_reg_Tg != null ? String(options.dyn_reg_Tg) : "");
+    g.setAttribute("dyn_ree_Vref0", options.dyn_ree_Vref0 != null ? String(options.dyn_ree_Vref0) : "");
+    g.setAttribute("dyn_repca_Kp", options.dyn_repca_Kp != null ? String(options.dyn_repca_Kp) : "");
+    g.setAttribute("dyn_wt_H", options.dyn_wt_H != null ? String(options.dyn_wt_H) : "");
+    g.setAttribute("dyn_wt_DAMP", options.dyn_wt_DAMP != null ? String(options.dyn_wt_DAMP) : "");
+    g.setAttribute("dyn_dg_Tg", options.dyn_dg_Tg != null ? String(options.dyn_dg_Tg) : "");
+
+    grafka.getModel().setValue(vertex, g);
+    grafka.insertVertex(vertex, null, options.name || 'Wind Turbine', 0.5, 1.1, 0, 0, null, true);
 }
 
 export function configureAsymmetricStaticGeneratorAttributes(grafka, vertex, options = {}) {
@@ -696,8 +804,13 @@ export function configureStorageAttributes(grafka, vertex, options = {}) {
     g.setAttribute("vv_curve_preset", options.vv_curve_preset || "IEEE_1547");
     g.setAttribute("vv_xarray", options.vv_xarray || "0.92 0.98 1.02 1.08");
     g.setAttribute("vv_yarray", options.vv_yarray || "0.44 0 -0.44 -0.44");
+    g.setAttribute("vw_curve_preset", options.vw_curve_preset || "IEEE_1547");
+    g.setAttribute("vw_xarray", options.vw_xarray || "1.06 1.1");
+    g.setAttribute("vw_yarray", options.vw_yarray || "1 0");
     g.setAttribute("wattpf_xarray", options.wattpf_xarray || "0 0.5 1");
     g.setAttribute("wattpf_yarray", options.wattpf_yarray || "1 0.98 0.95");
+    g.setAttribute("wattvar_xarray", options.wattvar_xarray || "0.2 0.5 1");
+    g.setAttribute("wattvar_yarray", options.wattvar_yarray || "0.44 0.22 0");
 
     // Economic parameters
     g.setAttribute("Economic_parameters", "");
@@ -808,6 +921,8 @@ export function configurePVSystemAttributes(grafka, vertex, options = {}) {
     g.setAttribute("vmaxpu", String(options.vmaxpu ?? 1.1));
     g.setAttribute("vminpu", String(options.vminpu ?? 0.9));
     g.setAttribute("pmpp_percent", String(options.pmpp_percent ?? 100.0));
+    g.setAttribute("kvarmax", String(options.kvarmax ?? 120.0));
+    g.setAttribute("kvarmaxabs", String(options.kvarmaxabs ?? 120.0));
     g.setAttribute("in_service", String(options.in_service !== undefined ? options.in_service : true));
 
     g.setAttribute("Short_circuit_parameters", "");
@@ -816,11 +931,151 @@ export function configurePVSystemAttributes(grafka, vertex, options = {}) {
     g.setAttribute("basefreq", String(options.basefreq ?? 50.0));
     g.setAttribute("balanced", String(options.balanced ?? false));
 
+    g.setAttribute("Inverter_control_parameters", "");
+    g.setAttribute("inv_control_mode", options.inv_control_mode || "NONE");
+    g.setAttribute("vv_curve_preset", options.vv_curve_preset || "IEEE_1547");
+    g.setAttribute("vv_xarray", options.vv_xarray || "0.92 0.98 1.02 1.08");
+    g.setAttribute("vv_yarray", options.vv_yarray || "0.44 0 -0.44 -0.44");
+    g.setAttribute("vw_curve_preset", options.vw_curve_preset || "IEEE_1547");
+    g.setAttribute("vw_xarray", options.vw_xarray || "1.06 1.1");
+    g.setAttribute("vw_yarray", options.vw_yarray || "1 0");
+    g.setAttribute("wattpf_xarray", options.wattpf_xarray || "0 0.5 1");
+    g.setAttribute("wattpf_yarray", options.wattpf_yarray || "1 0.98 0.95");
+    g.setAttribute("wattvar_xarray", options.wattvar_xarray || "0.2 0.5 1");
+    g.setAttribute("wattvar_yarray", options.wattvar_yarray || "0.44 0.22 0");
+
     g.setAttribute("Economic_parameters", "");
     g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "0");
 
     grafka.getModel().setValue(vertex, g);
     grafka.insertVertex(vertex, null, options.name || 'PVSystem', 0.5, 1.1, 0, 0, null, true);
+}
+
+export function configureRegControlAttributes(grafka, vertex, options = {}) {
+    var g = mxUtils.createXmlDocument().createElement("object");
+    g.setAttribute("name", options.name || "RegControl");
+    g.setAttribute("OpenDSS_parameters", "");
+    g.setAttribute("transformer", options.transformer || options.element || "");
+    g.setAttribute("winding", String(options.winding ?? 2));
+    g.setAttribute("vreg", String(options.vreg ?? 120));
+    g.setAttribute("band", String(options.band ?? 3));
+    g.setAttribute("ptratio", String(options.ptratio ?? 60));
+    g.setAttribute("ctprim", String(options.ctprim ?? 300));
+    g.setAttribute("delaying", String(options.delaying ?? options.delay ?? 15));
+    g.setAttribute("enabled", String(options.enabled !== false));
+    grafka.getModel().setValue(vertex, g);
+    grafka.insertVertex(vertex, null, options.name || 'RegControl', 0.5, 1.1, 0, 0, null, true);
+}
+
+export function configureCapControlAttributes(grafka, vertex, options = {}) {
+    var g = mxUtils.createXmlDocument().createElement("object");
+    g.setAttribute("name", options.name || "CapControl");
+    g.setAttribute("OpenDSS_parameters", "");
+    g.setAttribute("capacitor", options.capacitor || options.element || "");
+    g.setAttribute("type", options.type || "Voltage");
+    g.setAttribute("on_setting", String(options.on_setting ?? 115));
+    g.setAttribute("off_setting", String(options.off_setting ?? 125));
+    g.setAttribute("ctratio", String(options.ctratio ?? 1));
+    g.setAttribute("ptratio", String(options.ptratio ?? 1));
+    g.setAttribute("delay", String(options.delay ?? 15));
+    g.setAttribute("enabled", String(options.enabled !== false));
+    grafka.getModel().setValue(vertex, g);
+    grafka.insertVertex(vertex, null, options.name || 'CapControl', 0.5, 1.1, 0, 0, null, true);
+}
+
+export function configureStorageControllerAttributes(grafka, vertex, options = {}) {
+    var g = mxUtils.createXmlDocument().createElement("object");
+    g.setAttribute("name", options.name || "StorageController");
+    g.setAttribute("OpenDSS_parameters", "");
+    g.setAttribute("element", Array.isArray(options.element) ? options.element.join(',') : (options.element || options.storage || ""));
+    g.setAttribute("mode", options.mode || "PeakShave");
+    g.setAttribute("kwtarget", String(options.kwtarget ?? options.kWTarget ?? 0));
+    g.setAttribute("pct_reserve", String(options.pct_reserve ?? options.reserve ?? 20));
+    g.setAttribute("enabled", String(options.enabled !== false));
+    grafka.getModel().setValue(vertex, g);
+    grafka.insertVertex(vertex, null, options.name || 'StorageController', 0.5, 1.1, 0, 0, null, true);
+}
+
+export function configureWindTurbineControllerAttributes(grafka, vertex, options = {}) {
+    var name = options.name || "WindTurbineController (steady-state)";
+    var g = mxUtils.createXmlDocument().createElement("object");
+    g.setAttribute("label", name);
+    g.setAttribute("name", name);
+    g.setAttribute("Controller_parameters", "");
+    g.setAttribute("wind_turbine", options.wind_turbine || options.element || "");
+    g.setAttribute("enabled", String(options.enabled !== false));
+    g.setAttribute("power_curve_type", options.power_curve_type || "Turbine Power Curve");
+    g.setAttribute("wind_speed_ms", String(options.wind_speed_ms ?? "10"));
+    g.setAttribute("use_turbine_wind_speed", String(options.use_turbine_wind_speed !== false));
+    g.setAttribute("wind_power_curve_json", options.wind_power_curve_json || defaultWindPowerCurveJson);
+    g.setAttribute("wind_curve_approx", options.wind_curve_approx || "linear");
+    // Label is drawn inside the rounded box via the object "label" attribute
+    grafka.getModel().setValue(vertex, g);
+}
+
+export function configureWindTurbineDynamicControllerAttributes(grafka, vertex, options = {}) {
+    var name = options.name || "WindTurbineController (dynamic)";
+    var g = mxUtils.createXmlDocument().createElement("object");
+    g.setAttribute("label", name);
+    g.setAttribute("name", name);
+    g.setAttribute("Controller_parameters", "");
+    g.setAttribute("wind_turbine", options.wind_turbine || options.element || "");
+    g.setAttribute("enabled", String(options.enabled !== false));
+    g.setAttribute("wind_avg_T", String(options.wind_avg_T ?? "1"));
+    g.setAttribute("wind_avg_Tavg", String(options.wind_avg_Tavg ?? "10"));
+    g.setAttribute("power_avg_T", String(options.power_avg_T ?? "1"));
+    g.setAttribute("power_avg_Tavg", String(options.power_avg_Tavg ?? "10"));
+    g.setAttribute("gradient_T", String(options.gradient_T ?? "1"));
+    g.setAttribute("gradient_max", String(options.gradient_max ?? "0.5"));
+    grafka.getModel().setValue(vertex, g);
+}
+
+export function configureParkControllerAttributes(grafka, vertex, options = {}) {
+    var name = options.name || "ParkController (steady-state)";
+    var g = mxUtils.createXmlDocument().createElement("object");
+    g.setAttribute("label", name);
+    g.setAttribute("name", name);
+    g.setAttribute("Controller_parameters", "");
+    g.setAttribute("enabled", String(options.enabled !== false));
+    g.setAttribute("machines_json", options.machines_json || "[]");
+    g.setAttribute("control_mode", options.control_mode || "Voltage Control");
+    g.setAttribute("node_selection", options.node_selection || "User Selection");
+    g.setAttribute("uset_mode", options.uset_mode || "bus target voltage");
+    g.setAttribute("controlled_bus", options.controlled_bus || "");
+    g.setAttribute("target_bus", options.target_bus || "");
+    g.setAttribute("vm_set_pu", String(options.vm_set_pu ?? "1.0"));
+    g.setAttribute("enable_droop", String(options.enable_droop === true || options.enable_droop === "true"));
+    g.setAttribute("q_rated_mvar", String(options.q_rated_mvar ?? "0"));
+    g.setAttribute("droop_percent", String(options.droop_percent ?? "4"));
+    g.setAttribute("q_measured_at", options.q_measured_at || "");
+    g.setAttribute("q_control_type", options.q_control_type || "Const. Q");
+    g.setAttribute("q_set_mvar", String(options.q_set_mvar ?? "0"));
+    g.setAttribute("control_q_at", options.control_q_at || "");
+    g.setAttribute("qv_characteristic_json", options.qv_characteristic_json || "[]");
+    g.setAttribute("qp_characteristic_json", options.qp_characteristic_json || "[]");
+    g.setAttribute("pf_control_type", options.pf_control_type || "Const. cosphi");
+    g.setAttribute("cos_phi", String(options.cos_phi ?? "1.0"));
+    g.setAttribute("cosphi_p_excitation", options.cosphi_p_excitation || "Overexcited");
+    var cosphiPOe =
+        options.cosphi_p_oe_characteristic_json ||
+        options.cosphi_p_characteristic_json ||
+        '[{"p_mw":7.5,"cos_phi":1}]';
+    var cosphiPUe =
+        options.cosphi_p_ue_characteristic_json ||
+        '[{"p_mw":15,"cos_phi":0.95}]';
+    g.setAttribute("cosphi_p_oe_characteristic_json", cosphiPOe);
+    g.setAttribute("cosphi_p_ue_characteristic_json", cosphiPUe);
+    g.setAttribute("cosphi_p_characteristic_json", cosphiPOe);
+    g.setAttribute("cosphi_v_characteristic_json", options.cosphi_v_characteristic_json || "[]");
+    g.setAttribute("tan_phi", String(options.tan_phi ?? "0"));
+    g.setAttribute("distribution_method", options.distribution_method || "According to Rated Power");
+    g.setAttribute("consider_q_dispatch", String(options.consider_q_dispatch !== false));
+    g.setAttribute(
+        "use_q_capability",
+        String(options.use_q_capability !== false && options.use_q_capability !== 'false')
+    );
+    g.setAttribute("q_change_response", options.q_change_response || "same");
+    grafka.getModel().setValue(vertex, g);
 }
 
 export function configureSVCAttributes(grafka, vertex, options = {}) {
@@ -1071,6 +1326,20 @@ export function configureSwitchAttributes(grafka, vertex, options = {}) {
     g.setAttribute("overload_factor", options.overload_factor !== undefined ? String(options.overload_factor) : "1.25");
     g.setAttribute("ct_current_factor", options.ct_current_factor !== undefined ? String(options.ct_current_factor) : "1.2");
     g.setAttribute("safety_factor", options.safety_factor !== undefined ? String(options.safety_factor) : "1.0");
+    g.setAttribute("I_e_a", options.I_e_a !== undefined ? String(options.I_e_a) : "100");
+    g.setAttribute("t_e", options.t_e !== undefined ? String(options.t_e) : "0.2");
+    g.setAttribute("directional_mode", options.directional_mode || "forward");
+    g.setAttribute("I_diff_a", options.I_diff_a !== undefined ? String(options.I_diff_a) : "100");
+    g.setAttribute("diff_slope", options.diff_slope !== undefined ? String(options.diff_slope) : "0.3");
+    g.setAttribute("z1_r_ohm", options.z1_r_ohm !== undefined ? String(options.z1_r_ohm) : "1");
+    g.setAttribute("z1_x_ohm", options.z1_x_ohm !== undefined ? String(options.z1_x_ohm) : "1");
+    g.setAttribute("z2_r_ohm", options.z2_r_ohm !== undefined ? String(options.z2_r_ohm) : "2");
+    g.setAttribute("z2_x_ohm", options.z2_x_ohm !== undefined ? String(options.z2_x_ohm) : "2");
+    g.setAttribute("z3_r_ohm", options.z3_r_ohm !== undefined ? String(options.z3_r_ohm) : "3");
+    g.setAttribute("z3_x_ohm", options.z3_x_ohm !== undefined ? String(options.z3_x_ohm) : "3");
+    g.setAttribute("t_z1", options.t_z1 !== undefined ? String(options.t_z1) : "0");
+    g.setAttribute("t_z2", options.t_z2 !== undefined ? String(options.t_z2) : "0.3");
+    g.setAttribute("t_z3", options.t_z3 !== undefined ? String(options.t_z3) : "0.6");
 
     // Pandapower JSON import: branch refs when only one graph edge is drawn (Switch ↔ Bus).
     if (options.pp_import_bus) {
@@ -1135,6 +1404,7 @@ if (typeof window !== 'undefined') {
     window.configureExternalGridAttributes = configureExternalGridAttributes;
     window.configureGeneratorAttributes = configureGeneratorAttributes;
     window.configureStaticGeneratorAttributes = configureStaticGeneratorAttributes;
+    window.configureWindTurbineAttributes = configureWindTurbineAttributes;
     window.configureAsymmetricStaticGeneratorAttributes = configureAsymmetricStaticGeneratorAttributes;
     window.configureBusAttributes = configureBusAttributes;
     window.configureTransformerAttributes = configureTransformerAttributes;
@@ -1149,6 +1419,12 @@ if (typeof window !== 'undefined') {
     window.configureMotorAttributes = configureMotorAttributes;
     window.configureStorageAttributes = configureStorageAttributes;
     window.configurePVSystemAttributes = configurePVSystemAttributes;
+    window.configureRegControlAttributes = configureRegControlAttributes;
+    window.configureCapControlAttributes = configureCapControlAttributes;
+    window.configureStorageControllerAttributes = configureStorageControllerAttributes;
+    window.configureWindTurbineControllerAttributes = configureWindTurbineControllerAttributes;
+    window.configureWindTurbineDynamicControllerAttributes = configureWindTurbineDynamicControllerAttributes;
+    window.configureParkControllerAttributes = configureParkControllerAttributes;
     window.configureLoad1phAttributes = configureLoad1phAttributes;
     window.configureSource1phAttributes = configureSource1phAttributes;
     window.configureGenerator1phAttributes = configureGenerator1phAttributes;

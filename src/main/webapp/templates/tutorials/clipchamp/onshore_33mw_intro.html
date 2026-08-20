@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Onshore Wind Farm Grid Compliance in open-source Electrisim software - Park Controller</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --navy: #163a7a;
+      --navy-deep: #0f2d62;
+      --royal: #1d4ed8;
+      --royal-soft: #2563eb;
+      --text: #111827;
+      --muted: #4b5563;
+      --slate: #64748b;
+      --white: #ffffff;
+      --bg-top: #f8fbff;
+      --bg-bot: #d9e6f5;
+      --badge-blue: #dbeafe;
+      --badge-blue-text: #1e40af;
+      --badge-green: #d1fae5;
+      --badge-green-text: #047857;
+      --badge-yellow: #fef3c7;
+      --badge-yellow-text: #92400e;
+      --badge-teal: #ccfbf1;
+      --badge-teal-text: #0f766e;
+      --slide-w: 1920px;
+      --slide-h: 1080px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0f172a;
+      font-family: "Inter", "Segoe UI", sans-serif;
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+    .slide {
+      width: var(--slide-w);
+      height: var(--slide-h);
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(180deg, var(--bg-top) 0%, #eef4fb 55%, var(--bg-bot) 100%);
+      page-break-after: always;
+    }
+    .header-pill {
+      position: absolute;
+      top: 36px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--navy);
+      color: var(--white);
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 2.4px;
+      text-transform: uppercase;
+      padding: 14px 36px;
+      border-radius: 999px;
+      z-index: 4;
+    }
+    .footer-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 68px;
+      background: var(--navy);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 4;
+    }
+    .footer-bar span {
+      color: var(--white);
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+    }
+    .content {
+      position: absolute;
+      inset: 110px 72px 90px;
+      z-index: 2;
+    }
+
+    /* Title */
+    .kicker {
+      font-size: 42px;
+      font-weight: 800;
+      letter-spacing: -0.8px;
+      line-height: 1.08;
+      color: var(--text);
+      max-width: 1680px;
+    }
+    .headline {
+      font-size: 56px;
+      font-weight: 800;
+      letter-spacing: -1.2px;
+      line-height: 1.08;
+      color: var(--royal);
+      margin: 8px 0 10px;
+      max-width: 1680px;
+    }
+    .subhead {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--muted);
+      margin-bottom: 12px;
+      max-width: 1680px;
+    }
+    .tech-line {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--slate);
+      letter-spacing: 0.2px;
+      margin-bottom: 18px;
+    }
+    .badges { display: flex; gap: 14px; flex-wrap: wrap; }
+    .badge {
+      font-size: 18px;
+      font-weight: 700;
+      padding: 10px 18px;
+      border-radius: 12px;
+    }
+    .badge.blue { background: var(--badge-blue); color: var(--badge-blue-text); }
+    .badge.green { background: var(--badge-green); color: var(--badge-green-text); }
+    .badge.yellow { background: var(--badge-yellow); color: var(--badge-yellow-text); }
+    .badge.teal { background: var(--badge-teal); color: var(--badge-teal-text); }
+
+    .title-bottom {
+      position: absolute;
+      left: 72px;
+      right: 72px;
+      bottom: 100px;
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 36px;
+      align-items: end;
+    }
+    .panel {
+      background: rgba(255, 255, 255, 0.82);
+      border: 1px solid rgba(22, 58, 122, 0.12);
+      border-radius: 20px;
+      padding: 18px 22px 12px;
+      box-shadow: 0 12px 32px rgba(22, 58, 122, 0.08);
+    }
+    .panel-caption {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: var(--royal);
+      margin-bottom: 6px;
+    }
+    .pq-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .pq-box {
+      border: 2px solid;
+      border-radius: 10px;
+      padding: 8px 14px;
+      font-size: 16px;
+      font-weight: 700;
+      width: fit-content;
+    }
+    .pq-box.teal { border-color: #0f766e; color: #0f766e; }
+    .pq-box.blue { border-color: var(--royal); color: var(--royal); }
+
+    /* Shared section styles */
+    .section-kicker {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--royal);
+      margin-bottom: 10px;
+    }
+    h2 {
+      font-size: 56px;
+      font-weight: 800;
+      letter-spacing: -1.2px;
+      line-height: 1.08;
+      margin-bottom: 14px;
+    }
+    h2 .hi { color: var(--royal); }
+    .lede {
+      font-size: 24px;
+      color: var(--muted);
+      line-height: 1.45;
+      max-width: 1500px;
+      margin-bottom: 32px;
+    }
+    .agenda-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 16px;
+    }
+    .agenda-card {
+      background: var(--white);
+      border-radius: 16px;
+      padding: 28px 18px 24px;
+      text-align: center;
+      border: 1px solid rgba(22, 58, 122, 0.12);
+      box-shadow: 0 10px 24px rgba(22, 58, 122, 0.06);
+      min-height: 280px;
+    }
+    .agenda-num {
+      font-size: 32px;
+      font-weight: 800;
+      color: var(--royal);
+      margin-bottom: 12px;
+    }
+    .agenda-title {
+      font-size: 22px;
+      font-weight: 800;
+      margin-bottom: 10px;
+    }
+    .agenda-desc {
+      font-size: 16px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+    .facts {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 22px;
+    }
+    .fact-card {
+      background: var(--white);
+      border-radius: 18px;
+      padding: 28px 32px;
+      border: 1px solid rgba(22, 58, 122, 0.12);
+      box-shadow: 0 10px 24px rgba(22, 58, 122, 0.06);
+    }
+    .fact-card h3 {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--royal);
+      margin-bottom: 14px;
+    }
+    .fact-card ul { list-style: none; }
+    .fact-card li {
+      font-size: 22px;
+      line-height: 1.55;
+      padding-left: 22px;
+      position: relative;
+      margin-bottom: 6px;
+    }
+    .fact-card li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 12px;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--royal);
+    }
+    .divider-layout {
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      gap: 40px;
+      align-items: center;
+      height: 100%;
+    }
+    .stat-row { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 28px; }
+    .stat {
+      background: var(--white);
+      border: 1px solid rgba(22, 58, 122, 0.12);
+      border-radius: 14px;
+      padding: 16px 20px;
+      min-width: 200px;
+    }
+    .stat .val {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--royal);
+      line-height: 1.1;
+    }
+    .stat .lbl {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+    .outro-center {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+    .path-box {
+      margin-top: 28px;
+      background: var(--white);
+      border: 2px solid rgba(29, 78, 216, 0.25);
+      border-radius: 16px;
+      padding: 22px 36px;
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--navy);
+    }
+    .sld-label { font-size: 13px; fill: var(--muted); font-weight: 700; }
+    .sld-label-sm { font-size: 12px; fill: var(--royal); font-weight: 700; }
+
+    /* ── Slide 1: title (dashboard layout) ── */
+    .slide-title {
+      background: linear-gradient(165deg, #fafcff 0%, #eef4fc 42%, #d4e3f4 100%);
+    }
+    .slide-title .orb {
+      position: absolute;
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    .slide-title .orb-1 {
+      width: 480px; height: 480px; top: -140px; right: -80px;
+      background: radial-gradient(circle, rgba(29, 78, 216, 0.14) 0%, transparent 70%);
+    }
+    .slide-title .orb-2 {
+      width: 360px; height: 360px; bottom: 60px; left: -100px;
+      background: radial-gradient(circle, rgba(16, 185, 129, 0.1) 0%, transparent 70%);
+    }
+    .slide-title .grid-fade {
+      position: absolute; inset: 0;
+      background-image:
+        linear-gradient(rgba(22, 58, 122, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(22, 58, 122, 0.035) 1px, transparent 1px);
+      background-size: 56px 56px;
+      mask-image: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, transparent 55%);
+      pointer-events: none;
+    }
+    .slide-title .logo-corner {
+      position: absolute;
+      top: 34px;
+      right: 56px;
+      height: 64px;
+      z-index: 5;
+    }
+    .slide-title .title-stack {
+      position: absolute;
+      inset: 100px 80px 88px;
+      z-index: 3;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+    .slide-title .compliance-line {
+      font-size: 108px;
+      font-weight: 800;
+      letter-spacing: -2.5px;
+      line-height: 1;
+      color: var(--royal);
+      margin-bottom: 28px;
+    }
+    .slide-title .topic-line {
+      font-size: 44px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.2;
+      max-width: 1600px;
+      margin-bottom: 20px;
+    }
+    .slide-title .oss-line {
+      display: inline-flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 36px;
+      font-weight: 700;
+      color: var(--royal);
+      margin-bottom: 28px;
+    }
+    .slide-title .oss-pill {
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: #047857;
+      background: #d1fae5;
+      border: 1px solid rgba(5, 150, 105, 0.35);
+      padding: 8px 16px;
+      border-radius: 999px;
+    }
+    .slide-title .tech-line {
+      font-size: 32px;
+      margin-bottom: 32px;
+      max-width: 1400px;
+    }
+    .slide-title .badges {
+      justify-content: center;
+      gap: 18px;
+    }
+    .slide-title .badge {
+      font-size: 22px;
+      padding: 14px 24px;
+      border-radius: 14px;
+    }
+    .slide-title .title-accent {
+      width: 120px;
+      height: 5px;
+      background: linear-gradient(90deg, var(--royal), #10b981);
+      border-radius: 3px;
+      margin: 0 auto 36px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ========== SLIDE 1: TITLE ========== -->
+  <section class="slide slide-title">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="grid-fade"></div>
+    <img class="logo-corner" src="https://electrisim.com/assets/img/logo_Electrisim_removebg-preview.png" alt="Electrisim" />
+    <div class="header-pill">Tutorial • Onshore Wind</div>
+
+    <div class="title-stack">
+      <div class="title-accent"></div>
+      <div class="compliance-line">Grid Compliance</div>
+      <div class="topic-line">Onshore Wind Farm · Park Controller</div>
+      <div class="oss-line">
+        <span class="oss-pill">Open source</span>
+        in Electrisim software
+      </div>
+      <div class="tech-line">P-Q/Pmax @ 110 kV · NC RfG · leading case U = 1.1 pu</div>
+      <div class="badges">
+        <span class="badge blue">Load Flow</span>
+        <span class="badge green">110 kV POC</span>
+        <span class="badge yellow">Park controller</span>
+        <span class="badge teal">PF 0.94 UE</span>
+      </div>
+    </div>
+
+    <div class="footer-bar"><span>Electrisim • electrisim.com</span></div>
+  </section>
+
+  <!-- ========== SLIDE 2: AGENDA ========== -->
+  <section class="slide">
+    <div class="header-pill">Tutorial • Onshore Wind</div>
+    <div class="content">
+      <div class="section-kicker">Live demo</div>
+      <h2>What we will do <span class="hi">in Electrisim</span></h2>
+      <p class="lede">Open the 33 MW template, walk the SLD, set the park controller at the POC, run load flow, then add an 11th turbine.</p>
+      <div class="agenda-grid">
+        <div class="agenda-card">
+          <div class="agenda-num">01</div>
+          <div class="agenda-title">Open</div>
+          <div class="agenda-desc">File → New → onshore wind farm 33MW</div>
+        </div>
+        <div class="agenda-card">
+          <div class="agenda-num">02</div>
+          <div class="agenda-title">SLD</div>
+          <div class="agenda-desc">10 WTGs, two 30 kV strings, 110/30 kV, 5 km export</div>
+        </div>
+        <div class="agenda-card">
+          <div class="agenda-num">03</div>
+          <div class="agenda-title">WTG</div>
+          <div class="agenda-desc">3.3 MVA · wind-speed curve · Q capability</div>
+        </div>
+        <div class="agenda-card">
+          <div class="agenda-num">04</div>
+          <div class="agenda-title">Park</div>
+          <div class="agenda-desc">PF control at POC · cosφ(P) 0.94 UE @ 24 MW</div>
+        </div>
+        <div class="agenda-card">
+          <div class="agenda-num">05</div>
+          <div class="agenda-title">Load flow</div>
+          <div class="agenda-desc">24.28 MW · 8.80 Mvar · PF 0.94</div>
+        </div>
+        <div class="agenda-card">
+          <div class="agenda-num">06</div>
+          <div class="agenda-title">Expand</div>
+          <div class="agenda-desc">Add 11th WTG and attach it to the controller</div>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bar"><span>Electrisim • electrisim.com</span></div>
+  </section>
+
+  <!-- ========== SLIDE 3: NETWORK ========== -->
+  <section class="slide">
+    <div class="header-pill">Tutorial • Onshore Wind</div>
+    <div class="content">
+      <div class="section-kicker">Network</div>
+      <h2>33 MW farm at the <span class="hi">110 kV POC</span></h2>
+      <p class="lede">Two 30 kV collector strings feed a 40 MVA 110/30 kV substation. A 5 km 110 kV cable reaches the grid-operator bus. A shunt reactor sits on the 110 kV substation bus — farm side of the POC.</p>
+      <div class="facts">
+        <div class="fact-card">
+          <h3>Plant (ours to control)</h3>
+          <ul>
+            <li>10 × 3.3 MVA WTGs at 0.69 kV</li>
+            <li>10 × 3.75 MVA 30/0.65 kV padmounts</li>
+            <li>Two 30 kV strings, 5 turbines each</li>
+            <li>40 MVA 110/30 kV main transformer</li>
+            <li>Shunt reactor at substation 110 kV</li>
+          </ul>
+        </div>
+        <div class="fact-card">
+          <h3>Grid interface</h3>
+          <ul>
+            <li>POC = Point of connection — 110 kV</li>
+            <li>5 km 110 kV cable to the POC</li>
+            <li>External grid voltage 1.1 pu (this case)</li>
+            <li>Park controller measures Q at the POC</li>
+            <li>Everything grid-side of the POC is TSO</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bar"><span>Electrisim • electrisim.com</span></div>
+  </section>
+
+  <!-- ========== SLIDE 4: WIND TURBINE ========== -->
+  <section class="slide">
+    <div class="header-pill">Section • Wind turbine</div>
+    <div class="content">
+      <div class="divider-layout">
+        <div>
+          <div class="section-kicker">Machine limits</div>
+          <h2>Each WTG is <span class="hi">3.3 MVA</span></h2>
+          <p class="lede">Active power follows the wind-speed curve. Reactive power is bounded by the PQ capability characteristic so the park controller never asks for more than the converter can deliver.</p>
+          <div class="stat-row">
+            <div class="stat"><div class="val">12 m/s</div><div class="lbl">Wind speed in this case</div></div>
+            <div class="stat"><div class="val">2.5 MW</div><div class="lbl">P per turbine</div></div>
+            <div class="stat"><div class="val">±1.43 Mvar</div><div class="lbl">Q capability at this P</div></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-caption">PQ capability (one turbine)</div>
+          <svg viewBox="0 0 360 280" width="100%" height="280" aria-hidden="true">
+            <line x1="40" y1="140" x2="330" y2="140" stroke="#94a3b8" stroke-width="1.5"/>
+            <line x1="40" y1="24" x2="40" y2="256" stroke="#94a3b8" stroke-width="1.5"/>
+            <text x="300" y="132" font-size="14" fill="#64748b" font-weight="700">P [MW]</text>
+            <text x="48" y="36" font-size="14" fill="#64748b" font-weight="700">Q [Mvar]</text>
+            <polyline points="40,70 210,70 250,90 290,140 250,190 210,210 40,210" fill="none" stroke="#2563eb" stroke-width="3"/>
+            <circle cx="232" cy="168" r="8" fill="#0f766e"/>
+            <text x="200" y="248" font-size="14" fill="#0f766e" font-weight="700">2.5 MW · −0.74 Mvar</text>
+            <text x="52" y="88" font-size="13" fill="#1d4ed8" font-weight="700">Qmax</text>
+            <text x="52" y="200" font-size="13" fill="#1d4ed8" font-weight="700">Qmin</text>
+          </svg>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bar"><span>Electrisim • electrisim.com</span></div>
+  </section>
+
+  <!-- ========== SLIDE 5: PARK CONTROLLER ========== -->
+  <section class="slide">
+    <div class="header-pill">Section • Park controller</div>
+    <div class="content">
+      <div class="divider-layout">
+        <div>
+          <div class="section-kicker">Station control at the POC</div>
+          <h2>One controller for <span class="hi">all ten WTGs</span></h2>
+          <p class="lede">Power-factor control is applied at the 110 kV point of connection — not locally at each turbine. Q is then split according to rated power.</p>
+          <div class="stat-row">
+            <div class="stat"><div class="val">cosφ(P)</div><div class="lbl">Underexcited 0.94 @ 24 MW</div></div>
+            <div class="stat"><div class="val">POC</div><div class="lbl">Control Q at 110 kV</div></div>
+            <div class="stat"><div class="val">× Sn</div><div class="lbl">Distribution by rated power</div></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-caption">cosφ(P) characteristic · this case</div>
+          <svg viewBox="0 0 360 280" width="100%" height="280" aria-hidden="true">
+            <line x1="40" y1="240" x2="330" y2="240" stroke="#94a3b8" stroke-width="1.5"/>
+            <line x1="40" y1="24" x2="40" y2="240" stroke="#94a3b8" stroke-width="1.5"/>
+            <text x="292" y="232" font-size="14" fill="#64748b" font-weight="700">P farm</text>
+            <text x="48" y="36" font-size="14" fill="#64748b" font-weight="700">cos φ</text>
+            <polyline points="40,70 250,70 250,150 40,150" fill="none" stroke="#94a3b8" stroke-width="2" stroke-dasharray="6 6"/>
+            <circle cx="250" cy="150" r="8" fill="#dc2626"/>
+            <line x1="40" y1="150" x2="250" y2="150" stroke="#dc2626" stroke-width="3"/>
+            <text x="160" y="138" font-size="16" fill="#dc2626" font-weight="800">0.94 UE</text>
+            <text x="228" y="268" font-size="14" fill="#dc2626" font-weight="700">24 MW</text>
+            <text x="48" y="64" font-size="13" fill="#64748b" font-weight="700">1.00 OE</text>
+          </svg>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bar"><span>Electrisim • electrisim.com</span></div>
+  </section>
+
+  <!-- ========== SLIDE 6: LOAD FLOW ========== -->
+  <section class="slide">
+    <div class="header-pill">Section • Load flow</div>
+    <div class="content">
+      <div class="section-kicker">Results at the POC</div>
+      <h2>High voltage, <span class="hi">underexcited PF 0.94</span></h2>
+      <p class="lede">This snapshot is the leading / U = 1.1 pu case. The farm generates 25 MW; 24.28 MW reaches the POC. The park controller absorbs 8.80 Mvar — matching the cosφ(P) characteristic.</p>
+      <div class="facts">
+        <div class="fact-card">
+          <h3>POC · External Grid</h3>
+          <ul>
+            <li>P = 24.28 MW export</li>
+            <li>Q = 8.80 Mvar absorbed</li>
+            <li>PF = 0.94 underexcited</li>
+            <li>U = 1.100 pu (121.0 kV)</li>
+          </ul>
+        </div>
+        <div class="fact-card">
+          <h3>Plant internals</h3>
+          <ul>
+            <li>10 × 2.50 MW / −0.743 Mvar</li>
+            <li>Substation 110 kV: 1.101 pu</li>
+            <li>Collector 30 kV: 1.07–1.08 pu</li>
+            <li>Main transformer loading 59.9%</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bar"><span>Electrisim • electrisim.com</span></div>
+  </section>
+
+  <!-- ========== SLIDE 7: EXPAND ========== -->
+  <section class="slide">
+    <div class="header-pill">Section • Expand the farm</div>
+    <div class="content">
+      <div class="divider-layout">
+        <div>
+          <div class="section-kicker">Live demo</div>
+          <h2>Add an <span class="hi">11th turbine</span></h2>
+          <p class="lede">A new machine starts on local control (P = 2.5 MW, Q = 0). Until it is on the park-controller list it does not share reactive power. After attaching it, stretch the 24 MW breakpoint to the new farm output.</p>
+          <div class="stat-row">
+            <div class="stat"><div class="val">10 → 11</div><div class="lbl">Turbines in the park</div></div>
+            <div class="stat"><div class="val">~27.5 MW</div><div class="lbl">New generated P (12 m/s)</div></div>
+            <div class="stat"><div class="val">Stretch curve</div><div class="lbl">UE setpoint from 24 MW</div></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-caption">Three steps</div>
+          <svg viewBox="0 0 360 280" width="100%" height="280" aria-hidden="true">
+            <rect x="24" y="28" width="312" height="64" rx="12" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+            <text x="44" y="56" font-size="18" fill="#1e40af" font-weight="800">1. Drop WTG + padmount</text>
+            <text x="44" y="78" font-size="14" fill="#1e40af">Tap a 30 kV collector node</text>
+            <rect x="24" y="108" width="312" height="64" rx="12" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
+            <text x="44" y="136" font-size="18" fill="#92400e" font-weight="800">2. First load flow: Q = 0</text>
+            <text x="44" y="158" font-size="14" fill="#92400e">Not yet in the park list</text>
+            <rect x="24" y="188" width="312" height="64" rx="12" fill="#d1fae5" stroke="#059669" stroke-width="1.5"/>
+            <text x="44" y="216" font-size="18" fill="#047857" font-weight="800">3. Attach + stretch cosφ(P)</text>
+            <text x="44" y="238" font-size="14" fill="#047857">Same Mvar share as neighbours</text>
+          </svg>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bar"><span>Electrisim • electrisim.com</span></div>
+  </section>
+
+  <!-- ========== SLIDE 8: OUTRO ========== -->
+  <section class="slide">
+    <div class="header-pill">Tutorial • Onshore Wind</div>
+    <div class="content">
+      <div class="outro-center">
+        <div class="kicker" style="font-size:42px;">Onshore Wind Farm Grid Compliance</div>
+        <div class="headline" style="font-size:40px;">in open-source Electrisim software — Park Controller</div>
+        <p class="lede" style="text-align:center;max-width:1100px;">Open-source load flow in the browser. Same model as this video — park controller included.</p>
+        <div class="path-box">File → New → onshore wind farm 33MW</div>
+        <div class="tech-line" style="margin-top:28px;">app.electrisim.com</div>
+      </div>
+    </div>
+    <div class="footer-bar"><span>Electrisim • electrisim.com</span></div>
+  </section>
+
+</body>
+</html>

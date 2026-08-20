@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+
+# Login uses noindex + canonical in login.html (and X-Robots-Tag on /login).
+# Keep Allow so Google can crawl and honor those tags.
+

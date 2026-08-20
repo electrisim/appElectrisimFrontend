@@ -1,1 +1,9 @@
-/* /index.html 200 
+# Auth pages first — never fall through to the SPA shell
+/login /login.html 200
+/login.html /login.html 200
+/robots.txt /robots.txt 200
+/sitemap.xml /sitemap.xml 200
+
+# SPA fallback for the editor
+/* /index.html 200
+ 

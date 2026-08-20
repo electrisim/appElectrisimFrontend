@@ -364,7 +364,9 @@ Q/P: ${formatNumber(d.qp)}`;
         (dataJson.staticgenerators || []).forEach((cell) => {
             const resultCell = resolveCell(cell);
             if (!resultCell) return;
-            const label = formatResultNameHeader(resultCell, replaceUnderscores(cell.name), 'Static Generator');
+            const styleStr = resultCell.style || '';
+            const typeLabel = styleStr.includes('shapeELXXX=Wind Turbine') ? 'Wind Turbine' : 'Static Generator';
+            const label = formatResultNameHeader(resultCell, replaceUnderscores(cell.name), typeLabel);
             const text = `${label}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}`;

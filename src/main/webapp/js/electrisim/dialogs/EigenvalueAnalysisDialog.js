@@ -39,7 +39,7 @@ export class EigenvalueAnalysisDialog extends Dialog {
     }
 
     getDescription() {
-        return 'Small-signal (eigenvalue) stability using ANDES. Linearizes around the power-flow operating point. Requires at least one Generator with dynamics.';
+        return 'Small-signal (eigenvalue) stability using ANDES. Linearizes around the power-flow operating point and requires a synchronous Generator or Static Generator with a renewable dynamic plant; External Grid alone is insufficient.';
     }
 }
 

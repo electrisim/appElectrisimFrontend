@@ -675,6 +675,17 @@
 			<image src="images/electrical/sym-static-gen.svg" x="0" y="0" w="56" h="56"/>
 		</foreground>
 	</shape>
+	<shape aspect="variable" h="56" name="Wind Turbine" strokewidth="inherit" w="56">
+		<connections>
+			<constraint name="S" perimeter="0" x="0.5" y="1"/>
+		</connections>
+		<background>
+			<rect h="56" w="56" x="0" y="0"/>
+		</background>
+		<foreground>
+			<image src="images/electrical/sym-wind-turbine.svg" x="0" y="0" w="56" h="56"/>
+		</foreground>
+	</shape>
 	<shape aspect="variable" h="56" name="motor" strokewidth="inherit" w="56">
 		<connections>
 			<constraint name="S" perimeter="0" x="0.5" y="1"/>
@@ -730,17 +741,17 @@
 			<image src="images/electrical/sym-shunt.svg" x="0" y="0" w="37" h="56"/>
 		</foreground>
 	</shape>
-	<shape aspect="variable" h="37" name="Transformer" strokewidth="inherit" w="56">
+	<shape aspect="variable" h="46" name="Transformer" strokewidth="inherit" w="72">
 		<connections>
-			<!-- Pins at (-41,0) and (41,0) in viewBox -45..45, -30..28 -->
+			<!-- Pins at (-41,0) and (41,0) in viewBox -45..45, -30..28 (4/90, 86/90) -->
 			<constraint name="W" perimeter="0" x="0.044" y="0.517"/>
 			<constraint name="E" perimeter="0" x="0.956" y="0.517"/>
 		</connections>
 		<background>
-			<rect h="37" w="56" x="0" y="0"/>
+			<rect h="46" w="72" x="0" y="0"/>
 		</background>
 		<foreground>
-			<image src="images/electrical/sym-transformer.svg" x="0" y="0" w="56" h="37"/>
+			<image src="images/electrical/sym-transformer.svg" x="0" y="0" w="72" h="46"/>
 		</foreground>
 	</shape>
 	<shape aspect="variable" h="56" name="three_winding_transformer" strokewidth="inherit" w="56">

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-30 -30 60 64">
+  <circle cx="0" cy="0" r="26" fill="none" stroke="#1a1a2e" stroke-width="2"/>
+  <!-- Hub -->
+  <circle cx="0" cy="-2" r="3.5" fill="#1a1a2e"/>
+  <!-- Three blades -->
+  <path d="M0,-2 L0,-18 L3,-17 Z" fill="#1a1a2e"/>
+  <path d="M0,-2 L14,6 L11,9 Z" fill="#1a1a2e"/>
+  <path d="M0,-2 L-14,6 L-11,9 Z" fill="#1a1a2e"/>
+  <!-- Tower stub -->
+  <line x1="0" y1="2" x2="0" y2="14" stroke="#1a1a2e" stroke-width="2" stroke-linecap="round"/>
+  <!-- Pin stub at top center -->
+  <line x1="0" y1="-26" x2="0" y2="-34" stroke="#1a1a2e" stroke-width="1.5" stroke-linecap="square"/>
+</svg>

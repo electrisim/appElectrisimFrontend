@@ -4,10 +4,65 @@ import {
   applyComponentsDataColumnEditor,
   isComponentsDataEnumColumn,
 } from "../utils/componentsDataColumnEditors.js";
+import {
+  computeWindTurbinePMw,
+  defaultWindPowerCurveJson,
+} from "../windTurbineDialog.js";
+
+/** AG Grid header tooltips for Wind Turbine voltage-dependent Q capability columns. */
+const WIND_TURBINE_COLUMN_TOOLTIPS = {
+  wind_speed_ms:
+    "Hub-height wind speed [m/s]. Active power is interpolated from the power curve.",
+  wind_power_curve_json:
+    "JSON array of {v_ms, p_mw} points — wind power curve (Power tab).",
+  wind_curve_approx:
+    "Power curve interpolation: linear segments or step (constant) between knots.",
+  p_mw:
+    "Active power [MW] from the wind curve at wind_speed_ms (set in element dialog).",
+  q_mvar:
+    "Reactive power [MVar] when q_setpoint_mode is manual.",
+  q_setpoint_mode:
+    "Load flow Q: manual (use q_mvar), capacitive_max (Qmax from capability curve), or inductive_max (Qmin). Requires reactive_capability_curve = true.",
+  reactive_capability_curve:
+    "Enable voltage-dependent Q capability limits in load flow (Q capability tab — Use Q capability curve).",
+  q_capability_curve_json:
+    "Flattened P–Q table at U = 1.0 p.u. for pandapower; auto-synced from the P–U capability matrices.",
+  curve_style:
+    "Interpolation style for the flattened q_capability_curve_json (pandapower).",
+  q_cap_voltage_dependent:
+    "true: Qmin/Qmax depend on terminal voltage U and active power P.",
+  q_cap_input_model:
+    "Capability matrix units: pu (per unit of Sn) or mw_mvar (MW/Mvar).",
+  q_cap_scale_min_percent: "Scaling factor [%] applied to the Qmin matrix.",
+  q_cap_scale_max_percent: "Scaling factor [%] applied to the Qmax matrix.",
+  q_cap_u_json: "JSON array — row axis: voltage levels [p.u.].",
+  q_cap_p_json: "JSON array — column axis: P setpoints [p.u. or MW].",
+  q_cap_qmax_json: "JSON 2D matrix — Qmax[row U][col P].",
+  q_cap_qmin_json: "JSON 2D matrix — Qmin[row U][col P].",
+  sn_mva: "Rated apparent power [MVA] — base for p.u. capability values.",
+  generator_type:
+    "Short-circuit model; current_source recommended for full-size converter WTG.",
+  dyn_plant_kind: "Dynamics plant kind (Wind turbine uses WIND).",
+};
+
+const WIND_TURBINE_Q_SETPOINT_LABELS = {
+  manual: "Manual (Power tab)",
+  capacitive_max: "Capacitive max (Qmax from capability curve)",
+  inductive_max: "Inductive max (Qmin from capability curve)",
+};
+
+/** Editing these Wind Turbine columns recomputes p_mw from the power curve. */
+const WIND_TURBINE_P_CURVE_FIELDS = new Set([
+  "wind_speed_ms",
+  "wind_power_curve_json",
+  "wind_curve_approx",
+]);
+
 const t = {
   EXTERNAL_GRID: "External Grid",
   GENERATOR: "Generator",
   STATIC_GENERATOR: "Static Generator",
+  WIND_TURBINE: "Wind Turbine",
   ASYMMETRIC_STATIC_GENERATOR: "Asymmetric Static Generator",
   BUS: "Bus",
   TRANSFORMER: "Transformer",
@@ -28,6 +83,7 @@ const t = {
   LINE: "Line",
   PV_SYSTEM: "PV System",
 };
+const WIND_TURBINE_COMPONENT = t.WIND_TURBINE;
 export class ComponentsDataDialog {
   constructor(e, n) {
     ((this.ui = e),
@@ -129,6 +185,7 @@ export class ComponentsDataDialog {
         externalGrid: 1,
         generator: 1,
         staticGenerator: 1,
+        windTurbine: 1,
         asymmetricGenerator: 1,
         busbar: 1,
         transformer: 1,
@@ -183,6 +240,10 @@ export class ComponentsDataDialog {
         case "Sgen":
         case "sgen":
           i = t.STATIC_GENERATOR;
+          break;
+        case "Wind Turbine":
+        case "WindTurbine":
+          i = t.WIND_TURBINE;
           break;
         case "PVSystem":
         case "PV System":
@@ -425,6 +486,155 @@ export class ComponentsDataDialog {
                   optional: !0,
                   defaultValue: "0",
                 },
+              }),
+            });
+            break;
+          case t.WIND_TURBINE:
+            this.components[t.WIND_TURBINE].push({
+              ...s,
+              type: "Wind Turbine " + n.windTurbine++,
+              ...this.getAttributesAsObject(e, {
+                wind_speed_ms: {
+                  name: "wind_speed_ms",
+                  optional: !0,
+                  defaultValue: "10",
+                },
+                wind_power_curve_json: {
+                  name: "wind_power_curve_json",
+                  optional: !0,
+                  defaultValue: "",
+                },
+                wind_curve_approx: {
+                  name: "wind_curve_approx",
+                  optional: !0,
+                  defaultValue: "linear",
+                },
+                p_mw: "p_mw",
+                q_mvar: "q_mvar",
+                q_setpoint_mode: {
+                  name: "q_setpoint_mode",
+                  optional: !0,
+                  defaultValue: "manual",
+                },
+                sn_mva: { name: "sn_mva", optional: !0, defaultValue: "2.5" },
+                scaling: "scaling",
+                type: "type",
+                k: "k",
+                rx: "rx",
+                generator_type: {
+                  name: "generator_type",
+                  optional: !0,
+                  defaultValue: "current_source",
+                },
+                lrc_pu: "lrc_pu",
+                max_ik_ka: "max_ik_ka",
+                kappa: "kappa",
+                current_source: "current_source",
+                reactive_capability_curve: {
+                  name: "reactive_capability_curve",
+                  optional: !0,
+                  defaultValue: "false",
+                },
+                curve_style: {
+                  name: "curve_style",
+                  optional: !0,
+                  defaultValue: "straightLineYValues",
+                },
+                q_capability_curve_json: {
+                  name: "q_capability_curve_json",
+                  optional: !0,
+                  defaultValue: "",
+                },
+                q_cap_voltage_dependent: {
+                  name: "q_cap_voltage_dependent",
+                  optional: !0,
+                  defaultValue: "true",
+                },
+                q_cap_input_model: {
+                  name: "q_cap_input_model",
+                  optional: !0,
+                  defaultValue: "pu",
+                },
+                q_cap_scale_min_percent: {
+                  name: "q_cap_scale_min_percent",
+                  optional: !0,
+                  defaultValue: "100",
+                },
+                q_cap_scale_max_percent: {
+                  name: "q_cap_scale_max_percent",
+                  optional: !0,
+                  defaultValue: "100",
+                },
+                q_cap_u_json: { name: "q_cap_u_json", optional: !0, defaultValue: "" },
+                q_cap_p_json: { name: "q_cap_p_json", optional: !0, defaultValue: "" },
+                q_cap_qmax_json: { name: "q_cap_qmax_json", optional: !0, defaultValue: "" },
+                q_cap_qmin_json: { name: "q_cap_qmin_json", optional: !0, defaultValue: "" },
+                in_service: {
+                  name: "in_service",
+                  optional: !0,
+                  defaultValue: "true",
+                },
+                controllable: {
+                  name: "controllable",
+                  optional: !0,
+                  defaultValue: "false",
+                },
+                max_p_mw: { name: "max_p_mw", optional: !0, defaultValue: "2.5" },
+                min_p_mw: { name: "min_p_mw", optional: !0, defaultValue: "0" },
+                max_q_mvar: {
+                  name: "max_q_mvar",
+                  optional: !0,
+                  defaultValue: "1",
+                },
+                min_q_mvar: {
+                  name: "min_q_mvar",
+                  optional: !0,
+                  defaultValue: "-1",
+                },
+                opf_cost_currency: {
+                  name: "opf_cost_currency",
+                  optional: !0,
+                  defaultValue: "EUR",
+                },
+                opf_marginal_cost_eur_per_mwh: {
+                  name: "opf_marginal_cost_eur_per_mwh",
+                  optional: !0,
+                  defaultValue: "",
+                },
+                opf_cp2_eur_per_mw2: {
+                  name: "opf_cp2_eur_per_mw2",
+                  optional: !0,
+                  defaultValue: "",
+                },
+                cost_per_unit_by_currency: {
+                  name: "cost_per_unit_by_currency",
+                  optional: !0,
+                  defaultValue: "0",
+                },
+                dyn_plant_kind: {
+                  name: "dyn_plant_kind",
+                  optional: !0,
+                  defaultValue: "WIND",
+                },
+                dyn_Sn: { name: "dyn_Sn", optional: !0, defaultValue: "" },
+                dyn_reg_Tg: { name: "dyn_reg_Tg", optional: !0, defaultValue: "" },
+                dyn_ree_Vref0: {
+                  name: "dyn_ree_Vref0",
+                  optional: !0,
+                  defaultValue: "",
+                },
+                dyn_repca_Kp: {
+                  name: "dyn_repca_Kp",
+                  optional: !0,
+                  defaultValue: "",
+                },
+                dyn_wt_H: { name: "dyn_wt_H", optional: !0, defaultValue: "" },
+                dyn_wt_DAMP: {
+                  name: "dyn_wt_DAMP",
+                  optional: !0,
+                  defaultValue: "",
+                },
+                dyn_dg_Tg: { name: "dyn_dg_Tg", optional: !0, defaultValue: "" },
               }),
             });
             break;
@@ -1204,21 +1414,75 @@ export class ComponentsDataDialog {
         }
     });
   }
-  createColumnDefs(e) {
-    if (0 === e.length) return [];
-    const t = new Set();
-    e.forEach((e) => {
-      Object.keys(e).forEach((e) => t.add(e));
+  recomputeWindTurbinePMwForRow(rowData) {
+    if (!rowData) return null;
+    const windSpeed = parseFloat(rowData.wind_speed_ms);
+    const curveJson =
+      rowData.wind_power_curve_json || defaultWindPowerCurveJson;
+    const approx = rowData.wind_curve_approx || "linear";
+    const p = computeWindTurbinePMw(windSpeed, curveJson, approx);
+    const rounded = Math.round(p * 1e6) / 1e6;
+    rowData.p_mw = rounded;
+    return rounded;
+  }
+  syncWindTurbinePMwForGridRow(rowNode, rowId) {
+    if (!rowNode?.data) return;
+    const newP = this.recomputeWindTurbinePMwForRow(rowNode.data);
+    rowNode.setDataValue("p_mw", newP);
+    if (rowId) {
+      this.changedCells.has(rowId) || this.changedCells.set(rowId, new Set());
+      this.changedCells.get(rowId).add("p_mw");
+    }
+  }
+  applyWindTurbineColumnOverrides(e, t) {
+    if (e !== t.WIND_TURBINE) return;
+    const n = WIND_TURBINE_COLUMN_TOOLTIPS;
+    this._windTurbineColumnDefs?.forEach((o) => {
+      const r = o.field;
+      if (n[r]) o.headerTooltip = n[r];
+      if (r === "p_mw") {
+        o.editable = false;
+        o.cellStyle = { textAlign: "right", backgroundColor: "#f8f9fa", color: "#6c757d" };
+      }
+      if (r === "q_setpoint_mode") {
+        o.valueFormatter = (e) => {
+          const t = e.value;
+          if (t == null || t === "") return "";
+          return WIND_TURBINE_Q_SETPOINT_LABELS[t] || String(t);
+        };
+        o.headerTooltip = n.q_setpoint_mode;
+      }
+      if (r === "q_cap_voltage_dependent") {
+        o.cellEditor = "agSelectCellEditor";
+        o.cellEditorParams = { values: ["true", "false"] };
+      }
+      if (r === "q_cap_input_model") {
+        o.cellEditor = "agSelectCellEditor";
+        o.cellEditorParams = { values: ["pu", "mw_mvar"] };
+        o.valueFormatter = (e) =>
+          e.value === "mw_mvar" ? "MW/Mvar" : e.value === "pu" ? "p.u." : String(e.value ?? "");
+      }
+      if (r === "wind_curve_approx") {
+        o.cellEditor = "agSelectCellEditor";
+        o.cellEditorParams = { values: ["linear", "step"] };
+      }
     });
-    const n = ["id", "bus", "from_bus", "to_bus", "type"],
+  }
+  createColumnDefs(e, componentType) {
+    if (0 === e.length) return [];
+    const fieldKeys = new Set();
+    e.forEach((e) => {
+      Object.keys(e).forEach((e) => fieldKeys.add(e));
+    });
+    const readOnlyTopoCols = ["id", "bus", "from_bus", "to_bus", "type"],
       o = ["id"];
-    return Array.from(t)
+    const columnDefs = Array.from(fieldKeys)
       .filter((e) => !o.includes(e))
       .map((i) => {
         const o = e.find((e) => null != e[i])?.[i],
           l = !isNaN(o) && "" !== o && "N/A" !== o,
           c =
-            n.includes(i.toLowerCase()) &&
+            readOnlyTopoCols.includes(i.toLowerCase()) &&
             !isComponentsDataEnumColumn(i, e),
           d = i.replace(/_/g, " ").toUpperCase(),
           h = d.length,
@@ -1271,6 +1535,12 @@ export class ComponentsDataDialog {
           m
         );
       });
+    this._windTurbineColumnDefs =
+      componentType === t.WIND_TURBINE ? columnDefs : null;
+    if (componentType === t.WIND_TURBINE) {
+      this.applyWindTurbineColumnOverrides(componentType, t);
+    }
+    return columnDefs;
   }
   createComponentGrid(e, t) {
     if (!window.agGrid) {
@@ -1295,8 +1565,9 @@ export class ComponentsDataDialog {
     const n = document.createElement("div");
     ((n.style.cssText = "width: 100%; height: 100%; margin-top: 8px;"),
       (n.className = "ag-theme-alpine electrisim-components-data-grid"));
+    const componentType = e;
     const o = {
-      columnDefs: this.createColumnDefs(t),
+      columnDefs: this.createColumnDefs(t, e),
       rowData: t,
       defaultColDef: {
         resizable: !0,
@@ -1326,17 +1597,24 @@ export class ComponentsDataDialog {
         const t = e.data?.id;
         t && this.locateElementOnCanvas(t);
       },
-      onCellValueChanged: (e) => {
+      onCellValueChanged: (ev) => {
         this.hasChanges = !0;
-        const t = e.data.id,
-          n = e.colDef.field,
-          o = e.newValue,
-          r = e.oldValue;
+        const rowId = ev.data.id,
+          field = ev.colDef.field,
+          newValue = ev.newValue,
+          oldValue = ev.oldValue;
         (console.log(
-          `Cell value changed: cell=${t}, attr=${n}, old="${r}", new="${o}"`,
+          `Cell value changed: cell=${rowId}, attr=${field}, old="${oldValue}", new="${newValue}"`,
         ),
-          this.changedCells.has(t) || this.changedCells.set(t, new Set()),
-          this.changedCells.get(t).add(n));
+          this.changedCells.has(rowId) || this.changedCells.set(rowId, new Set()),
+          this.changedCells.get(rowId).add(field));
+        if (
+          componentType === WIND_TURBINE_COMPONENT &&
+          WIND_TURBINE_P_CURVE_FIELDS.has(field) &&
+          ev.node
+        ) {
+          this.syncWindTurbinePMwForGridRow(ev.node, rowId);
+        }
       },
       onCellEditingStarted: (e) => {
         e.node &&
@@ -1374,14 +1652,20 @@ export class ComponentsDataDialog {
                     a = t.getDisplayedRowCount();
                   let s = 0;
                   for (let e = o.rowIndex + 1; e < a; e++) {
-                    const o = t.getDisplayedRowAtIndex(e);
-                    if (o && o.data) {
-                      (o.setDataValue(r, n), s++);
-                      const e = o.data.id;
-                      e &&
-                        (this.changedCells.has(e) ||
-                          this.changedCells.set(e, new Set()),
-                        this.changedCells.get(e).add(r));
+                    const rowNode = t.getDisplayedRowAtIndex(e);
+                    if (rowNode && rowNode.data) {
+                      (rowNode.setDataValue(r, n), s++);
+                      const rowId = rowNode.data.id;
+                      rowId &&
+                        (this.changedCells.has(rowId) ||
+                          this.changedCells.set(rowId, new Set()),
+                        this.changedCells.get(rowId).add(r));
+                      if (
+                        componentType === WIND_TURBINE_COMPONENT &&
+                        WIND_TURBINE_P_CURVE_FIELDS.has(r)
+                      ) {
+                        this.syncWindTurbinePMwForGridRow(rowNode, rowId);
+                      }
                     }
                   }
                   s > 0 &&
@@ -1620,6 +1904,7 @@ export class ComponentsDataDialog {
     );
   }
   createToolbar(e) {
+    const tabComponentType = e;
     const t = document.createElement("div");
     t.style.cssText =
       "\n            display: flex;\n            justify-content: space-between;\n            align-items: center;\n            padding: 8px 12px;\n            background: #f8f9fa;\n            border: 1px solid #dee2e6;\n            border-radius: 4px 4px 0 0;\n            font-size: 14px;\n        ";
@@ -1699,14 +1984,21 @@ export class ComponentsDataDialog {
         const a = r.data[o],
           s = t.getDisplayedRowCount();
         let i = 0;
-        for (let e = n.rowIndex + 1; e < s; e++) {
-          const n = t.getDisplayedRowAtIndex(e);
-          if (n && n.data) {
-            (n.setDataValue(o, a), i++);
-            const e = n.data.id;
-            e &&
-              (this.changedCells.has(e) || this.changedCells.set(e, new Set()),
-              this.changedCells.get(e).add(o));
+        for (let rowIdx = n.rowIndex + 1; rowIdx < s; rowIdx++) {
+          const rowNode = t.getDisplayedRowAtIndex(rowIdx);
+          if (rowNode && rowNode.data) {
+            (rowNode.setDataValue(o, a), i++);
+            const rowId = rowNode.data.id;
+            rowId &&
+              (this.changedCells.has(rowId) ||
+                this.changedCells.set(rowId, new Set()),
+              this.changedCells.get(rowId).add(o));
+            if (
+              tabComponentType === WIND_TURBINE_COMPONENT &&
+              WIND_TURBINE_P_CURVE_FIELDS.has(o)
+            ) {
+              this.syncWindTurbinePMwForGridRow(rowNode, rowId);
+            }
           }
         }
         i > 0 && ((this.hasChanges = !0), t.refreshCells({ force: !0 }));

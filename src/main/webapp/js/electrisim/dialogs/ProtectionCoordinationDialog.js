@@ -7,7 +7,7 @@ import { getDrawioStudyDialogHeight, SIMULATION_FORM_SCROLL_STYLE, SIMULATION_IN
 
 export class ProtectionCoordinationDialog extends Dialog {
     constructor(editorUi) {
-        super('Protection Coordination (Beta) Parameters', 'Calculate');
+        super('Protection Coordination Parameters', 'Calculate');
 
         this.ui = editorUi || window.App?.main?.editor?.editorUi;
         this.graph = this.ui?.editor?.graph;
@@ -95,7 +95,7 @@ export class ProtectionCoordinationDialog extends Dialog {
 
     getDescription() {
         return '<strong>Configure the Protection Coordination study</strong><br>' +
-            'Set the per-switch protection device on each switch (Switch dialog &rarr; Protection tab) - OC relay (DTOC/IDMT/IDTOC) or fuse. ' +
+            'Set the per-switch protection device on each switch (Switch dialog &rarr; Protection tab) - OCR, earth-fault, directional, fuse, differential, or distance protection. ' +
             'Choose a <strong>line fault</strong> (pandapower creates an intermediate SC bus on the line) or a <strong>busbar fault</strong> (short-circuit calculated directly at the selected bus). ' +
             'Fuse melting times appear in the tripping table when fuses are assigned. ' +
             'See the <a href="https://pandapower.readthedocs.io/en/latest/protection.html" target="_blank" rel="noopener noreferrer">pandapower protection docs</a>.';

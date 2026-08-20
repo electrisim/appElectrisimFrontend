@@ -218,14 +218,27 @@ function removeOldLayers(host) {
  */
 const SVG_2W_TEMPLATE =
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-45 -30 90 58">' +
-    '<circle cx="-10" cy="0" r="14" fill="none" stroke="#1a1a2e" stroke-width="2"/>' +
-    '<circle cx="10" cy="0" r="14" fill="none" stroke="#1a1a2e" stroke-width="2"/>' +
-    '<line x1="-35" y1="0" x2="-24" y2="0" stroke="#1a1a2e" stroke-width="2"/>' +
-    '<line x1="24" y1="0" x2="35" y2="0" stroke="#1a1a2e" stroke-width="2"/>' +
-    '<line x1="-35" y1="0" x2="-45" y2="0" stroke="#1a1a2e" stroke-width="1.5" stroke-linecap="square"/>' +
-    '<line x1="35" y1="0" x2="45" y2="0" stroke="#1a1a2e" stroke-width="1.5" stroke-linecap="square"/>' +
+    '<circle cx="-10" cy="0" r="14" fill="none" stroke="#1a1a2e" stroke-width="1.5"/>' +
+    '<circle cx="10" cy="0" r="14" fill="none" stroke="#1a1a2e" stroke-width="1.5"/>' +
+    '<line x1="-35" y1="0" x2="-24" y2="0" stroke="#1a1a2e" stroke-width="1.5"/>' +
+    '<line x1="24" y1="0" x2="35" y2="0" stroke="#1a1a2e" stroke-width="1.5"/>' +
+    '<line x1="-35" y1="0" x2="-41" y2="0" stroke="#1a1a2e" stroke-width="1.25" stroke-linecap="square"/>' +
+    '<line x1="35" y1="0" x2="41" y2="0" stroke="#1a1a2e" stroke-width="1.25" stroke-linecap="square"/>' +
     '<text x="-35" y="-5" text-anchor="middle" font-family="sans-serif" font-weight="bold" font-size="9" fill="#1a1a2e">%%0%%</text>' +
     '<text x="35" y="-5" text-anchor="middle" font-family="sans-serif" font-weight="bold" font-size="9" fill="#1a1a2e">%%1%%</text>' +
+    '</svg>';
+
+/** Vertical SLD / sym-transformer-v: HV top, LV bottom (matches import cell 72×108). */
+const SVG_2W_TEMPLATE_VERTICAL =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-30 -45 60 90">' +
+    '<circle cx="0" cy="-12" r="14" fill="none" stroke="#1a1a2e" stroke-width="1.5"/>' +
+    '<circle cx="0" cy="12" r="14" fill="none" stroke="#1a1a2e" stroke-width="1.5"/>' +
+    '<line x1="0" y1="-26" x2="0" y2="-36" stroke="#1a1a2e" stroke-width="1.5"/>' +
+    '<line x1="0" y1="26" x2="0" y2="36" stroke="#1a1a2e" stroke-width="1.5"/>' +
+    '<line x1="0" y1="-36" x2="0" y2="-41" stroke="#1a1a2e" stroke-width="1.25" stroke-linecap="square"/>' +
+    '<line x1="0" y1="36" x2="0" y2="41" stroke="#1a1a2e" stroke-width="1.25" stroke-linecap="square"/>' +
+    '<text x="16" y="-9" text-anchor="start" font-family="sans-serif" font-weight="bold" font-size="9" fill="#1a1a2e">%%0%%</text>' +
+    '<text x="16" y="16" text-anchor="start" font-family="sans-serif" font-weight="bold" font-size="9" fill="#1a1a2e">%%1%%</text>' +
     '</svg>';
 
 const SVG_3W_TEMPLATE =
@@ -256,6 +269,17 @@ function buildLabeledSvgUri(template, labels) {
     return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
 }
 
+/** True when the cell uses the vertical winding asset (not merely rotation on a horizontal SVG). */
+function isVerticalTwoWindingTrafo(state, mxUtils) {
+    const styleStr = state.cell && typeof state.cell.getStyle === 'function'
+        ? String(state.cell.getStyle() || '')
+        : '';
+    const img = mxUtils && state.style ? String(mxUtils.getValue(state.style, 'image', '') || '') : '';
+    // Important: do NOT treat rotation=90 as vertical here. That rotates the *horizontal*
+    // asset; painting the vertical template as well double-orients and stretches the circles.
+    return /sym-transformer-v/i.test(styleStr) || /sym-transformer-v/i.test(img);
+}
+
 function paintTransformerTerminalLabels(state) {
     if (!state || !state.cell || !state.shape) {
         return;
@@ -283,7 +307,9 @@ function paintTransformerTerminalLabels(state) {
     const cell = state.cell;
     let template, labels;
     if (trafoKind === 'Transformer') {
-        template = SVG_2W_TEMPLATE;
+        template = isVerticalTwoWindingTrafo(state, mxUtils)
+            ? SVG_2W_TEMPLATE_VERTICAL
+            : SVG_2W_TEMPLATE;
         labels = [getTermLabel(cell, 0, 'HV'), getTermLabel(cell, 1, 'LV')];
     } else {
         template = SVG_3W_TEMPLATE;

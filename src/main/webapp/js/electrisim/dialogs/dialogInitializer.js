@@ -5,12 +5,25 @@ import { EditDataDialog } from './EditDataDialog.js';
 import { LoadFlowDialog } from './LoadFlowDialog.js';
 import { OpenDSSLoadFlowDialog } from './OpenDSSLoadFlowDialog.js';
 import { ComponentsDataDialog } from './ComponentsDataDialog.js';
+import { RegControlDialog } from './RegControlDialog.js';
+import { CapControlDialog } from './CapControlDialog.js';
+import { StorageControllerDialog } from './StorageControllerDialog.js';
+import { WindTurbineControllerDialog } from './WindTurbineControllerDialog.js';
+import { WindTurbineDynamicControllerDialog } from './WindTurbineDynamicControllerDialog.js';
+import { ParkControllerDialog } from './ParkControllerDialog.js';
+import { syncWindTurbineFromController } from '../utils/windTurbineControllerApply.js';
 
 // Make dialogs available globally for legacy code compatibility
 window.EditDataDialog = EditDataDialog;
 window.ComponentsDataDialog = ComponentsDataDialog;
 window.LoadFlowDialog = LoadFlowDialog;
 window.OpenDSSLoadFlowDialog = OpenDSSLoadFlowDialog;
+window.RegControlDialog = RegControlDialog;
+window.CapControlDialog = CapControlDialog;
+window.StorageControllerDialog = StorageControllerDialog;
+window.WindTurbineControllerDialog = WindTurbineControllerDialog;
+window.WindTurbineDynamicControllerDialog = WindTurbineDynamicControllerDialog;
+window.ParkControllerDialog = ParkControllerDialog;
 
 // are loaded as standalone modules and make themselves available globally
 
@@ -27,12 +40,156 @@ window.OpenDSSLoadFlowDialog = OpenDSSLoadFlowDialog;
             setTimeout(callback, 200);
         }
 
+/** Resolve EditorUi from App globals (matches index.html App.main callback). */
+function getEditorUi() {
+    if (!window.App) return null;
+    if (window.App._editorUi) return window.App._editorUi;
+    if (window.App._instance) return window.App._instance;
+    const ed = window.App.main && window.App.main.editor;
+    if (ed && ed.editorUi) return ed.editorUi;
+    return null;
+}
+
+function getCellStyleString(cell) {
+    if (!cell) return '';
+    if (typeof cell.getStyle === 'function') {
+        const s = cell.getStyle();
+        if (s) return s;
+    }
+    return cell.style || '';
+}
+
+/**
+ * True when double-click should open Edit Data for this cell.
+ * Skips result overlays, flow arrows, and non-editable stub edges.
+ */
+function isEditableElectricalCell(cell) {
+    const style = getCellStyleString(cell);
+    if (!style || style.indexOf('shapeELXXX=') < 0) return false;
+    if (style.indexOf('shapeELXXX=Result') >= 0) return false;
+    if (style.indexOf('shapeELXXX=FlowArrow') >= 0) return false;
+    if (style.indexOf('shapeELXXX=NotEditableLine') >= 0) return false;
+    return true;
+}
+
+/**
+ * Prefer the electrical component if the user double-clicked a child name label
+ * or a result placeholder attached to that component.
+ */
+function resolveEditableCell(cell) {
+    let current = cell;
+    let depth = 0;
+    while (current && depth < 5) {
+        if (isEditableElectricalCell(current)) return current;
+        current = current.parent;
+        depth += 1;
+    }
+    return null;
+}
+
+function openEditDataForCell(ui, graph, cell, evt) {
+    const target = resolveEditableCell(cell);
+    if (!target) return false;
+    // Prevent dblClick + mouseDown double-detection from opening twice
+    const now = Date.now();
+    if (ui._editDataOpenedAt && now - ui._editDataOpenedAt < 500) {
+        if (evt) mxEvent.consume(evt);
+        return true;
+    }
+    ui._editDataOpenedAt = now;
+    if (evt) mxEvent.consume(evt);
+    try {
+        graph.setSelectionCell(target);
+    } catch (e) { /* selection optional */ }
+    ui.showDataDialog(target);
+    return true;
+}
+
+/**
+ * Double left-click on a canvas element opens Edit Data (showDataDialog).
+ * Uses graph.dblClick override plus a mouseDown double-click detector so thin
+ * shapes (e.g. busbars) still work even if native shape dblclick is missing.
+ */
+function installDoubleClickEditData(retryCount) {
+    const attempt = retryCount || 0;
+    const ui = getEditorUi();
+    if (!ui || !ui.editor || !ui.editor.graph) {
+        if (attempt < 20) {
+            setTimeout(() => installDoubleClickEditData(attempt + 1), 250);
+        } else {
+            console.warn('installDoubleClickEditData: EditorUi/graph not ready');
+        }
+        return;
+    }
+    if (ui._doubleClickEditDataInstalled) return;
+    ui._doubleClickEditDataInstalled = true;
+
+    const graph = ui.editor.graph;
+    const previousDblClick = graph.dblClick;
+    const DOUBLE_MS = 400;
+    const TOLERANCE = 12;
+    let lastClick = { time: 0, cell: null, x: 0, y: 0, opened: false };
+
+    graph.dblClick = function (evt, cell) {
+        if (this.isEnabled() && cell != null) {
+            if (openEditDataForCell(ui, this, cell, evt)) {
+                lastClick.opened = true;
+                return;
+            }
+        }
+        if (typeof previousDblClick === 'function') {
+            return previousDblClick.apply(this, arguments);
+        }
+    };
+
+    // Fallback: detect quick left double-click via mouse listener (reliable for busbars)
+    graph.addMouseListener({
+        mouseDown: function (sender, me) {
+            if (!graph.isEnabled() || me.isConsumed()) return;
+            const evt = me.getEvent();
+            if (mxEvent.isPopupTrigger(evt) || mxEvent.isRightMouseButton(evt) || mxEvent.isMiddleMouseButton(evt)) {
+                return;
+            }
+            const cell = me.getCell();
+            if (!cell) {
+                lastClick = { time: 0, cell: null, x: 0, y: 0, opened: false };
+                return;
+            }
+            const now = Date.now();
+            const x = me.getGraphX();
+            const y = me.getGraphY();
+            const sameSpot = Math.abs(x - lastClick.x) <= TOLERANCE && Math.abs(y - lastClick.y) <= TOLERANCE;
+            const sameOrRelated =
+                lastClick.cell &&
+                (cell === lastClick.cell ||
+                    resolveEditableCell(cell) === resolveEditableCell(lastClick.cell));
+
+            if (sameOrRelated && sameSpot && now - lastClick.time > 0 && now - lastClick.time <= DOUBLE_MS) {
+                if (openEditDataForCell(ui, graph, cell, evt)) {
+                    me.consume();
+                    lastClick = { time: 0, cell: null, x: 0, y: 0, opened: true };
+                    return;
+                }
+            }
+            lastClick = { time: now, cell, x, y, opened: false };
+        },
+        mouseMove: function () {},
+        mouseUp: function () {}
+    });
+
+    console.log('Double-click → Edit Data installed');
+}
+
 // Initialize all dialog overrides
 function initializeDialogs() {
     try {
         installTransformerTerminalLabelOverlay();
         console.log('Initializing modern dialogs...');
         
+        // Double-click handler is idempotent; keep trying even if dialog overrides
+        // were already installed (e.g. late App ready / re-entry).
+        installDoubleClickEditData();
+
         // Check if already initialized to prevent multiple initializations
         if (EditorUi.prototype._dialogOverridesInitialized) {
             console.log('Dialog overrides already initialized, skipping...');
@@ -98,6 +255,54 @@ function initializeDialogs() {
                 if (isRootCell || !cellStyle || !cellStyle.includes('shapeELXXX=')) {
                     const componentsDialog = new ComponentsDataDialog(this, cell);
                     componentsDialog.show();
+                    return;
+                }
+
+                const controlType = (cellStyle.match(/shapeELXXX=([^;]+)/) || [])[1];
+                const controlDialogs = {
+                    RegControl: RegControlDialog,
+                    CapControl: CapControlDialog,
+                    StorageController: StorageControllerDialog,
+                    WindTurbineController: WindTurbineControllerDialog,
+                    WindTurbineDynamicController: WindTurbineDynamicControllerDialog,
+                    ParkController: ParkControllerDialog
+                };
+                if (controlDialogs[controlType]) {
+                    const ControlDialog = controlDialogs[controlType];
+                    const dialog = new ControlDialog(this);
+                    dialog.populateDialog(cell.value);
+                    dialog.show((values) => {
+                        let value = cell.value;
+                        if (!value || typeof value.setAttribute !== 'function') {
+                            value = mxUtils.createXmlDocument().createElement('object');
+                        }
+                        Object.entries(values).forEach(([name, fieldValue]) => {
+                            // Persist booleans as "true"/"false" for reliable XML round-trip
+                            const stored =
+                                typeof fieldValue === 'boolean' ? String(fieldValue) : fieldValue;
+                            value.setAttribute(name, stored);
+                        });
+                        // Keep in-box text in sync for controllers that use object "label"
+                        if (
+                            (controlType === 'WindTurbineController' ||
+                                controlType === 'WindTurbineDynamicController' ||
+                                controlType === 'ParkController') &&
+                            values.name != null
+                        ) {
+                            value.setAttribute('label', values.name);
+                        }
+                        this.editor.graph.getModel().setValue(cell, value);
+                        this.editor.graph.refresh(cell);
+
+                        // Steady-state Wind Turbine Controller: push Pref onto the linked turbine cell
+                        if (controlType === 'WindTurbineController' && values.wind_turbine) {
+                            try {
+                                syncWindTurbineFromController(this.editor.graph, values);
+                            } catch (e) {
+                                console.warn('Wind Turbine Controller → turbine sync skipped:', e);
+                            }
+                        }
+                    });
                     return;
                 }
                 
@@ -195,6 +400,7 @@ if (document.readyState === 'loading') {
 // Also try to initialize when the window loads (fallback)
 window.addEventListener('load', () => {
     setTimeout(() => {
+        installDoubleClickEditData();
         if (window.EditorUi && !window.EditorUi.prototype._dialogOverridesInitialized) {
             console.log('Attempting to initialize dialogs on window load...');
             waitForApp(initializeDialogs);
@@ -203,4 +409,4 @@ window.addEventListener('load', () => {
 });
 
 // Export for potential use in other modules
-export { initializeDialogs, waitForApp }; 
+export { initializeDialogs, waitForApp, installDoubleClickEditData }; 

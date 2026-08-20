@@ -97,7 +97,21 @@ export const defaultSwitchData = {
     rated_i_a: 0.0,
     overload_factor: 1.25,
     ct_current_factor: 1.2,
-    safety_factor: 1.0
+    safety_factor: 1.0,
+    I_e_a: 100.0,
+    t_e: 0.2,
+    directional_mode: "forward",
+    I_diff_a: 100.0,
+    diff_slope: 0.3,
+    z1_r_ohm: 1.0,
+    z1_x_ohm: 1.0,
+    z2_r_ohm: 2.0,
+    z2_x_ohm: 2.0,
+    z3_r_ohm: 3.0,
+    z3_x_ohm: 3.0,
+    t_z1: 0.0,
+    t_z2: 0.3,
+    t_z3: 0.6
 };
 
 export class SwitchDialog extends Dialog {
@@ -196,8 +210,10 @@ export class SwitchDialog extends Dialog {
                     { value: 'none', label: 'None' },
                     { value: 'ocr', label: 'Overcurrent Relay (OCR)' },
                     { value: 'fuse', label: 'Fuse' },
-                    { value: 'differential', label: 'Differential (87) - UI placeholder' },
-                    { value: 'distance', label: 'Distance (21) - UI placeholder' }
+                    { value: 'earth_fault', label: 'Earth-fault OCR (50N/51N)' },
+                    { value: 'directional', label: 'Directional OCR (67)' },
+                    { value: 'differential', label: 'Differential (87)' },
+                    { value: 'distance', label: 'Distance (21)' }
                 ]
             },
             // ---- OCR fields (visible when protection_type == 'ocr') ----
@@ -217,7 +233,10 @@ export class SwitchDialog extends Dialog {
                     { value: 'standard_inverse', label: 'Standard inverse' },
                     { value: 'very_inverse', label: 'Very inverse' },
                     { value: 'extremely_inverse', label: 'Extremely inverse' },
-                    { value: 'long_inverse', label: 'Long inverse' }
+                    { value: 'long_inverse', label: 'Long inverse' },
+                    { value: 'ieee_moderately_inverse', label: 'IEEE moderately inverse' },
+                    { value: 'ieee_very_inverse', label: 'IEEE very inverse' },
+                    { value: 'ieee_extremely_inverse', label: 'IEEE extremely inverse' }
                 ]
             },
             { id: 'tms', label: 'TMS', symbol: 'tms', unit: 's', description: 'Time multiplier setting (IDMT / IDTOC).', type: 'number', value: String(this.data.tms), step: '0.01', min: '0', showWhen: { protection_type: ['ocr'] } },
@@ -272,14 +291,21 @@ export class SwitchDialog extends Dialog {
             },
             { id: 'rated_i_a', label: 'Rated current', symbol: 'I_rated', unit: 'A', description: 'Fuse rated current I_rated [A]. For library types, auto-filled from the name; for custom types, must match i_rated_a sent to pandapower.', type: 'number', value: String(this.data.rated_i_a), step: '1', min: '0', showWhen: { protection_type: ['fuse'] } },
 
-            // ---- Differential / Distance placeholders ----
-            {
-                id: '_protection_stub_banner',
-                label: 'Not computed',
-                description: 'Differential (87) and Distance (21) are not modeled in pandapower. Settings entered here are stored on the cell for documentation purposes and will be available once these device types are supported.',
-                type: 'info',
-                showWhen: { protection_type: ['differential', 'distance'] }
-            }
+            // ---- Electrisim-side relay evaluators ----
+            { id: 'I_e_a', label: 'Earth-fault pickup I_e', symbol: 'I_e', unit: 'A', description: 'Residual-current pickup for 1-phase faults.', type: 'number', value: String(this.data.I_e_a), step: '1', min: '0', showWhen: { protection_type: ['earth_fault'] } },
+            { id: 't_e', label: 'Earth-fault trip time', symbol: 't_e', unit: 's', description: 'Definite earth-fault operating time.', type: 'number', value: String(this.data.t_e), step: '0.01', min: '0', showWhen: { protection_type: ['earth_fault'] } },
+            { id: 'directional_mode', label: 'Allowed direction', description: 'Forward is from the switch bus into its protected element.', type: 'select', value: this.data.directional_mode, showWhen: { protection_type: ['directional'] }, options: [{ value: 'forward', label: 'Forward' }, { value: 'reverse', label: 'Reverse' }] },
+            { id: 'I_diff_a', label: 'Differential pickup I_diff', symbol: 'I_diff', unit: 'A', description: 'Operate-current threshold for the switch-boundary differential zone.', type: 'number', value: String(this.data.I_diff_a), step: '1', min: '0', showWhen: { protection_type: ['differential'] } },
+            { id: 'diff_slope', label: 'Differential slope', symbol: 'slope', description: 'Percentage restraint slope as a decimal, e.g. 0.3.', type: 'number', value: String(this.data.diff_slope), step: '0.01', min: '0', showWhen: { protection_type: ['differential'] } },
+            { id: 'z1_r_ohm', label: 'Zone 1 resistance', symbol: 'R1', unit: 'Ω', type: 'number', value: String(this.data.z1_r_ohm), step: '0.01', min: '0', showWhen: { protection_type: ['distance'] } },
+            { id: 'z1_x_ohm', label: 'Zone 1 reactance', symbol: 'X1', unit: 'Ω', type: 'number', value: String(this.data.z1_x_ohm), step: '0.01', min: '0', showWhen: { protection_type: ['distance'] } },
+            { id: 't_z1', label: 'Zone 1 delay', symbol: 't1', unit: 's', type: 'number', value: String(this.data.t_z1), step: '0.01', min: '0', showWhen: { protection_type: ['distance'] } },
+            { id: 'z2_r_ohm', label: 'Zone 2 resistance', symbol: 'R2', unit: 'Ω', type: 'number', value: String(this.data.z2_r_ohm), step: '0.01', min: '0', showWhen: { protection_type: ['distance'] } },
+            { id: 'z2_x_ohm', label: 'Zone 2 reactance', symbol: 'X2', unit: 'Ω', type: 'number', value: String(this.data.z2_x_ohm), step: '0.01', min: '0', showWhen: { protection_type: ['distance'] } },
+            { id: 't_z2', label: 'Zone 2 delay', symbol: 't2', unit: 's', type: 'number', value: String(this.data.t_z2), step: '0.01', min: '0', showWhen: { protection_type: ['distance'] } },
+            { id: 'z3_r_ohm', label: 'Zone 3 resistance', symbol: 'R3', unit: 'Ω', type: 'number', value: String(this.data.z3_r_ohm), step: '0.01', min: '0', showWhen: { protection_type: ['distance'] } },
+            { id: 'z3_x_ohm', label: 'Zone 3 reactance', symbol: 'X3', unit: 'Ω', type: 'number', value: String(this.data.z3_x_ohm), step: '0.01', min: '0', showWhen: { protection_type: ['distance'] } },
+            { id: 't_z3', label: 'Zone 3 delay', symbol: 't3', unit: 's', type: 'number', value: String(this.data.t_z3), step: '0.01', min: '0', showWhen: { protection_type: ['distance'] } }
         ];
     }
     

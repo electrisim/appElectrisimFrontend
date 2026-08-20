@@ -52,6 +52,10 @@ const createTableSeparator = (widths) => {
     return widths.map(w => '-'.repeat(w)).join('-+-');
 };
 
+/** Format numeric result for export; preserves valid zero (unlike truthy checks). */
+const fmtExportNum = (v, digits = 3) =>
+    v != null && Number.isFinite(Number(v)) ? Number(v).toFixed(digits) : 'N/A';
+
 /** Attach backend tap_control_results to matching 2w/3w transformers (by cell_id or internal name). */
 const mergeTapControlIntoTransformers = (dataJson) => {
     const rows = dataJson.tap_control_results;
@@ -131,6 +135,27 @@ const formatBusVmKvForCell = (dataCell, graphCell, decimals = 3) => {
     const vn = vnKvFromGraphCell(graphCell);
     if (Number.isFinite(pu) && Number.isFinite(vn) && vn > 0) return (pu * vn).toFixed(decimals);
     return 'N/A';
+};
+
+/** Find PowerFlow / simulation parameters object in LF payload (not always index 0). */
+const findLoadFlowSimParams = (obj) => {
+    if (!obj || typeof obj !== 'object') return null;
+    if (obj[0] && typeof obj[0] === 'object' && (
+        obj[0].exportPandapowerResults !== undefined ||
+        obj[0].exportPython !== undefined ||
+        String(obj[0].typ || '').includes('Parameters')
+    )) {
+        return obj[0];
+    }
+    for (const key of Object.keys(obj)) {
+        const el = obj[key];
+        if (!el || typeof el !== 'object') continue;
+        const typ = String(el.typ || '');
+        if (typ.includes('Parameters') || el.exportPandapowerResults !== undefined || el.exportPython !== undefined) {
+            return el;
+        }
+    }
+    return obj[0] || null;
 };
 
 // Helper function to download Pandapower results as a text file
@@ -262,6 +287,76 @@ const downloadPandapowerResults = (dataJson, graph) => {
             });
             resultsText += '\n';
         }
+
+        if (dataJson.park_controller_results && dataJson.park_controller_results.length > 0) {
+            resultsText += '--- PARK CONTROLLER (steady-state) ---\n';
+            dataJson.park_controller_results.forEach((p) => {
+                const machines = Array.isArray(p.machines) ? p.machines.join(', ') : '';
+                const qParts = Array.isArray(p.sgen_q_mvar)
+                    ? p.sgen_q_mvar.map((q) => (q != null && Number.isFinite(Number(q)) ? Number(q).toFixed(3) : '—')).join(', ')
+                    : '';
+                resultsText += `${p.name || 'ParkController'}: mode=${p.control_mode || '—'}`;
+                if (p.control_mode === 'Reactive Power Control' && p.q_control_type) {
+                    resultsText += `, q_type=${p.q_control_type}`;
+                }
+                if (p.control_mode === 'Power Factor Control' && p.pf_control_type) {
+                    resultsText += `, pf_type=${p.pf_control_type}`;
+                    if (String(p.pf_control_type || '').startsWith('cosphi(P)')) {
+                        resultsText += `, excitation=${p.cosphi_p_excitation || '—'}`;
+                    }
+                }
+                if (p.set_point != null && Number.isFinite(Number(p.set_point))) {
+                    resultsText += `, set_point=${Number(p.set_point).toFixed(4)}`;
+                }
+                if (p.controlled_bus) resultsText += `, bus=${p.controlled_bus}`;
+                if (p.control_q_at) resultsText += `, Control Q at=${p.control_q_at}`;
+                if (p.enable_droop) {
+                    resultsText += `, droop=${p.droop_percent}% (Qrated=${p.q_rated_mvar} Mvar)`;
+                }
+                resultsText += `, attached=${p.attached ? 'yes' : 'no'}\n`;
+                if (machines) {
+                    resultsText += `  machines: ${machines}`;
+                    if (qParts) resultsText += `  Q [Mvar]: ${qParts}`;
+                    resultsText += '\n';
+                }
+                if (p.cosphi_p_oe_characteristic_json) {
+                    resultsText += `  cosphi(P) OE: ${p.cosphi_p_oe_characteristic_json}\n`;
+                }
+                if (p.cosphi_p_ue_characteristic_json) {
+                    resultsText += `  cosphi(P) UE: ${p.cosphi_p_ue_characteristic_json}\n`;
+                }
+                if (p.distribution_method) {
+                    resultsText += `  distribution: ${p.distribution_method}\n`;
+                }
+            });
+            resultsText += '\n';
+        }
+
+        if (dataJson.wind_turbine_controller_results && dataJson.wind_turbine_controller_results.length > 0) {
+            resultsText += '--- WIND TURBINE CONTROLLER (steady-state Pref) ---\n';
+            dataJson.wind_turbine_controller_results.forEach((w) => {
+                const pref = w.pref_mw != null && Number.isFinite(Number(w.pref_mw))
+                    ? Number(w.pref_mw).toFixed(3)
+                    : '—';
+                const v = w.wind_speed_ms != null ? w.wind_speed_ms : '—';
+                resultsText += `${w.name || 'WindTurbineController'}: turbine=${w.wind_turbine || '—'}, Pref=${pref} MW, v=${v} m/s`;
+                if (w.power_curve_type) resultsText += `, curve=${w.power_curve_type}`;
+                resultsText += '\n';
+            });
+            resultsText += '\n';
+        }
+
+        if (dataJson.wind_turbine_dynamic_controller_results && dataJson.wind_turbine_dynamic_controller_results.length > 0) {
+            resultsText += '--- WIND TURBINE CONTROLLER (dynamic — not applied to snapshot LF) ---\n';
+            dataJson.wind_turbine_dynamic_controller_results.forEach((w) => {
+                resultsText += `${w.name || 'WindTurbineController (dynamic)'}: turbine=${w.wind_turbine || '—'}`;
+                resultsText += `, wind_avg T=${w.wind_avg_T} Tavg=${w.wind_avg_Tavg}`;
+                resultsText += `, gradient T=${w.gradient_T} max=${w.gradient_max}`;
+                resultsText += `, power_avg T=${w.power_avg_T} Tavg=${w.power_avg_Tavg}\n`;
+                if (w.note) resultsText += `  note: ${w.note}\n`;
+            });
+            resultsText += '\n';
+        }
         
         // Generators
         if (dataJson.generators && dataJson.generators.length > 0) {
@@ -295,8 +390,8 @@ const downloadPandapowerResults = (dataJson, graph) => {
                 const row = [
                     sgen.name || 'N/A',
                     dialogNameFor(sgen) || '—',
-                    sgen.p_mw ? sgen.p_mw.toFixed(3) : 'N/A',
-                    sgen.q_mvar ? sgen.q_mvar.toFixed(3) : 'N/A'
+                    fmtExportNum(sgen.p_mw),
+                    fmtExportNum(sgen.q_mvar)
                 ];
                 resultsText += createTableRow(row, widths) + '\n';
             });
@@ -969,6 +1064,7 @@ const cellIsBusInjectStubNeighbor = (c) => {
     return (
         t === 'Generator' ||
         t === 'Static Generator' ||
+        t === 'Wind Turbine' ||
         t === 'Asymmetric Static Generator' ||
         t === 'Storage' ||
         t === 'PV System' ||
@@ -1421,6 +1517,7 @@ const COMPONENT_TYPES = {
     EXTERNAL_GRID: 'External Grid',
     GENERATOR: 'Generator',
     STATIC_GENERATOR: 'Static Generator',
+    WIND_TURBINE: 'Wind Turbine',
     ASYMMETRIC_STATIC_GENERATOR: 'Asymmetric Static Generator',
     BUS: 'Bus',
     TRANSFORMER: 'Transformer',
@@ -1446,8 +1543,21 @@ const COMPONENT_TYPES = {
 import { DIALOG_STYLES } from './utils/dialogStyles.js';
 import { LoadFlowDialog } from './dialogs/LoadFlowDialog.js';
 import { formatResultNameHeader, createDialogNameResolver, buildGraphCellLookupMap, resolveGraphCellForResult } from './utils/attributeUtils.js';
-import { highlightCalculationErrorElements, calculationErrorHighlightSuffix } from './utils/calculationErrorHighlight.js';
+import { highlightCalculationErrorElements, highlightGraphElementsByIdentifiers, calculationErrorHighlightSuffix } from './utils/calculationErrorHighlight.js';
+import {
+    buildPandapowerIndexMaps,
+    enrichDiagnosticElementNames,
+    humanizeDiagnosticException,
+    collectDiagnosticHighlightIds,
+} from './utils/diagnosticElementResolve.js';
 import ENV from './config/environment.js';
+import { computeWindTurbinePMw } from './windTurbineDialog.js';
+import {
+    collectWindTurbineControllers,
+    collectWindTurbineControllersForPayload,
+    applyWindTurbineControllerPrefs
+} from './utils/windTurbineControllerApply.js';
+import { collectParkControllers } from './utils/parkControllerCollect.js';
 
 // Advanced payload compression function to reduce data transfer size
 const compressPayload = (obj) => {
@@ -1903,16 +2013,39 @@ function loadFlowPandaPower(a, b, c) {
         grafka.setCellStyle(newStyle, [cell]);
     }
 
-    // Error handler
-    function handleNetworkErrors(dataJson) {
+    // Error handler — payloadObj is the request body used to map pandapower indices → names
+    function handleNetworkErrors(dataJson, payloadObj) {
         const highlightFromTexts = (texts) =>
             highlightCalculationErrorElements(b, texts);
 
         // Check for new diagnostic response format
         if (dataJson.error && dataJson.diagnostic) {
             console.log('Power flow failed with diagnostic information:', dataJson);
+
+            // Resolve index-only diagnostics (older backends) using the payload we just sent
+            try {
+                const maps = buildPandapowerIndexMaps(payloadObj);
+                enrichDiagnosticElementNames(dataJson.diagnostic, maps);
+                if (dataJson.exception) {
+                    dataJson.exception = humanizeDiagnosticException(dataJson.exception, dataJson.diagnostic);
+                }
+            } catch (e) {
+                console.warn('Diagnostic name enrichment failed:', e);
+            }
+
             const errorTexts = [dataJson.message, dataJson.exception, dataJson.error].filter(Boolean);
-            const highlighted = highlightFromTexts(errorTexts);
+            let highlighted = highlightFromTexts(errorTexts);
+
+            // Highlight disconnected / isolated elements by frontend mxCell id / display name
+            try {
+                const refs = collectDiagnosticHighlightIds(dataJson.diagnostic);
+                if (refs.length) {
+                    const more = highlightGraphElementsByIdentifiers(b, refs);
+                    if (more && more.length) highlighted = more;
+                }
+            } catch (e) {
+                console.warn('Diagnostic element highlight failed:', e);
+            }
 
             // Show diagnostic dialog if available
             if (window.DiagnosticReportDialog) {
@@ -2206,7 +2339,9 @@ Q/P: ${formatNumber(d.qp)}`,
             data.forEach(cell => {
                 const resultCell = getResultGraphCell(cell);
                 if (!resultCell) return;
-                const label = formatResultNameHeader(resultCell, cell.name, 'Static Generator');
+                const styleStr = resultCell.style || '';
+                const typeLabel = styleStr.includes('shapeELXXX=Wind Turbine') ? 'Wind Turbine' : 'Static Generator';
+                const label = formatResultNameHeader(resultCell, cell.name, typeLabel);
                 const resultString = `${label}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}`;
@@ -2777,8 +2912,8 @@ Loading[%]: ${formatNumber(cell.loading_percent, 1)}`;
             console.log('Response keys:', Object.keys(dataJson));
             console.log('Has pandapower_python?', 'pandapower_python' in dataJson);
 
-            // Handle errors first
-            if (handleNetworkErrors(dataJson)) {
+            // Handle errors first (pass payload so index→name resolution works without backend update)
+            if (handleNetworkErrors(dataJson, obj)) {
                 return;
             }
 
@@ -2810,21 +2945,16 @@ Loading[%]: ${formatNumber(cell.loading_percent, 1)}`;
             }
             
             // Handle Pandapower results export if requested
+            const simParams = findLoadFlowSimParams(obj);
             console.log('🔍 Checking for Pandapower results export...');
-            console.log('  - obj exists:', !!obj);
-            console.log('  - obj[0] exists:', !!(obj && obj[0]));
-            console.log('  - obj[0]:', obj ? obj[0] : 'obj is null');
-            console.log('  - exportPandapowerResults value:', obj && obj[0] ? obj[0].exportPandapowerResults : 'N/A');
+            console.log('  - simParams:', simParams);
+            console.log('  - exportPandapowerResults value:', simParams ? simParams.exportPandapowerResults : 'N/A');
             
-            if (obj && obj[0] && obj[0].exportPandapowerResults) {
+            if (simParams && simParams.exportPandapowerResults) {
                 console.log('✅ Exporting Pandapower results to file...');
                 downloadPandapowerResults(dataJson, b);
             } else {
                 console.log('ℹ️ Pandapower results export not requested or flag not set');
-                console.log('  Condition breakdown:');
-                console.log('    - obj:', !!obj);
-                console.log('    - obj[0]:', !!(obj && obj[0]));
-                console.log('    - obj[0].exportPandapowerResults:', !!(obj && obj[0] && obj[0].exportPandapowerResults));
             }
 
             // Optimize result processing with enhanced performance monitoring
@@ -2913,7 +3043,7 @@ Loading[%]: ${formatNumber(cell.loading_percent, 1)}`;
             // ticked "Export PDF Report" in the Load Flow dialog. Skips the
             // metadata dialog only if values are already cached in localStorage.
             try {
-                if (obj && obj[0] && obj[0].exportPdfReport &&
+                if (simParams && simParams.exportPdfReport &&
                     typeof window !== 'undefined' && typeof window.exportEngineeringReport === 'function') {
                     console.log('📄 Triggering Engineering Report (PDF) export...');
                     let reportGraph = b;
@@ -3242,6 +3372,63 @@ Loading[%]: ${formatNumber(cell.loading_percent, 1)}`;
                         componentArrays.staticGenerator.push(staticGenerator);
                         counters.staticGenerator++;
                         break;
+
+                    case COMPONENT_TYPES.WIND_TURBINE: {
+                        const windAttrs = getAttributesAsObject(cell, {
+                            p_mw: 'p_mw',
+                            q_mvar: 'q_mvar',
+                            sn_mva: 'sn_mva',
+                            scaling: 'scaling',
+                            vn_kv: { name: 'vn_kv', optional: true },
+                            type: 'type',
+                            k: 'k',
+                            rx: 'rx',
+                            generator_type: 'generator_type',
+                            lrc_pu: 'lrc_pu',
+                            max_ik_ka: 'max_ik_ka',
+                            kappa: 'kappa',
+                            current_source: 'current_source',
+                            reactive_capability_curve: 'reactive_capability_curve',
+                            curve_style: 'curve_style',
+                            q_capability_curve_json: 'q_capability_curve_json',
+                            q_setpoint_mode: 'q_setpoint_mode',
+                            q_cap_voltage_dependent: { name: 'q_cap_voltage_dependent', optional: true },
+                            q_cap_input_model: { name: 'q_cap_input_model', optional: true },
+                            q_cap_scale_min_percent: { name: 'q_cap_scale_min_percent', optional: true },
+                            q_cap_scale_max_percent: { name: 'q_cap_scale_max_percent', optional: true },
+                            q_cap_u_json: { name: 'q_cap_u_json', optional: true },
+                            q_cap_p_json: { name: 'q_cap_p_json', optional: true },
+                            q_cap_qmax_json: { name: 'q_cap_qmax_json', optional: true },
+                            q_cap_qmin_json: { name: 'q_cap_qmin_json', optional: true },
+                            wind_speed_ms: { name: 'wind_speed_ms', optional: true },
+                            wind_power_curve_json: { name: 'wind_power_curve_json', optional: true },
+                            wind_curve_approx: { name: 'wind_curve_approx', optional: true },
+                            in_service: { name: 'in_service', optional: true }
+                        });
+                        windAttrs.p_mw = computeWindTurbinePMw(
+                            windAttrs.wind_speed_ms,
+                            windAttrs.wind_power_curve_json,
+                            windAttrs.wind_curve_approx || 'linear'
+                        );
+                        const windTurbine = {
+                            ...baseData,
+                            typ: "Wind Turbine",
+                            userFriendlyName: (() => {
+                                if (cell.value && cell.value.attributes) {
+                                    for (let i = 0; i < cell.value.attributes.length; i++) {
+                                        if (cell.value.attributes[i].nodeName === 'name') {
+                                            return cell.value.attributes[i].nodeValue;
+                                        }
+                                    }
+                                }
+                                return cell.mxObjectId.replace('#', '_');
+                            })(),
+                            ...windAttrs
+                        };
+                        componentArrays.staticGenerator.push(windTurbine);
+                        counters.staticGenerator++;
+                        break;
+                    }
 
                     case COMPONENT_TYPES.ASYMMETRIC_STATIC_GENERATOR:
                         const asymmetricGenerator = {
@@ -4056,7 +4243,28 @@ Loading[%]: ${formatNumber(cell.loading_percent, 1)}`;
             }
         };
         
+        // Snapshot Pref from Wind Turbine Controllers onto linked Wind Turbine payloads
+        try {
+            const wtc = collectWindTurbineControllers(b);
+            applyWindTurbineControllerPrefs(componentArrays.staticGenerator, wtc);
+        } catch (e) {
+            console.warn('Wind Turbine Controller apply skipped:', e);
+        }
+
+        // Simulation parameters MUST be first — export/download flags are read from obj[0]
         addComponents(componentArrays.simulationParameters);
+        try {
+            addComponents(collectWindTurbineControllersForPayload(b));
+        } catch (e) {
+            console.warn('Wind Turbine Controller payload collect skipped:', e);
+        }
+        try {
+            const parks = collectParkControllers(b);
+            addComponents(parks);
+        } catch (e) {
+            console.warn('Park Controller collect skipped:', e);
+        }
+
         addComponents(componentArrays.externalGrid);
         addComponents(componentArrays.generator);
         addComponents(componentArrays.staticGenerator);

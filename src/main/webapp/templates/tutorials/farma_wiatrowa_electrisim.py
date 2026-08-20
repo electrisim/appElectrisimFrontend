@@ -167,7 +167,7 @@ pp.create_transformer_from_parameters(
     **_TRAFO_COMMON,
 )
 
-# --- Capacitor bank (Capacitor bank tab not provided — placeholder shunt) ---
+# --- Capacitor bank (pandapower shunt with capacitive Q; Electrisim renders as Capacitor) ---
 pp.create_shunt(
     net,
     bus=b_lv_cap,
@@ -197,23 +197,31 @@ for feeder in (1, 2):
             net.sgen.at[sgen_idx, "min_q_mvar"] = -_WTG_Q_LIMIT
             net.sgen.at[sgen_idx, "max_q_mvar"] = _WTG_Q_LIMIT
 
-# --- Single-line diagram layout ---
+# --- Single-line diagram layout (PowerFactory-like vertical SLD) ---
+# Geo Y increases upward; Electrisim flips Y on import so the spine reads top→bottom.
+# Spine: PoC → Cable Grid → substation busbar, then two radial feeder column groups.
+# Each WTG is a vertical stack: MV bus → trafo (importer midpoint) → LV bus → sgen.
+_COL = 3.5  # horizontal spacing between WTG columns (geo units ≈ 308 px at import scale)
 _layout = {
-    b_poc: (0, 0),
-    b_mv: (2, 0),
-    b_lv_cap: (2, -2),
-    b_mv_11: (4, 2),
-    b_mv_12: (6, 2),
-    b_mv_21: (4, -1),
-    b_mv_22: (6, -1),
-    b_mv_23: (8, -1),
-    b_mv_24: (10, -1),
-    _lv_buses[(1, 1)]: (6, 3),
-    _lv_buses[(1, 2)]: (8, 3),
-    _lv_buses[(2, 1)]: (6, -2.5),
-    _lv_buses[(2, 2)]: (8, -2.5),
-    _lv_buses[(2, 3)]: (10, -2.5),
-    _lv_buses[(2, 4)]: (12, -2.5),
+    # Grid / PoC / substation spine
+    b_poc: (0.0, 12.0),
+    b_mv: (0.0, 9.0),
+    # Capacitor bank branch to the right of the substation (as in PowerFactory)
+    b_lv_cap: (4.5, 7.0),
+    # Feeder 1 (left): MV 1.1 nearer the spine, MV 1.2 further left
+    b_mv_11: (-_COL, 5.0),
+    b_mv_12: (-2 * _COL, 5.0),
+    _lv_buses[(1, 1)]: (-_COL, 2.0),
+    _lv_buses[(1, 2)]: (-2 * _COL, 2.0),
+    # Feeder 2 (right): MV 2.1 … 2.4 left→right away from the spine
+    b_mv_21: (_COL, 5.0),
+    b_mv_22: (2 * _COL, 5.0),
+    b_mv_23: (3 * _COL, 5.0),
+    b_mv_24: (4 * _COL, 5.0),
+    _lv_buses[(2, 1)]: (_COL, 2.0),
+    _lv_buses[(2, 2)]: (2 * _COL, 2.0),
+    _lv_buses[(2, 3)]: (3 * _COL, 2.0),
+    _lv_buses[(2, 4)]: (4 * _COL, 2.0),
 }
 
 for bus_idx, (x, y) in _layout.items():

@@ -50,6 +50,8 @@ const STATIC_GEN_STYLE    = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS
 const SOURCE_DC_STYLE     = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-source-dc'].url + ';shapeELXXX=Source DC';
 
 const TRANSFORMER_STYLE    = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-transformer'].url + ';shapeELXXX=Transformer';
+/** Vertical windings (HV top / LV bottom) for stacked bus compounds (offshore WT / substation). */
+const TRANSFORMER_V_STYLE  = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-transformer-v'].url + ';shapeELXXX=Transformer';
 const TRANSFORMER_3W_STYLE = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-3w-transformer'].url + ';shapeELXXX=Three Winding Transformer';
 
 const SHUNT_REACTOR_STYLE = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-shunt'].url + ';shapeELXXX=Shunt Reactor';
@@ -464,11 +466,11 @@ export function mapToElectricalModel(graph, mapData, point = { x: 100, y: 100 })
                     configureStaticGeneratorAttributes(graph, staticGen, { p_mw: pMw, q_mvar: '0', sn_mva: String(Number(pMw) * 1.2) });
                     graph.insertEdge(parent, null, '', staticGen, lvBus, WT_EDGE_UP);
 
-                    // Transformer rotated 180° so LV winding at top, HV winding at bottom
-                    const [trafoW, trafoH] = symWh('sym-transformer');
+                    // Vertical trafo: LV bus above, HV bus below → rotate 180° so LV winding faces up.
+                    const [trafoW, trafoH] = symWh('sym-transformer-v');
                     const trafoX = centerX - trafoW / 2;
                     const trafoY = lvBusY + BUS_H + (by - lvBusY - BUS_H - trafoH) / 2;
-                    const trafoStyleRotated = TRANSFORMER_STYLE + 'rotation=180;';
+                    const trafoStyleRotated = TRANSFORMER_V_STYLE + 'rotation=180;';
                     const trafo = graph.insertVertex(parent, null, '', trafoX, trafoY, trafoW, trafoH, trafoStyleRotated);
                     configureTransformerAttributes(graph, trafo, {
                         name: (node.name || node.id) + '_trafo',
@@ -476,6 +478,7 @@ export function mapToElectricalModel(graph, mapData, point = { x: 100, y: 100 })
                         vn_lv_kv: WIND_TURBINE_VN_LV_KV,
                         sn_mva: String(Number(pMw) * 1.2)
                     });
+                    // Local bottom (LV in SVG) faces up after 180° → LV bus; local top (HV) faces down → HV bus.
                     graph.insertEdge(parent, null, '', trafo, lvBus, WT_EDGE_DOWN);
                     graph.insertEdge(parent, null, '', trafo, hvBus, WT_EDGE_UP);
                     break;
@@ -504,11 +507,11 @@ export function mapToElectricalModel(graph, mapData, point = { x: 100, y: 100 })
                     const bus275 = bus;
                     const centerX = bx + bw / 2;
 
-                    // Transformer 66/275 kV below 275 kV bus
-                    const [trafoW, trafoH] = symWh('sym-transformer');
+                    // Vertical trafo between 275 kV (above) and 66 kV (below) — HV top / LV bottom.
+                    const [trafoW, trafoH] = symWh('sym-transformer-v');
                     const trafoX = centerX - trafoW / 2;
                     const trafoY = by + BUS_H + COMP_GAP;
-                    const trafo = graph.insertVertex(parent, null, '', trafoX, trafoY, trafoW, trafoH, TRANSFORMER_STYLE);
+                    const trafo = graph.insertVertex(parent, null, '', trafoX, trafoY, trafoW, trafoH, TRANSFORMER_V_STYLE);
                     configureTransformerAttributes(graph, trafo, {
                         name: (node.name || node.id) + '_trafo',
                         vn_hv_kv: OFFSHORE_SUBSTATION_VN_HV_KV,

@@ -38,7 +38,21 @@ const PROTECTION_ATTRS = [
     'rated_i_a',
     'overload_factor',
     'ct_current_factor',
-    'safety_factor'
+    'safety_factor',
+    'I_e_a',
+    't_e',
+    'directional_mode',
+    'I_diff_a',
+    'diff_slope',
+    'z1_r_ohm',
+    'z1_x_ohm',
+    'z2_r_ohm',
+    'z2_x_ohm',
+    'z3_r_ohm',
+    'z3_x_ohm',
+    't_z1',
+    't_z2',
+    't_z3'
 ];
 
 function readSwitchProtectionAttrs(cell) {
@@ -92,7 +106,7 @@ function _appendDeviceSettingsSection(lines, dataJson) {
     lines.push('--- PROTECTION DEVICE SETTINGS ---');
     lines.push('Computed/stored settings for each switch with an attached protection device.');
     lines.push('OCR: overload pickup (I_s / I_g), overload delay (t_g or TMS+t_grade), instantaneous (I_gg, t_gg). Fuse: I_rated + curve.');
-    lines.push('Earth-fault (EF) pickup is not modeled in Electrisim.');
+    lines.push('Earth-fault, directional, differential, and distance settings are evaluated from the short-circuit scenario.');
     lines.push('');
 
     if (!devices.length) {

@@ -43,16 +43,17 @@ export class ProtectionCoordinationResultsDialog {
             this._renderError(dialog);
         } else {
             this._renderSummary(dialog);
-            this._renderTrippingTable(dialog);
+            const output = this.results.output || {};
+            if (output.show_table !== false) this._renderTrippingTable(dialog);
             this._renderSettingsTable(dialog);
-            this._renderMiscoordination(dialog);
-            this._renderChartPlaceholder(dialog);
+            if (output.show_miscoordination !== false) this._renderMiscoordination(dialog);
+            if (output.show_curves !== false) this._renderChartPlaceholder(dialog);
         }
 
         // Footer actions
         const closeRow = document.createElement('div');
         closeRow.style.cssText = 'display:flex; justify-content:flex-end; gap:8px; margin-top:24px; padding-top:16px; border-top:1px solid #e9ecef;';
-        if (!this.results.error) {
+        if (!this.results.error && this.results.output?.show_curves !== false) {
             const reportBtn = document.createElement('button');
             reportBtn.textContent = 'Download full report (.txt)';
             reportBtn.style.cssText = `

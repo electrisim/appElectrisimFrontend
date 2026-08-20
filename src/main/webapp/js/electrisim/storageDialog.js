@@ -47,8 +47,13 @@ export const defaultStorageData = {
     vv_curve_preset: 'IEEE_1547',
     vv_xarray: '0.92 0.98 1.02 1.08',
     vv_yarray: '0.44 0 -0.44 -0.44',
+    vw_curve_preset: 'IEEE_1547',
+    vw_xarray: '1.06 1.1',
+    vw_yarray: '1 0',
     wattpf_xarray: '0 0.5 1',
     wattpf_yarray: '1 0.98 0.95',
+    wattvar_xarray: '0.2 0.5 1',
+    wattvar_yarray: '0.44 0.22 0',
     cost_per_unit_by_currency: "0"
 };
 
@@ -364,7 +369,7 @@ export class StorageDialog extends Dialog {
             {
                 id: 'inv_control_mode',
                 label: 'Inverter Control Mode',
-                description: 'NONE: fixed P/Q from Power tab. FIXED_Q: constant kvar on Storage. FIXED_PF: constant power factor. VOLTVAR: Q-V droop via InvControl (requires Control Mode = Time in load flow dialog). WATTPF: active-power-dependent PF curve.',
+                description: 'NONE: fixed P/Q from Power tab. FIXED_Q: constant kvar. FIXED_PF: constant PF. VOLTVAR/VOLTWATT/WATTPF/WATTVAR/DYNAMICREACCURR use OpenDSS InvControl (requires Control Mode = Time).',
                 type: 'select',
                 value: this.data.inv_control_mode || 'NONE',
                 options: [
@@ -372,7 +377,10 @@ export class StorageDialog extends Dialog {
                     { value: 'FIXED_Q', label: 'Fixed Q (constant kvar)' },
                     { value: 'FIXED_PF', label: 'Fixed PF (constant power factor)' },
                     { value: 'VOLTVAR', label: 'Q-V Droop (Volt-VAR / InvControl)' },
-                    { value: 'WATTPF', label: 'Watt-PF curve (InvControl)' }
+                    { value: 'VOLTWATT', label: 'Volt-Watt (InvControl)' },
+                    { value: 'WATTPF', label: 'Watt-PF curve (InvControl)' },
+                    { value: 'WATTVAR', label: 'Watt-VAR curve (InvControl)' },
+                    { value: 'DYNAMICREACCURR', label: 'Dynamic reactive current (InvControl)' }
                 ]
             },
             {
@@ -411,6 +419,31 @@ export class StorageDialog extends Dialog {
                 value: this.data.vv_yarray || '0.44 0 -0.44 -0.44'
             },
             {
+                id: 'vw_curve_preset',
+                label: 'Volt-Watt Curve Preset',
+                description: 'Preset P-V curtailment curve for VOLTWATT mode.',
+                type: 'select',
+                value: this.data.vw_curve_preset || 'IEEE_1547',
+                options: [
+                    { value: 'IEEE_1547', label: 'IEEE 1547-style (1.06→1.0, 1.10→0)' },
+                    { value: 'CUSTOM', label: 'Custom (edit X/Y arrays below)' }
+                ]
+            },
+            {
+                id: 'vw_xarray',
+                label: 'Volt-Watt X (voltage pu)',
+                description: 'Space-separated per-unit voltages for custom Volt-Watt curve.',
+                type: 'text',
+                value: this.data.vw_xarray || '1.06 1.1'
+            },
+            {
+                id: 'vw_yarray',
+                label: 'Volt-Watt Y (P pu)',
+                description: 'Space-separated active power values in pu of rated P.',
+                type: 'text',
+                value: this.data.vw_yarray || '1 0'
+            },
+            {
                 id: 'wattpf_xarray',
                 label: 'Watt-PF X (P pu)',
                 description: 'Space-separated active power values in pu for Watt-PF curve.',
@@ -423,6 +456,20 @@ export class StorageDialog extends Dialog {
                 description: 'Space-separated power factor values for Watt-PF curve.',
                 type: 'text',
                 value: this.data.wattpf_yarray || '1 0.98 0.95'
+            },
+            {
+                id: 'wattvar_xarray',
+                label: 'Watt-VAR X (P pu)',
+                description: 'Space-separated active power values in pu for Watt-VAR curve.',
+                type: 'text',
+                value: this.data.wattvar_xarray || '0.2 0.5 1'
+            },
+            {
+                id: 'wattvar_yarray',
+                label: 'Watt-VAR Y (Q pu)',
+                description: 'Space-separated reactive power values in pu for Watt-VAR curve.',
+                type: 'text',
+                value: this.data.wattvar_yarray || '0.44 0.22 0'
             }
         ];
 

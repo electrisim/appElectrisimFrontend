@@ -21,6 +21,7 @@
     <link rel="modulepreload" href="js/electrisim/optimalPowerFlow.js">
     <link rel="modulepreload" href="js/electrisim/contingencyAnalysis.js">
     <link rel="modulepreload" href="js/electrisim/protectionCoordination.js">
+    <link rel="modulepreload" href="js/electrisim/dgInterconnection.js">
 
     <link rel="stylesheet" type="text/css" href="mxgraph/css/common.css">
     <link rel="stylesheet" type="text/css" href="styles/resizable-dialogs.css">
@@ -318,6 +319,7 @@
             { src: 'js/electrisim/externalGridDialog.js', type: 'module', async: true },
             { src: 'js/electrisim/generatorDialog.js', type: 'module', async: true },
             { src: 'js/electrisim/staticGeneratorDialog.js', type: 'module', async: true },
+            { src: 'js/electrisim/windTurbineDialog.js?v=20260818c', type: 'module', async: true },
             { src: 'js/electrisim/asymmetricStaticGeneratorDialog.js', type: 'module', async: true },
             { src: 'js/electrisim/busDialog.js', type: 'module', async: true },
             { src: 'js/electrisim/transformerBaseDialog.js', type: 'module', async: true },
@@ -339,6 +341,12 @@
             { src: 'js/electrisim/motorDialog.js', type: 'module', async: true },
             { src: 'js/electrisim/storageDialog.js', type: 'module', async: true },
             { src: 'js/electrisim/OpenDss1phDialogs.js', type: 'module', async: true },
+            { src: 'js/electrisim/dialogs/RegControlDialog.js', type: 'module', async: true },
+            { src: 'js/electrisim/dialogs/CapControlDialog.js', type: 'module', async: true },
+            { src: 'js/electrisim/dialogs/StorageControllerDialog.js', type: 'module', async: true },
+            { src: 'js/electrisim/dialogs/WindTurbineControllerDialog.js?v=20260818c', type: 'module', async: true },
+            { src: 'js/electrisim/dialogs/WindTurbineDynamicControllerDialog.js', type: 'module', async: true },
+            { src: 'js/electrisim/dialogs/ParkControllerDialog.js?v=20260818d', type: 'module', async: true },
             { src: 'js/electrisim/SSCDialog.js', type: 'module', async: true },
             { src: 'js/electrisim/SVCDialog.js', type: 'module', async: true },
             { src: 'js/electrisim/TCSCDialog.js', type: 'module', async: true },
@@ -352,7 +360,8 @@
             { src: 'js/electrisim/optimalPowerFlow.js', type: 'module', async: true },
             { src: 'js/electrisim/shortCircuit.js', type: 'module', async: true },
             { src: 'js/electrisim/contingencyAnalysis.js', type: 'module', async: true },
-            { src: 'js/electrisim/protectionCoordination.js', type: 'module', async: true }
+            { src: 'js/electrisim/protectionCoordination.js', type: 'module', async: true },
+            { src: 'js/electrisim/dgInterconnection.js', type: 'module', async: true }
         ];
 
         function checkAllLoaded() {
@@ -718,6 +727,7 @@
 								'js/electrisim/externalGridDialog.js',
 								'js/electrisim/generatorDialog.js',
 								'js/electrisim/staticGeneratorDialog.js',
+								'js/electrisim/windTurbineDialog.js?v=20260818c',
 								'js/electrisim/asymmetricStaticGeneratorDialog.js',
 								'js/electrisim/busDialog.js',
 								'js/electrisim/transformerBaseDialog.js',
@@ -739,6 +749,12 @@
 								'js/electrisim/motorDialog.js',
 								'js/electrisim/storageDialog.js',
 								'js/electrisim/OpenDss1phDialogs.js',
+								'js/electrisim/dialogs/RegControlDialog.js',
+								'js/electrisim/dialogs/CapControlDialog.js',
+								'js/electrisim/dialogs/StorageControllerDialog.js',
+								'js/electrisim/dialogs/WindTurbineControllerDialog.js?v=20260818c',
+								'js/electrisim/dialogs/WindTurbineDynamicControllerDialog.js',
+								'js/electrisim/dialogs/ParkControllerDialog.js?v=20260818d',
 								'js/electrisim/SSCDialog.js',
 								'js/electrisim/SVCDialog.js',
 								'js/electrisim/TCSCDialog.js',
@@ -754,7 +770,8 @@
 								'js/electrisim/optimalPowerFlow.js',
 								'js/electrisim/timeSeriesSimulation.js',
 								'js/electrisim/contingencyAnalysis.js',
-								'js/electrisim/protectionCoordination.js'
+								'js/electrisim/protectionCoordination.js',
+								'js/electrisim/dgInterconnection.js'
                             ];
 							
 							// Auth scripts (Stripe, etc.) - deferred until after Electrisim scripts for faster initial load

@@ -3814,6 +3814,13 @@ Graph.prototype.fitWindow = function(bounds, border)
 Graph.prototype.getTooltipForCell = function(cell)
 {
 	var tip = '';
+
+	// Do not show the attribute dump while a modal dialog is open (hover timer
+	// can fire after double-click and cover the dialog with JSON attributes).
+	if (document.querySelector('.geDialog'))
+	{
+		return '';
+	}
 	
 	if (mxUtils.isNode(cell.value))
 	{
@@ -3840,7 +3847,7 @@ Graph.prototype.getTooltipForCell = function(cell)
 		}
 		else
 		{
-			var ignored = this.builtInProperties;
+			var ignored = this.builtInProperties.slice();
 			var attrs = cell.value.attributes;
 			var temp = [];
 
@@ -3852,10 +3859,26 @@ Graph.prototype.getTooltipForCell = function(cell)
 			
 			for (var i = 0; i < attrs.length; i++)
 			{
-				if (mxUtils.indexOf(ignored, attrs[i].nodeName) < 0 && attrs[i].nodeValue.length > 0)
+				var an = attrs[i].nodeName;
+				var av = attrs[i].nodeValue || '';
+				if (mxUtils.indexOf(ignored, an) >= 0 || av.length === 0)
 				{
-					temp.push({name: attrs[i].nodeName, value: attrs[i].nodeValue});
+					continue;
 				}
+				// Skip bulky JSON blobs (Q capability matrices, wind curve, spectra)
+				if (an.length >= 5 && an.substring(an.length - 5) === '_json')
+				{
+					continue;
+				}
+				if (an === 'spectrum_csv' || an === 'cost_per_unit_by_currency')
+				{
+					continue;
+				}
+				if (av.length > 80)
+				{
+					av = av.substring(0, 77) + '...';
+				}
+				temp.push({name: an, value: av});
 			}
 			
 			// Sorts by name
@@ -6963,7 +6986,7 @@ if (typeof mxVertexHandler != 'undefined')
 					// Single pin at top center (loads, shunt devices, generators, ward)
 					else if (shapeELXXX === 'Load' || shapeELXXX === 'Asymmetric Load' || shapeELXXX === 'Shunt Reactor' ||
 						shapeELXXX === 'Capacitor' || shapeELXXX === 'Ground' ||
-						shapeELXXX === 'Generator' || shapeELXXX === 'Static Generator' || shapeELXXX === 'Asymmetric Static Generator' ||
+						shapeELXXX === 'Generator' || shapeELXXX === 'Static Generator' || shapeELXXX === 'Wind Turbine' || shapeELXXX === 'Asymmetric Static Generator' ||
 						shapeELXXX === 'Ward' || shapeELXXX === 'Extended Ward')
 					{
 						elConstraints = [new mxConnectionConstraint(new mxPoint(0.5, 0), false)];
@@ -6994,13 +7017,22 @@ if (typeof mxVertexHandler != 'undefined')
 					{
 						var leftX, rightX, pinY;
 						if (shapeELXXX === 'Transformer') {
-							// viewBox is -45 -30 90 58; pins at y=0 → 30/58 from top, not 0.5
-							// After rotation=90, the vertical (y) axis of the SVG becomes horizontal
-							// pinX in bounding box = 30/58 ≈ 0.517 accounts for asymmetric viewBox
-							elConstraints = [
-								new mxConnectionConstraint(new mxPoint(0, 30/58), false),
-								new mxConnectionConstraint(new mxPoint(1, 30/58), false)
-							];
+							// Inset pins (same idea as Three Winding Transformer) so mxConstraintHandler
+							// focus/hover highlights are easy to hit. Edge ports (0/1) are easy to miss.
+							var trafoImg = String(mxUtils.getValue(terminal.style, 'image', '') || '');
+							if (/sym-transformer-v/i.test(trafoImg)) {
+								// viewBox -30 -45 60 90; stubs end at y=±41 → inset from cell edges
+								elConstraints = [
+									new mxConnectionConstraint(new mxPoint(0.5, 4/90), false),
+									new mxConnectionConstraint(new mxPoint(0.5, 86/90), false)
+								];
+							} else {
+								// viewBox -45 -30 90 58; stubs at (±41,0) → x inset, y = 30/58
+								elConstraints = [
+									new mxConnectionConstraint(new mxPoint(4/90, 30/58), false),
+									new mxConnectionConstraint(new mxPoint(86/90, 30/58), false)
+								];
+							}
 						} else if (shapeELXXX === 'TCSC') {
 							leftX = 0; rightX = 1; pinY = 28/48;  // viewBox -48 -28 96 48, pins at y=0
 						} else if (shapeELXXX === 'DC Line') {

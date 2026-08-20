@@ -79,16 +79,31 @@ function focusErrorCell(graph, cell) {
 }
 
 /**
- * Find and highlight elements referenced in one or more error messages.
+ * Highlight graph cells by technical ids and/or display names.
+ * @param {object} graph
+ * @param {Array<string|number|{id?:string,name?:string}>} identifiers
  * @returns {object[]} highlighted mxCells
  */
-export function highlightCalculationErrorElements(graph, errorTextOrTexts) {
+export function highlightGraphElementsByIdentifiers(graph, identifiers) {
     if (!graph || !graph.getModel) return [];
-
-    const texts = Array.isArray(errorTextOrTexts) ? errorTextOrTexts : [errorTextOrTexts];
+    const list = Array.isArray(identifiers) ? identifiers : [identifiers];
     const allIds = new Set();
-    for (const text of texts) {
-        extractElementIdentifiersFromErrorText(text).forEach((id) => allIds.add(id));
+    const addId = (raw) => {
+        if (raw == null) return;
+        const s = String(raw).trim();
+        if (!s) return;
+        // Bare integers collide with mxGraph internal cell ids and highlight the wrong shapes
+        if (/^\d+$/.test(s)) return;
+        allIds.add(s);
+    };
+    for (const item of list) {
+        if (item == null || item === '') continue;
+        if (typeof item === 'object') {
+            addId(item.id);
+            addId(item.name);
+        } else {
+            addId(item);
+        }
     }
     if (allIds.size === 0) return [];
 
@@ -101,9 +116,11 @@ export function highlightCalculationErrorElements(graph, errorTextOrTexts) {
     }
 
     const highlighted = [];
+    const seen = new Set();
     for (const id of allIds) {
         const cell = resolveGraphCellForResult(map, { id, name: id }, graph);
-        if (!cell) continue;
+        if (!cell || seen.has(cell)) continue;
+        seen.add(cell);
         applyErrorHighlightStyle(graph, cell);
         highlighted.push(cell);
     }
@@ -118,6 +135,23 @@ export function highlightCalculationErrorElements(graph, errorTextOrTexts) {
     return highlighted;
 }
 
+/**
+ * Find and highlight elements referenced in one or more error messages.
+ * @returns {object[]} highlighted mxCells
+ */
+export function highlightCalculationErrorElements(graph, errorTextOrTexts) {
+    if (!graph || !graph.getModel) return [];
+
+    const texts = Array.isArray(errorTextOrTexts) ? errorTextOrTexts : [errorTextOrTexts];
+    const allIds = new Set();
+    for (const text of texts) {
+        extractElementIdentifiersFromErrorText(text).forEach((id) => allIds.add(id));
+    }
+    if (allIds.size === 0) return [];
+
+    return highlightGraphElementsByIdentifiers(graph, [...allIds]);
+}
+
 export function calculationErrorHighlightSuffix(highlightedCount) {
     if (!highlightedCount) return '';
     return highlightedCount > 1
@@ -128,4 +162,5 @@ export function calculationErrorHighlightSuffix(highlightedCount) {
 if (typeof window !== 'undefined') {
     window.extractElementIdentifiersFromErrorText = extractElementIdentifiersFromErrorText;
     window.highlightCalculationErrorElements = highlightCalculationErrorElements;
+    window.highlightGraphElementsByIdentifiers = highlightGraphElementsByIdentifiers;
 }

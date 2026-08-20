@@ -8,11 +8,17 @@ import { DIALOG_STYLES } from './utils/dialogStyles.js';
 import { LoadFlowDialog } from './dialogs/LoadFlowDialog.js';
 import { HarmonicAnalysisDialog } from './dialogs/HarmonicAnalysisDialog.js';
 import { showHarmonicAnalysisResultsDialog } from './dialogs/HarmonicAnalysisResultsDialog.js';
+import { MonteCarloResultsDialog } from './dialogs/MonteCarloResultsDialog.js';
 import { formatResultNameHeader, createDialogNameResolver } from './utils/attributeUtils.js';
 import { highlightCalculationErrorElements, calculationErrorHighlightSuffix } from './utils/calculationErrorHighlight.js';
 import { getThreeWindingConnections } from './utils/gridUtils.js';
 import ENV from './config/environment.js';
 import { getConnectedBusId, getLineBusEndpointsForPayload } from './loadFlow.js';
+import { computeWindTurbinePMw } from './windTurbineDialog.js';
+import {
+    collectWindTurbineControllers,
+    applyWindTurbineControllerPrefs
+} from './utils/windTurbineControllerApply.js';
 
 // Helper function to format bus IDs consistently (replace # with _)
 const formatBusId = (busId) => {
@@ -687,6 +693,7 @@ const COMPONENT_TYPES = {
     EXTERNAL_GRID: 'External Grid',
     GENERATOR: 'Generator',
     STATIC_GENERATOR: 'Static Generator',
+    WIND_TURBINE: 'Wind Turbine',
     ASYMMETRIC_STATIC_GENERATOR: 'Asymmetric Static Generator',
     BUS: 'Bus',
     TRANSFORMER: 'Transformer',
@@ -1352,10 +1359,12 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
 
                 const cellName = formatResultNameHeader(resultCell, cell.name, 'PVSystem');
 
+                const invLine = cell.inv_control_mode && cell.inv_control_mode !== 'NONE'
+                    ? `\n        Mode: ${cell.inv_control_mode}` : '';
                 const qLine = openDssSourceReactiveQLine(cell.q_mvar, 'MVar');
                 const resultString = `${cellName}
         P[MW]: ${fmtOpenDssFloat(cell.p_mw)}
-        ${qLine}
+        ${qLine}${invLine}
         Um[pu]: ${fmtOpenDssFloat(cell.vm_pu)}
         U[degree]: ${fmtOpenDssFloat(cell.va_degree)}
         Irradiance: ${fmtOpenDssFloat(cell.irradiance)}
@@ -1448,6 +1457,7 @@ function updateCellColor(grafka, cell, color) {
 // Updated to handle simplified backend response without output classes
 async function processNetworkData(url, obj, b, grafka, app, exportCommands = false) {
     let harmonicResultsData = null;
+    let monteCarloResultsData = null;
     try {
         // Initialize styles once
         b.getStylesheet().putCellStyle('labelstyle', STYLES.label);
@@ -1489,6 +1499,9 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
         // Handle errors first
         if (handleNetworkErrors(dataJson, b)) {
             return;
+        }
+        if (dataJson.monte_carlo) {
+            monteCarloResultsData = dataJson.monte_carlo;
         }
 
         if (dataJson.warnings && dataJson.warnings.length > 0) {
@@ -1758,6 +1771,15 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
                 }
             });
         }
+        if (monteCarloResultsData) {
+            queueMicrotask(() => {
+                try {
+                    new MonteCarloResultsDialog(monteCarloResultsData).show();
+                } catch (dialogErr) {
+                    console.error('Monte Carlo results dialog:', dialogErr);
+                }
+            });
+        }
     }
 }
 
@@ -1781,7 +1803,7 @@ function executeOpenDSSLoadFlow(parameters, app, graph) {
     // Handle both old array format and new object format
     let opendssParams;
     if (Array.isArray(parameters)) {
-        // Array format: [frequency, mode, algorithm, loadmodel, maxIterations, tolerance, controlmode, exportCommands]
+        // Array format: [frequency, mode, algorithm, loadmodel, maxIterations, tolerance, controlmode, exportCommands, monteCarloNumber, monteCarloRandom, monteCarloHour]
         opendssParams = parameters;
     } else {
         // New format: object with named properties
@@ -1793,7 +1815,10 @@ function executeOpenDSSLoadFlow(parameters, app, graph) {
             parameters.maxIterations || '100',
             parameters.tolerance || '0.0001',
             parameters.controlmode || 'Static',
-            parameters.exportCommands || false
+            parameters.exportCommands || false,
+            parameters.monteCarloNumber || '100',
+            parameters.monteCarloRandom || 'Uniform',
+            parameters.monteCarloHour ?? ''
         ];
     }
     
@@ -1830,6 +1855,9 @@ function executeOpenDSSLoadFlow(parameters, app, graph) {
         tolerance: opendssParams[5],           // Convergence tolerance
         controlmode: opendssParams[6],         // Control mode (Static, Event, Time)
         exportCommands: opendssParams[7] || false,  // Export OpenDSS commands to file
+        monteCarloNumber: opendssParams[8] || '100',
+        monteCarloRandom: opendssParams[9] || 'Uniform',
+        monteCarloHour: opendssParams[10] ?? '',
         exportOpenDSSResults: parameters.exportOpenDSSResults || false,  // Export OpenDSS results to file
         exportPdfReport: parameters.exportPdfReport || false,  // One-click PDF engineering report
         user_email: userEmail
@@ -2134,6 +2162,27 @@ function collectNetworkDataStructured(graph) {
         console.error('Could not access graph cells data');
         return networkData;
     }
+
+    // OpenDSS elements are keyed by their canvas cell id. Control dialogs expose the
+    // friendlier component name, so translate those references while serializing.
+    const controlledElementIds = {
+        Transformer: new Map(),
+        Capacitor: new Map(),
+        Storage: new Map()
+    };
+    Object.values(cells).forEach((candidate) => {
+        const style = candidate?.getStyle?.() || candidate?.style || '';
+        const shape = (String(style).match(/shapeELXXX=([^;]+)/) || [])[1];
+        if (!controlledElementIds[shape]) return;
+        const value = candidate?.value;
+        const friendlyName = value?.getAttribute?.('name') || value?.attributes?.getNamedItem?.('name')?.value;
+        const cellName = (candidate.mxObjectId || candidate.id || '').replace('#', '_');
+        if (friendlyName && cellName) controlledElementIds[shape].set(String(friendlyName).toLowerCase(), cellName);
+    });
+    const resolveControlledElement = (type, reference) => {
+        const map = controlledElementIds[type];
+        return map?.get(String(reference || '').trim().toLowerCase()) || reference || '';
+    };
     
     // Process the cells using the proper structured approach similar to loadFlow.js
     const cellProcessingStart = performance.now();
@@ -2735,8 +2784,13 @@ function collectNetworkDataStructured(graph) {
                         vv_curve_preset: 'vv_curve_preset',
                         vv_xarray: 'vv_xarray',
                         vv_yarray: 'vv_yarray',
+                        vw_curve_preset: 'vw_curve_preset',
+                        vw_xarray: 'vw_xarray',
+                        vw_yarray: 'vw_yarray',
                         wattpf_xarray: 'wattpf_xarray',
-                        wattpf_yarray: 'wattpf_yarray'
+                        wattpf_yarray: 'wattpf_yarray',
+                        wattvar_xarray: 'wattvar_xarray',
+                        wattvar_yarray: 'wattvar_yarray'
                     });
 
                     const storageInService = storageParams.in_service !== undefined
@@ -2784,8 +2838,13 @@ function collectNetworkDataStructured(graph) {
                         vv_curve_preset: storageParams.vv_curve_preset || 'IEEE_1547',
                         vv_xarray: storageParams.vv_xarray || '',
                         vv_yarray: storageParams.vv_yarray || '',
+                        vw_curve_preset: storageParams.vw_curve_preset || 'IEEE_1547',
+                        vw_xarray: storageParams.vw_xarray || '',
+                        vw_yarray: storageParams.vw_yarray || '',
                         wattpf_xarray: storageParams.wattpf_xarray || '',
-                        wattpf_yarray: storageParams.wattpf_yarray || ''
+                        wattpf_yarray: storageParams.wattpf_yarray || '',
+                        wattvar_xarray: storageParams.wattvar_xarray || '',
+                        wattvar_yarray: storageParams.wattvar_yarray || ''
                     };
                     
                     // Validate bus connection
@@ -2849,7 +2908,18 @@ function collectNetworkDataStructured(graph) {
                         safevoltage: 'safevoltage',
                         varfollowinverter: 'varfollowinverter',
                         wattpriority: 'wattpriority',
-                        in_service: { name: 'in_service', optional: true }
+                        in_service: { name: 'in_service', optional: true },
+                        inv_control_mode: 'inv_control_mode',
+                        vv_curve_preset: 'vv_curve_preset',
+                        vv_xarray: 'vv_xarray',
+                        vv_yarray: 'vv_yarray',
+                        vw_curve_preset: 'vw_curve_preset',
+                        vw_xarray: 'vw_xarray',
+                        vw_yarray: 'vw_yarray',
+                        wattpf_xarray: 'wattpf_xarray',
+                        wattpf_yarray: 'wattpf_yarray',
+                        wattvar_xarray: 'wattvar_xarray',
+                        wattvar_yarray: 'wattvar_yarray'
                     });
 
                     const pvInService = pvParams.in_service !== undefined
@@ -2911,7 +2981,18 @@ function collectNetworkDataStructured(graph) {
                         safevoltage: pvParams.safevoltage || 0.8,
                         varfollowinverter: pvParams.varfollowinverter || false,
                         wattpriority: pvParams.wattpriority || false,
-                        in_service: pvInService
+                        in_service: pvInService,
+                        inv_control_mode: pvParams.inv_control_mode || 'NONE',
+                        vv_curve_preset: pvParams.vv_curve_preset || 'IEEE_1547',
+                        vv_xarray: pvParams.vv_xarray || '',
+                        vv_yarray: pvParams.vv_yarray || '',
+                        vw_curve_preset: pvParams.vw_curve_preset || 'IEEE_1547',
+                        vw_xarray: pvParams.vw_xarray || '',
+                        vw_yarray: pvParams.vw_yarray || '',
+                        wattpf_xarray: pvParams.wattpf_xarray || '',
+                        wattpf_yarray: pvParams.wattpf_yarray || '',
+                        wattvar_xarray: pvParams.wattvar_xarray || '',
+                        wattvar_yarray: pvParams.wattvar_yarray || ''
                     };
 
                     // Validate bus connection
@@ -2920,6 +3001,88 @@ function collectNetworkDataStructured(graph) {
                     } else {
                         dssWarn(`PVSystem ${cellData.name} missing bus connection`);
                     }
+                } else if (styleObj && styleObj.shapeELXXX === 'RegControl') {
+                    const params = getAttributesAsObject(cell, {
+                        transformer: 'transformer', winding: 'winding', vreg: 'vreg',
+                        band: 'band', ptratio: 'ptratio', ctprim: 'ctprim',
+                        delaying: 'delaying', enabled: 'enabled'
+                    });
+                    cellData = {
+                        typ: 'RegControl',
+                        name: (cell.mxObjectId || cell.id || `RegControl_${cellId}`).replace('#', '_'),
+                        id: cell.mxObjectId || cell.id || `RegControl_${cellId}`,
+                        transformer: resolveControlledElement('Transformer', params.transformer),
+                        winding: params.winding ?? 2, vreg: params.vreg ?? 120,
+                        band: params.band ?? 3, ptratio: params.ptratio ?? 60,
+                        ctprim: params.ctprim ?? 300, delaying: params.delaying ?? 15,
+                        enabled: params.enabled !== false && params.enabled !== 'false'
+                    };
+                } else if (styleObj && styleObj.shapeELXXX === 'CapControl') {
+                    const params = getAttributesAsObject(cell, {
+                        capacitor: 'capacitor', type: 'type', on_setting: 'on_setting',
+                        off_setting: 'off_setting', ctratio: 'ctratio', ptratio: 'ptratio',
+                        delay: 'delay', enabled: 'enabled'
+                    });
+                    cellData = {
+                        typ: 'CapControl',
+                        name: (cell.mxObjectId || cell.id || `CapControl_${cellId}`).replace('#', '_'),
+                        id: cell.mxObjectId || cell.id || `CapControl_${cellId}`,
+                        capacitor: resolveControlledElement('Capacitor', params.capacitor),
+                        type: params.type || 'Voltage', on_setting: params.on_setting ?? 115,
+                        off_setting: params.off_setting ?? 125, ctratio: params.ctratio ?? 1,
+                        ptratio: params.ptratio ?? 1, delay: params.delay ?? 15,
+                        enabled: params.enabled !== false && params.enabled !== 'false'
+                    };
+                } else if (styleObj && styleObj.shapeELXXX === 'StorageController') {
+                    const params = getAttributesAsObject(cell, {
+                        element: 'element', mode: 'mode', kwtarget: 'kwtarget',
+                        pct_reserve: 'pct_reserve', enabled: 'enabled'
+                    });
+                    const storageReferences = String(params.element || '')
+                        .split(',').map((name) => resolveControlledElement('Storage', name)).filter(Boolean);
+                    cellData = {
+                        typ: 'StorageController',
+                        name: (cell.mxObjectId || cell.id || `StorageController_${cellId}`).replace('#', '_'),
+                        id: cell.mxObjectId || cell.id || `StorageController_${cellId}`,
+                        element: storageReferences.join(','), mode: params.mode || 'PeakShave',
+                        kwtarget: params.kwtarget ?? 0, pct_reserve: params.pct_reserve ?? 20,
+                        enabled: params.enabled !== false && params.enabled !== 'false'
+                    };
+                } else if (styleObj && styleObj.shapeELXXX === 'WindTurbineController') {
+                    const params = getAttributesAsObject(cell, {
+                        name: 'name',
+                        wind_turbine: 'wind_turbine',
+                        enabled: 'enabled',
+                        power_curve_type: 'power_curve_type',
+                        wind_speed_ms: 'wind_speed_ms',
+                        use_turbine_wind_speed: 'use_turbine_wind_speed',
+                        wind_avg_T: 'wind_avg_T',
+                        wind_avg_Tavg: 'wind_avg_Tavg',
+                        power_avg_T: 'power_avg_T',
+                        power_avg_Tavg: 'power_avg_Tavg',
+                        gradient_T: 'gradient_T',
+                        gradient_max: 'gradient_max',
+                        wind_power_curve_json: 'wind_power_curve_json',
+                        wind_curve_approx: 'wind_curve_approx'
+                    });
+                    cellData = {
+                        typ: 'WindTurbineController',
+                        name: params.name || (cell.mxObjectId || cell.id || `WindTurbineController_${cellId}`).toString().replace('#', '_'),
+                        id: cell.mxObjectId || cell.id || `WindTurbineController_${cellId}`,
+                        wind_turbine: params.wind_turbine || '',
+                        enabled: params.enabled !== false && params.enabled !== 'false',
+                        power_curve_type: params.power_curve_type || 'Turbine Power Curve',
+                        wind_speed_ms: params.wind_speed_ms,
+                        use_turbine_wind_speed: params.use_turbine_wind_speed,
+                        wind_avg_T: params.wind_avg_T,
+                        wind_avg_Tavg: params.wind_avg_Tavg,
+                        power_avg_T: params.power_avg_T,
+                        power_avg_Tavg: params.power_avg_Tavg,
+                        gradient_T: params.gradient_T,
+                        gradient_max: params.gradient_max,
+                        wind_power_curve_json: params.wind_power_curve_json,
+                        wind_curve_approx: params.wind_curve_approx || 'linear'
+                    };
                 } else if (styleObj && styleObj.shapeELXXX === 'External Grid') {
                     // This is an external grid element
                     const extGridParams = getAttributesAsObject(cell, {
@@ -3399,8 +3562,9 @@ function collectNetworkDataStructured(graph) {
                     } else {
                         dssWarn(`DC Line ${cellData.name} missing bus connections: busFrom=${cellData.busFrom}, busTo=${cellData.busTo}`);
                     }
-                } else if (styleObj && styleObj.shapeELXXX === 'Static Generator') {
-                    // This is a static generator element
+                } else if (styleObj && (styleObj.shapeELXXX === 'Static Generator' || styleObj.shapeELXXX === 'Wind Turbine')) {
+                    // Static generator or Wind Turbine (same OpenDSS Generator Model=1 path)
+                    const isWindTurbine = styleObj.shapeELXXX === 'Wind Turbine';
                     const staticGenParams = getAttributesAsObject(cell, {
                         // Basic static generator parameters
                         p_mw: 'p_mw',
@@ -3425,6 +3589,18 @@ function collectNetworkDataStructured(graph) {
                         reactive_capability_curve: 'reactive_capability_curve',
                         curve_style: 'curve_style',
                         q_capability_curve_json: 'q_capability_curve_json',
+                        q_setpoint_mode: { name: 'q_setpoint_mode', optional: true },
+                        q_cap_voltage_dependent: { name: 'q_cap_voltage_dependent', optional: true },
+                        q_cap_input_model: { name: 'q_cap_input_model', optional: true },
+                        q_cap_scale_min_percent: { name: 'q_cap_scale_min_percent', optional: true },
+                        q_cap_scale_max_percent: { name: 'q_cap_scale_max_percent', optional: true },
+                        q_cap_u_json: { name: 'q_cap_u_json', optional: true },
+                        q_cap_p_json: { name: 'q_cap_p_json', optional: true },
+                        q_cap_qmax_json: { name: 'q_cap_qmax_json', optional: true },
+                        q_cap_qmin_json: { name: 'q_cap_qmin_json', optional: true },
+                        wind_speed_ms: { name: 'wind_speed_ms', optional: true },
+                        wind_power_curve_json: { name: 'wind_power_curve_json', optional: true },
+                        wind_curve_approx: { name: 'wind_curve_approx', optional: true },
                         spectrum: { name: 'spectrum', optional: true },
                         spectrum_csv: { name: 'spectrum_csv', optional: true },
                         Xdpp: { name: 'Xdpp', optional: true },
@@ -3437,14 +3613,30 @@ function collectNetworkDataStructured(graph) {
                             ? !['false', 'no', '0'].includes(staticGenParams.in_service.toLowerCase())
                             : Boolean(staticGenParams.in_service))
                         : true;
+
+                    let pMw = staticGenParams.p_mw || 1.0;
+                    if (isWindTurbine) {
+                        pMw = computeWindTurbinePMw(
+                            staticGenParams.wind_speed_ms,
+                            staticGenParams.wind_power_curve_json,
+                            staticGenParams.wind_curve_approx || 'linear'
+                        );
+                    }
                     
                     cellData = {
-                        typ: 'Static Generator',
+                        typ: isWindTurbine ? 'Wind Turbine' : 'Static Generator',
                         name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
                         id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
+                        userFriendlyName: (() => {
+                            try {
+                                return cell.value?.getAttribute?.('name') || null;
+                            } catch {
+                                return null;
+                            }
+                        })(),
                         bus: getConnectedBusId(cell),
                         // Use extracted parameters or defaults for critical values
-                        p_mw: staticGenParams.p_mw || 1.0,      // Default power
+                        p_mw: pMw,
                         q_mvar: staticGenParams.q_mvar || 0.0,  // Default reactive power
                         // Other parameters
                         sn_mva: staticGenParams.sn_mva || 1.0,
@@ -3467,6 +3659,9 @@ function collectNetworkDataStructured(graph) {
                         reactive_capability_curve: staticGenParams.reactive_capability_curve,
                         curve_style: staticGenParams.curve_style || 'straightLineYValues',
                         q_capability_curve_json: staticGenParams.q_capability_curve_json,
+                        wind_speed_ms: staticGenParams.wind_speed_ms,
+                        wind_power_curve_json: staticGenParams.wind_power_curve_json,
+                        wind_curve_approx: staticGenParams.wind_curve_approx || 'linear',
                         spectrum: staticGenParams.spectrum || 'defaultgen',
                         spectrum_csv: staticGenParams.spectrum_csv || '',
                         Xdpp: staticGenParams.Xdpp,
@@ -3475,9 +3670,9 @@ function collectNetworkDataStructured(graph) {
                     
                     // Validate bus connection
                     if (cellData.bus) {
-                        dssLog(`Static Generator ${cellData.name}: bus=${cellData.bus}, P=${cellData.p_mw}MW, Q=${cellData.q_mvar}MVar`);
+                        dssLog(`${isWindTurbine ? 'Wind Turbine' : 'Static Generator'} ${cellData.name}: bus=${cellData.bus}, P=${cellData.p_mw}MW, Q=${cellData.q_mvar}MVar`);
                     } else {
-                        dssWarn(`Static Generator ${cellData.name} missing bus connection`);
+                        dssWarn(`${isWindTurbine ? 'Wind Turbine' : 'Static Generator'} ${cellData.name} missing bus connection`);
                     }
                 } else if (styleObj && styleObj.shapeELXXX === 'Asymmetric Static Generator') {
                     // This is an asymmetric static generator element
@@ -3560,6 +3755,17 @@ function collectNetworkDataStructured(graph) {
         if (cellData && cellData.typ) {
             networkData.push(cellData);
         }
+    }
+
+    // Snapshot Pref from Wind Turbine Controllers onto linked Wind Turbine elements
+    try {
+        const controllers = networkData.filter((e) => e && e.typ === 'WindTurbineController' && e.enabled !== false);
+        applyWindTurbineControllerPrefs(
+            networkData.filter((e) => e && e.typ === 'Wind Turbine'),
+            controllers.length ? controllers : collectWindTurbineControllers(graph)
+        );
+    } catch (e) {
+        console.warn('Wind Turbine Controller apply (OpenDSS) skipped:', e);
     }
     
     const componentProcessingTime = performance.now() - componentProcessingStart;

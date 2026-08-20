@@ -3,6 +3,16 @@
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer-when-downgrade
 
+/login
+  X-Robots-Tag: noindex, follow
+
+/login.html
+  X-Robots-Tag: noindex, follow
+
+/robots.txt
+  Content-Type: text/plain; charset=utf-8
+  Cache-Control: public, max-age=3600
+
 /*.js
   Content-Type: application/javascript
 
@@ -40,4 +50,4 @@
   Content-Type: font/ttf
 
 /*.eot
-  Content-Type: application/vnd.ms-fontobject 
+  Content-Type: application/vnd.ms-fontobject

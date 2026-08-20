@@ -11,6 +11,9 @@ const IMPORT_BUSBAR_H = 12;
 
 /** sym-transformer.svg viewBox -45..45, -30..28 → winding axis at y = 0 → (30/58) from top */
 const TRANSFORMER_EDGE_PIN_Y = 30 / 58;
+/** Horizontal stubs end at x=±41 → inset fractions matching Graph constraints */
+const TRANSFORMER_EDGE_PIN_X_HV = 4 / 90;
+const TRANSFORMER_EDGE_PIN_X_LV = 86 / 90;
 
 /**
  * Inline AC line segment when pandapower switches reference the line (``et='l'``).
@@ -211,6 +214,68 @@ function importBusbarCenterXY(busVertex) {
     };
 }
 
+/** Snap to the busbar ``points=`` grid (every 5 %). Keep off the extreme ends. */
+function importSnapBusbarPinX(frac) {
+    const clamped = Math.max(0.05, Math.min(0.95, Number(frac) || 0.5));
+    return Math.round(clamped * 20) / 20;
+}
+
+/**
+ * Preferred dock fraction along a busbar from a peer X (component / other bus centre).
+ * Spreads feeder / trafo / device ties so they do not all stack at mid-bus.
+ */
+function importBusbarPinXFromPeerX(busVertex, peerX) {
+    if (!busVertex?.geometry) return 0.5;
+    const bx = busVertex.geometry.x;
+    const bw = busVertex.geometry.width || IMPORT_BUSBAR_W;
+    if (!(bw > 0)) return 0.5;
+    return importSnapBusbarPinX((peerX - bx) / bw);
+}
+
+/**
+ * Allocate a free busbar pin near ``preferredFrac`` on ``side`` ('above'|'below'|'any').
+ * Avoids stacking multiple edges on the exact same dock point.
+ */
+function importCreateBusbarPinAllocator() {
+    const used = new Map();
+    return function allocate(busVertex, preferredFrac, side = 'any') {
+        const busKey = busVertex?.id != null ? String(busVertex.id) : 'bus';
+        const key = `${busKey}:${side}`;
+        if (!used.has(key)) used.set(key, new Set());
+        const taken = used.get(key);
+        let pin = importSnapBusbarPinX(preferredFrac);
+        if (!taken.has(pin)) {
+            taken.add(pin);
+            return pin;
+        }
+        const step = 0.1;
+        for (let attempt = 1; attempt <= 18; attempt++) {
+            const delta = Math.ceil(attempt / 2) * step * (attempt % 2 === 0 ? -1 : 1);
+            pin = importSnapBusbarPinX(preferredFrac + delta);
+            if (!taken.has(pin)) {
+                taken.add(pin);
+                return pin;
+            }
+        }
+        taken.add(pin);
+        return pin;
+    };
+}
+
+/** True when a pandapower shunt should render as an Electrisim Capacitor (not shunt reactor). */
+function importShuntLooksLikeCapacitor(name, qMvar) {
+    const n = String(name || '').toLowerCase();
+    if (/(capacitor|cap\s*bank|capbank|\bcaps?\b)/i.test(n)) return true;
+    const q = Number(qMvar);
+    return Number.isFinite(q) && q < 0;
+}
+
+/**
+ * Bus dock Y for ``shape=line`` busbars: the stroke is drawn at cell mid-height.
+ * Docking at 0/1 leaves a visible gap of ~half the bus cell height.
+ */
+const IMPORT_BUSBAR_EDGE_Y = 0.5;
+
 function importFindVertexByTransformerName(grafka, parent, trafoName) {
     const want = String(trafoName);
     const childCells = grafka.getChildCells(parent, true, false);
@@ -385,7 +450,7 @@ function importBusToSwitchEdgeStyle(busVertex, swVertex, verticalSld) {
         // unrotated right-centre (1,0.5) becomes screen bottom-centre.
         // Using exactly 0.5 keeps both endpoints on the cell centre X → no horizontal jog.
         const exitX = 0.5;
-        const exitY = busAbove ? 1 : 0;
+        const exitY = IMPORT_BUSBAR_EDGE_Y;
         const entryX = busAbove ? 0 : 1;
         const entryY = 0.5;
         return (
@@ -509,10 +574,10 @@ function importSwitchToPeerEdgeStyle(swVertex, peerCell, busVertex, verticalSld)
     let entryY = 0.5;
     if (importCellIs2WTransformer(peerCell)) {
         if (peerBelow) {
-            entryX = 0;
+            entryX = TRANSFORMER_EDGE_PIN_X_HV;
             entryY = TRANSFORMER_EDGE_PIN_Y;
         } else {
-            entryX = 1;
+            entryX = TRANSFORMER_EDGE_PIN_X_LV;
             entryY = TRANSFORMER_EDGE_PIN_Y;
         }
     } else if (importCellIs3WTransformer(peerCell)) {
@@ -534,27 +599,29 @@ function importSwitchToPeerEdgeStyle(swVertex, peerCell, busVertex, verticalSld)
 }
 
 /** Trafo → bus: winding pins (horizontal SLD) or top/bottom (vertical SLD). */
-function importTrafoToBusEdgeStyle(trafoVertex, busVertex, isHvWinding, verticalSld) {
+function importTrafoToBusEdgeStyle(trafoVertex, busVertex, isHvWinding, verticalSld, allocateBusPin) {
+    const tcx = trafoVertex.geometry.x + trafoVertex.geometry.width / 2;
     const tcy = trafoVertex.geometry.y + trafoVertex.geometry.height / 2;
     const bcy = importBusbarElectricalY(busVertex);
     const busAbove = bcy < tcy - 2;
+    const preferred = importBusbarPinXFromPeerX(busVertex, tcx);
+    const side = busAbove ? 'above' : 'below';
+    const entryX = allocateBusPin
+        ? allocateBusPin(busVertex, preferred, side)
+        : preferred;
+    const entryY = IMPORT_BUSBAR_EDGE_Y;
     if (verticalSld) {
-        // Rotated 90° CW: HV winding (originally left) becomes top → local (0, 0.5).
-        // LV winding (originally right) becomes bottom → local (1, 0.5).
-        const exitX = isHvWinding ? 0 : 1;
-        const exitY = 0.5;
-        const entryX = 0.5;
-        const entryY = busAbove ? 1 : 0;
+        // sym-transformer-v: HV at top, LV at bottom — inset pins match Graph constraints (4/90, 86/90).
+        const exitX = 0.5;
+        const exitY = isHvWinding ? 4 / 90 : 86 / 90;
         return (
             `${IMPORT_VERTICAL_SLD_EDGE_BASE}` +
             `exitX=${exitX};exitY=${exitY};exitDx=0;exitDy=0;exitPerimeter=0;` +
             `entryX=${entryX};entryY=${entryY};entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=NotEditableLine`
         );
     }
-    const exitX = isHvWinding ? 0 : 1;
+    const exitX = isHvWinding ? TRANSFORMER_EDGE_PIN_X_HV : TRANSFORMER_EDGE_PIN_X_LV;
     const exitY = TRANSFORMER_EDGE_PIN_Y;
-    const entryX = 0.5;
-    const entryY = busAbove ? 1 : 0;
     return (
         'edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;' +
         `exitX=${exitX};exitY=${exitY};exitDx=0;exitDy=0;exitPerimeter=0;` +
@@ -562,15 +629,64 @@ function importTrafoToBusEdgeStyle(trafoVertex, busVertex, isHvWinding, vertical
     );
 }
 
+/** Line between two busbars: dock along each bar toward the peer, on the stroke (Y=0.5). */
+function importBusToBusLineEdgeStyle(fromBusVertex, toBusVertex, allocateBusPin) {
+    const fromC = importBusbarCenterXY(fromBusVertex);
+    const toC = importBusbarCenterXY(toBusVertex);
+    const fromPreferred = importBusbarPinXFromPeerX(fromBusVertex, toC.x);
+    const toPreferred = importBusbarPinXFromPeerX(toBusVertex, fromC.x);
+    const fromSide = toC.y >= fromC.y ? 'below' : 'above';
+    const toSide = fromC.y >= toC.y ? 'below' : 'above';
+    const exitX = allocateBusPin
+        ? allocateBusPin(fromBusVertex, fromPreferred, fromSide)
+        : fromPreferred;
+    const entryX = allocateBusPin
+        ? allocateBusPin(toBusVertex, toPreferred, toSide)
+        : toPreferred;
+    return (
+        'edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;' +
+        `exitX=${exitX};exitY=${IMPORT_BUSBAR_EDGE_Y};exitDx=0;exitDy=0;exitPerimeter=0;` +
+        `entryX=${entryX};entryY=${IMPORT_BUSBAR_EDGE_Y};entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=Line`
+    );
+}
+
+/** Device (ext grid / sgen / shunt / capacitor) → bus: centre of device to a free pin on the bar. */
+function importDeviceToBusEdgeStyle(deviceVertex, busVertex, allocateBusPin, verticalSld) {
+    const dcx = deviceVertex.geometry.x + deviceVertex.geometry.width / 2;
+    const dcy = deviceVertex.geometry.y + deviceVertex.geometry.height / 2;
+    const bcy = importBusbarElectricalY(busVertex);
+    const busAbove = bcy < dcy - 2;
+    const preferred = importBusbarPinXFromPeerX(busVertex, dcx);
+    const side = busAbove ? 'above' : 'below';
+    const entryX = allocateBusPin
+        ? allocateBusPin(busVertex, preferred, side)
+        : preferred;
+    const exitY = busAbove ? 0 : 1;
+    const base = verticalSld
+        ? 'edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;'
+        : 'edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;';
+    return (
+        `${base}` +
+        `exitX=0.5;exitY=${exitY};exitDx=0;exitDy=0;exitPerimeter=0;` +
+        `entryX=${entryX};entryY=${IMPORT_BUSBAR_EDGE_Y};entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=NotEditableLine`
+    );
+}
+
 /** Three-winding trafo → bus for vertical SLD (approximate top/bottom docking). */
-function importTrafo3wToBusEdgeStyle(trafoVertex, busVertex) {
+function importTrafo3wToBusEdgeStyle(trafoVertex, busVertex, allocateBusPin) {
+    const tcx = trafoVertex.geometry.x + trafoVertex.geometry.width / 2;
     const tcy = trafoVertex.geometry.y + trafoVertex.geometry.height / 2;
     const bcy = importBusbarElectricalY(busVertex);
     const busAbove = bcy < tcy - 2;
+    const preferred = importBusbarPinXFromPeerX(busVertex, tcx);
+    const side = busAbove ? 'above' : 'below';
+    const entryX = allocateBusPin
+        ? allocateBusPin(busVertex, preferred, side)
+        : preferred;
     return (
         `${IMPORT_VERTICAL_SLD_EDGE_BASE}` +
         `exitX=0.5;exitY=${busAbove ? 0 : 1};exitDx=0;exitDy=0;exitPerimeter=0;` +
-        `entryX=0.5;entryY=${busAbove ? 1 : 0};entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=NotEditableLine`
+        `entryX=${entryX};entryY=${IMPORT_BUSBAR_EDGE_Y};entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=NotEditableLine`
     );
 }
 
@@ -1478,6 +1594,9 @@ async function insertComponentsForData(grafka, a, target, point, data) {
     const extendedWardData = JSON.parse(data._object.xward._object);
     const motorData = JSON.parse(data._object.motor._object);
     const storageData = JSON.parse(data._object.storage._object);
+    const regControlData = parseImportTable(data?._object?.regcontrol, { data: [] });
+    const capControlData = parseImportTable(data?._object?.capcontrol, { data: [] });
+    const storageControllerData = parseImportTable(data?._object?.storagecontroller, { data: [] });
     const svcData = JSON.parse(data._object.svc._object);
     const tcscData = JSON.parse(data._object.tcsc._object);
     //const sscData = JSON.parse(data._object.ssc._object); //to be added
@@ -1586,6 +1705,7 @@ async function insertComponentsForData(grafka, a, target, point, data) {
         let busPositions = null;
         let importPandapowerVerticalSld = false;
         const importLayoutChoice = data?._object?._import_layout === 'horizontal' ? 'horizontal' : 'vertical';
+        const allocateBusPin = importCreateBusbarPinAllocator();
 
         if (importLayoutChoice === 'vertical') {
             if (importAllBusesHaveGeo(busData)) {
@@ -1748,8 +1868,9 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                     let trafoStyle = vertexStyleFromElectrisimSymbol('sym-transformer', 'Transformer');
                     let [trafoW, trafoH] = vertexSizeFromElectrisimSymbol('sym-transformer', 40, 60);
                     if (importPandapowerVerticalSld) {
-                        [trafoW, trafoH] = [trafoH, trafoW];
-                        trafoStyle = `${trafoStyle};rotation=${IMPORT_SLD_VERTICAL_ROTATION}`;
+                        // Dedicated vertical SVG (HV top / LV bottom) — larger windings, no rotation.
+                        trafoStyle = vertexStyleFromElectrisimSymbol('sym-transformer-v', 'Transformer');
+                        [trafoW, trafoH] = vertexSizeFromElectrisimSymbol('sym-transformer-v', 72, 108);
                     }
 
                     const vertex = grafka.insertVertex(
@@ -1800,7 +1921,7 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                             '',
                             vertex,
                             hvBusVertex,
-                            importTrafoToBusEdgeStyle(vertex, hvBusVertex, true, importPandapowerVerticalSld),
+                            importTrafoToBusEdgeStyle(vertex, hvBusVertex, true, importPandapowerVerticalSld, allocateBusPin),
                         );
                     }
                     if (!skipLvEdge) {
@@ -1810,7 +1931,7 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                             '',
                             vertex,
                             lvBusVertex,
-                            importTrafoToBusEdgeStyle(vertex, lvBusVertex, false, importPandapowerVerticalSld),
+                            importTrafoToBusEdgeStyle(vertex, lvBusVertex, false, importPandapowerVerticalSld, allocateBusPin),
                         );
                     }
                 } else {
@@ -1888,13 +2009,38 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                             lvStyle,
                         );
                         configureLineAttributes(grafka, lineVertex, lineAttr);
-                        grafka.insertEdge(parent, null, '', fromBusVertex, lineVertex, IMPORT_STUB_EDGE_STYLE);
-                        grafka.insertEdge(parent, null, '', lineVertex, toBusVertex, IMPORT_STUB_EDGE_STYLE);
+                        const fromC = importBusbarCenterXY(fromBusVertex);
+                        const toC = importBusbarCenterXY(toBusVertex);
+                        const fromPin = allocateBusPin(
+                            fromBusVertex,
+                            importBusbarPinXFromPeerX(fromBusVertex, toC.x),
+                            toC.y >= fromC.y ? 'below' : 'above',
+                        );
+                        const toPin = allocateBusPin(
+                            toBusVertex,
+                            importBusbarPinXFromPeerX(toBusVertex, fromC.x),
+                            fromC.y >= toC.y ? 'below' : 'above',
+                        );
+                        const stubExit = (
+                            `edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;` +
+                            `exitX=${fromPin};exitY=${IMPORT_BUSBAR_EDGE_Y};exitDx=0;exitDy=0;exitPerimeter=0;` +
+                            `entryX=0.5;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=NotEditableLine`
+                        );
+                        const stubEntry = (
+                            `edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;` +
+                            `exitX=0.5;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;` +
+                            `entryX=${toPin};entryY=${IMPORT_BUSBAR_EDGE_Y};entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=NotEditableLine`
+                        );
+                        grafka.insertEdge(parent, null, '', fromBusVertex, lineVertex, stubExit);
+                        grafka.insertEdge(parent, null, '', lineVertex, toBusVertex, stubEntry);
                         importLineVertexByName[String(name)] = lineVertex;
                         importLineVertexByName[String(index)] = lineVertex;
                     } else {
-                        let lineStyle;
-                        lineStyle = "edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=Line";
+                        const lineStyle = importBusToBusLineEdgeStyle(
+                            fromBusVertex,
+                            toBusVertex,
+                            allocateBusPin,
+                        );
                         const edge = grafka.insertEdge(
                             parent,
                             null,
@@ -2085,9 +2231,12 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                     x0x_max: x0x_max,
                 })
 
-                const edgeStyle = importPandapowerVerticalSld
-                    ? 'edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=NotEditableLine'
-                    : 'edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=NotEditableLine';
+                const edgeStyle = importDeviceToBusEdgeStyle(
+                    vertex,
+                    busVertex,
+                    allocateBusPin,
+                    importPandapowerVerticalSld,
+                );
 
                 if (busVertex) {
                     grafka.insertEdge(parent, null, "", vertex, busVertex, edgeStyle);
@@ -2133,7 +2282,12 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                     type: `${type}`
                 })
 
-                const edgeStyle = "edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.3;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=NotEditableLine";
+                const edgeStyle = importDeviceToBusEdgeStyle(
+                    vertex,
+                    busVertex,
+                    allocateBusPin,
+                    importPandapowerVerticalSld,
+                );
 
                 if (busVertex) {
                     grafka.insertEdge(parent, null, "", vertex, busVertex, edgeStyle);
@@ -2148,7 +2302,8 @@ async function insertComponentsForData(grafka, a, target, point, data) {
 
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
 
-                const staticGenOffset = index * 40;
+                // Vertical SLD: centre under the LV bus (WTG column). Horizontal: legacy stagger.
+                const staticGenOffset = importPandapowerVerticalSld ? 0 : index * 40;
                 const [sgW, sgH] = vertexSizeFromElectrisimSymbol('sym-static-gen', 45, 45);
                 const anchorX = busVertex.geometry.x + IMPORT_BUSBAR_W / 2 + staticGenOffset;
                 const anchorY = busVertex.geometry.y + 120;
@@ -2175,7 +2330,12 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                     current_source: `${current_source}`
                 })
 
-                const edgeStyle = "edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.3;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=NotEditableLine";
+                const edgeStyle = importDeviceToBusEdgeStyle(
+                    vertex,
+                    busVertex,
+                    allocateBusPin,
+                    importPandapowerVerticalSld,
+                );
 
                 if (busVertex) {
                     grafka.insertEdge(parent, null, "", vertex, busVertex, edgeStyle);
@@ -2452,7 +2612,7 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                         vertex,
                         hvBusVertex,
                         importPandapowerVerticalSld
-                            ? importTrafo3wToBusEdgeStyle(vertex, hvBusVertex)
+                            ? importTrafo3wToBusEdgeStyle(vertex, hvBusVertex, allocateBusPin)
                             : edgeStyleHV,
                     );
                 }
@@ -2464,7 +2624,7 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                         vertex,
                         mvBusVertex,
                         importPandapowerVerticalSld
-                            ? importTrafo3wToBusEdgeStyle(vertex, mvBusVertex)
+                            ? importTrafo3wToBusEdgeStyle(vertex, mvBusVertex, allocateBusPin)
                             : edgeStyleMV,
                     );
                 }
@@ -2476,7 +2636,7 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                         vertex,
                         lvBusVertex,
                         importPandapowerVerticalSld
-                            ? importTrafo3wToBusEdgeStyle(vertex, lvBusVertex)
+                            ? importTrafo3wToBusEdgeStyle(vertex, lvBusVertex, allocateBusPin)
                             : edgeStyleLV,
                     );
                 }
@@ -2486,10 +2646,14 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 let bus = busData.data[bus_no];
                 let bus_name = bus[0];
                 const busVertex = findVertexByBusId(grafka, parent, bus_name);
-                const [shW, shH] = vertexSizeFromElectrisimSymbol('sym-shunt', 30, 20);
-                const anchorX = busVertex.geometry.x + IMPORT_BUSBAR_W / 2 + 60;
-                const anchorY = busVertex.geometry.y + 60;
-                const styleShuntReactor = vertexStyleFromElectrisimSymbol('sym-shunt', 'Shunt Reactor');
+                const asCapacitor = importShuntLooksLikeCapacitor(name, q_mvar);
+                const symbolKey = asCapacitor ? 'sym-capacitor' : 'sym-shunt';
+                const shapeName = asCapacitor ? 'Capacitor' : 'Shunt Reactor';
+                const [shW, shH] = vertexSizeFromElectrisimSymbol(symbolKey, asCapacitor ? 35 : 30, asCapacitor ? 56 : 20);
+                const shuntXOffset = importPandapowerVerticalSld ? 0 : 60;
+                const anchorX = busVertex.geometry.x + IMPORT_BUSBAR_W / 2 + shuntXOffset;
+                const anchorY = busVertex.geometry.y + (asCapacitor ? 90 : 60);
+                const styleShuntOrCap = vertexStyleFromElectrisimSymbol(symbolKey, shapeName);
                 const vertex = grafka.insertVertex(
                     parent,
                     null,
@@ -2498,20 +2662,39 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                     anchorY - shH / 2,
                     shW,
                     shH,
-                    styleShuntReactor
+                    styleShuntOrCap
                 );
-                configureShuntReactorAttributes(grafka, vertex, {
-                    name: `${name}`,
-                    q_mvar: `${q_mvar}`,
-                    p_mw: `${p_mw}`,
-                    vn_kv: `${vn_kv}`,
-                    step: `${step}`,
-                    max_step: `${max_step}`,
-                    in_service: `${in_service}`
-                })
-                const edgeStyle = "edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.3;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;;shapeELXXX=NotEditableLine";
+                if (asCapacitor) {
+                    // Electrisim Capacitor uses q_mvar > 0; pandapower capacitive shunt is q_mvar < 0.
+                    const qAbs = Math.abs(Number(q_mvar));
+                    configureCapacitorAttributes(grafka, vertex, {
+                        name: `${name}`,
+                        q_mvar: `${Number.isFinite(qAbs) ? qAbs : q_mvar}`,
+                        vn_kv: `${vn_kv}`,
+                        step: `${step}`,
+                        max_step: `${max_step}`,
+                        in_service: `${in_service}`,
+                    });
+                } else {
+                    configureShuntReactorAttributes(grafka, vertex, {
+                        name: `${name}`,
+                        q_mvar: `${q_mvar}`,
+                        p_mw: `${p_mw}`,
+                        vn_kv: `${vn_kv}`,
+                        step: `${step}`,
+                        max_step: `${max_step}`,
+                        in_service: `${in_service}`,
+                    });
+                }
                 if (busVertex) {
-                    grafka.insertEdge(parent, null, "", vertex, busVertex, edgeStyle);
+                    grafka.insertEdge(
+                        parent,
+                        null,
+                        '',
+                        vertex,
+                        busVertex,
+                        importDeviceToBusEdgeStyle(vertex, busVertex, allocateBusPin, importPandapowerVerticalSld),
+                    );
                 }
             });
             /*
@@ -2823,6 +3006,28 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                 if (busVertex) {
                     grafka.insertEdge(parent, null, "", vertex, busVertex, edgeStyle);
                 }
+            });
+            const insertOpenDssControl = (shape, label, xOffset, configure, values) => {
+                const vertex = grafka.insertVertex(
+                    parent, null, label, x + xOffset, y - 80, 130, 36,
+                    `rounded=1;whiteSpace=wrap;html=1;fillColor=#f3f6fc;strokeColor=#5f6368;shapeELXXX=${shape}`
+                );
+                configure(grafka, vertex, values);
+            };
+            (regControlData.data || []).forEach((row, index) => {
+                const [name, transformer, winding, vreg, band, ptratio, ctprim, delaying, enabled] = row;
+                insertOpenDssControl('RegControl', name || 'RegControl', index * 145,
+                    window.configureRegControlAttributes, { name, transformer, winding, vreg, band, ptratio, ctprim, delaying, enabled: String(enabled).toLowerCase() !== 'no' });
+            });
+            (capControlData.data || []).forEach((row, index) => {
+                const [name, capacitor, type, on_setting, off_setting, ctratio, ptratio, delay, enabled] = row;
+                insertOpenDssControl('CapControl', name || 'CapControl', 450 + index * 145,
+                    window.configureCapControlAttributes, { name, capacitor, type, on_setting, off_setting, ctratio, ptratio, delay, enabled: String(enabled).toLowerCase() !== 'no' });
+            });
+            (storageControllerData.data || []).forEach((row, index) => {
+                const [name, elementList, element, mode, kwtarget, pct_reserve, enabled] = row;
+                insertOpenDssControl('StorageController', name || 'StorageController', 900 + index * 145,
+                    window.configureStorageControllerAttributes, { name, element: elementList || element, mode, kwtarget, pct_reserve, enabled: String(enabled).toLowerCase() !== 'no' });
             });
             svcData.data.forEach((svc, index) => {
                 const [name, bus_no, x_l_ohm, x_cvar_ohm, set_vm_pu, thyristor_firing_angle_degree, controllable, in_service, min_angle_degree, max_angle_degree, type] = svc;

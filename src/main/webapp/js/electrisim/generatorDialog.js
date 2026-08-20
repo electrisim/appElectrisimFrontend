@@ -66,7 +66,10 @@ export const defaultGeneratorData = {
     dyn_gov_R: '',
     dyn_gov_T1: '',
     dyn_gov_T2: '',
-    dyn_gov_T3: ''
+    dyn_gov_T3: '',
+    dyn_pss_model: 'NONE',
+    dyn_pss_A1: '',
+    dyn_pss_A2: ''
 };
 
 export class GeneratorDialog extends Dialog {
@@ -455,6 +458,11 @@ export class GeneratorDialog extends Dialog {
                 options: [
                     { value: 'EXDC2', label: 'EXDC2' },
                     { value: 'SEXS', label: 'SEXS (simple)' },
+                    { value: 'IEEEX1', label: 'IEEEX1' },
+                    { value: 'ESDC2A', label: 'ESDC2A' },
+                    { value: 'EXST1', label: 'EXST1' },
+                    { value: 'ESST1A', label: 'ESST1A' },
+                    { value: 'AC8B', label: 'AC8B' },
                     { value: 'NONE', label: 'NONE' }
                 ]
             },
@@ -483,6 +491,10 @@ export class GeneratorDialog extends Dialog {
                 value: this.data.dyn_governor_model,
                 options: [
                     { value: 'TGOV1', label: 'TGOV1' },
+                    { value: 'IEEEG1', label: 'IEEEG1' },
+                    { value: 'IEESGO', label: 'IEESGO' },
+                    { value: 'GAST', label: 'GAST' },
+                    { value: 'HYGOV', label: 'HYGOV' },
                     { value: 'NONE', label: 'NONE' }
                 ]
             },
@@ -503,6 +515,52 @@ export class GeneratorDialog extends Dialog {
                 description: 'TGOV1 time constant. Empty → default.',
                 type: 'text',
                 value: String(this.data.dyn_gov_T1 ?? '')
+            },
+            {
+                id: 'dyn_gov_T2',
+                label: 'Governor T2',
+                symbol: 'dyn_gov_T2',
+                unit: 's',
+                description: 'Key time constant for supported turbine-governor models. Empty → ANDES model default.',
+                type: 'text',
+                value: String(this.data.dyn_gov_T2 ?? '')
+            },
+            {
+                id: 'dyn_gov_T3',
+                label: 'Governor T3',
+                symbol: 'dyn_gov_T3',
+                unit: 's',
+                description: 'Key time constant for supported turbine-governor models. Empty → ANDES model default.',
+                type: 'text',
+                value: String(this.data.dyn_gov_T3 ?? '')
+            },
+            {
+                id: 'dyn_pss_model',
+                label: 'Power System Stabilizer',
+                symbol: 'dyn_pss_model',
+                description: 'Optional ANDES PSS. Leave at NONE unless a tuned stabilizer is available.',
+                type: 'select',
+                value: this.data.dyn_pss_model,
+                options: [
+                    { value: 'NONE', label: 'NONE' },
+                    { value: 'IEEEST', label: 'IEEEST' }
+                ]
+            },
+            {
+                id: 'dyn_pss_A1',
+                label: 'PSS A1',
+                symbol: 'dyn_pss_A1',
+                description: 'IEEEST key gain. Empty → ANDES-compatible default.',
+                type: 'text',
+                value: String(this.data.dyn_pss_A1 ?? '')
+            },
+            {
+                id: 'dyn_pss_A2',
+                label: 'PSS A2',
+                symbol: 'dyn_pss_A2',
+                description: 'IEEEST key gain. Empty → ANDES-compatible default.',
+                type: 'text',
+                value: String(this.data.dyn_pss_A2 ?? '')
             }
         ];
     }
@@ -600,6 +658,7 @@ export class GeneratorDialog extends Dialog {
         }
         const harmonicContent = this.createTabContent('harmonic', this.harmonicParameters);
         const dynamicsContent = this.createTabContent('dynamics', this.dynamicsParameters);
+        this._wireDynamicsFieldVisibility();
         const economicContent = this.createTabContent('economic', this.economicParameters);
         
         contentArea.appendChild(loadFlowContent);
@@ -940,6 +999,31 @@ export class GeneratorDialog extends Dialog {
         });
         
         return button;
+    }
+
+    _wireDynamicsFieldVisibility() {
+        const show = (id, visible) => {
+            const input = this.inputs.get(id);
+            const row = input?.parentElement?.parentElement;
+            if (row) row.style.display = visible ? 'grid' : 'none';
+        };
+        const update = () => {
+            const exciter = this.inputs.get('dyn_exciter_model')?.value || 'EXDC2';
+            const governor = this.inputs.get('dyn_governor_model')?.value || 'TGOV1';
+            const pss = this.inputs.get('dyn_pss_model')?.value || 'NONE';
+            show('dyn_exc_K', exciter === 'SEXS');
+            show('dyn_exc_KA', !['SEXS', 'NONE'].includes(exciter));
+            show('dyn_gov_R', governor !== 'NONE');
+            show('dyn_gov_T1', governor !== 'NONE');
+            show('dyn_gov_T2', governor !== 'NONE');
+            show('dyn_gov_T3', governor !== 'NONE');
+            show('dyn_pss_A1', pss === 'IEEEST');
+            show('dyn_pss_A2', pss === 'IEEEST');
+        };
+        ['dyn_exciter_model', 'dyn_governor_model', 'dyn_pss_model'].forEach((id) => {
+            this.inputs.get(id)?.addEventListener('change', update);
+        });
+        update();
     }
     
     switchTab(tabId, activeTab, inactiveTabs, activeContent, inactiveContents) {

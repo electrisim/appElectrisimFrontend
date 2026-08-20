@@ -31,9 +31,18 @@ export class OpenDSSLoadFlowDialog extends Dialog {
                     { value: 'Snapshot', label: 'Snapshot (Single Solution)', default: true },
                     { value: 'Daily', label: 'Daily (24-hour simulation)' },
                     { value: 'Dutycycle', label: 'Dutycycle (Time-varying)' },
-                    { value: 'Yearly', label: 'Yearly' }
+                    { value: 'Yearly', label: 'Yearly' },
+                    { value: 'M1', label: 'M1 (Monte Carlo load variation)' },
+                    { value: 'M2', label: 'M2 (Monte Carlo load variation)' },
+                    { value: 'M3', label: 'M3 (Monte Carlo at a specified hour)' }
                 ]
             },
+            { id: 'monteCarloNumber', label: 'Monte Carlo Samples', type: 'number', value: '100' },
+            {
+                id: 'monteCarloRandom', label: 'Random Distribution', type: 'radio',
+                options: [{ value: 'Uniform', label: 'Uniform', default: true }, { value: 'Gaussian', label: 'Gaussian' }]
+            },
+            { id: 'monteCarloHour', label: 'Hour (M3 only)', type: 'number', value: '0' },
             {
                 id: 'algorithm',
                 label: 'Solution Algorithm',
@@ -85,7 +94,7 @@ export class OpenDSSLoadFlowDialog extends Dialog {
 
     getDescription() {
         return '<strong>Configure OpenDSS load flow calculation parameters</strong><br>OpenDSS provides robust power flow analysis with advanced control capabilities. ' +
-            'For BESS <strong>Q-V droop (Volt-VAR)</strong> or <strong>Watt-PF</strong> inverter control, set Storage → Inverter Control and use <strong>Control Mode = Time</strong> (auto-enabled when InvControl is detected). ' +
+            'For <strong>InvControl</strong> (Volt-VAR, Volt-Watt, Watt-PF, Watt-VAR) on Storage or PVSystem, set the element → Inverter Control tab and use <strong>Control Mode = Time</strong> (auto-enabled when InvControl is detected). ' +
             'See the <a href="https://electrisim.com/documentation.html#load-flow" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
 
@@ -121,7 +130,7 @@ export class OpenDSSLoadFlowDialog extends Dialog {
                 console.log('OpenDSSLoadFlowDialog: Subscription check passed, proceeding with calculation...');
                 
                 // Convert object to array format expected by loadflowOpenDss.js
-                // The callback expects: [frequency, mode, algorithm, loadmodel, maxIterations, tolerance, controlmode, exportCommands]
+                // The callback accepts the legacy fields followed by Monte Carlo settings.
                 const valuesArray = [
                     values.frequency || '50',
                     values.mode || 'Snapshot',
@@ -130,7 +139,10 @@ export class OpenDSSLoadFlowDialog extends Dialog {
                     values.maxIterations || '100',
                     values.tolerance || '0.0001',
                     values.controlmode || 'Static',
-                    values.exportCommands || false
+                    values.exportCommands || false,
+                    values.monteCarloNumber || '100',
+                    values.monteCarloRandom || 'Uniform',
+                    values.monteCarloHour || '0'
                 ];
                 
                 console.log('OpenDSSLoadFlowDialog: Calling callback with values array:', valuesArray);
@@ -161,6 +173,23 @@ export class OpenDSSLoadFlowDialog extends Dialog {
                 }
             }
         });
+        this._updateMonteCarloVisibility();
+        ['M1', 'M2', 'M3', 'Snapshot', 'Daily', 'Dutycycle', 'Yearly'].forEach(mode => {
+            this.inputs.get(`mode_${mode}`)?.addEventListener('change', () => this._updateMonteCarloVisibility());
+        });
+    }
+
+    _updateMonteCarloVisibility() {
+        const mode = this.parameters.find(param => param.id === 'mode')?.options
+            .find(option => this.inputs.get(`mode_${option.value}`)?.checked)?.value;
+        const isMonteCarlo = ['M1', 'M2', 'M3'].includes(mode);
+        ['monteCarloNumber', 'monteCarloRandom'].forEach(id => {
+            const input = this.inputs.get(id) || this.inputs.get(`${id}_Uniform`);
+            const group = input?.closest('div')?.parentElement;
+            if (group) group.style.display = isMonteCarlo ? '' : 'none';
+        });
+        const hourGroup = this.inputs.get('monteCarloHour')?.closest('div')?.parentElement;
+        if (hourGroup) hourGroup.style.display = mode === 'M3' ? '' : 'none';
     }
 
     // Function to check subscription status

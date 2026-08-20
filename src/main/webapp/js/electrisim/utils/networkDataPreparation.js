@@ -21,6 +21,13 @@ import {
     COMPONENT_TYPES,
     isSwitchClosedForPowerFlow
 } from '../loadFlow.js';
+import { computeWindTurbinePMw } from '../windTurbineDialog.js';
+import {
+    collectWindTurbineControllers,
+    collectWindTurbineControllersForPayload,
+    applyWindTurbineControllerPrefs
+} from './windTurbineControllerApply.js';
+import { collectParkControllers } from './parkControllerCollect.js';
 
 /**
  * Check if the model has load and/or generation elements (for Economic Analysis profile options).
@@ -35,6 +42,7 @@ export function getEconomicProfileRelevance(graph) {
     const genTypes = new Set([
         COMPONENT_TYPES.GENERATOR,
         COMPONENT_TYPES.STATIC_GENERATOR,
+        COMPONENT_TYPES.WIND_TURBINE,
         COMPONENT_TYPES.ASYMMETRIC_STATIC_GENERATOR,
         'PV System',
         'PVSystem'
@@ -52,6 +60,7 @@ export function getEconomicProfileRelevance(graph) {
             if (genTypes.has(ct)) foundGens = true;
         }
         if (!foundGens && cellStyle.includes('Static Generator')) foundGens = true;
+        if (!foundGens && cellStyle.includes('Wind Turbine')) foundGens = true;
         if (!foundGens && (cellStyle.includes('PV System') || cellStyle.includes('PVSystem'))) foundGens = true;
     }
     return { hasLoads: foundLoads, hasGenerators: foundGens };
@@ -591,6 +600,9 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         dyn_gov_T1: { name: 'dyn_gov_T1', optional: true },
                         dyn_gov_T2: { name: 'dyn_gov_T2', optional: true },
                         dyn_gov_T3: { name: 'dyn_gov_T3', optional: true },
+                        dyn_pss_model: { name: 'dyn_pss_model', optional: true },
+                        dyn_pss_A1: { name: 'dyn_pss_A1', optional: true },
+                        dyn_pss_A2: { name: 'dyn_pss_A2', optional: true },
                     })
                 };
                 componentArrays.generator.push(generator);
@@ -642,11 +654,96 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         opf_marginal_cost_eur_per_mwh: { name: 'opf_marginal_cost_eur_per_mwh', optional: true },
                         opf_cp2_eur_per_mw2: { name: 'opf_cp2_eur_per_mw2', optional: true },
                         opf_cost_currency: { name: 'opf_cost_currency', optional: true },
+                        dyn_plant_kind: { name: 'dyn_plant_kind', optional: true },
+                        dyn_Sn: { name: 'dyn_Sn', optional: true },
+                        dyn_reg_Tg: { name: 'dyn_reg_Tg', optional: true },
+                        dyn_ree_Vref0: { name: 'dyn_ree_Vref0', optional: true },
+                        dyn_repca_Kp: { name: 'dyn_repca_Kp', optional: true },
+                        dyn_wt_H: { name: 'dyn_wt_H', optional: true },
+                        dyn_wt_DAMP: { name: 'dyn_wt_DAMP', optional: true },
+                        dyn_dg_Tg: { name: 'dyn_dg_Tg', optional: true },
                     })
                 };
                 componentArrays.staticGenerator.push(staticGenerator);
                 counters.staticGenerator++;
                 break;
+
+            case COMPONENT_TYPES.WIND_TURBINE: {
+                const windAttrs = getAttributesAsObject(cell, {
+                    p_mw: 'p_mw',
+                    q_mvar: 'q_mvar',
+                    sn_mva: 'sn_mva',
+                    scaling: 'scaling',
+                    type: 'type',
+                    k: 'k',
+                    rx: 'rx',
+                    generator_type: 'generator_type',
+                    lrc_pu: 'lrc_pu',
+                    max_ik_ka: 'max_ik_ka',
+                    kappa: 'kappa',
+                    current_source: 'current_source',
+                    reactive_capability_curve: 'reactive_capability_curve',
+                    curve_style: 'curve_style',
+                    q_capability_curve_json: 'q_capability_curve_json',
+                    q_setpoint_mode: 'q_setpoint_mode',
+                    q_cap_voltage_dependent: { name: 'q_cap_voltage_dependent', optional: true },
+                    q_cap_input_model: { name: 'q_cap_input_model', optional: true },
+                    q_cap_scale_min_percent: { name: 'q_cap_scale_min_percent', optional: true },
+                    q_cap_scale_max_percent: { name: 'q_cap_scale_max_percent', optional: true },
+                    q_cap_u_json: { name: 'q_cap_u_json', optional: true },
+                    q_cap_p_json: { name: 'q_cap_p_json', optional: true },
+                    q_cap_qmax_json: { name: 'q_cap_qmax_json', optional: true },
+                    q_cap_qmin_json: { name: 'q_cap_qmin_json', optional: true },
+                    spectrum: { name: 'spectrum', optional: true },
+                    spectrum_csv: { name: 'spectrum_csv', optional: true },
+                    Xdpp: { name: 'Xdpp', optional: true },
+                    XRdp: { name: 'XRdp', optional: true },
+                    wind_speed_ms: { name: 'wind_speed_ms', optional: true },
+                    wind_power_curve_json: { name: 'wind_power_curve_json', optional: true },
+                    wind_curve_approx: { name: 'wind_curve_approx', optional: true },
+                    in_service: { name: 'in_service', optional: true },
+                    cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true },
+                    controllable: { name: 'controllable', optional: true },
+                    min_p_mw: { name: 'min_p_mw', optional: true },
+                    max_p_mw: { name: 'max_p_mw', optional: true },
+                    min_q_mvar: { name: 'min_q_mvar', optional: true },
+                    max_q_mvar: { name: 'max_q_mvar', optional: true },
+                    opf_marginal_cost_eur_per_mwh: { name: 'opf_marginal_cost_eur_per_mwh', optional: true },
+                    opf_cp2_eur_per_mw2: { name: 'opf_cp2_eur_per_mw2', optional: true },
+                    opf_cost_currency: { name: 'opf_cost_currency', optional: true },
+                    dyn_plant_kind: { name: 'dyn_plant_kind', optional: true },
+                    dyn_Sn: { name: 'dyn_Sn', optional: true },
+                    dyn_reg_Tg: { name: 'dyn_reg_Tg', optional: true },
+                    dyn_ree_Vref0: { name: 'dyn_ree_Vref0', optional: true },
+                    dyn_repca_Kp: { name: 'dyn_repca_Kp', optional: true },
+                    dyn_wt_H: { name: 'dyn_wt_H', optional: true },
+                    dyn_wt_DAMP: { name: 'dyn_wt_DAMP', optional: true },
+                    dyn_dg_Tg: { name: 'dyn_dg_Tg', optional: true },
+                });
+                windAttrs.p_mw = computeWindTurbinePMw(
+                    windAttrs.wind_speed_ms,
+                    windAttrs.wind_power_curve_json,
+                    windAttrs.wind_curve_approx || 'linear'
+                );
+                const windTurbine = {
+                    ...baseData,
+                    typ: "Wind Turbine",
+                    userFriendlyName: (() => {
+                        if (cell.value && cell.value.attributes) {
+                            for (let i = 0; i < cell.value.attributes.length; i++) {
+                                if (cell.value.attributes[i].nodeName === 'name') {
+                                    return cell.value.attributes[i].nodeValue;
+                                }
+                            }
+                        }
+                        return cell.mxObjectId.replace('#', '_');
+                    })(),
+                    ...windAttrs
+                };
+                componentArrays.staticGenerator.push(windTurbine);
+                counters.staticGenerator++;
+                break;
+            }
 
             case COMPONENT_TYPES.ASYMMETRIC_STATIC_GENERATOR:
                 const asymmetricGenerator = {
@@ -1512,6 +1609,24 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
     };
     
     addComponents(componentArrays.simulationParameters);
+    // Apply Wind Turbine Controller Pref (P from curve) onto linked Wind Turbine payloads
+    try {
+        const wtc = collectWindTurbineControllers(graph);
+        applyWindTurbineControllerPrefs(componentArrays.staticGenerator, wtc);
+    } catch (e) {
+        console.warn('Wind Turbine Controller apply skipped:', e);
+    }
+    try {
+        addComponents(collectWindTurbineControllersForPayload(graph));
+    } catch (e) {
+        console.warn('Wind Turbine Controller payload collect skipped:', e);
+    }
+    try {
+        const parks = collectParkControllers(graph);
+        addComponents(parks);
+    } catch (e) {
+        console.warn('Park Controller collect skipped:', e);
+    }
     addComponents(componentArrays.externalGrid);
     addComponents(componentArrays.generator);
     addComponents(componentArrays.staticGenerator);

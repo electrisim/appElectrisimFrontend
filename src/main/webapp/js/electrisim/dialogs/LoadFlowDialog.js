@@ -132,9 +132,18 @@ export class LoadFlowDialog extends Dialog {
                     { value: 'Snapshot', label: 'Snapshot (Single Solution)', default: true },
                     { value: 'Daily', label: 'Daily (24-hour simulation)' },
                     { value: 'Dutycycle', label: 'Dutycycle (Time-varying)' },
-                    { value: 'Yearly', label: 'Yearly' }
+                    { value: 'Yearly', label: 'Yearly' },
+                    { value: 'M1', label: 'M1 (Monte Carlo load variation)' },
+                    { value: 'M2', label: 'M2 (Monte Carlo load variation)' },
+                    { value: 'M3', label: 'M3 (Monte Carlo at a specified hour)' }
                 ]
             },
+            { id: 'monteCarloNumber', label: 'Monte Carlo Samples', type: 'number', value: '100', min: 1, visibleWhenMonteCarlo: true },
+            {
+                id: 'monteCarloRandom', label: 'Random Distribution', type: 'radio', visibleWhenMonteCarlo: true,
+                options: [{ value: 'Uniform', label: 'Uniform', default: true }, { value: 'Gaussian', label: 'Gaussian' }]
+            },
+            { id: 'monteCarloHour', label: 'Hour (M3 only)', type: 'number', value: '0', min: 0, max: 23, visibleWhenM3: true },
             {
                 id: 'algorithm',
                 label: 'Solution Algorithm',
@@ -353,6 +362,8 @@ export class LoadFlowDialog extends Dialog {
             Object.assign(formGroup.style, {
                 marginBottom: '4px'
             });
+            if (param.visibleWhenMonteCarlo) formGroup.dataset.monteCarloField = 'true';
+            if (param.visibleWhenM3) formGroup.dataset.monteCarloM3Field = 'true';
 
             if (param.type === 'sectionTitle' && param.id === 'include_controller_section') {
                 includeControllerGroup = document.createElement('div');
@@ -440,7 +451,18 @@ export class LoadFlowDialog extends Dialog {
                 form.appendChild(formGroup);
             }
         });
-
+        const updateMonteCarloVisibility = () => {
+            const selectedMode = form.querySelector('input[name="mode"]:checked')?.value;
+            const isMonteCarlo = ['M1', 'M2', 'M3'].includes(selectedMode);
+            form.querySelectorAll('[data-monte-carlo-field]').forEach(group => {
+                group.style.display = isMonteCarlo ? '' : 'none';
+            });
+            form.querySelectorAll('[data-monte-carlo-m3-field]').forEach(group => {
+                group.style.display = selectedMode === 'M3' ? '' : 'none';
+            });
+        };
+        form.querySelectorAll('input[name="mode"]').forEach(input => input.addEventListener('change', updateMonteCarloVisibility));
+        updateMonteCarloVisibility();
         return form;
     }
 

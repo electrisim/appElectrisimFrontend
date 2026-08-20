@@ -132,7 +132,7 @@ export class TransientStabilityDialog extends Dialog {
     }
 
     getDescription() {
-        return 'Time-domain transient stability using ANDES. Requires at least one Generator; missing dynamics use GENROU + EXDC2 + TGOV1 defaults.';
+        return 'Time-domain transient stability using ANDES. Requires at least one synchronous Generator or Static Generator with an IBR, Wind, PVD1, or ESD1 dynamic plant; External Grid alone is insufficient.';
     }
 }
 

@@ -290,7 +290,16 @@ export const defaultStaticGeneratorData = {
     spectrum: 'defaultgen',
     spectrum_csv: '',
     Xdpp: 0.2,
-    XRdp: 20
+    XRdp: 20,
+    /** ANDES renewable / inverter dynamics */
+    dyn_plant_kind: 'NONE',
+    dyn_Sn: '',
+    dyn_reg_Tg: '',
+    dyn_ree_Vref0: '',
+    dyn_repca_Kp: '',
+    dyn_wt_H: '',
+    dyn_wt_DAMP: '',
+    dyn_dg_Tg: ''
 };
 
 export class StaticGeneratorDialog extends Dialog {
@@ -479,6 +488,32 @@ export class StaticGeneratorDialog extends Dialog {
                 step: '0.1',
                 min: '0'
             }
+        ];
+
+        // ANDES attaches these to the StaticGen(PV) representation. Empty fields
+        // intentionally let the installed ANDES release choose its model defaults.
+        this.dynamicsParameters = [
+            {
+                id: 'dyn_plant_kind',
+                label: 'Dynamic plant kind',
+                description: 'None omits dynamics. IBR uses REGCA1 + REECA1 + REPCA1; Wind also adds drivetrain, aerodynamic, pitch and torque models.',
+                type: 'select',
+                value: this.data.dyn_plant_kind,
+                options: [
+                    { value: 'NONE', label: 'None' },
+                    { value: 'IBR', label: 'IBR plant (REGCA1 / REECA1 / REPCA1)' },
+                    { value: 'WIND', label: 'Wind plant (IBR + WT models)' },
+                    { value: 'PVD1', label: 'PVD1 distributed PV' },
+                    { value: 'ESD1', label: 'ESD1 energy storage' }
+                ]
+            },
+            { id: 'dyn_Sn', label: 'Dynamic model base (Sn)', unit: 'MVA', description: 'Optional model MVA base. Empty uses static-generator rating, then backend fallback.', type: 'text', value: String(this.data.dyn_Sn ?? '') },
+            { id: 'dyn_reg_Tg', label: 'REGCA1 Tg', unit: 's', description: 'Converter current-control time constant (IBR/Wind). Empty → model default.', type: 'text', value: String(this.data.dyn_reg_Tg ?? '') },
+            { id: 'dyn_ree_Vref0', label: 'REECA1 Vref0', unit: 'pu', description: 'Electrical-controller voltage reference (IBR/Wind). Empty → model default.', type: 'text', value: String(this.data.dyn_ree_Vref0 ?? '') },
+            { id: 'dyn_repca_Kp', label: 'REPCA1 Kp', description: 'Optional plant-controller proportional gain (IBR/Wind). Empty → model default.', type: 'text', value: String(this.data.dyn_repca_Kp ?? '') },
+            { id: 'dyn_wt_H', label: 'WTDTA1 H', unit: 's', description: 'Wind turbine total inertia (Wind only). Empty → model default.', type: 'text', value: String(this.data.dyn_wt_H ?? '') },
+            { id: 'dyn_wt_DAMP', label: 'WTDTA1 DAMP', description: 'Wind drivetrain damping (Wind only). Empty → model default.', type: 'text', value: String(this.data.dyn_wt_DAMP ?? '') },
+            { id: 'dyn_dg_Tg', label: 'DG Tg', unit: 's', description: 'Optional PVD1/ESD1 converter time constant. Empty → model default.', type: 'text', value: String(this.data.dyn_dg_Tg ?? '') }
         ];
 
         // Reactive power capability curve (pandapower net.q_capability_curve_table; requires enforce_q_lims in PF)
@@ -676,6 +711,14 @@ export class StaticGeneratorDialog extends Dialog {
         // Use global App if ui is not valid
         this.ui = this.ui || window.App?.main?.editor?.editorUi;
 
+        try {
+            const th = this.ui?.editor?.graph?.tooltipHandler;
+            if (th) {
+                if (typeof th.hide === 'function') th.hide();
+                else if (typeof th.hideTooltip === 'function') th.hideTooltip();
+            }
+        } catch (e) { /* ignore */ }
+
         this._qcapTemplateBasePoints = null;
         this._qcapTemplatePRatedMw = null;
         this._qcapTemplateSnBase = null;
@@ -725,6 +768,7 @@ export class StaticGeneratorDialog extends Dialog {
         const shortCircuitTab = this.createTab('Short Circuit', 'shortcircuit', this.currentTab === 'shortcircuit');
         const advancedTab = this.createTab('Advanced', 'advanced', this.currentTab === 'advanced');
         const harmonicTab = this.createTab('Harmonic', 'harmonic', this.currentTab === 'harmonic');
+        const dynamicsTab = this.createTab('Dynamics', 'dynamics', this.currentTab === 'dynamics');
         const qCapTab = this.createTab('Q capability', 'qcapability', this.currentTab === 'qcapability');
         const opfTab = this.createTab('OPF', 'opf', this.currentTab === 'opf');
         const economicTab = this.createTab('Economic', 'economic', this.currentTab === 'economic');
@@ -734,6 +778,7 @@ export class StaticGeneratorDialog extends Dialog {
         tabContainer.appendChild(shortCircuitTab);
         tabContainer.appendChild(advancedTab);
         tabContainer.appendChild(harmonicTab);
+        tabContainer.appendChild(dynamicsTab);
         tabContainer.appendChild(qCapTab);
         tabContainer.appendChild(opfTab);
         tabContainer.appendChild(economicTab);
@@ -764,6 +809,8 @@ export class StaticGeneratorDialog extends Dialog {
             triSgen.csvValue = this.data.spectrum_csv || '';
         }
         const harmonicContent = this.createTabContent('harmonic', this.harmonicParameters);
+        const dynamicsContent = this.createTabContent('dynamics', this.dynamicsParameters);
+        this._wireDynamicsFieldVisibility();
         const qCapContent = this.createTabContent('qcapability', this.qCapabilityParameters);
         const opfContent = this.createTabContent('opf', this.opfParameters);
         const economicContent = this.createTabContent('economic', this.economicParameters);
@@ -778,6 +825,7 @@ export class StaticGeneratorDialog extends Dialog {
         contentArea.appendChild(shortCircuitContent);
         contentArea.appendChild(advancedContent);
         contentArea.appendChild(harmonicContent);
+        contentArea.appendChild(dynamicsContent);
         contentArea.appendChild(qCapContent);
         contentArea.appendChild(opfContent);
         contentArea.appendChild(economicContent);
@@ -915,14 +963,11 @@ export class StaticGeneratorDialog extends Dialog {
         this.container = container;
         
         // Tab click handlers
-        powerTab.onclick = () => this.switchTab('power', powerTab, [ratingTab, shortCircuitTab, advancedTab, harmonicTab, qCapTab, opfTab, economicTab], powerContent, [ratingContent, shortCircuitContent, advancedContent, harmonicContent, qCapContent, opfContent, economicContent]);
-        ratingTab.onclick = () => this.switchTab('rating', ratingTab, [powerTab, shortCircuitTab, advancedTab, harmonicTab, qCapTab, opfTab, economicTab], ratingContent, [powerContent, shortCircuitContent, advancedContent, harmonicContent, qCapContent, opfContent, economicContent]);
-        shortCircuitTab.onclick = () => this.switchTab('shortcircuit', shortCircuitTab, [powerTab, ratingTab, advancedTab, harmonicTab, qCapTab, opfTab, economicTab], shortCircuitContent, [powerContent, ratingContent, advancedContent, harmonicContent, qCapContent, opfContent, economicContent]);
-        advancedTab.onclick = () => this.switchTab('advanced', advancedTab, [powerTab, ratingTab, shortCircuitTab, harmonicTab, qCapTab, opfTab, economicTab], advancedContent, [powerContent, ratingContent, shortCircuitContent, harmonicContent, qCapContent, opfContent, economicContent]);
-        harmonicTab.onclick = () => this.switchTab('harmonic', harmonicTab, [powerTab, ratingTab, shortCircuitTab, advancedTab, qCapTab, opfTab, economicTab], harmonicContent, [powerContent, ratingContent, shortCircuitContent, advancedContent, qCapContent, opfContent, economicContent]);
-        qCapTab.onclick = () => this.switchTab('qcapability', qCapTab, [powerTab, ratingTab, shortCircuitTab, advancedTab, harmonicTab, opfTab, economicTab], qCapContent, [powerContent, ratingContent, shortCircuitContent, advancedContent, harmonicContent, opfContent, economicContent]);
-        opfTab.onclick = () => this.switchTab('opf', opfTab, [powerTab, ratingTab, shortCircuitTab, advancedTab, harmonicTab, qCapTab, economicTab], opfContent, [powerContent, ratingContent, shortCircuitContent, advancedContent, harmonicContent, qCapContent, economicContent]);
-        economicTab.onclick = () => this.switchTab('economic', economicTab, [powerTab, ratingTab, shortCircuitTab, advancedTab, harmonicTab, qCapTab, opfTab], economicContent, [powerContent, ratingContent, shortCircuitContent, advancedContent, harmonicContent, qCapContent, opfContent]);
+        const allTabs = [powerTab, ratingTab, shortCircuitTab, advancedTab, harmonicTab, dynamicsTab, qCapTab, opfTab, economicTab];
+        const allContents = [powerContent, ratingContent, shortCircuitContent, advancedContent, harmonicContent, dynamicsContent, qCapContent, opfContent, economicContent];
+        [[powerTab, powerContent, 'power'], [ratingTab, ratingContent, 'rating'], [shortCircuitTab, shortCircuitContent, 'shortcircuit'], [advancedTab, advancedContent, 'advanced'], [harmonicTab, harmonicContent, 'harmonic'], [dynamicsTab, dynamicsContent, 'dynamics'], [qCapTab, qCapContent, 'qcapability'], [opfTab, opfContent, 'opf'], [economicTab, economicContent, 'economic']].forEach(([tab, content, id]) => {
+            tab.onclick = () => this.switchTab(id, tab, allTabs.filter(t => t !== tab), content, allContents.filter(c => c !== content));
+        });
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
@@ -1169,6 +1214,44 @@ export class StaticGeneratorDialog extends Dialog {
         });
 
         parameters.forEach(param => {
+            if (param.hidden) {
+                // Keep a hidden input registered for Apply/serialize without showing a row
+                if (param.type === 'textarea') {
+                    const hidden = document.createElement('textarea');
+                    hidden.id = param.id;
+                    hidden.value = param.value || '';
+                    hidden.style.display = 'none';
+                    form.appendChild(hidden);
+                    this.inputs.set(param.id, hidden);
+                } else if (param.type === 'number' || param.type === 'text' || param.type === 'select') {
+                    const hidden = document.createElement(param.type === 'select' ? 'select' : 'input');
+                    if (param.type !== 'select') hidden.type = param.type === 'number' ? 'number' : 'text';
+                    hidden.id = param.id;
+                    hidden.value = param.value != null ? String(param.value) : '';
+                    if (param.type === 'select' && Array.isArray(param.options)) {
+                        param.options.forEach((opt) => {
+                            const o = document.createElement('option');
+                            const val = typeof opt === 'object' ? opt.value : opt;
+                            o.value = val;
+                            o.textContent = typeof opt === 'object' ? (opt.label || opt.value) : opt;
+                            hidden.appendChild(o);
+                        });
+                        hidden.value = param.value != null ? String(param.value) : hidden.value;
+                    }
+                    hidden.style.display = 'none';
+                    form.appendChild(hidden);
+                    this.inputs.set(param.id, hidden);
+                } else if (param.type === 'checkbox') {
+                    const hidden = document.createElement('input');
+                    hidden.type = 'checkbox';
+                    hidden.id = param.id;
+                    hidden.checked = !!param.value;
+                    hidden.style.display = 'none';
+                    form.appendChild(hidden);
+                    this.inputs.set(param.id, hidden);
+                }
+                return;
+            }
             const parameterRow = document.createElement('div');
             const isTextarea = param.type === 'textarea';
             const isTriHarm = param.type === 'harmonicSpectrumTriState';
@@ -1428,6 +1511,27 @@ export class StaticGeneratorDialog extends Dialog {
         
         return button;
     }
+
+    _wireDynamicsFieldVisibility() {
+        const show = (id, visible) => {
+            const input = this.inputs.get(id);
+            const row = input?.parentElement?.parentElement;
+            if (row) row.style.display = visible ? 'grid' : 'none';
+        };
+        const update = () => {
+            const kind = this.inputs.get('dyn_plant_kind')?.value || 'NONE';
+            const renewable = kind === 'IBR' || kind === 'WIND';
+            show('dyn_Sn', kind !== 'NONE');
+            show('dyn_reg_Tg', renewable);
+            show('dyn_ree_Vref0', renewable);
+            show('dyn_repca_Kp', renewable);
+            show('dyn_wt_H', kind === 'WIND');
+            show('dyn_wt_DAMP', kind === 'WIND');
+            show('dyn_dg_Tg', kind === 'PVD1' || kind === 'ESD1');
+        };
+        this.inputs.get('dyn_plant_kind')?.addEventListener('change', update);
+        update();
+    }
     
     switchTab(tabId, activeTab, inactiveTabs, activeContent, inactiveContents) {
         this.currentTab = tabId;
@@ -1465,7 +1569,7 @@ export class StaticGeneratorDialog extends Dialog {
         // Collect all parameter values from all tabs
         [...this.powerParameters, ...this.ratingParameters, ...this.shortCircuitParameters, ...this.advancedParameters,
             ...(this.opfParameters || []),
-            ...(this.harmonicParameters || []), ...(this.qCapabilityParameters || []), ...(this.economicParameters || [])].forEach(param => {
+            ...(this.harmonicParameters || []), ...(this.dynamicsParameters || []), ...(this.qCapabilityParameters || []), ...(this.economicParameters || [])].forEach(param => {
             if (param.type === 'harmonicSpectrumTriState') {
                 if (this.inputs.get(param.triStateModeSelectId)) {
                     Object.assign(values, valuesFromHarmonicSpectrumTriState(this.inputs, {
@@ -1626,6 +1730,12 @@ export class StaticGeneratorDialog extends Dialog {
                     }
                     console.log(`  Updated qCapability ${attributeName}: ${oldValue} → ${qCapParam.value}`);
                 }
+
+                const dynamicsParam = (this.dynamicsParameters || []).find(p => p.id === attributeName);
+                if (dynamicsParam) {
+                    dynamicsParam.value = attributeValue != null ? String(attributeValue) : '';
+                    this.data[attributeName] = dynamicsParam.value;
+                }
                 
                 const economicParam = (this.economicParameters || []).find(p => p.id === attributeName);
                 if (economicParam) {
@@ -1634,7 +1744,7 @@ export class StaticGeneratorDialog extends Dialog {
                     console.log(`  Updated economic ${attributeName}: → ${attributeValue}`);
                 }
                 
-                if (!powerParam && !ratingParam && !shortCircuitParam && !advancedParam && !opfParam && !harmonicParam && !qCapParam && !economicParam
+                if (!powerParam && !ratingParam && !shortCircuitParam && !advancedParam && !opfParam && !harmonicParam && !qCapParam && !dynamicsParam && !economicParam
                     && attributeName !== 'spectrum' && attributeName !== 'spectrum_csv') {
                     console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
