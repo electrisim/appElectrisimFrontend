@@ -1,9 +1,9 @@
-# Auth pages first — never fall through to the SPA shell
-/login /login.html 200
-/login.html /login.html 200
+# Do not rewrite /login → /login.html.
+# Cloudflare Pages Pretty URLs already serve login.html at /login
+# (same as /forgot-password, /auth-callback). A rewrite to .html
+# plus Pretty URLs 308-stripping creates ERR_TOO_MANY_REDIRECTS.
 /robots.txt /robots.txt 200
 /sitemap.xml /sitemap.xml 200
 
 # SPA fallback for the editor
 /* /index.html 200
- 
