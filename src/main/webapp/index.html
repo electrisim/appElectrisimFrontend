@@ -10,7 +10,10 @@
     <link rel="preload" href="https://unpkg.com/ag-grid-community@31.3.2/dist/ag-grid-community.min.js" as="script">
 
     <!-- Module preload hints for analysis engines: makes browser fetch them earlier (HTTP/2 prioritized)
-         and shrinks the window for transient script-load failures (see Smartlook error reports). -->
+         and shrinks the window for transient script-load failures (see Smartlook error reports).
+         Several of these are no longer executed at load (see electrisimScripts below) - preloading
+         keeps their on-demand import() a warm cache hit without spending main-thread time on
+         evaluating them during startup. -->
     <link rel="modulepreload" href="js/electrisim/shortCircuit.js">
     <link rel="modulepreload" href="js/electrisim/arcFlash.js">
     <link rel="modulepreload" href="js/electrisim/motorStarting.js">
@@ -124,6 +127,54 @@
             }, 3000);
         });
     </script>
+    <!-- INP diagnostics - opt-in only (?inpLog=1 or ?perfMonitor=1).
+         Reports which interaction phase dominates so INP regressions can be attributed
+         to input delay, handler work, or presentation instead of guessed at. -->
+    <script type="text/javascript">
+        (function() {
+            var q = new URLSearchParams(window.location.search || '');
+            if (q.get('inpLog') !== '1' && q.get('perfMonitor') !== '1') return;
+
+            window.__electrisimInpLog = [];
+
+            function report(metric) {
+                var att = metric.attribution || {};
+                var entry = {
+                    inp: Math.round(metric.value),
+                    rating: metric.rating,
+                    target: att.interactionTarget || '(unknown)',
+                    type: att.interactionType,
+                    inputDelay: Math.round(att.inputDelay || 0),
+                    processing: Math.round(att.processingDuration || 0),
+                    presentation: Math.round(att.presentationDelay || 0)
+                };
+                window.__electrisimInpLog.push(entry);
+                console.log(
+                    '[INP] ' + entry.inp + 'ms (' + entry.rating + ') on ' + entry.target +
+                    ' | input delay ' + entry.inputDelay +
+                    'ms + processing ' + entry.processing +
+                    'ms + presentation ' + entry.presentation + 'ms'
+                );
+            }
+
+            window.dumpInpLog = function() {
+                console.table(window.__electrisimInpLog);
+                return window.__electrisimInpLog;
+            };
+
+            window.__electrisimReportInp = report;
+            var s = document.createElement('script');
+            s.type = 'module';
+            // Attribution build (not the base bundle) is what exposes inputDelay /
+            // processingDuration / presentationDelay.
+            s.textContent =
+                "import {onINP} from 'https://unpkg.com/web-vitals@4.2.4/dist/web-vitals.attribution.js';" +
+                "onINP((m) => window.__electrisimReportInp(m), {reportAllChanges: true});";
+            document.head.appendChild(s);
+            console.log('[INP] diagnostics active - call dumpInpLog() for the full table');
+        })();
+    </script>
+
     <script type="text/javascript">
         // Suppress MetaMask extension errors (extension injects into every page; failures are not from our app)
         window.addEventListener('unhandledrejection', function(e) {
@@ -739,10 +790,6 @@
 								'js/electrisim/loadDialog.js',
 								'js/electrisim/asymmetricLoadDialog.js',
 								'js/electrisim/shortCircuit.js',
-								'js/electrisim/arcFlash.js',
-								'js/electrisim/motorStarting.js',
-								'js/electrisim/transientStability.js',
-								'js/electrisim/eigenvalueAnalysis.js',
 								'js/electrisim/impedanceDialog.js',
 								'js/electrisim/wardDialog.js',
 								'js/electrisim/extendedWardDialog.js',
@@ -760,18 +807,18 @@
 								'js/electrisim/TCSCDialog.js',
 								'js/electrisim/dcLineDialog.js',
 								'js/electrisim/configureAttributes.js',
-								'js/electrisim/dialogs/MapEditorDialog.js',
+								// MapEditorDialog.js is pulled in by mapInitializer.js's static import
 								'js/electrisim/map/mapInitializer.js',
 								'js/electrisim/supportingFunctions.js',
 								'js/electrisim/loadFlow.js',
 								'js/electrisim/loadflowOpenDss.js',
-								'js/electrisim/bessSizing.js',
-								'js/electrisim/rpcAnalysis.js',
 								'js/electrisim/optimalPowerFlow.js',
 								'js/electrisim/timeSeriesSimulation.js',
-								'js/electrisim/contingencyAnalysis.js',
-								'js/electrisim/protectionCoordination.js',
-								'js/electrisim/dgInterconnection.js'
+								'js/electrisim/contingencyAnalysis.js'
+                                // Loaded on demand by their menu actions in app.min.js, which
+                                // fall back to import() when the global is not defined yet:
+                                // arcFlash, motorStarting, transientStability, eigenvalueAnalysis,
+                                // protectionCoordination, bessSizing, rpcAnalysis, dgInterconnection
                             ];
 							
 							// Auth scripts (Stripe, etc.) - deferred until after Electrisim scripts for faster initial load

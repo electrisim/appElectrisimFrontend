@@ -723,3 +723,7 @@ function processBessSizingResults(dataJson, graph, editorUi, values) {
 
 // Export function
 window.bessSizing = bessSizing;
+// The bessSizingCalculation menu action destructures this named export when the
+// module is loaded on demand, so it must exist alongside the global.
+export { bessSizing };
+export default bessSizing;

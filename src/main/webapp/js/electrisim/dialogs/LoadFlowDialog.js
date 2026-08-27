@@ -3,16 +3,17 @@
 import { Dialog } from '../Dialog.js';
 import { ensureSubscriptionFunctions } from '../ensureSubscriptionFunctions.js';
 import { SIMULATION_FORM_SCROLL_STYLE, SIMULATION_INFO_BANNER_STYLE, STUDY_MODAL_OVERLAY_STYLE, attachBackdropCloseHandler, getStudyModalDialogBoxStyle, preventAccidentalFormSubmit, STUDY_MODAL_CONTENT_WRAPPER_STYLE } from '../utils/dialogStyles.js';
+import { devLog, isDevEnvironment } from '../utils/devLog.js';
 
-console.log('🔥 LoadFlowDialog.js LOADED - Version 2024-10-18 14:30 - WITH NEW OPENDSS PARAMETERS');
+devLog('🔥 LoadFlowDialog.js LOADED - Version 2024-10-18 14:30 - WITH NEW OPENDSS PARAMETERS');
 
 export class LoadFlowDialog extends Dialog {
     constructor(editorUi) {
         super('Load Flow Parameters', 'Calculate');
-        console.log('🔥 LoadFlowDialog constructor called - OpenDSS params include: mode, loadmodel, controlmode');
-        console.log('   - this.inputs from parent:', this.inputs);
-        console.log('   - this.inputs is Map:', this.inputs instanceof Map);
-        console.log('   - this.inputs size:', this.inputs.size);
+        devLog('🔥 LoadFlowDialog constructor called - OpenDSS params include: mode, loadmodel, controlmode');
+        devLog('   - this.inputs from parent:', this.inputs);
+        devLog('   - this.inputs is Map:', this.inputs instanceof Map);
+        devLog('   - this.inputs size:', this.inputs.size);
         
         // Use global App if editorUi is not valid
         this.ui = editorUi || window.App?.main?.editor?.editorUi;
@@ -87,7 +88,7 @@ export class LoadFlowDialog extends Dialog {
             {
                 id: 'run_control_shunt',
                 label: 'Shunt reactor tap changer',
-                checkboxLabel: 'DiscreteShuntController (voltage/target step control). Line P→shunt step from bands runs automatically when turned on on the shunt dialog — no tick here.',
+                checkboxLabel: 'DiscreteShuntController (voltage/target step) and Line P→shunt step. Both require this tick.',
                 type: 'checkbox',
                 value: false
             },
@@ -793,12 +794,12 @@ export class LoadFlowDialog extends Dialog {
             
             // Check subscription status before proceeding
             try {
-                console.log('LoadFlowDialog: Starting subscription check...');
+                devLog('LoadFlowDialog: Starting subscription check...');
                 const hasSubscription = await this.checkSubscriptionStatus();
-                console.log('LoadFlowDialog: Subscription check result:', hasSubscription);
+                devLog('LoadFlowDialog: Subscription check result:', hasSubscription);
                 
                 if (!hasSubscription) {
-                    console.log('LoadFlowDialog: No subscription, showing modal...');
+                    devLog('LoadFlowDialog: No subscription, showing modal...');
                     // Close the dialog first
                     if (this.modalOverlay && this.modalOverlay.parentNode) {
                         document.body.removeChild(this.modalOverlay);
@@ -806,7 +807,7 @@ export class LoadFlowDialog extends Dialog {
                     
                     // Show subscription modal if no active subscription
                     if (window.showSubscriptionModal) {
-                        console.log('LoadFlowDialog: Calling showSubscriptionModal');
+                        devLog('LoadFlowDialog: Calling showSubscriptionModal');
                         window.showSubscriptionModal();
                     } else {
                         console.error('LoadFlowDialog: Subscription modal not available');
@@ -815,60 +816,59 @@ export class LoadFlowDialog extends Dialog {
                     return;
                 }
                 
-                console.log('LoadFlowDialog: Subscription check passed, proceeding with calculation...');
-                console.log('=== PRE-CALLBACK DEBUG ===');
-                console.log('Current tab:', this.currentTab);
-                console.log('Inputs map size before getFormValues:', this.inputs.size);
-                console.log('Inputs map keys:', Array.from(this.inputs.keys()));
-                
-                // Debug: Check ALL checkboxes in the DOM
-                const allCheckboxes = this.container ? this.container.querySelectorAll('input[type="checkbox"]') : [];
-                console.log('All checkboxes in container:', allCheckboxes.length);
-                allCheckboxes.forEach((cb, idx) => {
-                    console.log(`  Checkbox ${idx}: id="${cb.id}", checked=${cb.checked}, instance="${cb.getAttribute('data-instance-id')}"`);
-                });
-                
-                // Debug: Check if exportPython checkbox is in the inputs map
-                if (this.inputs.has('exportPython')) {
-                    const checkbox = this.inputs.get('exportPython');
-                    console.log('exportPython checkbox found in inputs map:');
-                    console.log('  - checked:', checkbox.checked);
-                    console.log('  - id:', checkbox.id);
-                    console.log('  - type:', checkbox.type);
-                    console.log('  - instance ID:', checkbox.getAttribute('data-instance-id'));
-                    console.log('  - Element still in DOM:', document.body.contains(checkbox));
-                    
-                    // Also check if there's a different checkbox in the DOM with same ID
-                    const domCheckbox = document.getElementById('exportPython');
-                    if (domCheckbox && domCheckbox !== checkbox) {
-                        console.warn('⚠️ FOUND DIFFERENT CHECKBOX IN DOM WITH SAME ID!');
-                        console.log('  - DOM checkbox checked:', domCheckbox.checked);
-                        console.log('  - DOM checkbox instance ID:', domCheckbox.getAttribute('data-instance-id'));
-                        console.log('  - Map checkbox instance ID:', checkbox.getAttribute('data-instance-id'));
-                    }
-                } else {
-                    console.warn('❌ exportPython checkbox NOT FOUND in inputs map!');
-                    console.log('Attempting direct DOM lookup...');
-                    const domCheckbox = document.getElementById('exportPython');
-                    if (domCheckbox) {
-                        console.log('✅ Found via DOM lookup:');
-                        console.log('  - checked:', domCheckbox.checked);
-                        console.log('  - id:', domCheckbox.id);
-                        console.log('  - instance ID:', domCheckbox.getAttribute('data-instance-id'));
+                devLog('LoadFlowDialog: Subscription check passed, proceeding with calculation...');
+
+                if (isDevEnvironment()) {
+                    console.log('=== PRE-CALLBACK DEBUG ===');
+                    console.log('Current tab:', this.currentTab);
+                    console.log('Inputs map size before getFormValues:', this.inputs.size);
+                    console.log('Inputs map keys:', Array.from(this.inputs.keys()));
+
+                    // Debug: Check ALL checkboxes in the DOM
+                    const allCheckboxes = this.container ? this.container.querySelectorAll('input[type="checkbox"]') : [];
+                    console.log('All checkboxes in container:', allCheckboxes.length);
+                    allCheckboxes.forEach((cb, idx) => {
+                        console.log(`  Checkbox ${idx}: id="${cb.id}", checked=${cb.checked}, instance="${cb.getAttribute('data-instance-id')}"`);
+                    });
+
+                    // Debug: Check if exportPython checkbox is in the inputs map
+                    if (this.inputs.has('exportPython')) {
+                        const checkbox = this.inputs.get('exportPython');
+                        console.log('exportPython checkbox found in inputs map:');
+                        console.log('  - checked:', checkbox.checked);
+                        console.log('  - id:', checkbox.id);
+                        console.log('  - type:', checkbox.type);
+                        console.log('  - instance ID:', checkbox.getAttribute('data-instance-id'));
+                        console.log('  - Element still in DOM:', document.body.contains(checkbox));
+
+                        // Also check if there's a different checkbox in the DOM with same ID
+                        const domCheckbox = document.getElementById('exportPython');
+                        if (domCheckbox && domCheckbox !== checkbox) {
+                            console.warn('⚠️ FOUND DIFFERENT CHECKBOX IN DOM WITH SAME ID!');
+                            console.log('  - DOM checkbox checked:', domCheckbox.checked);
+                            console.log('  - DOM checkbox instance ID:', domCheckbox.getAttribute('data-instance-id'));
+                            console.log('  - Map checkbox instance ID:', checkbox.getAttribute('data-instance-id'));
+                        }
                     } else {
-                        console.error('❌ NOT FOUND via DOM lookup either!');
+                        console.warn('❌ exportPython checkbox NOT FOUND in inputs map!');
+                        console.log('Attempting direct DOM lookup...');
+                        const domCheckbox = document.getElementById('exportPython');
+                        if (domCheckbox) {
+                            console.log('✅ Found via DOM lookup:');
+                            console.log('  - checked:', domCheckbox.checked);
+                            console.log('  - id:', domCheckbox.id);
+                            console.log('  - instance ID:', domCheckbox.getAttribute('data-instance-id'));
+                        } else {
+                            console.error('❌ NOT FOUND via DOM lookup either!');
+                        }
                     }
+                    console.log('=== END PRE-CALLBACK DEBUG ===');
                 }
-                
+
                 const values = this.getFormValues();
-                console.log(`${this.title} collected values:`, values);
-                console.log('exportPython in values:', 'exportPython' in values);
-                console.log('exportPython value:', values.exportPython);
-                console.log('exportPython type:', typeof values.exportPython);
-                console.log('=== END PRE-CALLBACK DEBUG ===');
-                
+                devLog(`${this.title} collected values:`, values);
+
                 if (callback) {
-                    console.log('Calling callback with values:', values);
                     callback(values);
                 }
                 

@@ -1,6 +1,11 @@
 import { attachBackdropCloseHandler } from '../utils/dialogStyles.js';
 import { applyLoadFlowResultsToGraph } from '../utils/applyLoadFlowResults.js';
-import { buildUqChartGeometry } from './RPCDialog.js';
+import {
+    buildUqChartGeometry,
+    getUqGridTemplateRequirementsMw,
+    getUqGridTemplateDisplayName,
+    resolveUqTemplateKeyFromRpcResults
+} from './RPCDialog.js';
 
 console.log('RPCResultsDialog.js LOADED');
 
@@ -61,6 +66,121 @@ function _extractUqCurveFromResults(data) {
 
     if (!u_pu.length) return null;
     return { u_pu, q_max_mvar, q_min_mvar, p_mw: pRated };
+}
+
+function _hasUqRequirementPoints(req) {
+    return !!(req && Array.isArray(req.u_pu) && req.u_pu.length > 0);
+}
+
+/** Linear interp of Q vs U, skipping nulls; clip to endpoints (matches backend). */
+function _interpMaskedQ(x, xs, ys) {
+    const pairs = [];
+    const n = Math.min((xs || []).length, (ys || []).length);
+    for (let i = 0; i < n; i++) {
+        if (ys[i] == null || Number.isNaN(Number(ys[i]))) continue;
+        const xf = Number(xs[i]);
+        const yf = Number(ys[i]);
+        if (!Number.isFinite(xf) || !Number.isFinite(yf)) continue;
+        pairs.push({ x: xf, y: yf });
+    }
+    if (!pairs.length) return null;
+    pairs.sort((a, b) => a.x - b.x);
+    if (pairs.length === 1) return pairs[0].y;
+    if (x <= pairs[0].x) return pairs[0].y;
+    if (x >= pairs[pairs.length - 1].x) return pairs[pairs.length - 1].y;
+    for (let i = 0; i < pairs.length - 1; i++) {
+        if (x >= pairs[i].x && x <= pairs[i + 1].x) {
+            const span = pairs[i + 1].x - pairs[i].x;
+            const t = span === 0 ? 0 : (x - pairs[i].x) / span;
+            return pairs[i].y + t * (pairs[i + 1].y - pairs[i].y);
+        }
+    }
+    return pairs[pairs.length - 1].y;
+}
+
+/**
+ * Same rule as backend `_rpc_check_uq_compliance`: capability must cover required
+ * Q_max / Q_min over the U-Q envelope. True / False / null.
+ */
+function _computeUqCompliance(uqCurve, req, tolMvar = 1e-4) {
+    if (!_hasUqRequirementPoints(req) || !uqCurve) return null;
+    const reqU = req.u_pu || [];
+    const reqMax = req.q_req_max_mvar || [];
+    const reqMin = req.q_req_min_mvar || [];
+    const n = Math.min(reqU.length, reqMax.length, reqMin.length);
+    if (n < 1) return null;
+
+    const order = [];
+    for (let i = 0; i < n; i++) {
+        const u = Number(reqU[i]);
+        if (!Number.isFinite(u)) continue;
+        order.push(i);
+    }
+    order.sort((a, b) => Number(reqU[a]) - Number(reqU[b]));
+    if (!order.length) return null;
+    const ru = order.map(i => Number(reqU[i]));
+    const rmax = order.map(i => Number(reqMax[i]));
+    const rmin = order.map(i => Number(reqMin[i]));
+    if (rmax.some(v => !Number.isFinite(v)) || rmin.some(v => !Number.isFinite(v))) return null;
+
+    const capU = uqCurve.u_pu || [];
+    const capMax = uqCurve.q_max_mvar || [];
+    const capMin = uqCurve.q_min_mvar || [];
+    if (!capU.length) return null;
+
+    const uLo = ru[0];
+    const uHi = ru[ru.length - 1];
+    const uCheck = new Set(ru);
+    capU.forEach(u => {
+        const uf = Number(u);
+        if (Number.isFinite(uf) && uf >= uLo && uf <= uHi) uCheck.add(uf);
+    });
+
+    for (const uS of [...uCheck].sort((a, b) => a - b)) {
+        const reqMaxV = _interpMaskedQ(uS, ru, rmax);
+        const reqMinV = _interpMaskedQ(uS, ru, rmin);
+        const capMaxV = _interpMaskedQ(uS, capU, capMax);
+        const capMinV = _interpMaskedQ(uS, capU, capMin);
+        if (reqMaxV == null || reqMinV == null || capMaxV == null || capMinV == null) return false;
+        if (capMaxV < reqMaxV - tolMvar || capMinV > reqMinV + tolMvar) return false;
+    }
+    return true;
+}
+
+/**
+ * Ensure U-Q results have a requirement overlay and a boolean compliance flag.
+ * Reconstructs the envelope from the paired grid-code template when the backend
+ * returned an empty `uq_requirements` (legacy results / dropped payload field).
+ */
+function _attachUqOverlay(data) {
+    if (!data) return;
+    const curve = _extractUqCurveFromResults(data);
+    if (!_hasUqRequirementPoints(data.uq_requirements)) {
+        const key = resolveUqTemplateKeyFromRpcResults(data);
+        const pRated = Number(curve && curve.p_mw) || Number(data.total_installed_mw) || 0;
+        if (key && pRated > 0) {
+            const rows = getUqGridTemplateRequirementsMw(key, pRated);
+            if (rows.length) {
+                data.uq_requirements = {
+                    u_pu: rows.map(r => r.u),
+                    q_req_max_mvar: rows.map(r => r.qMax),
+                    q_req_min_mvar: rows.map(r => r.qMin)
+                };
+            }
+            if (!data.uq_grid_code_template_key) data.uq_grid_code_template_key = key;
+            if (!data.uq_grid_code_template_name) {
+                data.uq_grid_code_template_name = getUqGridTemplateDisplayName(key);
+            }
+        }
+    } else if (!data.uq_grid_code_template_name) {
+        const key = resolveUqTemplateKeyFromRpcResults(data);
+        if (key) data.uq_grid_code_template_name = getUqGridTemplateDisplayName(key);
+    }
+
+    if (data.uq_compliance !== true && data.uq_compliance !== false
+            && _hasUqRequirementPoints(data.uq_requirements)) {
+        data.uq_compliance = _computeUqCompliance(curve, data.uq_requirements);
+    }
 }
 
 /**
@@ -151,6 +271,7 @@ export class RPCResultsDialog {
     }
 
     _createModal(data) {
+        _attachUqOverlay(data);
         this.overlay = document.createElement('div');
         Object.assign(this.overlay.style, {
             position: 'fixed', top: '0', left: '0', width: '100%', height: '100%',
@@ -322,7 +443,7 @@ export class RPCResultsDialog {
         if (data.uq_grid_code_template_name) {
             items.push(['U-Q requirement', data.uq_grid_code_template_name]);
         }
-        if (data.uq_compliance !== null && data.uq_compliance !== undefined) {
+        if (data.uq_compliance === true || data.uq_compliance === false) {
             items.push(['U-Q/Pmax compliance', data.uq_compliance ? 'COMPLIANT' : 'NON-COMPLIANT']);
         }
         items.forEach(([label, val]) => {
@@ -456,18 +577,34 @@ export class RPCResultsDialog {
         clickHint.textContent = `Reactive power capability at P = ${Number(pAt).toFixed(1)} MW (Pmax) vs PCC voltage. Click red points to show load flow on the diagram.`;
         panel.appendChild(clickHint);
 
-        if (data.uq_compliance !== null && data.uq_compliance !== undefined) {
+        const uniqueU = [...new Set((uqCurve.u_pu || []).map(u => Number(Number(u).toFixed(4))))];
+        if (uniqueU.length < 2) {
+            const warn = document.createElement('div');
+            Object.assign(warn.style, {
+                fontSize: '12px', color: '#856404', backgroundColor: '#fff3cd',
+                border: '1px solid #ffc107', borderRadius: '6px', padding: '8px 10px',
+                marginBottom: '12px', lineHeight: '1.45'
+            });
+            warn.textContent = 'U-Q/Pmax needs a voltage sweep at Pmax (for example 0.9, 0.95, 1.0, 1.05, 1.1 pu). ' +
+                'This run has only one PCC voltage, so the red capability is a single operating point. ' +
+                'The blue envelope is still the grid-code U-Q/Pmax requirement. Add those voltages and Calculate again for a full capability curve.';
+            panel.appendChild(warn);
+        }
+
+        const req = data.uq_requirements || {};
+        const complianceVal = data.uq_compliance;
+        if (complianceVal === true || complianceVal === false) {
             const badge = document.createElement('div');
             Object.assign(badge.style, {
                 display: 'inline-block', padding: '4px 14px', borderRadius: '20px',
                 fontSize: '13px', fontWeight: '600', marginBottom: '12px',
-                backgroundColor: data.uq_compliance ? '#d4edda' : '#f8d7da',
-                color: data.uq_compliance ? '#155724' : '#721c24',
-                border: `1px solid ${data.uq_compliance ? '#c3e6cb' : '#f5c6cb'}`
+                backgroundColor: complianceVal ? '#d4edda' : '#f8d7da',
+                color: complianceVal ? '#155724' : '#721c24',
+                border: `1px solid ${complianceVal ? '#c3e6cb' : '#f5c6cb'}`
             });
-            badge.textContent = data.uq_compliance
-                ? 'U-Q/Pmax COMPLIANT — Requirements met at Pmax'
-                : 'U-Q/Pmax NON-COMPLIANT — Requirements not met at Pmax';
+            badge.textContent = complianceVal
+                ? 'COMPLIANT — Requirements met'
+                : 'NON-COMPLIANT — Requirements not met';
             panel.appendChild(badge);
         }
 
@@ -477,7 +614,6 @@ export class RPCResultsDialog {
         Object.assign(canvas.style, { width: '100%', maxHeight: '450px' });
         panel.appendChild(canvas);
 
-        const req = data.uq_requirements || {};
         this._loadChartJS().then(() => {
             this._renderUqChart(canvas, uqCurve, req, data, panel);
         });
@@ -613,15 +749,15 @@ export class RPCResultsDialog {
             }
         ];
 
-        const reqU = reqData.u_pu || [];
-        const reqQMax = reqData.q_req_max_mvar || [];
-        const reqQMin = reqData.q_req_min_mvar || [];
-        if (reqU.length > 0) {
-            const reqRows = reqU.map((u, i) => ({
-                u: Number(u),
-                qMin: reqQMin[i],
-                qMax: reqQMax[i]
-            }));
+        const reqU = (reqData && reqData.u_pu) || [];
+        const reqQMax = (reqData && reqData.q_req_max_mvar) || [];
+        const reqQMin = (reqData && reqData.q_req_min_mvar) || [];
+        const reqRows = reqU.map((u, i) => ({
+            u: Number(u),
+            qMin: Number(reqQMin[i]),
+            qMax: Number(reqQMax[i])
+        })).filter(r => Number.isFinite(r.u) && Number.isFinite(r.qMin) && Number.isFinite(r.qMax));
+        if (reqRows.length > 0) {
             const {
                 qMinPts: reqMinPts,
                 qMaxPts: reqMaxPts,
@@ -629,27 +765,27 @@ export class RPCResultsDialog {
                 envelope: reqEnvelope
             } = buildUqChartGeometry(reqRows, { u: 'u', qMin: 'qMin', qMax: 'qMax' });
 
-            const reqLabel = fullData.uq_grid_code_template_name
-                ? ` (${fullData.uq_grid_code_template_name})`
+            const reqLabelSuffix = fullData.uq_grid_code_template_name || fullData.grid_code_template_name
+                ? ' (grid code)'
                 : '';
             datasets.push({
-                label: `Required Q_max${reqLabel}`,
+                label: `Required Q (overexcited)${reqLabelSuffix}`,
                 data: reqMaxPts,
                 borderColor: '#0d6efd',
                 backgroundColor: 'transparent',
-                borderWidth: 2,
-                pointRadius: 2,
+                borderWidth: 2.5,
+                pointRadius: 3,
                 showLine: true,
                 order: 2
             });
             datasets.push({
-                label: `Required Q_min${reqLabel}`,
+                label: `Required Q (underexcited)${reqLabelSuffix}`,
                 data: reqMinPts,
                 borderColor: '#0d6efd',
                 backgroundColor: 'transparent',
-                borderWidth: 2,
+                borderWidth: 2.5,
                 borderDash: [6, 3],
-                pointRadius: 2,
+                pointRadius: 3,
                 showLine: true,
                 order: 2
             });
@@ -659,7 +795,7 @@ export class RPCResultsDialog {
                     data: c.data,
                     borderColor: '#0d6efd',
                     backgroundColor: 'transparent',
-                    borderWidth: 2,
+                    borderWidth: 2.5,
                     pointRadius: 0,
                     showLine: true,
                     order: 2
@@ -667,10 +803,10 @@ export class RPCResultsDialog {
             });
             if (reqEnvelope.length) {
                 datasets.push({
-                    label: 'U-Q Requirement Area',
+                    label: 'Requirement Area',
                     data: reqEnvelope,
                     borderColor: 'transparent',
-                    backgroundColor: 'rgba(13, 110, 253, 0.06)',
+                    backgroundColor: 'rgba(13, 110, 253, 0.12)',
                     fill: true,
                     pointRadius: 0,
                     showLine: true,
@@ -730,7 +866,7 @@ export class RPCResultsDialog {
                     x: {
                         title: {
                             display: true,
-                            text: 'Net Q at PCC (Mvar) — + overexcited, − underexcited',
+                            text: 'Net Q at PCC (Mvar) — + overexcited, − underexcited; blue = PCC req.',
                             font: { size: 12, weight: '600' }
                         },
                         grid: { color: 'rgba(0,0,0,0.06)' }
@@ -742,8 +878,8 @@ export class RPCResultsDialog {
                             font: { size: 12, weight: '600' }
                         },
                         grid: { color: 'rgba(0,0,0,0.06)' },
-                        min: 0.85,
-                        max: 1.10
+                        min: Math.min(0.85, ...reqRows.map(r => r.u), ...uArr.map(Number).filter(Number.isFinite)),
+                        max: Math.max(1.10, ...reqRows.map(r => r.u), ...uArr.map(Number).filter(Number.isFinite))
                     }
                 }
             }

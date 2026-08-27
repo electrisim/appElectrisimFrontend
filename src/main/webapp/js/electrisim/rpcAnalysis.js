@@ -4,7 +4,8 @@ import {
     getGridTemplateDisplayName,
     getUqGridTemplateRequirementsMw,
     getUqGridTemplateDisplayName,
-    estimateRpcInstalledMw
+    estimateRpcInstalledMw,
+    PQ_TO_UQ_TEMPLATE
 } from './dialogs/RPCDialog.js';
 import { RPCResultsDialog } from './dialogs/RPCResultsDialog.js';
 import { prepareNetworkData } from './utils/networkDataPreparation.js';
@@ -187,6 +188,21 @@ async function _fetchRpcResults(in_data, backendUrl, useStream, progressPre, app
     return dataJson;
 }
 
+function _mergeRpcVoltageLevels(voltageLevels, extraU) {
+    const seen = new Set();
+    const out = [];
+    for (const v of [...(voltageLevels || []), ...(extraU || [])]) {
+        const n = parseFloat(v);
+        if (isNaN(n)) continue;
+        const key = n.toFixed(4);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(Number(key));
+    }
+    out.sort((a, b) => a - b);
+    return out.length ? out : [1.0];
+}
+
 function rpcAnalysis(a, b, c) {
     console.log('RPC Analysis started');
 
@@ -220,9 +236,9 @@ function rpcAnalysis(a, b, c) {
             return;
         }
 
-        const selectedGenIds = values.generatorIds || [];
+        const selectedGenIds = (values.generatorIds || []).filter(id => id);
         if (selectedGenIds.length === 0) {
-            alert('Please select at least one generator');
+            alert('Please select at least one static generator or wind turbine generator');
             return;
         }
 
@@ -251,7 +267,7 @@ function rpcAnalysis(a, b, c) {
         }
 
         try {
-            const voltageLevels = (values.voltageLevels || '1.0')
+            let voltageLevels = (values.voltageLevels || '1.0')
                 .split(',')
                 .map(s => parseFloat(s.trim()))
                 .filter(v => !isNaN(v));
@@ -280,7 +296,7 @@ function rpcAnalysis(a, b, c) {
                 return Math.abs(p) + Math.abs(qn) + Math.abs(qx) > 1e-9;
             });
             const tplKey = values.gridCodeTemplateKey || 'none';
-            // Match backend / dialog "P Max = 0 → auto": use installed static-gen sum for template scaling
+            // Match backend / dialog "P Max = 0 → auto": use installed sgen / wind-turbine sum for template scaling
             let pRated = values.pRatedMw;
             if (!(pRated > 0)) {
                 const pMax = parseFloat(values.pMaxMw);
@@ -304,7 +320,10 @@ function rpcAnalysis(a, b, c) {
                 const qx = parseFloat(r.qMax) || 0;
                 return Math.abs(u) + Math.abs(qn) + Math.abs(qx) > 1e-9;
             });
-            const uqTplKey = values.uqGridCodeTemplateKey || 'none';
+            let uqTplKey = values.uqGridCodeTemplateKey || 'none';
+            if ((uqTplKey === 'none' || !uqTplKey) && PQ_TO_UQ_TEMPLATE[tplKey]) {
+                uqTplKey = PQ_TO_UQ_TEMPLATE[tplKey];
+            }
             if (uqRequirementRows.length === 0 && uqTplKey !== 'none' && uqTplKey !== 'custom_manual' && pRated > 0) {
                 uqRequirementRows = getUqGridTemplateRequirementsMw(uqTplKey, pRated);
             }
@@ -318,6 +337,7 @@ function rpcAnalysis(a, b, c) {
                     q_req_max_mvar: sortedUq.map(r => r.qMax),
                     q_req_min_mvar: sortedUq.map(r => r.qMin)
                 };
+                voltageLevels = _mergeRpcVoltageLevels(voltageLevels, uqRequirements.u_pu);
             }
 
             // { "vKey": { p_mw: [...], q_req_max_mvar: [...], q_req_min_mvar: [...] } }

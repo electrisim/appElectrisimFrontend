@@ -877,23 +877,17 @@ const updateThreeWindingTransformerConnections = (threeWindingTransformerArray, 
             throw new Error("Three-winding transformer requires exactly three busbars.");
         }
 
-        const busbarWithHighestVoltage = busbars.reduce((prev, current) =>
-            parseFloat(prev.vn_kv) > parseFloat(current.vn_kv) ? prev : current
-        );
-
-        const busbarWithLowestVoltage = busbars.reduce((prev, current) =>
-            parseFloat(prev.vn_kv) < parseFloat(current.vn_kv) ? prev : current
-        );
-
-        const busbarWithMiddleVoltage = busbars.find(
-            element => element.name !== busbarWithHighestVoltage.name &&
-                element.name !== busbarWithLowestVoltage.name
-        );
+        const tagged = busbars.map((bus, orig) => ({ bus, orig, vn: parseFloat(bus.vn_kv) }));
+        tagged.sort((a, b) => {
+            const dv = b.vn - a.vn;
+            if (Math.abs(dv) > 1e-9) return dv;
+            return a.orig - b.orig;
+        });
 
         return {
-            highVoltage: busbarWithHighestVoltage.name,
-            mediumVoltage: busbarWithMiddleVoltage.name,
-            lowVoltage: busbarWithLowestVoltage.name
+            highVoltage: tagged[0].bus.name,
+            mediumVoltage: tagged[1].bus.name,
+            lowVoltage: tagged[2].bus.name
         };
     };
 
@@ -1551,6 +1545,7 @@ import {
     collectDiagnosticHighlightIds,
 } from './utils/diagnosticElementResolve.js';
 import ENV from './config/environment.js';
+import { devLog, isDevEnvironment } from './utils/devLog.js';
 import { computeWindTurbinePMw } from './windTurbineDialog.js';
 import {
     collectWindTurbineControllers,
@@ -2931,6 +2926,13 @@ Loading[%]: ${formatNumber(cell.loading_percent, 1)}`;
             if (dataJson.shunt_control_results?.length) {
                 console.log('DiscreteShuntController summary:', dataJson.shunt_control_results);
             }
+            if (dataJson.controller_fallback_warning) {
+                console.warn('Controller fallback:', dataJson.controller_fallback_warning);
+                window.alert(
+                    'Load flow succeeded without transformer/shunt controllers.\n\n' +
+                    dataJson.controller_fallback_warning
+                );
+            }
 
             resultCellLookupMap = buildGraphCellLookupMap(b);
             resultCellLookupGraph = b;
@@ -2998,7 +3000,7 @@ Loading[%]: ${formatNumber(cell.loading_percent, 1)}`;
             } finally {
                 b.getModel().endUpdate();
                 const resultProcessingTime = performance.now() - resultProcessingStart;
-                console.log(`Total result visualization: ${resultProcessingTime.toFixed(2)}ms`);
+                devLog(`Total result visualization: ${resultProcessingTime.toFixed(2)}ms`);
                 if (b.getView && b.getView().refresh) b.getView().refresh();
                 resultCellLookupMap = null;
                 resultCellLookupGraph = null;
@@ -3214,14 +3216,11 @@ Loading[%]: ${formatNumber(cell.loading_percent, 1)}`;
             const resultCellsToRemove = [];
             let resultCellsRemoved = 0;
             
-        console.log(`Processing ${cellsArray.length} cells...`);
-        
-        // Monitor for potential memory issues
-        console.log(`Initial memory check - cellsArray length: ${cellsArray.length}`);
+        devLog(`Processing ${cellsArray.length} cells...`);
         
         // SKIP result cleanup - use update-in-place instead of remove+insert
         // Placeholders from resultBoxes.js are preserved and updated with new results
-        console.log('=== SKIPPING RESULT CLEANUP (update-in-place mode) ===');
+        devLog('=== SKIPPING RESULT CLEANUP (update-in-place mode) ===');
             
             // First pass: collect valid cells (skip removal - use update-in-place for result placeholders)
             const styleCache = new Map();
@@ -3257,12 +3256,12 @@ Loading[%]: ${formatNumber(cell.loading_percent, 1)}`;
             const removalTime = 0;
             
             const cellProcessingTime = performance.now() - cellProcessingStart;
-            console.log(`Cell processing: ${cellProcessingTime.toFixed(2)}ms (update-in-place mode, found ${validCells.length} valid cells)`);
+            devLog(`Cell processing: ${cellProcessingTime.toFixed(2)}ms (update-in-place mode, found ${validCells.length} valid cells)`);
 
             // Process valid cells with aggressive performance optimization
             const componentProcessingStart = performance.now();
             let processedComponents = 0;
-            console.log(`Starting component processing for ${validCells.length} valid cells...`);
+            devLog(`Starting component processing for ${validCells.length} valid cells...`);
             
             // Pre-compute common data for all cells to avoid repetitive operations
             const preComputeStart = performance.now();
@@ -3279,7 +3278,7 @@ Loading[%]: ${formatNumber(cell.loading_percent, 1)}`;
                 });
             });
             const preComputeTime = performance.now() - preComputeStart;
-            console.log(`Pre-compute completed in ${preComputeTime.toFixed(2)}ms, starting component switch processing...`);
+            devLog(`Pre-compute completed in ${preComputeTime.toFixed(2)}ms, starting component switch processing...`);
             
             // Add detailed timing for component processing phases
             const componentTypeTimings = {};
@@ -4291,55 +4290,56 @@ Loading[%]: ${formatNumber(cell.loading_percent, 1)}`;
         const arrayBuildTime = performance.now() - arrayBuildStart;
 
         const componentProcessingTime = performance.now() - componentProcessingStart;
-        console.log(`Component processing: ${componentProcessingTime.toFixed(2)}ms (pre-compute: ${preComputeTime.toFixed(2)}ms, processed ${processedComponents} components)`);
-        
-        // Log detailed component type timings
-        console.log(`=== COMPONENT TYPE BREAKDOWN ===`);
-        Object.entries(componentTypeTimings)
-            .sort(([,a], [,b]) => b.time - a.time) // Sort by time descending
-            .forEach(([type, {time, count}]) => {
-                console.log(`${type}: ${time.toFixed(2)}ms (${count} items, ${(time/count).toFixed(2)}ms/item)`);
-            });
-        
-        // Create final payload with size analysis
+
+        // Create final payload
         const arrayCreationStart = performance.now();
         const obj = Object.assign({}, array);
         const arrayCreationTime = performance.now() - arrayCreationStart;
-        
-        // Analyze payload composition
-        const payloadAnalysis = {};
-        Object.keys(obj).forEach(key => {
-            if (obj[key] && typeof obj[key] === 'object') {
-                payloadAnalysis[key] = JSON.stringify(obj[key]).length;
-            }
-        });
-        
-        // Performance logging with detailed breakdown
-        const dataProcessingTime = performance.now() - startTime;
-        console.log(`=== PERFORMANCE BREAKDOWN ===`);
-        console.log(`Cell processing: ${cellProcessingTime.toFixed(2)}ms (cell removal: ${removalTime.toFixed(2)}ms)`);
-        console.log(`Component processing: ${componentProcessingTime.toFixed(2)}ms (pre-compute: ${preComputeTime.toFixed(2)}ms)`);
-        console.log(`Array building: ${arrayBuildTime.toFixed(2)}ms`);
-        console.log(`Object creation: ${arrayCreationTime.toFixed(2)}ms`);
-        console.log(`Total data processing: ${dataProcessingTime.toFixed(2)}ms`);
-        console.log(`Payload size: ${JSON.stringify(obj).length} bytes`);
-        console.log(`Components: ${processedComponents}, Result cells removed: ${resultCellsRemoved}`);
-        console.log(`Payload composition:`, payloadAnalysis);
 
-        // Debug: Log the first element which should be simulationParameters
-        console.log('🔍 About to send to backend - First element (simulationParameters):', obj[0]);
-        console.log('🔍 exportPython value in payload:', obj[0]?.exportPython);
-        console.log('🔍 exportPandapowerResults value in payload:', obj[0]?.exportPandapowerResults);
-        console.log('🌐 Using backend URL:', ENV.backendUrl);
+        // The payload breakdown below serializes the whole payload just to report sizes,
+        // so it stays out of the production click path.
+        if (isDevEnvironment()) {
+            console.log(`Component processing: ${componentProcessingTime.toFixed(2)}ms (pre-compute: ${preComputeTime.toFixed(2)}ms, processed ${processedComponents} components)`);
+
+            console.log(`=== COMPONENT TYPE BREAKDOWN ===`);
+            Object.entries(componentTypeTimings)
+                .sort(([,a], [,b]) => b.time - a.time) // Sort by time descending
+                .forEach(([type, {time, count}]) => {
+                    console.log(`${type}: ${time.toFixed(2)}ms (${count} items, ${(time/count).toFixed(2)}ms/item)`);
+                });
+
+            const payloadAnalysis = {};
+            Object.keys(obj).forEach(key => {
+                if (obj[key] && typeof obj[key] === 'object') {
+                    payloadAnalysis[key] = JSON.stringify(obj[key]).length;
+                }
+            });
+
+            const dataProcessingTime = performance.now() - startTime;
+            console.log(`=== PERFORMANCE BREAKDOWN ===`);
+            console.log(`Cell processing: ${cellProcessingTime.toFixed(2)}ms (cell removal: ${removalTime.toFixed(2)}ms)`);
+            console.log(`Component processing: ${componentProcessingTime.toFixed(2)}ms (pre-compute: ${preComputeTime.toFixed(2)}ms)`);
+            console.log(`Array building: ${arrayBuildTime.toFixed(2)}ms`);
+            console.log(`Object creation: ${arrayCreationTime.toFixed(2)}ms`);
+            console.log(`Total data processing: ${dataProcessingTime.toFixed(2)}ms`);
+            console.log(`Payload size: ${JSON.stringify(obj).length} bytes`);
+            console.log(`Components: ${processedComponents}, Result cells removed: ${resultCellsRemoved}`);
+            console.log(`Payload composition:`, payloadAnalysis);
+
+            console.log('🔍 About to send to backend - First element (simulationParameters):', obj[0]);
+            console.log('🔍 exportPython value in payload:', obj[0]?.exportPython);
+            console.log('🔍 exportPandapowerResults value in payload:', obj[0]?.exportPandapowerResults);
+            console.log('🌐 Using backend URL:', ENV.backendUrl);
+        }
         
         processNetworkData(ENV.backendUrl + "/", obj, b, grafka);
         
         // Clean up caches and references to prevent memory accumulation
-        console.log(`Simulation completed. Cache sizes - cells: ${cellCache.size}, names: ${nameCache.size}, attributes: ${attributeCache.size}`);
+        devLog(`Simulation completed. Cache sizes - cells: ${cellCache.size}, names: ${nameCache.size}, attributes: ${attributeCache.size}`);
         cellCache.clear();
         nameCache.clear();
         attributeCache.clear();
-        console.log('Caches cleared for next simulation');
+        devLog('Caches cleared for next simulation');
         
         } 
         });

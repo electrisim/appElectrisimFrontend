@@ -12,13 +12,42 @@ class PerformanceTracker {
             renderTimes: []
         };
         
-        this.enabled = true;
+        this.enabled = false;
+        this.tracking = false;
         this.longTaskThreshold = 50; // ms
-        
-        // Intercept querySelector calls
+
+        // Wrapping Document.prototype adds cost to every DOM query in the app
+        // (including inside app.min.js), which inflates INP. Opt in with ?perfMonitor=1.
+        if (PerformanceTracker.isRequestedByUrl()) {
+            this.enableTracking();
+        }
+    }
+
+    /**
+     * Check whether the URL opted into tracking.
+     * perfMonitor=1 turns on all diagnostics; domTrack=1 isolates DOM query tracking
+     * so it can be A/B compared without the mxGraphView wrappers.
+     */
+    static isRequestedByUrl() {
+        try {
+            const params = new URLSearchParams(window.location.search || '');
+            return params.get('perfMonitor') === '1' || params.get('domTrack') === '1';
+        } catch (error) {
+            return false;
+        }
+    }
+
+    /**
+     * Install the DOM query patches and long task observer
+     */
+    enableTracking() {
+        if (this.tracking) {
+            return;
+        }
+        this.tracking = true;
+        this.enabled = true;
+
         this.interceptDOMQueries();
-        
-        // Monitor long tasks
         this.monitorLongTasks();
     }
 
@@ -225,7 +254,7 @@ class PerformanceTracker {
      * Enable performance tracking
      */
     enable() {
-        this.enabled = true;
+        this.enableTracking();
         console.log('✅ Performance tracking enabled');
     }
 
@@ -275,7 +304,7 @@ class PerformanceTracker {
     }
 }
 
-// Create global instance (but don't enable by default to avoid overhead)
+// Create global instance (DOM query tracking stays off unless ?perfMonitor=1)
 const performanceTracker = new PerformanceTracker();
 
 // Expose globally
@@ -285,10 +314,13 @@ window.performanceTracker = performanceTracker;
 // Add convenience methods to window
 window.logPerformanceReport = () => performanceTracker.logReport();
 window.resetPerformanceMetrics = () => performanceTracker.reset();
+window.enablePerformanceTracking = () => performanceTracker.enable();
 
 // Export for module usage
 export { PerformanceTracker, performanceTracker };
 export default performanceTracker;
 
-console.log('📊 Performance Tracker initialized. Use window.logPerformanceReport() to see metrics.');
+if (performanceTracker.tracking) {
+    console.log('📊 Performance Tracker active. Use window.logPerformanceReport() to see metrics.');
+}
 

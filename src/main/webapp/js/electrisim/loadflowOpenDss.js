@@ -11,9 +11,8 @@ import { showHarmonicAnalysisResultsDialog } from './dialogs/HarmonicAnalysisRes
 import { MonteCarloResultsDialog } from './dialogs/MonteCarloResultsDialog.js';
 import { formatResultNameHeader, createDialogNameResolver } from './utils/attributeUtils.js';
 import { highlightCalculationErrorElements, calculationErrorHighlightSuffix } from './utils/calculationErrorHighlight.js';
-import { getThreeWindingConnections } from './utils/gridUtils.js';
 import ENV from './config/environment.js';
-import { getConnectedBusId, getLineBusEndpointsForPayload } from './loadFlow.js';
+import { getConnectedBusId, getLineBusEndpointsForPayload, getThreeWindingConnections } from './loadFlow.js';
 import { computeWindTurbinePMw } from './windTurbineDialog.js';
 import {
     collectWindTurbineControllers,
@@ -23,7 +22,7 @@ import {
 // Helper function to format bus IDs consistently (replace # with _)
 const formatBusId = (busId) => {
     if (!busId) return null;
-    return busId.replace('#', '_');
+    return String(busId).replace(/#/g, '_');
 };
 
 /**
@@ -521,18 +520,24 @@ const downloadOpenDSSShortCircuitResults = (dataJson, graph) => {
 // Helper to get bus voltage from a bus cell (used by transformer connections)
 const getBusVoltageLevel = (busId, graph) => {
     if (!busId || !graph) return 0;
+    const normalized = String(busId).replace(/#/g, '_');
     const cells = graph.getModel().cells;
     for (const cellId in cells) {
         const busCell = cells[cellId];
-        if (busCell && (busCell.mxObjectId === busId.replace('_', '#') || busCell.mxObjectId === busId)) {
-            const style = busCell.getStyle ? busCell.getStyle() : '';
-            if (style && style.includes('shapeELXXX=Bus')) {
-                if (busCell.value && busCell.value.attributes) {
-                    for (let i = 0; i < busCell.value.attributes.length; i++) {
-                        const attr = busCell.value.attributes[i];
-                        if (attr.nodeName === 'vn_kv') {
-                            return parseFloat(attr.nodeValue) || 0;
-                        }
+        if (!busCell) continue;
+        const cellName = busCell.mxObjectId
+            ? String(busCell.mxObjectId).replace(/#/g, '_')
+            : '';
+        if (cellName !== normalized && String(cellId) !== busId && `mxCell_${cellId}` !== normalized) {
+            continue;
+        }
+        const style = busCell.getStyle ? busCell.getStyle() : '';
+        if (style && style.includes('shapeELXXX=Bus')) {
+            if (busCell.value && busCell.value.attributes) {
+                for (let i = 0; i < busCell.value.attributes.length; i++) {
+                    const attr = busCell.value.attributes[i];
+                    if (attr.nodeName === 'vn_kv') {
+                        return parseFloat(attr.nodeValue) || 0;
                     }
                 }
             }
@@ -602,41 +607,6 @@ const getTransformerConnections = (cell, graph) => {
     return {            
         busFrom: null,
         busTo: null
-    };
-};
-
-/**
- * Assign HV/MV/LV from actual bus nominal voltages (same logic as loadFlow.js
- * updateThreeWindingTransformerConnections). Graph edge order is not always
- * [LV,MV,HV]; without this, OpenDSS can tie e.g. 400 kV to the LV winding.
- */
-const orderThreeWindingBusesByVoltage = (hv_bus, mv_bus, lv_bus, graph) => {
-    const busbars = [
-        { name: hv_bus, vn_kv: getBusVoltageLevel(hv_bus, graph) },
-        { name: mv_bus, vn_kv: getBusVoltageLevel(mv_bus, graph) },
-        { name: lv_bus, vn_kv: getBusVoltageLevel(lv_bus, graph) }
-    ];
-    if (busbars.length !== 3 || !busbars.every((b) => b.name)) {
-        return { hv_bus, mv_bus, lv_bus };
-    }
-    const busbarWithHighestVoltage = busbars.reduce((prev, current) =>
-        parseFloat(prev.vn_kv) > parseFloat(current.vn_kv) ? prev : current
-    );
-    const busbarWithLowestVoltage = busbars.reduce((prev, current) =>
-        parseFloat(prev.vn_kv) < parseFloat(current.vn_kv) ? prev : current
-    );
-    const busbarWithMiddleVoltage = busbars.find(
-        (element) =>
-            element.name !== busbarWithHighestVoltage.name &&
-            element.name !== busbarWithLowestVoltage.name
-    );
-    if (!busbarWithMiddleVoltage) {
-        return { hv_bus, mv_bus, lv_bus };
-    }
-    return {
-        hv_bus: busbarWithHighestVoltage.name,
-        mv_bus: busbarWithMiddleVoltage.name,
-        lv_bus: busbarWithLowestVoltage.name
     };
 };
 
@@ -1526,7 +1496,11 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
         const mapBuildStart = performance.now();
         for (const cellId in cells) {
             const cell = cells[cellId];
-            if (cell && cell.mxObjectId) {
+            if (!cell) continue;
+            if (cell.id != null) {
+                cellIdMap.set(String(cell.id), cell);
+            }
+            if (cell.mxObjectId) {
                 for (const key of getMxIdLookupKeys(cell.mxObjectId)) {
                     cellIdMap.set(key, cell);
                 }
@@ -2266,7 +2240,8 @@ function collectNetworkDataStructured(graph) {
                     cellData = {
                         typ: 'Line',
                         name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
-                        id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
+                        // Graph cell id (same as pandapower) so shunt line-flow control can resolve the monitored line.
+                        id: cell.id != null ? String(cell.id) : ((cell.mxObjectId || `mxCell_${cellId}`)),
                         busFrom: connections?.busFrom,
                         busTo: connections?.busTo,
                         // Use extracted parameters or defaults for critical values
@@ -2646,20 +2621,27 @@ function collectNetworkDataStructured(graph) {
                 } else if (styleObj && styleObj.shapeELXXX === 'Shunt Reactor') {
                     // This is a shunt reactor element
                     const shuntParams = getAttributesAsObject(cell, {
-                        // Basic shunt reactor parameters
-                        p_mw: 'p_mw',           // Active power
-                        q_mvar: 'q_mvar',       // Reactive power
-                        sn_mva: 'sn_mva',
-                        scaling: 'scaling',
-                        type: 'type',
-                        // Additional parameters
-                        step: 'step',
-                        step_degree: 'step_degree',
-                        step_min: 'step_min',
-                        step_max: 'step_max',
-                        step_pos: 'step_pos',
-                        step_phase_shifter: 'step_phase_shifter',
-                        in_service: { name: 'in_service', optional: true }
+                        p_mw: 'p_mw',
+                        q_mvar: 'q_mvar',
+                        vn_kv: { name: 'vn_kv', optional: true },
+                        sn_mva: { name: 'sn_mva', optional: true },
+                        scaling: { name: 'scaling', optional: true },
+                        type: { name: 'type', optional: true },
+                        step: { name: 'step', optional: true },
+                        max_step: { name: 'max_step', optional: true },
+                        in_service: { name: 'in_service', optional: true },
+                        step_dependency_table: { name: 'step_dependency_table', optional: true },
+                        shunt_characteristic_table_json: { name: 'shunt_characteristic_table_json', optional: true },
+                        discrete_shunt_control: { name: 'discrete_shunt_control', optional: true },
+                        vm_set_pu: { name: 'vm_set_pu', optional: true },
+                        shunt_control_increment: { name: 'shunt_control_increment', optional: true },
+                        shunt_control_tol: { name: 'shunt_control_tol', optional: true },
+                        shunt_reset_at_init: { name: 'shunt_reset_at_init', optional: true },
+                        line_flow_step_control: { name: 'line_flow_step_control', optional: true },
+                        line_flow_reference_line_id: { name: 'line_flow_reference_line_id', optional: true },
+                        line_flow_step_table_json: { name: 'line_flow_step_table_json', optional: true },
+                        line_flow_p_use_abs: { name: 'line_flow_p_use_abs', optional: true },
+                        line_flow_p_reference: { name: 'line_flow_p_reference', optional: true }
                     });
 
                     const shuntInService = shuntParams.in_service !== undefined
@@ -2673,20 +2655,29 @@ function collectNetworkDataStructured(graph) {
                         name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
                         id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
                         bus: getConnectedBusId(cell),
-                        // Use extracted parameters or defaults for critical values
-                        p_mw: shuntParams.p_mw || 0.0,          // Default active power
-                        q_mvar: shuntParams.q_mvar || 1.0,      // Default reactive power
-                        // Other parameters
+                        p_mw: shuntParams.p_mw || 0.0,
+                        q_mvar: shuntParams.q_mvar || 1.0,
+                        vn_kv: shuntParams.vn_kv,
                         sn_mva: shuntParams.sn_mva || 1.0,
                         scaling: shuntParams.scaling || 1.0,
                         type: shuntParams.type || 'const_q',
-                        step: shuntParams.step || 1.0,
-                        step_degree: shuntParams.step_degree || 0.0,
-                        step_min: shuntParams.step_min || 0.0,
-                        step_max: shuntParams.step_max || 1.0,
-                        step_pos: shuntParams.step_pos || 1.0,
-                        step_phase_shifter: shuntParams.step_phase_shifter || false,
-                        in_service: shuntInService
+                        step: shuntParams.step !== undefined && shuntParams.step !== null && shuntParams.step !== ''
+                            ? shuntParams.step : 1.0,
+                        max_step: shuntParams.max_step !== undefined && shuntParams.max_step !== null && shuntParams.max_step !== ''
+                            ? shuntParams.max_step : 1.0,
+                        in_service: shuntInService,
+                        step_dependency_table: shuntParams.step_dependency_table,
+                        shunt_characteristic_table_json: shuntParams.shunt_characteristic_table_json,
+                        discrete_shunt_control: shuntParams.discrete_shunt_control,
+                        vm_set_pu: shuntParams.vm_set_pu,
+                        shunt_control_increment: shuntParams.shunt_control_increment,
+                        shunt_control_tol: shuntParams.shunt_control_tol,
+                        shunt_reset_at_init: shuntParams.shunt_reset_at_init,
+                        line_flow_step_control: shuntParams.line_flow_step_control,
+                        line_flow_reference_line_id: shuntParams.line_flow_reference_line_id,
+                        line_flow_step_table_json: shuntParams.line_flow_step_table_json,
+                        line_flow_p_use_abs: shuntParams.line_flow_p_use_abs,
+                        line_flow_p_reference: shuntParams.line_flow_p_reference
                     };
                     
                     // Validate bus connection
@@ -3159,20 +3150,15 @@ function collectNetworkDataStructured(graph) {
                         in_service: src1InService
                     };
                 } else if (styleObj && styleObj.shapeELXXX === 'Three Winding Transformer') {
-                    // Graph edge order is not always stencil [LV,MV,HV]. Pandapower reorders with
-                    // updateThreeWindingTransformerConnections (hv = highest vn_kv, lv = lowest, mv = remaining).
+                    // Same HV/MV/LV ranking as pandapower (loadFlow.js): unique buses in edge
+                    // order, then sort by vn_kv. Equal voltages (275/66/66) keep encounter order
+                    // so MV vs LV matches the pandapower vector-group assignment.
                     let hv_bus, mv_bus, lv_bus;
                     try {
                         const connections = getThreeWindingConnections(cell);
-                        const ordered = orderThreeWindingBusesByVoltage(
-                            connections.hv_bus,
-                            connections.mv_bus,
-                            connections.lv_bus,
-                            graph
-                        );
-                        hv_bus = ordered.hv_bus;
-                        mv_bus = ordered.mv_bus;
-                        lv_bus = ordered.lv_bus;
+                        hv_bus = connections.hv_bus;
+                        mv_bus = connections.mv_bus;
+                        lv_bus = connections.lv_bus;
                     } catch (e) {
                         dssWarn(`Three Winding Transformer ${cell.mxObjectId || cellId}: ${e.message}`);
                         hv_bus = mv_bus = lv_bus = null;

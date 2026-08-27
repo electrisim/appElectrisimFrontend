@@ -223,6 +223,18 @@ const UQ_GRID_CODE_TEMPLATES = {
 };
 
 /**
+ * When a P-Q grid-code template is chosen without a U-Q template, use the matching
+ * U-Q/Pmax envelope so the U-Q results chart has a blue requirement overlay.
+ */
+export const PQ_TO_UQ_TEMPLATE = {
+    polish_iriesp_type_d: 'polish_iriesp_type_d_uq_110kv',
+    polish_iriesp_ppm: 'polish_iriesp_type_d_uq_110kv',
+    polish_iriesp_ppm_fig2_400kv: 'polish_iriesp_type_d_uq_400kv',
+    entsoe_ppm_inner: 'entsoe_ppm_uq_inner',
+    vde_4110: 'entsoe_ppm_uq_inner'
+};
+
+/**
  * Scale a built-in grid code template to absolute MW/Mvar for RPC request / charts.
  * @param {string} templateKey — key in GRID_CODE_TEMPLATES (not 'none')
  * @param {number} pRatedMw — rated active power base (MW)
@@ -268,6 +280,34 @@ export function getUqGridTemplateRequirementsMw(templateKey, pRatedMw) {
 export function getUqGridTemplateDisplayName(templateKey) {
     const tpl = UQ_GRID_CODE_TEMPLATES[templateKey];
     return tpl && tpl.name ? tpl.name : '';
+}
+
+export function findGridTemplateKeyByName(name) {
+    if (!name) return null;
+    for (const [k, tpl] of Object.entries(GRID_CODE_TEMPLATES)) {
+        if (tpl && tpl.name === name) return k;
+    }
+    return null;
+}
+
+export function findUqGridTemplateKeyByName(name) {
+    if (!name) return null;
+    for (const [k, tpl] of Object.entries(UQ_GRID_CODE_TEMPLATES)) {
+        if (tpl && tpl.name === name) return k;
+    }
+    return null;
+}
+
+/** Resolve the U-Q template key from RPC result metadata (keys, names, or paired P-Q template). */
+export function resolveUqTemplateKeyFromRpcResults(data) {
+    if (!data) return null;
+    const direct = data.uq_grid_code_template_key;
+    if (direct && direct !== 'none' && UQ_GRID_CODE_TEMPLATES[direct]) return direct;
+    const byUqName = findUqGridTemplateKeyByName(data.uq_grid_code_template_name);
+    if (byUqName) return byUqName;
+    const pqKey = data.grid_code_template_key || findGridTemplateKeyByName(data.grid_code_template_name);
+    if (pqKey && PQ_TO_UQ_TEMPLATE[pqKey]) return PQ_TO_UQ_TEMPLATE[pqKey];
+    return null;
 }
 
 /**
@@ -323,8 +363,21 @@ export function buildUqChartGeometry(rows, keys = { u: 'u_pu', qMin: 'q_min_pu',
     return { qMinPts, qMaxPts, closureDatasets, envelope };
 }
 
+/** Static Generator and Wind Turbine both map to pandapower sgen for RPC. */
+function rpcPlantGeneratorKind(componentType, style) {
+    const typ = componentType || '';
+    const s = style || '';
+    if (typ === 'Wind Turbine' || s.includes('shapeELXXX=Wind Turbine')) {
+        return 'Wind Turbine';
+    }
+    if (typ === 'Static Generator' || s.includes('shapeELXXX=Static Generator')) {
+        return 'Static Generator';
+    }
+    return null;
+}
+
 /**
- * Sum rated active power (p_mw) from static generators (MW).
+ * Sum rated active power (p_mw) from static generators and wind turbines (MW).
  * Same base as P Max = 0 “auto” on the backend. Prefers p_mw over sn_mva (S_n overstates P).
  * @param {object} graph — mxGraph instance
  * @param {string[]|null} generatorCellIds — if set, only these diagram cells are counted
@@ -341,16 +394,14 @@ export function estimateRpcInstalledMw(graph, generatorCellIds = null) {
         if (!cell || !cell.value) return;
         if (idSet && !idSet.has(String(cell.getId()))) return;
         const style = cell.getStyle();
-        if (!style) return;
-        if (style.includes('shapeELXXX=Static Generator')) {
-            try {
-                const snAttr = cell.value.attributes?.getNamedItem('sn_mva');
-                const pAttr = cell.value.attributes?.getNamedItem('p_mw');
-                const sn = snAttr ? parseFloat(snAttr.nodeValue) : 0;
-                const p = pAttr ? parseFloat(pAttr.nodeValue) : 0;
-                totalP += (p > 0 ? p : (sn > 0 ? sn : 0));
-            } catch (e) { /* skip */ }
-        }
+        if (!rpcPlantGeneratorKind(null, style)) return;
+        try {
+            const snAttr = cell.value.attributes?.getNamedItem('sn_mva');
+            const pAttr = cell.value.attributes?.getNamedItem('p_mw');
+            const sn = snAttr ? parseFloat(snAttr.nodeValue) : 0;
+            const p = pAttr ? parseFloat(pAttr.nodeValue) : 0;
+            totalP += (p > 0 ? p : (sn > 0 ? sn : 0));
+        } catch (e) { /* skip */ }
     });
     return totalP;
 }
@@ -378,7 +429,7 @@ export class RPCDialog extends Dialog {
             },
             {
                 id: 'generatorIds',
-                label: 'Wind Farm Generators (Static Generators)',
+                label: 'Static Generator or Wind Turbine Generator',
                 type: 'multiselect',
                 options: []
             },
@@ -412,7 +463,7 @@ export class RPCDialog extends Dialog {
                     { value: 'fixed_fraction', label: 'Fixed fraction (0.5 × S_n)' },
                     {
                         value: 'from_sgen_curve',
-                        label: 'From static generator P–Q curve (diagram, reactive capability enabled)'
+                        label: 'From static generator or wind turbine P–Q curve (diagram, reactive capability enabled)'
                     }
                 ]
             },
@@ -444,7 +495,7 @@ export class RPCDialog extends Dialog {
             {
                 id: 'run_control_shunt',
                 label: 'Shunt reactor tap changer',
-                checkboxLabel: 'DiscreteShuntController (voltage/target step). Line P→shunt step runs automatically when enabled on the shunt — no tick required here.',
+                checkboxLabel: 'DiscreteShuntController (voltage/target step) and Line P→shunt step. Both require this tick.',
                 type: 'checkbox',
                 value: false
             },
@@ -471,8 +522,8 @@ export class RPCDialog extends Dialog {
         return '<strong>Grid Code Compliance (P-Q & U-Q)</strong><br>' +
             'Sweeps active power of the power plant and determines the reactive power capability envelope at the PCC bus across multiple voltage levels (P-Q/Pmax). ' +
             'Optionally checks U-Q/Pmax at rated power versus grid-code voltage bands. ' +
-            'To use manufacturer-style limits per unit, enable <em>Use Q capability curve</em> on each static generator and pick <strong>From static generator P–Q curve</strong> below. ' +
-            'Use <strong>Include controller</strong> to run each power flow with pandapower controls where enabled in the diagram: DiscreteTapControl on 2- or 3-winding transformers and DiscreteShuntController on shunt reactors, independently (shunt reactors can use a per-step P/Q characteristic table in the shunt dialog). ' +
+            'To use manufacturer-style limits per unit, enable <em>Use Q capability curve</em> on each static generator or wind turbine and pick <strong>From static generator or wind turbine P–Q curve</strong> below. ' +
+            'Use <strong>Include controller</strong> to run each power flow with pandapower controls where enabled in the diagram: DiscreteTapControl on 2- or 3-winding transformers and shunt step control (DiscreteShuntController and Line P→shunt step), independently. Shunt reactors can use a per-step P/Q characteristic table in the shunt dialog. ' +
             'See the <a href="https://electrisim.com/documentation.html#reactive-power-capability" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
 
@@ -481,7 +532,7 @@ export class RPCDialog extends Dialog {
         const model = this.graph.getModel();
         const busbars = [];
         const extGrids = [];
-        const sgens = [];
+        const plantGens = [];
         const cellsArray = model.getDescendants();
 
         cellsArray.forEach(cell => {
@@ -505,8 +556,15 @@ export class RPCDialog extends Dialog {
             if (componentType === 'External Grid' || style.includes('shapeELXXX=External Grid')) {
                 extGrids.push({ value: cell.getId(), label: name || `ExtGrid ${cell.getId()}` });
             }
-            if (componentType === 'Static Generator' || style.includes('shapeELXXX=Static Generator')) {
-                sgens.push({ value: cell.getId(), label: name || `SGen ${cell.getId()}` });
+            const plantKind = rpcPlantGeneratorKind(componentType, style);
+            if (plantKind) {
+                const fallback = plantKind === 'Wind Turbine'
+                    ? `WT ${cell.getId()}`
+                    : `SGen ${cell.getId()}`;
+                plantGens.push({
+                    value: cell.getId(),
+                    label: `${name || fallback} (${plantKind})`
+                });
             }
         });
 
@@ -517,7 +575,11 @@ export class RPCDialog extends Dialog {
         if (extParam) extParam.options = extGrids.length ? extGrids : [{ value: '', label: 'No external grids found' }];
 
         const genParam = this.parameters.find(p => p.id === 'generatorIds');
-        if (genParam) genParam.options = sgens.length ? sgens : [{ value: '', label: 'No static generators found' }];
+        if (genParam) {
+            genParam.options = plantGens.length
+                ? plantGens
+                : [{ value: '', label: 'No static generators or wind turbine generators found' }];
+        }
     }
 
     _getCellName(cell) {
@@ -579,7 +641,9 @@ export class RPCDialog extends Dialog {
             const cb = document.createElement('input');
             cb.type = 'checkbox';
             cb.value = opt.value || '';
-            cb.checked = true;
+            const hasValue = !!cb.value;
+            cb.checked = hasValue;
+            cb.disabled = !hasValue;
             cb.dataset.label = opt.label || '';
             row.appendChild(cb);
             row.appendChild(document.createTextNode(opt.label || ''));
@@ -1288,6 +1352,21 @@ export class RPCDialog extends Dialog {
             const qMax = +(r.q_max_pu * pRated).toFixed(2);
             this._addRequirementRow(this._requirementsBody, pMw, qMin, qMax);
         });
+
+        const pairedUq = PQ_TO_UQ_TEMPLATE[templateKey];
+        if (pairedUq && this._uqTemplateSelect) {
+            const currentUq = this._uqTemplateSelect.value;
+            if (currentUq === 'none' || currentUq === pairedUq) {
+                this._uqTemplateSelect.value = pairedUq;
+                const uqTpl = UQ_GRID_CODE_TEMPLATES[pairedUq];
+                if (uqTpl && uqTpl.description && this._uqTemplateDescEl) {
+                    this._uqTemplateDescEl.textContent = uqTpl.description;
+                    this._uqTemplateDescEl.style.display = 'block';
+                }
+                this._renderUqTemplatePreview(pairedUq);
+                this._applyUqTemplate(pairedUq, { silent: true });
+            }
+        }
     }
 
     _estimateInstalledCapacity() {
@@ -1364,7 +1443,9 @@ export class RPCDialog extends Dialog {
             } else if (param.type === 'multiselect') {
                 const data = this.inputs.get(param.id);
                 if (data && data._multiCheckboxes) {
-                    values[param.id] = data._multiCheckboxes.filter(cb => cb.checked).map(cb => cb.value);
+                    values[param.id] = data._multiCheckboxes
+                        .filter(cb => cb.checked && cb.value)
+                        .map(cb => cb.value);
                 } else {
                     values[param.id] = [];
                 }

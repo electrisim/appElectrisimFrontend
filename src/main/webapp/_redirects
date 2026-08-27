@@ -5,5 +5,9 @@
 /robots.txt /robots.txt 200
 /sitemap.xml /sitemap.xml 200
 
+# Do not serve the editor SPA at this junk path (GSC crawled /javascript/)
+/javascript /404.html 404
+/javascript/ /404.html 404
+
 # SPA fallback for the editor
 /* /index.html 200
