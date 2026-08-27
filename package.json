@@ -6,7 +6,7 @@
     "minify": "node scripts/minify-js.js"
   },
   "dependencies": {
-    "nodemailer": "^7.0.3"
+    "nodemailer": "^9.0.1"
   },
   "devDependencies": {
     "terser": "^5.36.0"
