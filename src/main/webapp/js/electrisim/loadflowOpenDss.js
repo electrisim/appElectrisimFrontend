@@ -18,6 +18,11 @@ import {
     collectWindTurbineControllers,
     applyWindTurbineControllerPrefs
 } from './utils/windTurbineControllerApply.js';
+import {
+    startSimulationProgress,
+    settleSimulationProgress,
+    formatDurationMs
+} from './utils/simulationProgressOverlay.js';
 
 // Helper function to format bus IDs consistently (replace # with _)
 const formatBusId = (busId) => {
@@ -1290,9 +1295,10 @@ U[deg]: ${fmtOpenDssFloat(cell.va_degree)}`;
                 const vmLine = cell.vm_pu != null && !Number.isNaN(Number(cell.vm_pu))
                     ? `\n        V[pu]: ${fmtOpenDssFloat(cell.vm_pu)}` : '';
                 const qLine = openDssSourceReactiveQLine(cell.q_mvar, 'MVar');
+                const noteLine = cell.note ? `\n        Warning: ${cell.note}` : '';
                 const resultString = `${cellName}
         P[MW]: ${fmtOpenDssFloat(cell.p_mw)}
-        ${qLine}${invLine}${vmLine}`;
+        ${qLine}${invLine}${vmLine}${noteLine}`;
 
                 const edge = (b.getEdges && b.getEdges(resultCell)) ? b.getEdges(resultCell)[0] : null;
                 const parent = edge || resultCell;
@@ -1425,9 +1431,44 @@ function updateCellColor(grafka, cell, color) {
 
 // Main processing function for OpenDSS (FROM BACKEND TO FRONTEND)
 // Updated to handle simplified backend response without output classes
+function _opendssProgressMeta(obj) {
+    const params = Array.isArray(obj) ? obj[0] : (obj && (obj[0] || obj['0']));
+    const typ = String(params?.typ || '');
+    const analysisType = String(params?.analysisType || '').toLowerCase();
+    const mode = String(params?.mode || '');
+    if (analysisType === 'harmonic') {
+        return {
+            title: 'Harmonic analysis progress',
+            statusText: 'Running harmonic analysis…',
+            filePrefix: 'harmonics'
+        };
+    }
+    if (typ.toLowerCase().includes('shortcircuit')) {
+        return {
+            title: 'Short circuit progress',
+            statusText: 'Running OpenDSS short circuit…',
+            filePrefix: 'shortcircuit-opendss'
+        };
+    }
+    if (/^m[123]$/i.test(mode) || /monte/i.test(mode)) {
+        return {
+            title: 'Monte Carlo progress',
+            statusText: 'Running Monte Carlo analysis…',
+            filePrefix: 'montecarlo'
+        };
+    }
+    return {
+        title: 'OpenDSS load flow progress',
+        statusText: 'Running OpenDSS load flow…',
+        filePrefix: 'opendss-loadflow'
+    };
+}
+
 async function processNetworkData(url, obj, b, grafka, app, exportCommands = false) {
     let harmonicResultsData = null;
     let monteCarloResultsData = null;
+    const simProgress = startSimulationProgress(_opendssProgressMeta(obj));
+    const overlay = simProgress.overlay;
     try {
         // Initialize styles once
         b.getStylesheet().putCellStyle('labelstyle', STYLES.label);
@@ -1444,6 +1485,7 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
         }
         
         dssLog('Sending to OpenDSS backend:', dataDict);
+        overlay.append('Sending request…', { time: true });
 
         // Performance optimization: Request gzip compression
         const requestStart = performance.now();
@@ -1454,7 +1496,8 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
                 "Content-Type": "application/json",
                 "Accept-Encoding": "gzip",  // Request compressed response
             },
-            body: JSON.stringify(dataDict) // Backend expects dict with string keys like {"0": {...}}
+            body: JSON.stringify(dataDict), // Backend expects dict with string keys like {"0": {...}}
+            signal: simProgress.signal
         });
 
         if (response.status !== 200) {
@@ -1463,11 +1506,14 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
 
         const dataJson = await response.json();
         const requestTime = performance.now() - requestStart;
+        overlay.append(`Response ${response.status} in ${formatDurationMs(requestTime)}`, { time: true });
+        overlay.append('Processing results…', { time: true });
         dssLog(`OpenDSS backend response received in ${requestTime.toFixed(0)}ms`);
         dssLog('OpenDSS backend response:', dataJson);
 
         // Handle errors first
         if (handleNetworkErrors(dataJson, b)) {
+            overlay.remove();
             return;
         }
         if (dataJson.monte_carlo) {
@@ -1708,52 +1754,39 @@ async function processNetworkData(url, obj, b, grafka, app, exportCommands = fal
         }
 
     } catch (err) {
+        const settled = await settleSimulationProgress(overlay, err, simProgress.abortController);
+        if (settled.aborted) {
+            dssLog('OpenDSS calculation stopped by user');
+            return;
+        }
         if (err.message === "server") {
-            // Still stop spinner on server error
-            try {
-                if (app && app.spinner) {
-                    app.spinner.stop();
-                }
-            } catch (spinnerErr) {
-                console.error('Error stopping spinner:', spinnerErr);
-            }
             return;
         }
         console.error('Error processing OpenDSS network data:', err);
         alert('Error processing OpenDSS network data: ' + err + '\n\nCheck input data or contact electrisim@electrisim.com');
-    } finally {
-        // Always try to stop the spinner
-        dssLog('Stopping spinner in finally block...');
-        try {
-            if (app && app.spinner) {
-                dssLog('Spinner found, stopping...');
-                app.spinner.stop();
-                dssLog('Spinner stopped successfully');
-            } else {
-                dssWarn('Spinner not found on app parameter');
-            }
-        } catch (spinnerErr) {
-            console.error('Error stopping spinner:', spinnerErr);
-        }
+        return;
+    }
 
-        if (harmonicResultsData) {
-            queueMicrotask(() => {
-                try {
-                    showHarmonicAnalysisResultsDialog(harmonicResultsData, b);
-                } catch (dialogErr) {
-                    console.error('Harmonic analysis results dialog:', dialogErr);
-                }
-            });
-        }
-        if (monteCarloResultsData) {
-            queueMicrotask(() => {
-                try {
-                    new MonteCarloResultsDialog(monteCarloResultsData).show();
-                } catch (dialogErr) {
-                    console.error('Monte Carlo results dialog:', dialogErr);
-                }
-            });
-        }
+    overlay.append('Done.', { time: true });
+    await settleSimulationProgress(overlay, null, simProgress.abortController);
+
+    if (harmonicResultsData) {
+        queueMicrotask(() => {
+            try {
+                showHarmonicAnalysisResultsDialog(harmonicResultsData, b);
+            } catch (dialogErr) {
+                console.error('Harmonic analysis results dialog:', dialogErr);
+            }
+        });
+    }
+    if (monteCarloResultsData) {
+        queueMicrotask(() => {
+            try {
+                new MonteCarloResultsDialog(monteCarloResultsData).show();
+            } catch (dialogErr) {
+                console.error('Monte Carlo results dialog:', dialogErr);
+            }
+        });
     }
 }
 
@@ -1769,11 +1802,6 @@ function handleNetworkErrors(dataJson, graph) {
 
 // Function to execute OpenDSS load flow calculation
 function executeOpenDSSLoadFlow(parameters, app, graph) {
-
-
-    // Show spinner
-    app.spinner.spin(document.body, "Waiting for OpenDSS results...");
-    
     // Handle both old array format and new object format
     let opendssParams;
     if (Array.isArray(parameters)) {
@@ -1866,8 +1894,6 @@ function executeOpenDSSLoadFlow(parameters, app, graph) {
  * (see app.py PowerFlowOpenDss branch).
  */
 function executeOpenDSSHarmonicAnalysis(parameters, app, graph) {
-    app.spinner.spin(document.body, 'Waiting for OpenDSS harmonic analysis...');
-
     function getUserEmail() {
         try {
             const userStr = localStorage.getItem('user');
@@ -1930,8 +1956,6 @@ function harmonicAnalysisOpenDss(editorUi, graph) {
 
 // Execute OpenDSS short circuit calculation
 function executeOpenDSSShortCircuit(parameters, app, graph) {
-    app.spinner.spin(document.body, "Waiting for OpenDSS short circuit results...");
-
     function getUserEmail() {
         try {
             const userStr = localStorage.getItem('user');
@@ -1974,7 +1998,15 @@ function executeOpenDSSShortCircuit(parameters, app, graph) {
     const replaceUnderscores = name => (name || '').replace('_', '#');
 
     async function runShortCircuit() {
+        const simProgress = startSimulationProgress({
+            title: 'Short circuit progress',
+            statusText: 'Running OpenDSS short circuit…',
+            filePrefix: 'shortcircuit-opendss'
+        });
+        const overlay = simProgress.overlay;
         try {
+            overlay.append('Sending request…', { time: true });
+            const requestStart = performance.now();
             const response = await fetch(ENV.backendUrl + "/", {
                 mode: "cors",
                 method: "post",
@@ -1982,15 +2014,21 @@ function executeOpenDSSShortCircuit(parameters, app, graph) {
                     "Content-Type": "application/json",
                     "Accept-Encoding": "gzip"
                 },
-                body: JSON.stringify(dataDict)
+                body: JSON.stringify(dataDict),
+                signal: simProgress.signal
             });
 
             if (response.status !== 200) throw new Error("server");
 
             const dataJson = await response.json();
+            overlay.append(`Response ${response.status} in ${formatDurationMs(performance.now() - requestStart)}`, { time: true });
+            overlay.append('Processing results…', { time: true });
             dssLog('OpenDSS short circuit response:', dataJson);
 
-            if (handleNetworkErrors(dataJson, graph)) return;
+            if (handleNetworkErrors(dataJson, graph)) {
+                overlay.remove();
+                return;
+            }
 
             if (parameters.exportOpenDSSResults) {
                 downloadOpenDSSShortCircuitResults(dataJson, graph);
@@ -2060,11 +2098,13 @@ function executeOpenDSSShortCircuit(parameters, app, graph) {
                     if (graph.getView && graph.getView().refresh) graph.getView().refresh();
                 }
             }
+            overlay.append('Done.', { time: true });
+            await settleSimulationProgress(overlay, null, simProgress.abortController);
         } catch (err) {
+            const settled = await settleSimulationProgress(overlay, err, simProgress.abortController);
+            if (settled.aborted) return;
             if (err.message === "server") return;
             alert('Error processing OpenDSS short circuit result: ' + err + '\n\nCheck input data or contact electrisim@electrisim.com');
-        } finally {
-            if (app?.spinner) app.spinner.stop();
         }
     }
 
@@ -3816,9 +3856,6 @@ function executePandapowerLoadFlow(parameters, app, graph) {
     dssLog('✅ exportPython value:', parameters.exportPython);
     dssLog('✅ exportPandapowerResults value:', parameters.exportPandapowerResults);
     
-    // Start the spinner
-    app.spinner.spin(document.body, "Waiting for Pandapower results...");
-    
     // If parameters is already an object with all properties, pass it directly
     // This preserves exportPython and other flags!
     if (typeof parameters === 'object' && !Array.isArray(parameters) && parameters.frequency) {
@@ -3935,7 +3972,6 @@ function executePandapowerCoreLogic(parameters, app, graph) {
         
     } catch (error) {
         console.error('Error executing pandapower load flow:', error);
-        app.spinner.stop();
         alert('Error executing Pandapower load flow: ' + error.message);
     } finally {
         // Restore the original show method
@@ -3946,15 +3982,22 @@ function executePandapowerCoreLogic(parameters, app, graph) {
 
 // Function to process pandapower backend call
 async function processPandapowerBackend(obj, graph) {
+    const simProgress = startSimulationProgress({
+        title: 'Load flow progress',
+        statusText: 'Running load flow…',
+        filePrefix: 'loadflow'
+    });
     try {
         dssLog('🌐 Using backend URL:', ENV.backendUrl);
+        simProgress.overlay.append('Sending request…', { time: true });
         const response = await fetch(ENV.backendUrl + "/", {
             mode: "cors",
             method: "post",
             headers: {
                 "Content-Type": "application/json",
             },
-            body: JSON.stringify(obj)
+            body: JSON.stringify(obj),
+            signal: simProgress.signal
         });
         
         if (response.status !== 200) {
@@ -3963,18 +4006,17 @@ async function processPandapowerBackend(obj, graph) {
         
         const dataJson = await response.json();
         dssLog('Pandapower backend response:', dataJson);
+        simProgress.overlay.append('Done.', { time: true });
+        await settleSimulationProgress(simProgress.overlay, null, simProgress.abortController);
         
         // Process the response - you may need to add visualization logic here
         alert('Pandapower calculation completed successfully!');
         
     } catch (error) {
+        const settled = await settleSimulationProgress(simProgress.overlay, error, simProgress.abortController);
+        if (settled.aborted) return;
         console.error('Pandapower backend error:', error);
         alert('Error in Pandapower calculation: ' + error.message);
-    } finally {
-        // Stop spinner
-        if (window.App && window.App.spinner) {
-            window.App.spinner.stop();
-        }
     }
 }
 

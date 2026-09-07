@@ -76,6 +76,13 @@ export const defaultSwitchData = {
     type: "CB",
     z_ohm: 0.0,
     in_ka: 0.0,
+    ikss_ka: 0.0,
+    ansi_device_class: "auto",
+    interrupting_rating_ka: 0.0,
+    momentary_rating_ka: 0.0,
+    rated_voltage_kv: 0.0,
+    contact_parting_cycles: 3.0,
+    generator_cb: false,
     cost_per_unit_by_currency: "0",
     // Protection coordination defaults (used by the Protection Coordination study)
     protection_type: "none",
@@ -174,18 +181,85 @@ export class SwitchDialog extends Dialog {
             }
         ];
         
-        // Short Circuit parameters
+        // Short Circuit parameters (ANSI/IEEE C37 device ratings)
         this.shortCircuitParameters = [
             {
                 id: 'ikss_ka',
-                label: 'Short Circuit Current',
+                label: 'Short Circuit Current (reference)',
                 symbol: 'ikss_ka',
                 unit: 'kA',
-                description: 'Short circuit current in kA',
+                description: 'Optional reference SC current in kA (legacy field)',
                 type: 'number',
-                value: '0',
+                value: this.data.ikss_ka.toString(),
                 step: '0.1',
                 min: '0'
+            },
+            {
+                id: 'ansi_device_class',
+                label: 'ANSI device class',
+                symbol: 'ansi_device_class',
+                description: 'Duty standard for this breaker. Auto selects from bus voltage and type.',
+                type: 'select',
+                value: this.data.ansi_device_class,
+                options: [
+                    { value: 'auto', label: 'Auto (from voltage / type)' },
+                    { value: 'hv_c37_010', label: 'HV — IEEE C37.010' },
+                    { value: 'lv_c37_013', label: 'LV power CB — IEEE C37.13' },
+                    { value: 'mccb_ul_489', label: 'MCCB — UL 489' },
+                    { value: 'generator_c37_013', label: 'Generator CB — IEEE C37.013' }
+                ]
+            },
+            {
+                id: 'interrupting_rating_ka',
+                label: 'Interrupting rating',
+                symbol: 'interrupting_rating_ka',
+                unit: 'kA',
+                description: 'Symmetrical interrupting rating at rated voltage (kA)',
+                type: 'number',
+                value: this.data.interrupting_rating_ka.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'momentary_rating_ka',
+                label: 'Momentary / close-and-latch rating',
+                symbol: 'momentary_rating_ka',
+                unit: 'kA',
+                description: 'First-cycle (momentary) rating (kA). If empty, interrupting rating is used.',
+                type: 'number',
+                value: this.data.momentary_rating_ka.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'rated_voltage_kv',
+                label: 'Rated voltage',
+                symbol: 'rated_voltage_kv',
+                unit: 'kV',
+                description: 'Breaker rated voltage for duty comparison (kV)',
+                type: 'number',
+                value: this.data.rated_voltage_kv.toString(),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'contact_parting_cycles',
+                label: 'Contact parting time',
+                symbol: 'contact_parting_cycles',
+                unit: 'cycles',
+                description: 'Opening time in cycles at system frequency (HV interrupting duty)',
+                type: 'number',
+                value: this.data.contact_parting_cycles.toString(),
+                step: '0.5',
+                min: '1'
+            },
+            {
+                id: 'generator_cb',
+                label: 'Generator circuit breaker',
+                symbol: 'generator_cb',
+                description: 'Apply IEEE C37.013 generator-breaker duty checks',
+                type: 'checkbox',
+                value: this.data.generator_cb
             }
         ];
         

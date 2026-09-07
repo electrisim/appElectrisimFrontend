@@ -110,7 +110,7 @@ export class StorageDialog extends Dialog {
             {
                 id: 'soc_percent',
                 label: 'State of Charge (%)',
-                description: 'Present state of charge (0–100 %). Maps to OpenDSS %stored.',
+                description: 'Present state of charge (0–100 %). Maps to OpenDSS %stored. Charging requires SOC below 100%; discharging requires SOC above the reserve level (min_e_mwh).',
                 type: 'number',
                 value: this.data.soc_percent.toString(),
                 step: '0.1',
@@ -259,7 +259,7 @@ export class StorageDialog extends Dialog {
             {
                 id: 'disp_mode',
                 label: 'Dispatch Mode',
-                description: 'DEFAULT: loadshape triggers. FOLLOW: output follows loadshape multiplier. EXTERNAL: controlled by StorageController. LOADLEVEL / PRICE: global signal.',
+                description: 'DEFAULT: time-series loadshape triggers (snapshot charging can idle if SOC is 100%). FOLLOW: output follows a loadshape. EXTERNAL: honour the State / P[MW] setpoint (recommended for snapshot load flow). LOADLEVEL / PRICE: global signal.',
                 type: 'select',
                 value: this.data.disp_mode || 'DEFAULT',
                 options: ['DEFAULT', 'FOLLOW', 'EXTERNAL', 'LOADLEVEL', 'PRICE']
@@ -386,7 +386,7 @@ export class StorageDialog extends Dialog {
             {
                 id: 'pf',
                 label: 'Power Factor (pf)',
-                description: 'Used when Inverter Control Mode = Fixed PF. Enter the lagging power factor magnitude (0.85–1.0). While the BESS is exporting (P &lt; 0), pf = 0.95 absorbs reactive power — comparable to Fixed Q with positive Q[MVar].',
+                description: 'Used when Inverter Control Mode = Fixed PF. Enter the lagging power-factor magnitude (0.85–1.0), not a negative number. While exporting (P &lt; 0), 0.95 absorbs Q (same sign as Fixed Q &gt; 0). For leading / exporting Q, use Fixed Q with a negative Q[MVar] — a negative PF is not used in Electrisim.',
                 type: 'number',
                 value: String(this.data.pf ?? 1.0),
                 step: '0.01',

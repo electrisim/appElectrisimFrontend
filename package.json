@@ -5,9 +5,6 @@
     "deploy:prod": "npm run minify && cross-env NODE_ENV=production npm run prepare-deploy",
     "minify": "node scripts/minify-js.js"
   },
-  "dependencies": {
-    "nodemailer": "^7.0.3"
-  },
   "devDependencies": {
     "terser": "^5.36.0"
   }

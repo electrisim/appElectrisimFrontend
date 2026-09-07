@@ -1,5 +1,10 @@
 import ENV from './config/environment.js';
 import { prepareNetworkData } from './utils/networkDataPreparation.js';
+import {
+    startSimulationProgress,
+    settleSimulationProgress,
+    formatDurationMs
+} from './utils/simulationProgressOverlay.js';
 
 function getUserEmail() {
     try {
@@ -43,7 +48,12 @@ function timeSeriesSimulationPandaPower(apka, graph) {
             const runNumber = (globalThis.timeSeriesRunCount = (globalThis.timeSeriesRunCount || 0) + 1);
             console.log(`=== TIME SERIES SIMULATION #${runNumber} STARTED ===`, params);
 
-            apka.spinner.spin(document.body, 'Waiting for time series simulation results...');
+            const simProgress = startSimulationProgress({
+                title: 'Time series progress',
+                statusText: 'Running time series simulation…',
+                filePrefix: 'timeseries'
+            });
+            simProgress.overlay.append('Preparing network data…', { time: true });
 
             try {
                 const simulationParameters = {
@@ -66,13 +76,14 @@ function timeSeriesSimulationPandaPower(apka, graph) {
                     networkData,
                     graph,
                     apka,
-                    { exportToExcel: !!params.export_to_xlsx }
+                    { exportToExcel: !!params.export_to_xlsx },
+                    simProgress
                 );
             } catch (err) {
+                const settled = await settleSimulationProgress(simProgress.overlay, err, simProgress.abortController);
+                if (settled.aborted) return;
                 console.error('Time series simulation failed:', err);
                 alert('Time series simulation failed: ' + (err.message || 'Unknown error'));
-            } finally {
-                stopSpinner(apka);
             }
         });
     }
@@ -80,45 +91,32 @@ function timeSeriesSimulationPandaPower(apka, graph) {
     tryCreateDialog();
 }
 
-function stopSpinner(apka) {
+async function processNetworkData(url, obj, graph, apka, options = {}, simProgress = null) {
+    const overlay = simProgress?.overlay;
     try {
-        apka?.spinner?.stop();
-        window.apka?.spinner?.stop();
-        document.querySelectorAll('.spinner, [class*="spinner"]').forEach(el => {
-            el.style.display = 'none';
-            el.remove();
-        });
-        document.querySelectorAll('div, span, p').forEach(el => {
-            if (el.textContent?.includes('Waiting for time series simulation results')) {
-                el.style.display = 'none';
-                el.remove();
-            }
-        });
-        apka?.editor?.setStatus?.('');
-    } catch (e) {
-        console.warn('Spinner cleanup failed:', e);
-    }
-}
-
-async function processNetworkData(url, obj, graph, apka, options = {}) {
-    try {
+        overlay?.append('Sending request…', { time: true });
+        const requestStart = performance.now();
         const response = await fetch(url, {
             mode: 'cors',
             method: 'post',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(obj)
+            body: JSON.stringify(obj),
+            signal: simProgress?.signal
         });
 
         if (response.status !== 200) {
             throw new Error('server');
         }
 
+        overlay?.append(`Response ${response.status} in ${formatDurationMs(performance.now() - requestStart)}`, { time: true });
+        overlay?.append('Processing results…', { time: true });
         let text = await response.text();
         text = text.replace(/:\s*-Infinity/g, ': null').replace(/:\s*Infinity/g, ': null').replace(/:\s*NaN/g, ': null');
         const dataJson = JSON.parse(text);
         console.log('Time Series Simulation Results:', dataJson);
 
         if (dataJson.error && dataJson.diagnostic) {
+            overlay?.remove();
             if (window.DiagnosticReportDialog) {
                 new window.DiagnosticReportDialog(dataJson.diagnostic).show();
             } else {
@@ -128,9 +126,13 @@ async function processNetworkData(url, obj, graph, apka, options = {}) {
         }
 
         if (dataJson.error) {
+            overlay?.remove();
             alert('Time Series Simulation Error: ' + dataJson.error);
             return;
         }
+
+        overlay?.append('Done.', { time: true });
+        await settleSimulationProgress(overlay, null, simProgress?.abortController);
 
         if (window.TimeSeriesSimulationResultsDialog) {
             const dlg = new window.TimeSeriesSimulationResultsDialog(dataJson, {
@@ -141,6 +143,8 @@ async function processNetworkData(url, obj, graph, apka, options = {}) {
             alert('Time series simulation completed. Results dialog not available.');
         }
     } catch (err) {
+        const settled = await settleSimulationProgress(overlay, err, simProgress?.abortController);
+        if (settled.aborted) return;
         if (err.message === 'server') {
             alert('Time series simulation server error. Check that the backend is running.');
             return;

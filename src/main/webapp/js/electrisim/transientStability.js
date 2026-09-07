@@ -2,6 +2,11 @@
 import { TransientStabilityDialog } from './dialogs/TransientStabilityDialog.js';
 import ENV from './config/environment.js';
 import { prepareNetworkData } from './utils/networkDataPreparation.js';
+import {
+    startSimulationProgress,
+    settleSimulationProgress,
+    formatDurationMs
+} from './utils/simulationProgressOverlay.js';
 
 function getUserEmail() {
     try {
@@ -24,17 +29,11 @@ function getUserEmail() {
     return 'unknown@user.com';
 }
 
-function stopSpinner(apka) {
+async function processResults(url, obj, simProgress) {
+    const overlay = simProgress?.overlay;
     try {
-        apka?.spinner?.stop();
-        window.apka?.spinner?.stop();
-    } catch (e) {
-        console.warn('Spinner cleanup failed:', e);
-    }
-}
-
-async function processResults(url, obj, apka) {
-    try {
+        overlay?.append('Sending request…', { time: true });
+        const requestStart = performance.now();
         const response = await fetch(url, {
             mode: 'cors',
             method: 'post',
@@ -42,20 +41,26 @@ async function processResults(url, obj, apka) {
                 'Content-Type': 'application/json',
                 'Accept-Encoding': 'gzip'
             },
-            body: JSON.stringify(obj)
+            body: JSON.stringify(obj),
+            signal: simProgress?.signal
         });
         if (response.status !== 200) {
             throw new Error('server');
         }
+        overlay?.append(`Response ${response.status} in ${formatDurationMs(performance.now() - requestStart)}`, { time: true });
+        overlay?.append('Processing results…', { time: true });
         let text = await response.text();
         text = text.replace(/:\s*-Infinity/g, ': null').replace(/:\s*Infinity/g, ': null').replace(/:\s*NaN/g, ': null');
         const dataJson = JSON.parse(text);
         if (dataJson.error) {
+            overlay?.remove();
             const msg = dataJson.message || 'Transient stability calculation failed.';
             const detail = dataJson.exception ? `\n\n${dataJson.exception}` : '';
             alert(msg + detail);
             return;
         }
+        overlay?.append('Done.', { time: true });
+        await settleSimulationProgress(overlay, null, simProgress?.abortController);
         if (window.TransientStabilityResultsDialog) {
             new window.TransientStabilityResultsDialog(dataJson).show();
         } else {
@@ -63,14 +68,14 @@ async function processResults(url, obj, apka) {
             new window.TransientStabilityResultsDialog(dataJson).show();
         }
     } catch (err) {
+        const settled = await settleSimulationProgress(overlay, err, simProgress?.abortController);
+        if (settled.aborted) return;
         if (err.message === 'server') {
             alert('Transient stability server error. Check that the backend is running and ANDES is installed.');
             return;
         }
         console.error('Transient stability error:', err);
         alert('Error processing transient stability results: ' + (err.message || err));
-    } finally {
-        stopSpinner(apka);
     }
 }
 
@@ -85,7 +90,12 @@ window.transientStabilityAndes = function (a, b, c) {
     const dialog = new TransientStabilityDialog(a);
     dialog.show(async function (values) {
         if (!values || typeof values !== 'object') return;
-        apka.spinner.spin(document.body, 'Running transient stability (ANDES)...');
+        const simProgress = startSimulationProgress({
+            title: 'Transient stability progress',
+            statusText: 'Running transient stability (ANDES)…',
+            filePrefix: 'transient-stability'
+        });
+        simProgress.overlay.append('Preparing network data…', { time: true });
 
         const simulationParameters = {
             typ: 'TransientStabilityAndes Parameters',
@@ -104,11 +114,12 @@ window.transientStabilityAndes = function (a, b, c) {
 
         try {
             const obj = prepareNetworkData(graph, simulationParameters, { removeResultCells: true });
-            await processResults(ENV.backendUrl + '/', obj, apka);
+            await processResults(ENV.backendUrl + '/', obj, simProgress);
         } catch (error) {
+            const settled = await settleSimulationProgress(simProgress.overlay, error, simProgress.abortController);
+            if (settled.aborted) return;
             console.error('Transient stability preparation failed:', error);
             alert('Preparation failed: ' + (error.message || error));
-            stopSpinner(apka);
         }
     });
 };

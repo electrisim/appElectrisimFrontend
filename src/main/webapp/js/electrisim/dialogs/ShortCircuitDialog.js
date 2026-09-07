@@ -1,4 +1,4 @@
-// ShortCircuitDialog.js - Dialog for Short Circuit parameters with tabs for Pandapower and OpenDSS
+// ShortCircuitDialog.js - Dialog for Short Circuit parameters (Pandapower IEC, ANSI/IEEE C37, OpenDSS)
 import { Dialog } from '../Dialog.js';
 import { ensureSubscriptionFunctions } from '../ensureSubscriptionFunctions.js';
 import { getDrawioStudyDialogHeight, SIMULATION_FORM_SCROLL_STYLE, SIMULATION_INFO_BANNER_STYLE, preventAccidentalFormSubmit } from '../utils/dialogStyles.js';
@@ -7,11 +7,9 @@ export class ShortCircuitDialog extends Dialog {
     constructor(editorUi) {
         super('Short Circuit Parameters', 'Calculate');
 
-        // Use global App if editorUi is not valid
         this.ui = editorUi || window.App?.main?.editor?.editorUi;
         this.graph = this.ui?.editor?.graph;
 
-        // Pandapower parameters (existing)
         this.pandapowerParameters = [
             {
                 id: 'fault',
@@ -71,7 +69,56 @@ export class ShortCircuitDialog extends Dialog {
             }
         ];
 
-        // OpenDSS parameters
+        this.ansiParameters = [
+            {
+                id: 'fault',
+                label: 'Fault',
+                type: 'radio',
+                options: [
+                    { value: '3ph', label: 'Three Phase', default: true },
+                    { value: '2ph', label: 'Two Phase' },
+                    { value: '1ph', label: 'Single Phase' }
+                ]
+            },
+            {
+                id: 'frequency_hz',
+                label: 'System frequency',
+                type: 'radio',
+                options: [
+                    { value: '60', label: '60 Hz (North America)', default: true },
+                    { value: '50', label: '50 Hz' }
+                ]
+            },
+            {
+                id: 'prefault_v_pu',
+                label: 'Prefault voltage',
+                type: 'radio',
+                options: [
+                    { value: '1.0', label: '1.00 pu', default: true },
+                    { value: '1.05', label: '1.05 pu' }
+                ]
+            },
+            {
+                id: 'contact_parting_cycles',
+                label: 'Contact parting time (cycles)',
+                type: 'radio',
+                options: [
+                    { value: '2', label: '2 cycles' },
+                    { value: '3', label: '3 cycles', default: true },
+                    { value: '5', label: '5 cycles' },
+                    { value: '8', label: '8 cycles' }
+                ]
+            },
+            { id: 'r_fault_ohm', label: 'Fault resistance in Ohm', type: 'number', value: '0' },
+            { id: 'x_fault_ohm', label: 'Fault reactance in Ohm', type: 'number', value: '0' },
+            {
+                id: 'exportAnsiResults',
+                label: 'Export ANSI Results (download .txt file)',
+                type: 'checkbox',
+                value: false
+            }
+        ];
+
         this.opendssParameters = [
             {
                 id: 'frequency',
@@ -101,11 +148,13 @@ export class ShortCircuitDialog extends Dialog {
         ];
 
         this.currentTab = 'pandapower';
+        this.pandapowerStandard = 'iec';
         this.parameters = this.pandapowerParameters;
     }
 
     getDescription() {
-        return '<strong>Configure short circuit calculation parameters</strong><br>Choose between Pandapower and OpenDSS engines. ' +
+        return '<strong>Configure short circuit calculation parameters</strong><br>' +
+            '<strong>Pandapower</strong>: tick <strong>IEC 60909</strong> or <strong>ANSI/IEEE C37 (beta)</strong> (North America / Canada). <strong>OpenDSS</strong> = generic fault study. ' +
             'See the <a href="https://electrisim.com/documentation.html#short-circuit" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
 
@@ -122,7 +171,8 @@ export class ShortCircuitDialog extends Dialog {
         Object.assign(tabHeaders.style, {
             display: 'flex',
             borderBottom: '2px solid #e9ecef',
-            marginBottom: '16px'
+            marginBottom: '16px',
+            flexWrap: 'wrap'
         });
 
         const pandapowerTab = this.createTabHeader('Pandapower', 'pandapower', true);
@@ -138,7 +188,7 @@ export class ShortCircuitDialog extends Dialog {
         const tab = document.createElement('div');
         tab.setAttribute('data-tab-id', tabId);
         Object.assign(tab.style, {
-            padding: '12px 24px',
+            padding: '12px 16px',
             cursor: 'pointer',
             borderBottom: isActive ? '2px solid #007bff' : '2px solid transparent',
             color: isActive ? '#007bff' : '#6c757d',
@@ -146,19 +196,20 @@ export class ShortCircuitDialog extends Dialog {
             backgroundColor: isActive ? '#f8f9fa' : 'transparent',
             borderTopLeftRadius: '4px',
             borderTopRightRadius: '4px',
-            transition: 'all 0.2s ease'
+            transition: 'all 0.2s ease',
+            fontSize: '13px'
         });
         tab.textContent = text;
 
         tab.onclick = () => this.switchTab(tabId);
         tab.onmouseenter = () => {
-            if (!isActive) {
+            if (this.currentTab !== tabId) {
                 tab.style.backgroundColor = '#e9ecef';
                 tab.style.color = '#495057';
             }
         };
         tab.onmouseleave = () => {
-            if (!isActive) {
+            if (this.currentTab !== tabId) {
                 tab.style.backgroundColor = 'transparent';
                 tab.style.color = '#6c757d';
             }
@@ -172,7 +223,7 @@ export class ShortCircuitDialog extends Dialog {
         this.inputs.clear();
 
         if (tabId === 'pandapower') {
-            this.parameters = this.pandapowerParameters;
+            this.parameters = this.pandapowerStandard === 'ansi' ? this.ansiParameters : this.pandapowerParameters;
         } else {
             this.parameters = this.opendssParameters;
         }
@@ -212,6 +263,10 @@ export class ShortCircuitDialog extends Dialog {
             boxSizing: 'border-box'
         });
 
+        if (this.currentTab === 'pandapower') {
+            form.appendChild(this.createStandardSelector());
+        }
+
         this.parameters.forEach((param) => {
             const formGroup = document.createElement('div');
             Object.assign(formGroup.style, { marginBottom: '4px' });
@@ -241,6 +296,104 @@ export class ShortCircuitDialog extends Dialog {
         });
 
         return form;
+    }
+
+    createStandardSelector() {
+        const wrap = document.createElement('div');
+        wrap.setAttribute('data-standard-selector', 'true');
+        Object.assign(wrap.style, { marginBottom: '12px' });
+
+        const title = document.createElement('label');
+        Object.assign(title.style, {
+            display: 'block',
+            marginBottom: '6px',
+            fontWeight: '600',
+            fontSize: '13px',
+            color: '#495057'
+        });
+        title.textContent = 'Calculation standard';
+        wrap.appendChild(title);
+
+        const row = document.createElement('div');
+        Object.assign(row.style, {
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '6px'
+        });
+
+        const addTick = (value, labelText, extra) => {
+            const item = document.createElement('div');
+            Object.assign(item.style, {
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                flexWrap: 'wrap'
+            });
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.id = `sc_standard_${value}`;
+            cb.checked = this.pandapowerStandard === value;
+            Object.assign(cb.style, {
+                width: '16px',
+                height: '16px',
+                accentColor: '#007bff'
+            });
+            cb.addEventListener('change', () => {
+                if (cb.checked) {
+                    this.setPandapowerStandard(value);
+                } else if (this.pandapowerStandard === value) {
+                    cb.checked = true;
+                }
+            });
+            const lab = document.createElement('label');
+            lab.htmlFor = cb.id;
+            lab.textContent = labelText;
+            Object.assign(lab.style, {
+                fontSize: '13px',
+                color: '#6c757d',
+                cursor: 'pointer'
+            });
+            item.appendChild(cb);
+            item.appendChild(lab);
+            if (extra) item.appendChild(extra);
+            row.appendChild(item);
+        };
+
+        const betaBadge = document.createElement('span');
+        betaBadge.textContent = 'BETA';
+        Object.assign(betaBadge.style, {
+            fontSize: '10px',
+            fontWeight: '700',
+            letterSpacing: '0.04em',
+            color: '#856404',
+            background: '#fff3cd',
+            border: '1px solid #ffc107',
+            borderRadius: '3px',
+            padding: '1px 6px'
+        });
+
+        addTick('iec', 'IEC 60909');
+        addTick('ansi', 'ANSI/IEEE C37', betaBadge);
+
+        const betaNote = document.createElement('p');
+        betaNote.textContent = 'ANSI/IEEE C37 is in beta. Results are for engineering review — verify against utility requirements before using them for equipment ratings.';
+        Object.assign(betaNote.style, {
+            margin: '8px 0 0',
+            fontSize: '12px',
+            lineHeight: '1.4',
+            color: '#856404'
+        });
+        wrap.appendChild(row);
+        wrap.appendChild(betaNote);
+        return wrap;
+    }
+
+    setPandapowerStandard(standard) {
+        this.pandapowerStandard = standard === 'ansi' ? 'ansi' : 'iec';
+        this.currentTab = 'pandapower';
+        this.parameters = this.pandapowerStandard === 'ansi' ? this.ansiParameters : this.pandapowerParameters;
+        this.inputs.clear();
+        this.recreateForm();
     }
 
     createRadioGroup(param) {
@@ -362,7 +515,10 @@ export class ShortCircuitDialog extends Dialog {
             }
         });
 
-        values.engine = this.currentTab;
+        values.engine = this.currentTab === 'opendss'
+            ? 'opendss'
+            : (this.pandapowerStandard === 'ansi' ? 'ansi' : 'pandapower');
+        values.standard = this.currentTab === 'opendss' ? 'opendss' : this.pandapowerStandard;
         return values;
     }
 

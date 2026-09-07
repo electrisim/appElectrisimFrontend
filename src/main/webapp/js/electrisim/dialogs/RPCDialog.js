@@ -1322,20 +1322,23 @@ export class RPCDialog extends Dialog {
         }).catch(err => console.warn('Could not load Chart.js for U-Q preview:', err));
     }
 
-    _applyTemplate(templateKey) {
+    _applyTemplate(templateKey, options = {}) {
+        const silent = !!options.silent;
         const tpl = GRID_CODE_TEMPLATES[templateKey];
         if (!tpl || !tpl.rows || tpl.rows.length === 0) return;
 
         let pRated = parseFloat(this._pRatedInput.value);
         if (isNaN(pRated) || pRated <= 0) {
-            const pMaxInput = this.inputs.get('pMaxMw');
+            const pMaxInput = this.inputs.get('pMaxMw') || this.inputs.get('pnMw');
             pRated = pMaxInput ? parseFloat(pMaxInput.value) : 0;
         }
         if (isNaN(pRated) || pRated <= 0) {
             pRated = this._estimateInstalledCapacity();
         }
         if (isNaN(pRated) || pRated <= 0) {
-            alert('Enter a P rated (MW) value or set P Max so the template can be scaled to absolute MW/Mvar.');
+            if (!silent) {
+                alert('Enter a P rated (MW) value or set Pn so the template can be scaled to absolute MW/Mvar.');
+            }
             return;
         }
 

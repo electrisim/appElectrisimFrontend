@@ -182,7 +182,7 @@ export const WIND_Q_CAPABILITY_TEMPLATES = [
         id: 'frc_2d',
         label: 'FRC WTG P–U (voltage-dependent)',
         description:
-            'Fully rated converter shape: Q vs P and U. Typical default for Type IV WTGs. Stored in p.u. of Sn.',
+            'PowerFactory Fully Rated Converter WTG 2.5MW 50Hz Q(P,U) matrices. Stored in p.u. of Sn. Q=0 at P=0.',
         apply: () => defaultQCap2dState()
     },
     {

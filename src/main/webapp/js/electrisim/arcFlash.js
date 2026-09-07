@@ -4,10 +4,16 @@ import { ArcFlashDialog } from './dialogs/ArcFlashDialog.js';
 import { ArcFlashResultsDialog } from './dialogs/ArcFlashResultsDialog.js';
 import ENV from './config/environment.js';
 import { prepareNetworkData } from './utils/networkDataPreparation.js';
+import {
+    startSimulationProgress,
+    settleSimulationProgress,
+    formatDurationMs
+} from './utils/simulationProgressOverlay.js';
 
 window.arcFlashPandaPower = function (a, b, c) {
     const apka = a;
     const grafka = b;
+    let simProgress = null;
 
     const STYLES = {
         label: {
@@ -118,6 +124,9 @@ PPE Cat ${cell.ppe_category ?? 'N/A'}${methodTag}`;
             graph.getStylesheet().putCellStyle('labelstyle', STYLES.label);
             graph.getStylesheet().putCellStyle('lineStyle', STYLES.line);
 
+            const overlay = simProgress?.overlay;
+            overlay?.append('Sending request…', { time: true });
+            const requestStart = performance.now();
             const response = await fetch(url, {
                 mode: 'cors',
                 method: 'post',
@@ -125,7 +134,8 @@ PPE Cat ${cell.ppe_category ?? 'N/A'}${methodTag}`;
                     'Content-Type': 'application/json',
                     'Accept-Encoding': 'gzip'
                 },
-                body: JSON.stringify(obj)
+                body: JSON.stringify(obj),
+                signal: simProgress?.signal
             });
 
             if (response.status !== 200) {
@@ -133,9 +143,13 @@ PPE Cat ${cell.ppe_category ?? 'N/A'}${methodTag}`;
             }
 
             const dataJson = await response.json();
+            overlay?.append(`Response ${response.status} in ${formatDurationMs(performance.now() - requestStart)}`, { time: true });
+            overlay?.append('Processing results…', { time: true });
             console.log('Arc flash backend response:', dataJson);
 
             if (handleErrors(dataJson)) {
+                overlay?.remove();
+                simProgress = null;
                 return;
             }
 
@@ -188,23 +202,31 @@ PPE Cat ${cell.ppe_category ?? 'N/A'}${methodTag}`;
                 console.error('Failed to show ArcFlashResultsDialog:', dlgErr);
                 alert('Arc flash finished, but the results dialog failed to open. Check the console.');
             }
+            overlay?.append('Done.', { time: true });
+            await settleSimulationProgress(overlay, null, simProgress?.abortController);
+            simProgress = null;
         } catch (err) {
+            const settled = await settleSimulationProgress(simProgress?.overlay, err, simProgress?.abortController);
+            simProgress = null;
+            if (settled.aborted) return;
             if (err.message === 'server') return;
             alert('Error processing arc flash results. ' + err + '\n\nCheck input data or contact electrisim@electrisim.com');
-        } finally {
-            if (typeof apka !== 'undefined' && apka.spinner) {
-                apka.spinner.stop();
-            }
         }
     }
 
     if (b.isEnabled() && !b.isCellLocked(b.getDefaultParent())) {
         const dialog = new ArcFlashDialog(a);
         dialog.show(async function (values) {
-            apka.spinner.spin(document.body, 'Waiting for arc flash results...');
+            simProgress = startSimulationProgress({
+                title: 'Arc flash progress',
+                statusText: 'Running arc flash…',
+                filePrefix: 'arcflash'
+            });
+            simProgress.overlay.append('Preparing network data…', { time: true });
 
             if (!values || typeof values !== 'object') {
-                apka.spinner.stop();
+                simProgress.overlay.remove();
+                simProgress = null;
                 return;
             }
 
@@ -228,8 +250,9 @@ PPE Cat ${cell.ppe_category ?? 'N/A'}${methodTag}`;
             } catch (error) {
                 console.error('Arc flash network preparation failed:', error);
                 alert('Arc flash preparation failed: ' + (error.message || error));
-                if (typeof apka !== 'undefined' && apka.spinner) {
-                    apka.spinner.stop();
+                if (simProgress) {
+                    simProgress.overlay.remove();
+                    simProgress = null;
                 }
             }
         });

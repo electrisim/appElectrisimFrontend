@@ -1867,6 +1867,8 @@ App.prototype.showDownloadDesktopBanner = function()
  */
 App.prototype.showRatingBanner = function()
 {
+		return; // Disabled for Electrisim (draw.io Atlassian review prompt)
+
 		if (!this.bannerShowing && !this['hideBanner' + 'ratingFooter'] &&
 			(!isLocalStorage || mxSettings.settings == null ||
 			mxSettings.settings['close' + 'ratingFooter'] == null))

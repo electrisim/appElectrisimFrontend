@@ -1,6 +1,11 @@
 // bessSizing.js - BESS Sizing calculation function
 import { BessSizingDialog } from './dialogs/BessSizingDialog.js';
 import { prepareNetworkData } from './utils/networkDataPreparation.js';
+import {
+    startSimulationProgress,
+    settleSimulationProgress,
+    formatDurationMs
+} from './utils/simulationProgressOverlay.js';
 
 console.log('bessSizing.js LOADED');
 
@@ -58,16 +63,15 @@ function bessSizing(a, b, c) {
             return;
         }
 
-        // Show spinner immediately (same pattern as loadflowOpenDss.js)
-        // Try multiple ways to access spinner to match loadflowOpenDss.js pattern
-        const app = a || window.App || window.apka;
-        if (app && app.spinner) {
-            app.spinner.spin(document.body, "Calculating BESS sizing...");
-        } else if (window.apka && window.apka.spinner) {
-            window.apka.spinner.spin(document.body, "Calculating BESS sizing...");
-        }
+        const simProgress = startSimulationProgress({
+            title: 'BESS sizing progress',
+            statusText: 'Calculating BESS sizing…',
+            filePrefix: 'bess-sizing'
+        });
+        const overlay = simProgress.overlay;
 
         try {
+            overlay.append('Preparing network data…', { time: true });
             // Prepare network data using the shared network preparation function
             // This ensures consistency with loadFlow and handles all component types
             const calculationMode = values.calculationMode || 'single';
@@ -157,6 +161,8 @@ function bessSizing(a, b, c) {
             console.log('BESS Sizing - bess_sizing_params:', in_data['bess_sizing_params']);
             
             // Send request to backend
+            overlay.append('Sending request…', { time: true });
+            const requestStart = performance.now();
             const response = await fetch(backendUrl, {
                 mode: "cors",
                 method: "POST",
@@ -164,7 +170,8 @@ function bessSizing(a, b, c) {
                     "Content-Type": "application/json",
                     "Accept-Encoding": "gzip, deflate, br"
                 },
-                body: JSON.stringify(in_data)
+                body: JSON.stringify(in_data),
+                signal: simProgress.signal
             });
 
             if (!response.ok) {
@@ -172,6 +179,9 @@ function bessSizing(a, b, c) {
                 console.error('Server error response:', errorText);
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
+
+            overlay.append(`Response ${response.status} in ${formatDurationMs(performance.now() - requestStart)}`, { time: true });
+            overlay.append('Processing results…', { time: true });
 
             // Handle gzip compression (same as loadFlow)
             let responseData;
@@ -205,23 +215,14 @@ function bessSizing(a, b, c) {
 
             // Process and display results
             processBessSizingResults(responseData, graph, editorUi, values);
+            overlay.append('Done.', { time: true });
+            await settleSimulationProgress(overlay, null, simProgress.abortController);
 
         } catch (error) {
+            const settled = await settleSimulationProgress(overlay, error, simProgress.abortController);
+            if (settled.aborted) return;
             console.error('Error in BESS sizing calculation:', error);
             alert('Error calculating BESS sizing: ' + error.message);
-        } finally {
-            // Always stop spinner in finally block (same pattern as loadflowOpenDss.js)
-            try {
-                if (app && app.spinner) {
-                    app.spinner.stop();
-                } else if (window.apka && window.apka.spinner) {
-                    window.apka.spinner.stop();
-                } else if (window.App && window.App.spinner) {
-                    window.App.spinner.stop();
-                }
-            } catch (spinnerErr) {
-                console.error('Error stopping spinner:', spinnerErr);
-            }
         }
     });
 }

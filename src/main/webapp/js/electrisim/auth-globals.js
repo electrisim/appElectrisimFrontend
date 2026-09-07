@@ -87,17 +87,44 @@ function updateLoginButton() {
     return false;
 }
 
+// Helper: true only for the toolbar Share button (not draw.io rating banners)
+function isLoginShareButton(button) {
+    if (!button || !button.getAttribute) {
+        return false;
+    }
+    const title = (button.getAttribute('title') || '').toLowerCase();
+    if (title.includes('share')) {
+        return true;
+    }
+    // Rating banner is a floating bottom prompt appended to body
+    if (button.style.position === 'absolute' && button.style.bottom) {
+        return false;
+    }
+    if (button.querySelector('a[href*="marketplace.atlassian.com"]')) {
+        return false;
+    }
+    return false;
+}
+
+// Remove any existing draw.io "Please rate us" banner (Atlassian marketplace link)
+function removeRatingBanner() {
+    document.querySelectorAll('a[href*="marketplace.atlassian.com"]').forEach(function(link) {
+        const banner = link.closest('.geBtn.gePrimaryBtn') || link.parentElement;
+        if (banner && banner.parentNode) {
+            banner.parentNode.removeChild(banner);
+        }
+    });
+}
+
 // Helper: Find share button using cached queries
 function findShareButton() {
     // Use domCache if available, fallback to document.querySelector
     const useCache = window.domCache && typeof window.domCache.querySelector === 'function';
     
-    // Try selectors in order of specificity (most specific first for better performance)
     const selectors = [
-        'div.geBtn.gePrimaryBtn[title*="share"]', // Most specific
-        'div.geBtn[title*="share"]',              // Less specific
-        '.shareButton',                           // Class-based
-        'div.geBtn.gePrimaryBtn'                  // Fallback
+        'div.geBtn.gePrimaryBtn[title*="share"]',
+        'div.geBtn[title*="share"]',
+        '.shareButton'
     ];
     
     for (const selector of selectors) {
@@ -105,7 +132,7 @@ function findShareButton() {
             ? window.domCache.querySelector(selector)
             : document.querySelector(selector);
             
-        if (button) {
+        if (button && isLoginShareButton(button)) {
             return button;
         }
     }
@@ -200,6 +227,7 @@ function startButtonMonitoring() {
     buttonMonitoringActive = true;
     
     // Initial update
+    setTimeout(removeRatingBanner, 1000);
     setTimeout(waitAndUpdate, 1000);
     
     // Try a few times to catch dynamically created buttons
@@ -221,6 +249,7 @@ function startButtonMonitoring() {
 
 // Start the process when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
+    removeRatingBanner();
     startButtonMonitoring();
 });
 
@@ -228,7 +257,7 @@ document.addEventListener('DOMContentLoaded', function() {
 if (document.readyState === 'loading') {
     // DOM not ready yet
 } else {
-    // DOM is ready
+    removeRatingBanner();
     startButtonMonitoring();
 }
 

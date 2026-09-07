@@ -408,6 +408,7 @@
             { src: 'js/electrisim/loadflowOpenDss.js', type: 'module', async: true },
             { src: 'js/electrisim/bessSizing.js', type: 'module', async: true },
             { src: 'js/electrisim/rpcAnalysis.js', type: 'module', async: true },
+            { src: 'js/electrisim/gridCodePqAnalysis.js', type: 'module', async: true },
             { src: 'js/electrisim/optimalPowerFlow.js', type: 'module', async: true },
             { src: 'js/electrisim/shortCircuit.js', type: 'module', async: true },
             { src: 'js/electrisim/contingencyAnalysis.js', type: 'module', async: true },
@@ -746,7 +747,7 @@
 								'js/electrisim/utils/autoInitOptimizers.js',
 								// Then load other utilities and dialogs
 								'js/electrisim/dialogs/EditDataDialog.js',
-                                'js/electrisim/results/resultBoxes.js?v=5',
+                                'js/electrisim/results/resultBoxes.js?v=6',
                                 'js/electrisim/results/flowDirectionVisualization.js?v=13',
                                 'js/electrisim/results/networkHealthDashboard.js?v=2',
                                 'js/electrisim/utils/snapshotStore.js?v=1',
@@ -761,6 +762,8 @@
 								'js/electrisim/dialogs/BessSizingDialog.js',
 								'js/electrisim/dialogs/RPCDialog.js',
 								'js/electrisim/dialogs/RPCResultsDialog.js',
+								'js/electrisim/dialogs/GridCodePqDialog.js',
+								'js/electrisim/dialogs/GridCodePqResultsDialog.js',
 								'js/electrisim/dialogs/DiagnosticReportDialog.js',
 								'js/electrisim/dialogs/OptimalPowerFlowDialog.js',
 								'js/electrisim/dialogs/OptimalPowerFlowResultsDialog.js',
@@ -818,7 +821,7 @@
                                 // Loaded on demand by their menu actions in app.min.js, which
                                 // fall back to import() when the global is not defined yet:
                                 // arcFlash, motorStarting, transientStability, eigenvalueAnalysis,
-                                // protectionCoordination, bessSizing, rpcAnalysis, dgInterconnection
+                                // protectionCoordination, bessSizing, rpcAnalysis, gridCodePqAnalysis, dgInterconnection
                             ];
 							
 							// Auth scripts (Stripe, etc.) - deferred until after Electrisim scripts for faster initial load

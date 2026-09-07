@@ -430,12 +430,42 @@ export class RPCResultsDialog {
         if (tcc) {
             const applied = tcc.controllers_applied;
             const req = tcc.run_control_requested;
-            let tapLine = req
-                ? (applied
-                    ? `On (${tcc.transformer_count || 0} transformer(s): ${(tcc.transformer_names || []).join(', ') || '—'})`
-                    : 'Requested but no configured transformers')
-                : 'Off';
-            items.push(['Tap changer control', tapLine]);
+            const names2 = tcc.transformer_2w_names || [];
+            const names3 = tcc.transformer_3w_names || [];
+            const n2 = tcc.transformer_2w_count != null ? tcc.transformer_2w_count : names2.length;
+            const n3 = tcc.transformer_3w_count != null ? tcc.transformer_3w_count : names3.length;
+            let tapLine;
+            if (!req) {
+                tapLine = 'Off';
+            } else if (!applied && !tcc.shnt_ctrl) {
+                tapLine = 'Requested but no Discrete tap / shunt controller is enabled on the diagram';
+            } else {
+                const bits = [];
+                if (tcc.i_trf_ctrl) {
+                    bits.push(`2w DiscreteTap ${n2}${names2.length ? ': ' + names2.join(', ') : ''}`);
+                }
+                if (tcc.i_trf3w_ctrl) {
+                    bits.push(`3w DiscreteTap ${n3}${names3.length ? ': ' + names3.join(', ') : ''}`);
+                }
+                if (!tcc.i_trf_ctrl && !tcc.i_trf3w_ctrl && (tcc.transformer_count || 0) > 0) {
+                    bits.push(`${tcc.transformer_count} DiscreteTap: ${(tcc.transformer_names || []).join(', ') || '—'}`);
+                }
+                if (tcc.run_control_shunt) {
+                    const nSh = tcc.shunt_controller_count || 0;
+                    const nLf = tcc.shunt_line_flow_count || 0;
+                    bits.push(`shunt reactor control (DiscreteShunt ${nSh}, Line P→step ${nLf})`);
+                }
+                if (tcc.shnt_ctrl) {
+                    bits.push('shunt on/off before plant Q');
+                }
+                tapLine = bits.length ? bits.join('; ') : 'On';
+            }
+            if (applied && tcc.points_checked > 0) {
+                tapLine += tcc.points_out_of_band > 0
+                    ? ` — voltage band NOT held at ${tcc.points_out_of_band} of ${tcc.points_checked} points`
+                    : ` — voltage band held at all ${tcc.points_checked} points`;
+            }
+            items.push(['Tap / shunt control', tapLine]);
         }
         if (data.grid_code_template_name) {
             items.push(['Grid code requirement', data.grid_code_template_name]);
@@ -463,7 +493,66 @@ export class RPCResultsDialog {
             note.textContent = data.pcc_q_convention;
             bar.appendChild(note);
         }
+        const tapNotice = this._createTapBandNotice(data.tap_changer_control);
+        if (tapNotice) {
+            bar.appendChild(tapNotice);
+        }
         return bar;
+    }
+
+    /**
+     * Amber notice when a Discrete tap controller could not hold its configured
+     * voltage band, with the reason (tap exhausted or band narrower than one step).
+     */
+    _createTapBandNotice(tcc) {
+        const rows = (tcc && tcc.per_transformer || []).filter((t) => t && t.out_points > 0);
+        if (rows.length === 0) return null;
+
+        const box = document.createElement('div');
+        Object.assign(box.style, {
+            flexBasis: '100%', marginTop: '8px', padding: '10px 12px',
+            backgroundColor: '#fff3cd', border: '1px solid #ffe08a', borderRadius: '6px',
+            fontSize: '12px', color: '#7a5b00', lineHeight: '1.5'
+        });
+        const head = document.createElement('div');
+        Object.assign(head.style, { fontWeight: '700', marginBottom: '4px' });
+        head.textContent = 'Tap changer could not hold the configured voltage band';
+        box.appendChild(head);
+
+        rows.forEach((t) => {
+            const num = (v, d) => (v == null || isNaN(Number(v)) ? 'n/a' : Number(v).toFixed(d));
+            const line = document.createElement('div');
+            const band = `${num(t.vm_lower_pu, 3)}–${num(t.vm_upper_pu, 3)} pu`;
+            let text = `${t.name}: U_${t.control_side || 'ctrl'} outside ${band} at `
+                + `${t.out_points} of ${t.points} envelope points`;
+            if (t.worst_vm_pu != null) {
+                text += `; worst ${num(t.worst_vm_pu, 3)} pu at P = ${num(t.worst_p_mw, 2)} MW`;
+            }
+            if (t.at_limit_points > 0) {
+                text += `; tap at end position [${num(t.tap_min, 0)}…${num(t.tap_max, 0)}] `
+                    + `at ${t.at_limit_points} of those points`;
+            }
+            line.textContent = `• ${text}.`;
+            box.appendChild(line);
+
+            if (t.band_narrower_than_step && Number(t.tap_step_percent) > 0) {
+                const step = Number(t.tap_step_percent) / 100;
+                const hint = document.createElement('div');
+                Object.assign(hint.style, { marginLeft: '10px', color: '#8a6d00' });
+                hint.textContent = `Band is ${num(Number(t.vm_upper_pu) - Number(t.vm_lower_pu), 3)} pu wide, `
+                    + `narrower than one tap step (${num(t.tap_step_percent, 2)}% = ${num(step, 3)} pu). `
+                    + `A discrete tap changer overshoots such a band and can never settle inside it — `
+                    + `widen the limits to at least ${num(1.2 * step, 3)} pu or reduce tap_step_percent.`;
+                box.appendChild(hint);
+            }
+        });
+
+        const foot = document.createElement('div');
+        Object.assign(foot.style, { marginTop: '5px', fontSize: '11px' });
+        foot.textContent = 'Those points are reachable in reactive power but not voltage-regulated, '
+            + 'so treat them as indicative only.';
+        box.appendChild(foot);
+        return box;
     }
 
     _createWarningsSection(warnings) {

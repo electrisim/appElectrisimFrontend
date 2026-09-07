@@ -1,71 +1,15 @@
 import { prepareNetworkData, getEconomicProfileRelevance } from './utils/networkDataPreparation.js';
 import { EconomicAnalysisDialog } from './dialogs/EconomicAnalysisDialog.js';
 import { EconomicAnalysisResultsDialog } from './dialogs/EconomicAnalysisResultsDialog.js';
+import {
+    startSimulationProgress,
+    settleSimulationProgress,
+    formatDurationMs
+} from './utils/simulationProgressOverlay.js';
 
 function getBackendUrl() {
     if (window.ENV && window.ENV.backendUrl) return window.ENV.backendUrl;
     return 'https://sim.electrisim.com';
-}
-
-function createProgressOverlay() {
-    const overlay = document.createElement('div');
-    Object.assign(overlay.style, {
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        width: '100%',
-        height: '100%',
-        backgroundColor: 'rgba(0, 0, 0, 0.45)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: '10002',
-        padding: '16px',
-        boxSizing: 'border-box'
-    });
-    const card = document.createElement('div');
-    Object.assign(card.style, {
-        backgroundColor: '#fff',
-        borderRadius: '10px',
-        padding: '28px 36px',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.14)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '18px',
-        minWidth: 'min(320px, 90vw)',
-        maxWidth: '420px',
-        border: '1px solid #e9ecef'
-    });
-    const spinner = document.createElement('div');
-    Object.assign(spinner.style, {
-        width: '40px',
-        height: '40px',
-        border: '3px solid #e9ecef',
-        borderTopColor: '#48d800',
-        borderRadius: '50%',
-        animation: 'economicProgressSpin 0.8s linear infinite'
-    });
-    const style = document.createElement('style');
-    style.textContent = '@keyframes economicProgressSpin { to { transform: rotate(360deg); } }';
-    document.head.appendChild(style);
-    const msg = document.createElement('div');
-    Object.assign(msg.style, { fontSize: '14px', color: '#333', fontWeight: '500' });
-    msg.textContent = 'Preparing...';
-    card.appendChild(spinner);
-    card.appendChild(msg);
-    overlay.appendChild(card);
-    return {
-        overlay,
-        setMessage(text) {
-            msg.textContent = text;
-        },
-        remove() {
-            if (document.body.contains(overlay)) {
-                document.body.removeChild(overlay);
-            }
-        }
-    };
 }
 
 export async function economicAnalysisPandaPower(app, graph, editor) {
@@ -79,11 +23,15 @@ export async function economicAnalysisPandaPower(app, graph, editor) {
     const dialog = new EconomicAnalysisDialog(editorUi);
     dialog.graph = g;
     dialog.show(async (values) => {
-        const progress = createProgressOverlay();
-        document.body.appendChild(progress.overlay);
+        const simProgress = startSimulationProgress({
+            title: 'Economic analysis progress',
+            statusText: 'Running economic analysis…',
+            filePrefix: 'economic'
+        });
+        const overlay = simProgress.overlay;
 
         try {
-            progress.setMessage('Preparing network data...');
+            overlay.append('Preparing network data…', { time: true });
             const v = Array.isArray(values) ? values : values;
             const { hasLoads, hasGenerators } = getEconomicProfileRelevance(g);
             let idx = 0;
@@ -119,7 +67,8 @@ export async function economicAnalysisPandaPower(app, graph, editor) {
             const backendUrl = getBackendUrl();
             const url = backendUrl.endsWith('/') ? backendUrl : backendUrl + '/';
 
-            progress.setMessage('Running economic analysis...');
+            overlay.append('Sending request…', { time: true });
+            const requestStart = performance.now();
             const response = await fetch(url, {
                 mode: 'cors',
                 method: 'POST',
@@ -127,11 +76,11 @@ export async function economicAnalysisPandaPower(app, graph, editor) {
                     'Content-Type': 'application/json',
                     'Accept-Encoding': 'gzip, deflate, br'
                 },
-                body: JSON.stringify(networkData)
+                body: JSON.stringify(networkData),
+                signal: simProgress.signal
             });
 
             if (response.status !== 200) {
-                progress.remove();
                 const errText = await response.text();
                 console.error('Economic Analysis error:', errText);
                 let errMsg = 'Economic analysis failed.';
@@ -139,30 +88,34 @@ export async function economicAnalysisPandaPower(app, graph, editor) {
                     const errJson = JSON.parse(errText);
                     if (errJson.error) errMsg = errJson.error;
                 } catch (e) {}
-                alert(errMsg);
+                const settled = await settleSimulationProgress(overlay, new Error(errMsg), simProgress.abortController);
+                if (!settled.aborted) alert(errMsg);
                 return;
             }
 
-            progress.setMessage('Processing results...');
+            overlay.append(`Response ${response.status} in ${formatDurationMs(performance.now() - requestStart)}`, { time: true });
+            overlay.append('Processing results…', { time: true });
             let text = await response.text();
             text = text.replace(/:\s*-Infinity/g, ': null').replace(/:\s*Infinity/g, ': null').replace(/:\s*NaN/g, ': null');
             let results;
             try {
                 results = JSON.parse(text);
             } catch (parseErr) {
-                progress.remove();
                 console.error('Economic Analysis: invalid JSON response', parseErr);
                 console.error('Response text (first 500 chars):', text.substring(0, 500));
-                alert('Invalid response from server. Check browser console for details.');
+                const settled = await settleSimulationProgress(overlay, parseErr, simProgress.abortController);
+                if (!settled.aborted) alert('Invalid response from server. Check browser console for details.');
                 return;
             }
-            progress.remove();
+            overlay.append('Done.', { time: true });
+            await settleSimulationProgress(overlay, null, simProgress.abortController);
             console.log('Economic Analysis results received:', results);
 
             const resultsDialog = new EconomicAnalysisResultsDialog(results, editorUi, { hasLoads, hasGenerators });
             resultsDialog.show();
         } catch (error) {
-            progress.remove();
+            const settled = await settleSimulationProgress(overlay, error, simProgress.abortController);
+            if (settled.aborted) return;
             console.error('Error in economic analysis:', error);
             alert('Error: ' + (error.message || 'Unknown error'));
         }

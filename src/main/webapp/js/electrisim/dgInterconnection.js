@@ -2,6 +2,11 @@
 import { DgInterconnectionDialog } from './dialogs/DgInterconnectionDialog.js';
 import { DgInterconnectionResultsDialog } from './dialogs/DgInterconnectionResultsDialog.js';
 import { prepareNetworkData } from './utils/networkDataPreparation.js';
+import {
+    startSimulationProgress,
+    settleSimulationProgress,
+    formatDurationMs
+} from './utils/simulationProgressOverlay.js';
 
 console.log('dgInterconnection.js LOADED');
 
@@ -33,12 +38,15 @@ function dgInterconnectionOpenDss(a, b, c) {
             return;
         }
 
-        const app = a || window.App || window.apka;
-        if (app?.spinner) {
-            try { app.spinner.spin(document.body, 'Running DG Interconnection Screening...'); } catch (e) { /* ignore */ }
-        }
+        const simProgress = startSimulationProgress({
+            title: 'DG interconnection progress',
+            statusText: 'Running DG interconnection screening…',
+            filePrefix: 'dg-interconnection'
+        });
+        const overlay = simProgress.overlay;
 
         try {
+            overlay.append('Preparing network data…', { time: true });
             const studyParams = {
                 typ: 'DgInterconnectionOpenDss',
                 poc_bus_id: values.pocBusId || '',
@@ -76,31 +84,36 @@ function dgInterconnectionOpenDss(a, b, c) {
             }
 
             const url = getBackendUrl();
+            overlay.append('Sending request…', { time: true });
+            const requestStart = performance.now();
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept-Encoding': 'gzip'
                 },
-                body: JSON.stringify(in_data)
+                body: JSON.stringify(in_data),
+                signal: simProgress.signal
             });
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
             }
             const dataJson = await response.json();
-            if (app?.spinner) {
-                try { app.spinner.stop(); } catch (e) { /* ignore */ }
-            }
+            overlay.append(`Response ${response.status} in ${formatDurationMs(performance.now() - requestStart)}`, { time: true });
+            overlay.append('Processing results…', { time: true });
             if (dataJson.error) {
-                alert('DG Interconnection Screening: ' + (dataJson.message || 'unknown error'));
+                const err = new Error(dataJson.message || 'unknown error');
+                const settled = await settleSimulationProgress(overlay, err, simProgress.abortController);
+                if (!settled.aborted) alert('DG Interconnection Screening: ' + (dataJson.message || 'unknown error'));
                 return;
             }
+            overlay.append('Done.', { time: true });
+            await settleSimulationProgress(overlay, null, simProgress.abortController);
             const resultsDialog = new DgInterconnectionResultsDialog(editorUi, dataJson);
             resultsDialog.show();
         } catch (err) {
-            if (app?.spinner) {
-                try { app.spinner.stop(); } catch (e) { /* ignore */ }
-            }
+            const settled = await settleSimulationProgress(overlay, err, simProgress.abortController);
+            if (settled.aborted) return;
             console.error('DG Interconnection Screening failed:', err);
             alert('DG Interconnection Screening failed: ' + (err?.message || err));
         }

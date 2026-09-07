@@ -20,6 +20,7 @@ export const defaultGeneratorData = {
     vn_kv: 0.0,
     xdss_pu: 0.0,
     rdss_ohm: 0.0,
+    ansi_machine_type: 'turbo',
     cos_phi: 0.8,
     pg_percent: 0.0,
     power_station_trafo: null,
@@ -217,6 +218,20 @@ export class GeneratorDialog extends Dialog {
                 type: 'number',
                 value: this.data.power_station_trafo?.toString() || '',
                 step: '1'
+            },
+            {
+                id: 'ansi_machine_type',
+                label: 'ANSI machine type',
+                symbol: 'ansi_machine_type',
+                description: 'Rotating-machine class for ANSI/IEEE C37 reactance multipliers',
+                type: 'select',
+                value: this.data.ansi_machine_type,
+                options: [
+                    { value: 'turbo', label: 'Turbo generator (default)' },
+                    { value: 'hydro_amortisseur', label: 'Hydro with amortisseur windings' },
+                    { value: 'hydro', label: 'Hydro generator' },
+                    { value: 'sync_motor', label: 'Synchronous motor' }
+                ]
             }
         ];
         

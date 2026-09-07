@@ -1,13 +1,10 @@
 import {
-    RPCDialog,
     getGridTemplateRequirementsMw,
     getGridTemplateDisplayName,
-    getUqGridTemplateRequirementsMw,
-    getUqGridTemplateDisplayName,
-    estimateRpcInstalledMw,
-    PQ_TO_UQ_TEMPLATE
+    estimateRpcInstalledMw
 } from './dialogs/RPCDialog.js';
-import { RPCResultsDialog } from './dialogs/RPCResultsDialog.js';
+import { GridCodePqDialog } from './dialogs/GridCodePqDialog.js';
+import { GridCodePqResultsDialog } from './dialogs/GridCodePqResultsDialog.js';
 import { prepareNetworkData } from './utils/networkDataPreparation.js';
 import {
     createSimulationProgressOverlay,
@@ -16,7 +13,7 @@ import {
     readNdjsonStream
 } from './utils/simulationProgressOverlay.js';
 
-console.log('rpcAnalysis.js LOADED');
+console.log('gridCodePqAnalysis.js LOADED');
 
 const getBackendUrl = () => {
     if (window.ENV && window.ENV.backendUrl) {
@@ -26,32 +23,19 @@ const getBackendUrl = () => {
     return 'http://localhost:5000/';
 };
 
-function _setRpcStreamFlag(in_data, useStream) {
+function _setPqStreamFlag(in_data, useStream) {
     const keys = Object.keys(in_data);
     for (const key of keys) {
         const item = in_data[key];
-        if (item && item.typ === 'RPCAnalysisPandaPower Parameters') {
+        if (item && item.typ === 'GridCodePqPandaPower Parameters') {
             in_data[key] = { ...item, rpc_stream: !!useStream };
             return;
         }
     }
 }
 
-function _isRpcStreamFriendlyUrl(backendUrl) {
-    // Prefer NDJSON streaming everywhere, including dev tunnels (devtunnels.ms / ngrok / loca.lt).
-    // Streaming emits periodic progress events that keep the tunnel connection warm; a plain
-    // (non-streaming) POST sends no bytes until the computation finishes and long RPC runs then
-    // exceed the tunnel idle timeout -> 504 Gateway Timeout (surfaced in the browser as a CORS
-    // error because the 504 error page carries no Access-Control-Allow-Origin header).
-    return true;
-}
-
-function _isRpcNetworkStreamError(error) {
-    return isNetworkStreamError(error);
-}
-
-async function _fetchRpcResults(in_data, backendUrl, useStream, overlay, signal) {
-    _setRpcStreamFlag(in_data, useStream);
+async function _fetchPqResults(in_data, backendUrl, useStream, overlay, signal) {
+    _setPqStreamFlag(in_data, useStream);
 
     const response = await fetch(backendUrl, {
         mode: 'cors',
@@ -99,23 +83,47 @@ async function _fetchRpcResults(in_data, backendUrl, useStream, overlay, signal)
     return dataJson;
 }
 
-function _mergeRpcVoltageLevels(voltageLevels, extraU) {
-    const seen = new Set();
-    const out = [];
-    for (const v of [...(voltageLevels || []), ...(extraU || [])]) {
-        const n = parseFloat(v);
-        if (isNaN(n)) continue;
-        const key = n.toFixed(4);
-        if (seen.has(key)) continue;
-        seen.add(key);
-        out.push(Number(key));
+function _getCellNetworkName(cell) {
+    try {
+        if (!cell) return null;
+        if (cell.mxObjectId) return cell.mxObjectId.replace('#', '_');
+        return null;
+    } catch (e) {
+        return null;
     }
-    out.sort((a, b) => a - b);
-    return out.length ? out : [1.0];
 }
 
-function rpcAnalysis(a, b, c) {
-    console.log('RPC Analysis started');
+function _getCellAttr(cell, name) {
+    try {
+        if (!cell?.value?.getAttribute) return null;
+        return cell.value.getAttribute(name);
+    } catch (e) {
+        return null;
+    }
+}
+
+function _getUserEmail() {
+    try {
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+            const user = JSON.parse(userStr);
+            if (user && user.email) return user.email;
+        }
+        return 'unknown@user.com';
+    } catch (e) {
+        return 'unknown@user.com';
+    }
+}
+
+function coerceBool(v) {
+    if (typeof v === 'string') {
+        return ['true', '1', 'yes', 'on'].includes(v.trim().toLowerCase());
+    }
+    return !!v;
+}
+
+function gridCodePqAnalysis(a, b, c) {
+    console.log('Grid Code Compliance (P-Q) started');
 
     const editorUi = a || window.App?.main?.editor?.editorUi;
     if (!editorUi) {
@@ -128,15 +136,13 @@ function rpcAnalysis(a, b, c) {
         return;
     }
 
-    const dialog = new RPCDialog(editorUi);
+    const dialog = new GridCodePqDialog(editorUi);
 
     dialog.show(async (values) => {
         if (!values) {
-            console.log('RPC dialog cancelled');
+            console.log('P-Q dialog cancelled');
             return;
         }
-
-        console.log('RPC parameters:', values);
 
         if (!values.pccBusId) {
             alert('Please select a PCC Bus');
@@ -147,15 +153,21 @@ function rpcAnalysis(a, b, c) {
             return;
         }
 
-        const selectedGenIds = (values.generatorIds || []).filter(id => id);
+        const selectedGenIds = (values.generatorIds || []).filter((id) => id);
         if (selectedGenIds.length === 0) {
             alert('Please select at least one static generator or wind turbine generator');
             return;
         }
 
+        const parkOn = values.qDispatchMode === 'park' || coerceBool(values.iParkCtrl);
+        if (parkOn && !values.parkControllerId) {
+            alert('Plant Q dispatch is set to Park Controller: select a Park Controller, or switch to Local Q on each unit.');
+            return;
+        }
+
         const tplKeyPre = values.gridCodeTemplateKey || 'none';
         let reqRowsPre = Array.isArray(values.requirements) ? [...values.requirements] : [];
-        reqRowsPre = reqRowsPre.filter(r => {
+        reqRowsPre = reqRowsPre.filter((r) => {
             const p = parseFloat(r.p) || 0;
             const qn = parseFloat(r.qMin) || 0;
             const qx = parseFloat(r.qMax) || 0;
@@ -182,42 +194,49 @@ function rpcAnalysis(a, b, c) {
         };
 
         try {
-            let voltageLevels = (values.voltageLevels || '1.0')
+            const voltageLevels = (values.voltageLevels || '1.0')
                 .split(',')
-                .map(s => parseFloat(s.trim()))
-                .filter(v => !isNaN(v));
+                .map((s) => parseFloat(s.trim()))
+                .filter((v) => !isNaN(v));
 
-            // Resolve cell names from IDs
             const model = graph.getModel();
             const pccCell = model.getCell(values.pccBusId);
             const extGridCell = model.getCell(values.extGridId);
-
             const pccBusName = _getCellNetworkName(pccCell);
             const extGridName = _getCellNetworkName(extGridCell);
 
-            const generatorNames = selectedGenIds.map(id => {
+            const generatorNames = selectedGenIds.map((id) => {
                 const cell = model.getCell(id);
                 return _getCellNetworkName(cell);
-            }).filter(n => n !== null);
+            }).filter((n) => n !== null);
 
-            // Build requirements: table rows, or scale the selected grid template if table is empty
-            // (so the chosen grid code appears on the PQ chart without an extra "Apply" click).
+            const excludeIds = (values.excludeGeneratorIds || []).filter((id) => id);
+            const excludeNames = excludeIds.map((id) => _getCellNetworkName(model.getCell(id))).filter((n) => n);
+
+            const shuntNames = (values.shuntIds || []).filter((id) => id).map((id) => {
+                return _getCellNetworkName(model.getCell(id));
+            }).filter((n) => n);
+
+            let parkControllerName = null;
+            let parkControllerId = null;
+            if (values.parkControllerId) {
+                const parkCell = model.getCell(values.parkControllerId);
+                parkControllerName = _getCellAttr(parkCell, 'name') || _getCellNetworkName(parkCell);
+                parkControllerId = parkCell?.mxObjectId || parkCell?.id || null;
+            }
+
             let requirementRows = Array.isArray(values.requirements) ? [...values.requirements] : [];
-            // Drop placeholder rows (e.g. user clicked + Add Row but left 0,0,0) so template fallback still runs
-            requirementRows = requirementRows.filter(r => {
+            requirementRows = requirementRows.filter((r) => {
                 const p = parseFloat(r.p) || 0;
                 const qn = parseFloat(r.qMin) || 0;
                 const qx = parseFloat(r.qMax) || 0;
                 return Math.abs(p) + Math.abs(qn) + Math.abs(qx) > 1e-9;
             });
             const tplKey = values.gridCodeTemplateKey || 'none';
-            // Match backend / dialog "P Max = 0 → auto": use installed sgen / wind-turbine sum for template scaling
             let pRated = values.pRatedMw;
             if (!(pRated > 0)) {
-                const pMax = parseFloat(values.pMaxMw);
-                if (!isNaN(pMax) && pMax > 0) {
-                    pRated = pMax;
-                }
+                const pn = parseFloat(values.pnMw);
+                if (!isNaN(pn) && pn > 0) pRated = pn;
             }
             if (!(pRated > 0)) {
                 pRated = estimateRpcInstalledMw(graph, selectedGenIds);
@@ -227,88 +246,70 @@ function rpcAnalysis(a, b, c) {
             }
             const gridCodeTemplateName = tplKey !== 'none' ? getGridTemplateDisplayName(tplKey) : '';
 
-            // U-Q/Pmax requirements (voltage-indexed at P = Pmax)
-            let uqRequirementRows = Array.isArray(values.uqRequirements) ? [...values.uqRequirements] : [];
-            uqRequirementRows = uqRequirementRows.filter(r => {
-                const u = parseFloat(r.u) || 0;
-                const qn = parseFloat(r.qMin) || 0;
-                const qx = parseFloat(r.qMax) || 0;
-                return Math.abs(u) + Math.abs(qn) + Math.abs(qx) > 1e-9;
-            });
-            let uqTplKey = values.uqGridCodeTemplateKey || 'none';
-            if ((uqTplKey === 'none' || !uqTplKey) && PQ_TO_UQ_TEMPLATE[tplKey]) {
-                uqTplKey = PQ_TO_UQ_TEMPLATE[tplKey];
-            }
-            if (uqRequirementRows.length === 0 && uqTplKey !== 'none' && uqTplKey !== 'custom_manual' && pRated > 0) {
-                uqRequirementRows = getUqGridTemplateRequirementsMw(uqTplKey, pRated);
-            }
-            const uqGridCodeTemplateName = uqTplKey !== 'none' ? getUqGridTemplateDisplayName(uqTplKey) : '';
-
-            let uqRequirements = null;
-            if (uqRequirementRows.length > 0) {
-                const sortedUq = [...uqRequirementRows].sort((a, b) => a.u - b.u);
-                uqRequirements = {
-                    u_pu: sortedUq.map(r => r.u),
-                    q_req_max_mvar: sortedUq.map(r => r.qMax),
-                    q_req_min_mvar: sortedUq.map(r => r.qMin)
-                };
-                voltageLevels = _mergeRpcVoltageLevels(voltageLevels, uqRequirements.u_pu);
-            }
-
-            // { "vKey": { p_mw: [...], q_req_max_mvar: [...], q_req_min_mvar: [...] } }
             let requirements = null;
             if (requirementRows.length > 0) {
                 const sorted = [...requirementRows].sort((a, b) => a.p - b.p);
                 const reqObj = {};
-                voltageLevels.forEach(v => {
+                voltageLevels.forEach((v) => {
                     const vKey = String(parseFloat(v).toFixed(4));
                     reqObj[vKey] = {
-                        p_mw: sorted.map(r => r.p),
-                        q_req_max_mvar: sorted.map(r => r.qMax),
-                        q_req_min_mvar: sorted.map(r => r.qMin)
+                        p_mw: sorted.map((r) => r.p),
+                        q_req_max_mvar: sorted.map((r) => r.qMax),
+                        q_req_min_mvar: sorted.map((r) => r.qMin)
                     };
                 });
                 requirements = reqObj;
             }
 
-            const coerceBool = (v) => {
-                if (typeof v === 'string') {
-                    return ['true', '1', 'yes', 'on'].includes(v.trim().toLowerCase());
-                }
-                return !!v;
-            };
-
-            const runControl2w = coerceBool(values.run_control_trafo2w);
-            const runControl3w = coerceBool(values.run_control_trafo3w);
+            const runControl2w = coerceBool(values.iTrfCtrl);
+            const runControl3w = coerceBool(values.iTrf3wCtrl);
             const runControlSh = coerceBool(values.run_control_shunt);
-            const rpcParams = {
-                typ: 'RPCAnalysisPandaPower Parameters',
+            const shuntOnOff = coerceBool(values.shntCtrl);
+
+            const pqParams = {
+                typ: 'GridCodePqPandaPower Parameters',
                 pcc_bus_name: pccBusName,
                 ext_grid_name: extGridName,
                 generator_names: generatorNames,
+                exclude_generator_names: excludeNames,
+                shunt_names: shuntNames,
+                park_controller_name: parkControllerName,
+                park_controller_id: parkControllerId,
+                i_park_ctrl: parkOn,
+                q_dispatch_mode: parkOn ? 'park' : 'local',
                 voltage_levels: voltageLevels,
-                p_min_mw: 0,
-                p_max_mw: parseFloat(values.pMaxMw) || 0,
-                p_steps: parseInt(values.pSteps, 10) || 10,
-                q_capability_mode: values.qCapabilityMode || 'from_rating',
-                limit_overloads: values.limitOverloads || false,
+                pn_mw: parseFloat(values.pnMw) || 0,
+                un_kv: parseFloat(values.unKv) || 0,
+                uc_kv: parseFloat(values.ucKv) || 0,
+                p_start_pct: parseFloat(values.pStartPct),
+                p_step_pct: parseFloat(values.pStepPct),
+                p_end_pct: parseFloat(values.pEndPct),
+                q_step_pct: parseFloat(values.qStepPct),
+                i_op_range: parseInt(values.iOpRange, 10) || 0,
+                q_capability_mode: 'from_sgen_curve',
+                i_trf_ctrl: runControl2w,
+                i_trf3w_ctrl: runControl3w,
+                shnt_ctrl: shuntOnOff,
+                limit_overloads: coerceBool(values.limitOverloads),
+                max_loading_percent: parseFloat(values.maxLoadingPercent) || 100,
+                lim_q_uprot: coerceBool(values.limQUprot),
+                u_max_prot: parseFloat(values.uMaxProt) || 1.15,
+                u_min_prot: parseFloat(values.uMinProt) || 0.85,
+                i_show_pq0: coerceBool(values.iShowPQ0),
+                i_output: coerceBool(values.iOutput),
                 run_control: runControl2w || runControl3w || runControlSh,
                 run_control_trafo2w: runControl2w,
                 run_control_trafo3w: runControl3w,
                 run_control_shunt: runControlSh,
-                max_loading_percent: parseFloat(values.maxLoadingPercent) || 100,
                 requirements: requirements,
-                uq_requirements: uqRequirements,
                 grid_code_template_key: tplKey !== 'none' ? tplKey : null,
                 grid_code_template_name: gridCodeTemplateName || null,
-                uq_grid_code_template_key: uqTplKey !== 'none' ? uqTplKey : null,
-                uq_grid_code_template_name: uqGridCodeTemplateName || null,
                 frequency: parseFloat(values.frequency) || 50,
                 user_email: _getUserEmail(),
                 rpc_stream: true
             };
 
-            const networkData = prepareNetworkData(graph, rpcParams, { removeResultCells: false });
+            const networkData = prepareNetworkData(graph, pqParams, { removeResultCells: false });
 
             const in_data = {};
             const keys = Object.keys(networkData);
@@ -320,56 +321,52 @@ function rpcAnalysis(a, b, c) {
             }
 
             const backendUrl = getBackendUrl();
-            console.log('RPC Analysis - Sending to backend:', backendUrl);
-            console.log('RPC Analysis - Generator names:', generatorNames);
-            console.log('RPC Analysis - PCC bus name:', pccBusName);
-
             overlay = createSimulationProgressOverlay({
-                title: 'RPC progress',
-                statusText: 'Running grid code compliance analysis (P-Q & U-Q)…',
-                filePrefix: 'rpc',
+                title: 'P-Q progress',
+                statusText: 'Running grid code compliance analysis (P-Q)…',
+                filePrefix: 'pq',
                 onStop: stopRun
             });
-            overlay.append('Sending request…', { time: true });
-            const preferStream = _isRpcStreamFriendlyUrl(backendUrl);
+            overlay.append('Preparing network data…', { time: true });
             let dataJson = null;
 
             try {
-                dataJson = await _fetchRpcResults(in_data, backendUrl, preferStream, overlay, abortController.signal);
+                overlay.append('Sending request…', { time: true });
+                dataJson = await _fetchPqResults(
+                    in_data, backendUrl, true, overlay, abortController.signal);
             } catch (firstError) {
                 if (isAbortError(firstError) || abortController.signal.aborted) {
                     throw firstError;
                 }
-                if (preferStream && _isRpcNetworkStreamError(firstError)) {
-                    console.warn('RPC streaming request failed, retrying without stream:', firstError);
+                if (isNetworkStreamError(firstError)) {
+                    console.warn('P-Q streaming request failed, retrying without stream:', firstError);
                     overlay.append('Streaming unavailable — retrying with standard response…', { time: true });
-                    dataJson = await _fetchRpcResults(in_data, backendUrl, false, overlay, abortController.signal);
+                    dataJson = await _fetchPqResults(
+                        in_data, backendUrl, false, overlay, abortController.signal);
                 } else {
                     throw firstError;
                 }
             }
 
             overlay.remove();
-            console.log('RPC Analysis response:', dataJson);
 
-            const resultsDialog = new RPCResultsDialog(editorUi);
+            const resultsDialog = new GridCodePqResultsDialog(editorUi);
             resultsDialog.show(dataJson);
-
         } catch (error) {
-            if (isAbortError(error) || abortController.signal.aborted) {
+            if (isAbortError(error) || (typeof abortController !== 'undefined' && abortController.signal.aborted)) {
                 if (overlay) overlay.remove();
-                console.log('RPC analysis stopped by user');
+                console.log('Grid Code Compliance (P-Q) stopped by user');
                 return;
             }
-            console.error('RPC Analysis failed:', error);
+            console.error('Grid Code Compliance (P-Q) failed:', error);
             const msg = String(error && error.message ? error.message : error).toLowerCase();
             let hint = '';
             if (msg.includes('504') || msg.includes('gateway timeout')) {
                 hint = ' The backend took too long and the tunnel/proxy timed out (504). ' +
-                    'Reduce the number of voltage levels or P steps, or run the backend on localhost for large models.';
-            } else if (_isRpcNetworkStreamError(error)) {
+                    'Increase the sweep step or reduce voltage levels, or run the backend on localhost.';
+            } else if (isNetworkStreamError(error)) {
                 hint = ' Network/streaming error reaching the backend. ' +
-                    'Check the dev tunnel (devtunnels.ms) is running and reachable, or run the backend on localhost.';
+                    'Check the dev tunnel is running, or run the backend on localhost.';
             }
             if (overlay) {
                 overlay.append('Error: ' + error.message + hint, { time: true });
@@ -377,32 +374,10 @@ function rpcAnalysis(a, b, c) {
                 overlay.setFinished();
                 await overlay.waitUntilClosed();
             }
-            alert('Grid code compliance analysis failed: ' + error.message + hint);
+            alert('Grid code compliance (P-Q) analysis failed: ' + error.message + hint);
         }
     });
 }
 
-function _getCellNetworkName(cell) {
-    try {
-        if (!cell) return null;
-        if (cell.mxObjectId) return cell.mxObjectId.replace('#', '_');
-        return null;
-    } catch (e) {
-        return null;
-    }
-}
-
-function _getUserEmail() {
-    try {
-        const userStr = localStorage.getItem('user');
-        if (userStr) {
-            const user = JSON.parse(userStr);
-            if (user && user.email) return user.email;
-        }
-        return 'unknown@user.com';
-    } catch (e) {
-        return 'unknown@user.com';
-    }
-}
-
-window.rpcAnalysis = rpcAnalysis;
+window.gridCodePqAnalysis = gridCodePqAnalysis;
+export default gridCodePqAnalysis;

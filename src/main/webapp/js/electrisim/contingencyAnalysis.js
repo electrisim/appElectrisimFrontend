@@ -3,6 +3,11 @@ import { ContingencyDialog } from './dialogs/ContingencyDialog.js';
 import { ContingencyResultsDialog } from './dialogs/ContingencyResultsDialog.js';
 import ENV from './config/environment.js';
 import { prepareNetworkData } from './utils/networkDataPreparation.js';
+import {
+    startSimulationProgress,
+    settleSimulationProgress,
+    formatDurationMs
+} from './utils/simulationProgressOverlay.js';
 import { buildGraphCellLookupMap, resolveGraphCellForResult, formatResultNameHeader } from './utils/attributeUtils.js';
 
 const COLOR_STATES = {
@@ -250,17 +255,22 @@ function getUserEmailForContingency() {
 }
 
 function contingencyAnalysisPandaPower(a, b, c) {
+    let simProgress = null;
 
     // Main processing function (FROM BACKEND TO FRONTEND)
     async function processNetworkData(url, obj, b, grafka, limits = {}) {
         try {
+            const overlay = simProgress?.overlay;
+            overlay?.append('Sending request…', { time: true });
+            const requestStart = performance.now();
             const response = await fetch(url, {
                 mode: "cors",
                 method: "post",
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify(obj)
+                body: JSON.stringify(obj),
+                signal: simProgress?.signal
             });
 
             if (response.status !== 200) {
@@ -271,15 +281,21 @@ function contingencyAnalysisPandaPower(a, b, c) {
                     if (errJson.error) errMsg = errJson.error;
                 } catch (e) { /* ignore */ }
                 alert('Network error: ' + errMsg);
+                overlay?.remove();
+                simProgress = null;
                 return;
             }
 
             let text = await response.text();
             text = text.replace(/:\s*-Infinity/g, ': null').replace(/:\s*Infinity/g, ': null').replace(/:\s*NaN/g, ': null');
             const dataJson = JSON.parse(text);
+            overlay?.append(`Response ${response.status} in ${formatDurationMs(performance.now() - requestStart)}`, { time: true });
+            overlay?.append('Processing results…', { time: true });
             console.log('Contingency Analysis dataJson', dataJson);
 
             if (handleNetworkErrors(dataJson)) {
+                overlay?.remove();
+                simProgress = null;
                 return;
             }
 
@@ -301,13 +317,15 @@ function contingencyAnalysisPandaPower(a, b, c) {
             }
 
             showContingencyResults(dataJson);
+            overlay?.append('Done.', { time: true });
+            await settleSimulationProgress(overlay, null, simProgress?.abortController);
+            simProgress = null;
 
         } catch (err) {
+            const settled = await settleSimulationProgress(simProgress?.overlay, err, simProgress?.abortController);
+            simProgress = null;
+            if (settled.aborted) return;
             console.error('Error processing contingency analysis data:', err);
-        } finally {
-            if (typeof apka !== 'undefined' && apka.spinner) {
-                apka.spinner.stop();
-            }
         }
     }
 
@@ -328,7 +346,12 @@ function contingencyAnalysisPandaPower(a, b, c) {
         // Use ContingencyDialog directly
         const dialog = new ContingencyDialog(a);
         dialog.show(async function (params) {
-            apka.spinner.spin(document.body, "Running Contingency Analysis...");
+            simProgress = startSimulationProgress({
+                title: 'Contingency progress',
+                statusText: 'Running contingency analysis…',
+                filePrefix: 'contingency'
+            });
+            simProgress.overlay.append('Preparing network data…', { time: true });
 
             try {
                 const simulationParameters = {
@@ -357,8 +380,10 @@ function contingencyAnalysisPandaPower(a, b, c) {
             } catch (error) {
                 console.error('Contingency analysis failed:', error);
                 alert('Contingency analysis failed: ' + (error.message || error));
-                if (typeof apka !== 'undefined' && apka.spinner) {
-                    apka.spinner.stop();
+                if (simProgress) {
+                    const settled = await settleSimulationProgress(simProgress.overlay, error, simProgress.abortController);
+                    simProgress = null;
+                    if (settled.aborted) return;
                 }
             }
         });

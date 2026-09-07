@@ -8,6 +8,11 @@ import {
     updateTransformerBusConnections,
     updateThreeWindingTransformerConnections,
 } from './loadFlow.js';
+import {
+    startSimulationProgress,
+    settleSimulationProgress,
+    formatDurationMs
+} from './utils/simulationProgressOverlay.js';
 
 /**
  * OPF runs from the lazy "engines" bundle; results/diagnostic dialogs live in "analysis".
@@ -150,6 +155,7 @@ function optimalPowerFlowPandaPower(a, b, c) {
 
     let apka = a;
     let grafka = b;
+    let simProgress = null;
 
     if (b.isEnabled() && !b.isCellLocked(b.getDefaultParent())) {
         // Try to create dialog when ready
@@ -184,7 +190,12 @@ function optimalPowerFlowPandaPower(a, b, c) {
                 const attributeCache = new Map();
                 console.log('Starting fresh simulation with clean caches');
                 
-                apka.spinner.spin(document.body, "Waiting for optimal power flow results...");
+                simProgress = startSimulationProgress({
+                    title: 'OPF progress',
+                    statusText: 'Running optimal power flow…',
+                    filePrefix: 'opf'
+                });
+                simProgress.overlay.append('Preparing network data…', { time: true });
 
                 if (params.length > 0) {
                     // Get current user email with robust fallback
@@ -979,7 +990,7 @@ function optimalPowerFlowPandaPower(a, b, c) {
 
                         // Send to backend
                         console.log('🌐 Using backend URL:', ENV.backendUrl);
-                        processNetworkData(ENV.backendUrl + "/", obj, b, grafka);
+                        processNetworkData(ENV.backendUrl + "/", obj, b, grafka, simProgress);
                     } 
                 });
             }
@@ -990,20 +1001,27 @@ function optimalPowerFlowPandaPower(a, b, c) {
 
 
 // Main processing function (FROM BACKEND TO FRONTEND)
-async function processNetworkData(url, obj, b, grafka) {
+async function processNetworkData(url, obj, b, grafka, simProgress) {
+    const overlay = simProgress?.overlay;
     try {
+        overlay?.append('Sending request…', { time: true });
+        const requestStart = performance.now();
         const response = await fetch(url, {
             mode: "cors",
             method: "post",
             headers: {
                 "Content-Type": "application/json",
             },
-            body: JSON.stringify(obj)
+            body: JSON.stringify(obj),
+            signal: simProgress?.signal
         });
 
         if (response.status !== 200) {
             throw new Error("server");
         }
+
+        overlay?.append(`Response ${response.status} in ${formatDurationMs(performance.now() - requestStart)}`, { time: true });
+        overlay?.append('Processing results…', { time: true });
 
         const dataJson = await response.json();
         console.log('OPF Results:', dataJson);
@@ -1029,12 +1047,14 @@ async function processNetworkData(url, obj, b, grafka) {
                 // Fallback to alert if dialog is not available
                 alert(`Optimal Power Flow calculation failed: ${dataJson.message}\n\nException: ${dataJson.exception}`);
             }
+            overlay?.remove();
             return;
         }
 
         // Basic result processing (can be expanded)
         if (dataJson.error) {
             alert('Optimal Power Flow Error: ' + dataJson.error);
+            overlay?.remove();
             return;
         }
 
@@ -1049,81 +1069,14 @@ async function processNetworkData(url, obj, b, grafka) {
         }
         
         console.log('Optimal Power Flow completed successfully');
-        
-        // Force stop spinner after a short delay to ensure it's cleared
-        setTimeout(() => {
-            try {
-                if (typeof apka !== 'undefined' && apka.spinner) {
-                    apka.spinner.stop();
-                }
-                if (typeof window !== 'undefined' && window.apka && window.apka.spinner) {
-                    window.apka.spinner.stop();
-                }
-                // Manual cleanup - remove any spinner elements from DOM
-                const spinnerElements = document.querySelectorAll('.spinner, [class*="spinner"]');
-                spinnerElements.forEach(el => {
-                    if (el.style.display !== 'none') {
-                        el.style.display = 'none';
-                        el.remove();
-                    }
-                });
-                
-                // Remove any text overlays or status messages
-                const textOverlays = document.querySelectorAll('div, span, p');
-                textOverlays.forEach(el => {
-                    if (el.textContent && el.textContent.includes('Waiting for optimal power flow results')) {
-                        el.style.display = 'none';
-                        el.remove();
-                    }
-                });
-                
-                // Clear any status messages
-                if (typeof apka !== 'undefined' && apka.editor && apka.editor.setStatus) {
-                    apka.editor.setStatus('');
-                }
-            } catch (e) {
-                console.warn('Timeout spinner stop failed:', e);
-            }
-        }, 100);
+        overlay?.append('Done.', { time: true });
+        await settleSimulationProgress(overlay, null, simProgress?.abortController);
 
     } catch (err) {
+        const settled = await settleSimulationProgress(overlay, err, simProgress?.abortController);
+        if (settled.aborted) return;
         if (err.message === "server") return;
         console.error('Error processing OPF data:', err);
-    } finally {
-        // Stop the spinner to clear the "Waiting for optimal power flow results..." message
-        try {
-            if (typeof apka !== 'undefined' && apka.spinner) {
-                apka.spinner.stop();
-            }
-            // Also try to stop any global spinner
-            if (typeof window !== 'undefined' && window.apka && window.apka.spinner) {
-                window.apka.spinner.stop();
-            }
-            // Manual cleanup - remove any spinner elements from DOM
-            const spinnerElements = document.querySelectorAll('.spinner, [class*="spinner"]');
-            spinnerElements.forEach(el => {
-                if (el.style.display !== 'none') {
-                    el.style.display = 'none';
-                    el.remove();
-                }
-            });
-            
-            // Remove any text overlays or status messages
-            const textOverlays = document.querySelectorAll('div, span, p');
-            textOverlays.forEach(el => {
-                if (el.textContent && el.textContent.includes('Waiting for optimal power flow results')) {
-                    el.style.display = 'none';
-                    el.remove();
-                }
-            });
-            
-            // Clear any status messages
-            if (typeof apka !== 'undefined' && apka.editor && apka.editor.setStatus) {
-                apka.editor.setStatus('');
-            }
-        } catch (spinnerError) {
-            console.warn('Could not stop spinner:', spinnerError);
-        }
     }
 }
 

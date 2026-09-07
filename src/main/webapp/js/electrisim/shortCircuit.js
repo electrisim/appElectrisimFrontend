@@ -1,14 +1,28 @@
 // Import COMPONENT_TYPES from the utils
 import { COMPONENT_TYPES } from './utils/componentTypes.js';
-import { getAttributesAsObject, formatResultNameHeader, createDialogNameResolver } from './utils/attributeUtils.js';
+import {
+    getAttributesAsObject,
+    formatResultNameHeader,
+    createDialogNameResolver,
+    enrichResultJsonWithDialogNames,
+    buildGraphCellLookupMap,
+    resolveGraphCellForResult
+} from './utils/attributeUtils.js';
 import { ShortCircuitDialog } from './dialogs/ShortCircuitDialog.js';
+import { AnsiShortCircuitResultsDialog } from './dialogs/AnsiShortCircuitResultsDialog.js';
 import ENV from './config/environment.js';
 import { prepareNetworkData } from './utils/networkDataPreparation.js';
+import {
+    startSimulationProgress,
+    settleSimulationProgress,
+    formatDurationMs
+} from './utils/simulationProgressOverlay.js';
 
 // Make the shortCircuit function available globally
 window.shortCircuitPandaPower = function(a, b, c) {
     let apka = a;
     let grafka = b;
+    let simProgress = null;
 
     // Create counters object
     const counters = {
@@ -84,7 +98,7 @@ window.shortCircuitPandaPower = function(a, b, c) {
         }
         return parseFloat(num).toFixed(decimals);
     };
-    const replaceUnderscores = name => name.replace('_', '#');
+    const replaceUnderscores = name => String(name || '').replace('_', '#');
 
     const createTableRow = (columns, widths) => {
         return columns.map((col, i) => {
@@ -95,6 +109,109 @@ window.shortCircuitPandaPower = function(a, b, c) {
 
     const createTableSeparator = (widths) => {
         return widths.map(w => '-'.repeat(w)).join('-+-');
+    };
+
+    const applyAnsiFriendlyNames = (dataJson, graph) => {
+        enrichResultJsonWithDialogNames(dataJson, graph);
+        // Keep backend `name` (mxCell_…) for graph lookup; dialog/export use dialogName.
+    };
+
+    const downloadAnsiShortCircuitResults = (dataJson, graph) => {
+        try {
+            const dialogNameFor = createDialogNameResolver(graph);
+            let resultsText = '========================================\n';
+            resultsText += '   ANSI/IEEE C37 Short Circuit Results (beta)\n';
+            resultsText += '========================================\n\n';
+            resultsText += `Generated: ${new Date().toISOString()}\n`;
+            resultsText += `Standard: ${dataJson.standard || 'ANSI/IEEE C37'} (beta)\n`;
+            resultsText += `Fault: ${dataJson.fault_type || '3ph'}\n`;
+            resultsText += `Frequency: ${dataJson.frequency_hz || 60} Hz\n\n`;
+
+            if (dataJson.busbars && dataJson.busbars.length > 0) {
+                resultsText += '--- BUSES ---\n';
+                const widths = [18, 18, 8, 12, 12, 12, 12, 8];
+                const headers = ['Object id', 'Dialog name', 'kV', 'I1/2 sym', 'I1/2 peak', 'I int', 'I30', 'X/R'];
+                resultsText += createTableRow(headers, widths) + '\n';
+                resultsText += createTableSeparator(widths) + '\n';
+                dataJson.busbars.forEach(bus => {
+                    const row = [
+                        bus.name || 'N/A',
+                        dialogNameFor(bus) || '—',
+                        formatNumber(bus.vn_kv, 2),
+                        formatNumber(bus.i_first_sym_ka),
+                        formatNumber(bus.i_first_peak_ka),
+                        formatNumber(bus.i_interrupting_ka),
+                        formatNumber(bus.i_steady_ka),
+                        formatNumber(bus.xr_first, 1)
+                    ];
+                    resultsText += createTableRow(row, widths) + '\n';
+                });
+                resultsText += '\n';
+            }
+
+            const appendBranchSection = (rows, heading, endHeaders, endKeys) => {
+                if (!rows || rows.length === 0) return;
+                resultsText += `--- ${heading} ---\n`;
+                const widths = [18, 18, 12, 12, 12, 12, 12];
+                const headers = ['Object id', 'Dialog name', ...endHeaders,
+                    'I1/2 sym', 'I1/2 peak', 'I int'];
+                resultsText += createTableRow(headers, widths) + '\n';
+                resultsText += createTableSeparator(widths) + '\n';
+                rows.forEach(row => {
+                    resultsText += createTableRow([
+                        row.name || 'N/A',
+                        dialogNameFor(row) || '—',
+                        formatNumber(row[endKeys[0]]),
+                        formatNumber(row[endKeys[1]]),
+                        formatNumber(row.i_first_sym_ka),
+                        formatNumber(row.i_first_peak_ka),
+                        formatNumber(row.i_interrupting_ka)
+                    ], widths) + '\n';
+                });
+                resultsText += '\n';
+            };
+            appendBranchSection(dataJson.lines_sc, 'LINES',
+                ['I from', 'I to'], ['i_from_ka', 'i_to_ka']);
+            appendBranchSection(dataJson.trafos_sc, 'TRANSFORMERS',
+                ['I HV', 'I LV'], ['i_hv_ka', 'i_lv_ka']);
+
+            if (dataJson.device_duties && dataJson.device_duties.length > 0) {
+                resultsText += '--- DEVICE DUTIES ---\n';
+                const widths = [18, 14, 12, 12, 8, 12, 12, 8];
+                const headers = ['Device', 'Standard', 'Duty int', 'Rating int', 'Int OK', 'Duty mom', 'Rating mom', 'Mom OK'];
+                resultsText += createTableRow(headers, widths) + '\n';
+                resultsText += createTableSeparator(widths) + '\n';
+                dataJson.device_duties.forEach(d => {
+                    const row = [
+                        d.name || 'N/A',
+                        d.standard || '—',
+                        formatNumber(d.duty_interrupting_ka),
+                        formatNumber(d.interrupting_rating_ka),
+                        d.interrupting_pass === true ? 'PASS' : d.interrupting_pass === false ? 'FAIL' : '—',
+                        formatNumber(d.duty_momentary_ka),
+                        formatNumber(d.momentary_rating_ka),
+                        d.momentary_pass === true ? 'PASS' : d.momentary_pass === false ? 'FAIL' : '—'
+                    ];
+                    resultsText += createTableRow(row, widths) + '\n';
+                });
+                resultsText += '\n';
+            }
+
+            resultsText += '========================================\n';
+            const blob = new Blob([resultsText], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+            link.download = `ANSI_ShortCircuit_Results_${timestamp}.txt`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Error downloading ANSI short circuit results:', error);
+            alert('Failed to download ANSI short circuit results. ' + error.message);
+        }
     };
 
     const downloadPandapowerShortCircuitResults = (dataJson, graph) => {
@@ -277,51 +394,230 @@ window.shortCircuitPandaPower = function(a, b, c) {
         const name = cell.name;
         const nameUnderscore = (name || '').replace('#', '_');
         const nameHash = (name || '').replace('_', '#');
-        return (cellIdMap && (cellIdMap.get(id) || cellIdMap.get(nameUnderscore) || cellIdMap.get(nameHash)))
+        return (cellIdMap && (cellIdMap.get(id) || cellIdMap.get(String(id)) || cellIdMap.get(nameUnderscore) || cellIdMap.get(nameHash)))
             || model.getCell(id)
             || model.getCell(nameUnderscore)
             || model.getCell(nameHash)
             || null;
     };
 
+    const isResultPlaceholderCell = (graph, cell) => {
+        if (!cell || !graph?.getModel) return false;
+        const st = graph.getModel().getStyle(cell) || '';
+        return st.includes('shapeELXXX=Result');
+    };
+
+    const resolveRowCell = (row, graph, cellIdMap, lookupMap) => {
+        if (!row) return null;
+        const accept = (cell) => (cell && !isResultPlaceholderCell(graph, cell) ? cell : null);
+        let found = accept(resolveCell(row, graph, cellIdMap));
+        if (found) return found;
+        const keys = [
+            row.id,
+            row.name,
+            row.dialogName,
+            row.name && String(row.name).replace('#', '_'),
+            row.name && String(row.name).replace('_', '#')
+        ];
+        for (const k of keys) {
+            if (k == null || k === '') continue;
+            found = accept(cellIdMap && (cellIdMap.get(k) || cellIdMap.get(String(k))));
+            if (found) return found;
+        }
+        if (lookupMap) {
+            found = accept(resolveGraphCellForResult(lookupMap, row, graph));
+            if (found) return found;
+        }
+        try {
+            found = accept(resolveGraphCellForResult(buildGraphCellLookupMap(graph), row, graph));
+            if (found) return found;
+        } catch (e) { /* ignore */ }
+        const cells = graph.getModel()?.cells;
+        if (!cells) return null;
+        const wantId = row.id != null ? String(row.id) : '';
+        const wantName = String(row.name || '').replace(/#/g, '_');
+        for (const cid in cells) {
+            const c = cells[cid];
+            if (!accept(c)) continue;
+            if (wantId && String(c.id) === wantId) return c;
+            const mx = c.mxObjectId ? String(c.mxObjectId).replace(/#/g, '_') : '';
+            if (wantName && (mx === wantName || String(c.mxObjectId) === row.name)) return c;
+        }
+        return null;
+    };
+
+    // ANSI result boxes: uses the same resolve + writeResultBox helpers as the IEC
+    // processors below, so existing placeholders are reused identically.
+    const applyAnsiResultsToDiagram = (dataJson, graph, cellIdMap, lookupMap) => {
+        if (!dataJson || !graph?.getModel) return 0;
+        const stats = { busbars: 0, lines: 0, trafos: 0 };
+
+        const buses = Array.isArray(dataJson.busbars) ? dataJson.busbars : [];
+        buses.forEach((row) => {
+            const busCell = resolveRowCell(row, graph, cellIdMap, lookupMap);
+            if (!busCell) {
+                console.warn('ANSI short circuit: could not find busbar cell for id=', row.id, 'name=', row.name);
+                return;
+            }
+            const busLabel = formatResultNameHeader(busCell, replaceUnderscores(String(row.name || '')), 'Bus');
+            const resultString = `${busLabel}
+I½ sym[kA]: ${formatNumber(row.i_first_sym_ka)}
+I½ peak[kA]: ${formatNumber(row.i_first_peak_ka)}
+I int[kA]: ${formatNumber(row.i_interrupting_ka)}
+I30[kA]: ${formatNumber(row.i_steady_ka)}
+X/R: ${formatNumber(row.xr_first, 1)}`;
+            if (writeResultBox(graph, busCell, resultString, { width: 45, height: 70, positionX: 0, positionY: 1.0 })) {
+                stats.busbars += 1;
+            }
+        });
+
+        const lines = Array.isArray(dataJson.lines_sc) ? dataJson.lines_sc : [];
+        lines.forEach((row) => {
+            const lineCell = resolveRowCell(row, graph, cellIdMap, lookupMap);
+            if (!lineCell) {
+                console.warn('ANSI short circuit: could not find line cell for id=', row.id, 'name=', row.name);
+                return;
+            }
+            const lineLabel = formatResultNameHeader(lineCell, replaceUnderscores(String(row.name || '')), 'Line');
+            const resultString = `${lineLabel}
+I½ sym[kA]: ${formatNumber(row.i_first_sym_ka)}
+I½ peak[kA]: ${formatNumber(row.i_first_peak_ka)}
+I int[kA]: ${formatNumber(row.i_interrupting_ka)}
+I30[kA]: ${formatNumber(row.i_steady_ka)}`;
+            if (writeLineResultBox(graph, lineCell, resultString)) {
+                stats.lines += 1;
+            }
+        });
+
+        const trafos = Array.isArray(dataJson.trafos_sc) ? dataJson.trafos_sc : [];
+        trafos.forEach((row) => {
+            const trafoCell = resolveRowCell(row, graph, cellIdMap, lookupMap);
+            if (!trafoCell) {
+                console.warn('ANSI short circuit: could not find transformer cell for id=', row.id, 'name=', row.name);
+                return;
+            }
+            const trafoLabel = formatResultNameHeader(trafoCell, replaceUnderscores(String(row.name || '')), 'Trafo');
+            const resultString = `${trafoLabel}
+I HV[kA]: ${formatNumber(row.i_hv_ka)}
+I LV[kA]: ${formatNumber(row.i_lv_ka)}
+I½ peak[kA]: ${formatNumber(row.i_first_peak_ka)}
+I int[kA]: ${formatNumber(row.i_interrupting_ka)}`;
+            if (writeTrafoResultBox(graph, trafoCell, resultString)) {
+                stats.trafos += 1;
+            }
+        });
+
+        console.log('ANSI short circuit: result boxes updated', stats, {
+            rows: { busbars: buses.length, lines: lines.length, trafos: trafos.length }
+        });
+        if (stats.busbars === 0 && stats.lines === 0 && buses.length + lines.length > 0) {
+            const model = graph.getModel();
+            const graphCells = [];
+            for (const k in (model.cells || {})) {
+                const c = model.cells[k];
+                if (!c) continue;
+                const st = String(model.getStyle(c) || '');
+                if (st.includes('shapeELXXX=Bus') || st.includes('shapeELXXX=Line')) {
+                    graphCells.push({ id: c.id, mxObjectId: c.mxObjectId });
+                }
+            }
+            console.warn('ANSI short circuit: nothing matched.', {
+                resultRows: [...buses, ...lines].map(r => ({ id: r.id, name: r.name })),
+                graphCells
+            });
+        }
+        return stats.busbars + stats.lines + stats.trafos;
+    };
+
+    const RESULT_FALLBACK_STYLE = 'shapeELXXX=Result;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;overflow=hidden;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3';
+
+    // Line result boxes hang off the edge itself at its midpoint.
+    const writeLineResultBox = (graph, lineCell, resultString) => {
+        const updateSingleFn = typeof window !== 'undefined' && window.updateOrCreateSinglePlaceholder;
+        const findFn = typeof window !== 'undefined' && window.findResultPlaceholder;
+        const insertFn = typeof window !== 'undefined' && window.insertResultBox;
+        const style = (typeof window !== 'undefined' && window.RESULT_BOX_STYLE) || RESULT_FALLBACK_STYLE;
+        const opts = { width: 95, height: 70, positionX: 0.5, positionY: 0, isLine: true };
+        let keep;
+        if (updateSingleFn) {
+            keep = updateSingleFn(graph, lineCell, resultString, lineCell, opts);
+        } else {
+            const existing = findFn ? findFn(graph, lineCell) : null;
+            if (existing) {
+                graph.getModel().setValue(existing, resultString);
+                keep = existing;
+            } else {
+                keep = insertFn
+                    ? insertFn(graph, lineCell, resultString, opts)
+                    : graph.insertVertex(lineCell, null, resultString, 0.5, 0, 95, 70, style, true);
+            }
+        }
+        if (keep && graph.orderCells) graph.orderCells(true, [keep]);
+        return keep;
+    };
+
+    // Transformers are vertices, so the box attaches to an incident edge when
+    // one exists and falls back to the transformer cell otherwise.
+    const writeTrafoResultBox = (graph, trafoCell, resultString) => {
+        const findCompFn = typeof window !== 'undefined' && window.findResultPlaceholderForComponent;
+        const findFn = typeof window !== 'undefined' && window.findResultPlaceholder;
+        const insertFn = typeof window !== 'undefined' && window.insertResultBox;
+        const style = (typeof window !== 'undefined' && window.RESULT_BOX_STYLE) || RESULT_FALLBACK_STYLE;
+        let existing = findCompFn ? findCompFn(graph, trafoCell) : null;
+        if (!existing) {
+            const edges = (graph.getEdges && graph.getEdges(trafoCell)) || trafoCell.edges || [];
+            existing = findFn ? findFn(graph, edges[0] || trafoCell) : null;
+        }
+        if (existing) {
+            graph.getModel().setValue(existing, resultString);
+            return existing;
+        }
+        const parent = (graph.getEdges && graph.getEdges(trafoCell))?.[0] || trafoCell;
+        return insertFn
+            ? insertFn(graph, parent, resultString, { width: 95, height: 58, positionX: -0.3 })
+            : graph.insertVertex(parent, null, resultString, -0.15, 1.1, 95, 58, style, true);
+    };
+
+    const writeResultBox = (graph, parentCell, resultString, opts) => {
+        const updateSingleFn = typeof window !== 'undefined' && window.updateOrCreateSinglePlaceholder;
+        if (updateSingleFn) {
+            return updateSingleFn(graph, parentCell, resultString, parentCell, opts || {});
+        }
+        const findFn = typeof window !== 'undefined' && window.findResultPlaceholder;
+        const insertFn = typeof window !== 'undefined' && window.insertResultBox;
+        const fallbackStyle = (typeof window !== 'undefined' && window.RESULT_BOX_STYLE) || 'shapeELXXX=Result;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;overflow=hidden;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3';
+        const existing = findFn ? findFn(graph, parentCell) : null;
+        if (existing) {
+            graph.getModel().setValue(existing, resultString);
+            return existing;
+        }
+        if (insertFn) {
+            return insertFn(graph, parentCell, resultString, opts || { width: 48, height: 78, positionX: 0, positionY: 1.0 });
+        }
+        return graph.insertVertex(parentCell, null, resultString, 0, 1.0, (opts && opts.width) || 48, (opts && opts.height) || 78, fallbackStyle, true);
+    };
+
     // Network element processors (FROM BACKEND TO FRONTEND)
     // Same approach as pandapower load flow: find existing placeholder, update in place; else insert
     const elementProcessors = {
-        busbars: (data, b, grafka, cellIdMap) => {
-            const findFn = typeof window !== 'undefined' && window.findResultPlaceholder;
-            const insertFn = typeof window !== 'undefined' && window.insertResultBox;
-            const fallbackStyle = (typeof window !== 'undefined' && window.RESULT_BOX_STYLE) || 'shapeELXXX=Result;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;overflow=hidden;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3';
+        busbars: (data, b, grafka, cellIdMap, lookupMap) => {
             data.forEach(cell => {
-                const resultCell = resolveCell(cell, b, cellIdMap);
+                const resultCell = resolveRowCell(cell, b, cellIdMap, lookupMap);
                 if (!resultCell) {
                     console.warn('Short circuit: could not find busbar cell for id=', cell.id, 'name=', cell.name);
                     return;
                 }
-                cell.name = replaceUnderscores(cell.name);
-
-                const busLabel = formatResultNameHeader(resultCell, cell.name, 'Bus');
+                const busLabel = formatResultNameHeader(resultCell, replaceUnderscores(String(cell.name || '')), 'Bus');
                 const resultString = `${busLabel}
                 ikss[kA]: ${formatNumber(cell.ikss_ka)}
                 ip[kA]: ${formatNumber(cell.ip_ka)}
                 ith[kA]: ${formatNumber(cell.ith_ka)}
                 rk[ohm]: ${formatNumber(cell.rk_ohm)}
                 xk[ohm]: ${formatNumber(cell.xk_ohm)}`;
-
-                const parent = resultCell;
-                const existing = findFn ? findFn(b, parent) : null;
-                if (existing) {
-                    b.getModel().setValue(existing, resultString);
-                } else {
-                    const labelka = insertFn
-                        ? insertFn(b, parent, resultString, { width: 45, height: 70, positionX: 0, positionY: 1.0 })
-                        : b.insertVertex(parent, null, resultString, 0, 1.0, 45, 70, fallbackStyle, true);
-                }
+                writeResultBox(b, resultCell, resultString, { width: 45, height: 70, positionX: 0, positionY: 1.0 });
             });
         },
         lines_sc: (data, b, grafka, cellIdMap) => {
-            const findFn = typeof window !== 'undefined' && window.findResultPlaceholder;
-            const insertFn = typeof window !== 'undefined' && window.insertResultBox;
-            const fallbackStyle = (typeof window !== 'undefined' && window.RESULT_BOX_STYLE) || 'shapeELXXX=Result;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;overflow=hidden;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3';
             data.forEach(cell => {
                 const resultCell = resolveCell(cell, b, cellIdMap);
                 if (!resultCell) return;
@@ -330,36 +626,10 @@ window.shortCircuitPandaPower = function(a, b, c) {
                 ikss[kA]: ${formatNumber(cell.ikss_ka)}
                 ip[kA]: ${formatNumber(cell.ip_ka)}
                 ith[kA]: ${formatNumber(cell.ith_ka)}`;
-                const updateSingleFn = typeof window !== 'undefined' && window.updateOrCreateSinglePlaceholder;
-                const parent = resultCell;
-                let keep;
-                if (updateSingleFn) {
-                    keep = updateSingleFn(b, resultCell, resultString, parent, {
-                        width: 95,
-                        height: 70,
-                        positionX: 0.5,
-                        positionY: 0,
-                        isLine: true
-                    });
-                } else {
-                    const existing = findFn ? findFn(b, parent) : null;
-                    if (existing) {
-                        b.getModel().setValue(existing, resultString);
-                        keep = existing;
-                    } else {
-                        keep = insertFn
-                            ? insertFn(b, parent, resultString, { width: 95, height: 70, positionX: 0.5, positionY: 0, isLine: true })
-                            : b.insertVertex(parent, null, resultString, 0.5, 0, 95, 70, fallbackStyle, true);
-                    }
-                }
-                if (keep && b.orderCells) b.orderCells(true, [keep]);
+                writeLineResultBox(b, resultCell, resultString);
             });
         },
         trafos_sc: (data, b, grafka, cellIdMap) => {
-            const findCompFn = typeof window !== 'undefined' && window.findResultPlaceholderForComponent;
-            const findFn = typeof window !== 'undefined' && window.findResultPlaceholder;
-            const insertFn = typeof window !== 'undefined' && window.insertResultBox;
-            const fallbackStyle = (typeof window !== 'undefined' && window.RESULT_BOX_STYLE) || 'shapeELXXX=Result;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;overflow=hidden;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3';
             data.forEach(cell => {
                 const resultCell = resolveCell(cell, b, cellIdMap);
                 if (!resultCell) {
@@ -370,20 +640,7 @@ window.shortCircuitPandaPower = function(a, b, c) {
                 const resultString = `${trafoName}
                 ikss_hv[kA]: ${formatNumber(cell.ikss_hv_ka)}
                 ikss_lv[kA]: ${formatNumber(cell.ikss_lv_ka)}`;
-                let existing = findCompFn ? findCompFn(b, resultCell) : null;
-                if (!existing) {
-                    const edges = (b.getEdges && b.getEdges(resultCell)) || resultCell.edges || [];
-                    const parent = edges[0] || resultCell;
-                    existing = findFn ? findFn(b, parent) : null;
-                }
-                const parent = existing ? b.getModel().getParent(existing) : ((b.getEdges && b.getEdges(resultCell))?.[0] || resultCell);
-                if (existing) {
-                    b.getModel().setValue(existing, resultString);
-                } else {
-                    const labelka = insertFn
-                        ? insertFn(b, parent, resultString, { width: 95, height: 58, positionX: -0.3 })
-                        : b.insertVertex(parent, null, resultString, -0.15, 1.1, 95, 58, fallbackStyle, true);
-                }
+                writeTrafoResultBox(b, resultCell, resultString);
             });
         },
         trafos3w_sc: (data, b, grafka, cellIdMap) => {
@@ -456,7 +713,7 @@ window.shortCircuitPandaPower = function(a, b, c) {
     };
 
     // Main processing function (FROM BACKEND TO FRONTEND)
-    async function processNetworkData(url, obj, b, grafka) {
+    async function processNetworkData(url, obj, b, grafka, options = {}) {
         try {
             // Initialize styles once
             b.getStylesheet().putCellStyle('labelstyle', STYLES.label);
@@ -464,6 +721,8 @@ window.shortCircuitPandaPower = function(a, b, c) {
 
             // PERFORMANCE OPTIMIZATION: Request gzip compression
             const requestStart = performance.now();
+            const overlay = simProgress?.overlay;
+            overlay?.append('Sending request…', { time: true });
             const response = await fetch(url, {
                 mode: "cors",
                 method: "post",
@@ -471,27 +730,44 @@ window.shortCircuitPandaPower = function(a, b, c) {
                     "Content-Type": "application/json",
                     "Accept-Encoding": "gzip",  // Request compressed response
                 },
-                body: JSON.stringify(obj)
+                body: JSON.stringify(obj),
+                signal: simProgress?.signal
             });
 
             if (response.status !== 200) {
                 throw new Error("server");
             }
 
-            const dataJson = await response.json();
+            let dataJson = await response.json();
+            if (typeof dataJson === 'string') {
+                try { dataJson = JSON.parse(dataJson); } catch (e) { /* keep string */ }
+            }
             const requestTime = performance.now() - requestStart;
+            overlay?.append(`Response ${response.status} in ${formatDurationMs(requestTime)}`, { time: true });
+            overlay?.append('Processing results…', { time: true });
             console.log(`Short circuit backend response received in ${requestTime.toFixed(0)}ms`);
             console.log('dataJson')
             console.log(dataJson)
 
             // Handle errors first
             if (handleNetworkErrors(dataJson)) {
+                if (simProgress) {
+                    simProgress.overlay.remove();
+                    simProgress = null;
+                }
                 return;
             }
 
             const param0 = obj && (obj[0] ?? obj['0']);
-            if (param0 && param0.exportPandapowerResults) {
+            const isAnsi = options.isAnsi === true;
+            if (isAnsi) {
+                applyAnsiFriendlyNames(dataJson, b);
+            }
+            if (param0 && param0.exportPandapowerResults && !isAnsi) {
                 downloadPandapowerShortCircuitResults(dataJson, b);
+            }
+            if (param0 && param0.exportAnsiResults && isAnsi) {
+                downloadAnsiShortCircuitResults(dataJson, b);
             }
 
             // Build cellIdMap for reliable lookups (id, mxObjectId, mxObjectId with _/# variants)
@@ -501,7 +777,7 @@ window.shortCircuitPandaPower = function(a, b, c) {
                 const keys = Object.keys(cells);
                 for (let i = 0; i < keys.length; i++) {
                     const cell = cells[keys[i]];
-                    if (cell && cell.id != null) {
+                    if (cell && cell.id != null && !isResultPlaceholderCell(b, cell)) {
                         cellIdMap.set(String(cell.id), cell);
                         if (cell.mxObjectId) {
                             cellIdMap.set(String(cell.mxObjectId), cell);
@@ -511,36 +787,61 @@ window.shortCircuitPandaPower = function(a, b, c) {
                     }
                 }
             }
+            let lookupMap = cellIdMap;
+            try {
+                lookupMap = buildGraphCellLookupMap(b);
+                lookupMap.forEach((cell, key) => {
+                    if (key != null && key !== '' && cell && !isResultPlaceholderCell(b, cell) && !cellIdMap.has(String(key))) {
+                        cellIdMap.set(String(key), cell);
+                    }
+                });
+            } catch (e) {
+                console.warn('ANSI/IEC short circuit: graph lookup map failed', e);
+            }
 
-            // PERFORMANCE OPTIMIZATION: Batch all DOM updates
-            // This prevents layout thrashing and improves rendering speed
             console.log('Processing short circuit results...');
             const processingStart = performance.now();
             const model = b.getModel();
+            const graph = (b && typeof b.getModel === 'function') ? b : grafka;
             model.beginUpdate();
             try {
-                // Process each type of network element
-                Object.entries(elementProcessors).forEach(([type, processor]) => {
-                    if (dataJson[type]) {
-                        processor(dataJson[type], b, grafka, cellIdMap);
-                    }
-                });
+                if (isAnsi) {
+                    applyAnsiResultsToDiagram(dataJson, graph, cellIdMap, lookupMap);
+                } else {
+                    Object.entries(elementProcessors).forEach(([type, processor]) => {
+                        if (dataJson[type]) {
+                            processor(dataJson[type], b, grafka, cellIdMap, lookupMap);
+                        }
+                    });
+                }
             } finally {
                 model.endUpdate();
-                if (b.getView && b.getView().refresh) b.getView().refresh();
+                if (graph.getView && graph.getView().refresh) graph.getView().refresh();
+                else if (b.getView && b.getView().refresh) b.getView().refresh();
+            }
+
+            if (isAnsi && dataJson.busbars) {
+                try {
+                    const dlg = new AnsiShortCircuitResultsDialog(dataJson);
+                    dlg.show();
+                } catch (e) {
+                    console.warn('Could not open ANSI results dialog:', e);
+                }
             }
             
             const processingTime = performance.now() - processingStart;
             console.log(`Processed short circuit results in ${processingTime.toFixed(0)}ms`);
             console.log(`Total round-trip time: ${(requestTime + processingTime).toFixed(0)}ms`);
 
+            overlay?.append('Done.', { time: true });
+            await settleSimulationProgress(overlay, null, simProgress?.abortController);
+            simProgress = null;
         } catch (err) {
+            const settled = await settleSimulationProgress(simProgress?.overlay, err, simProgress?.abortController);
+            simProgress = null;
+            if (settled.aborted) return;
             if (err.message === "server") return;
             alert('Error processing network data.' + err + '\n \nCheck input data or contact electrisim@electrisim.com');
-        } finally {
-            if (typeof apka !== 'undefined' && apka.spinner) {
-                apka.spinner.stop();
-            }
         }
     }
 
@@ -832,16 +1133,24 @@ window.shortCircuitPandaPower = function(a, b, c) {
             return;
         }
 
-        // Pandapower engine: use object format (fault, case, lv_tol_percent, etc.)
+        const isAnsi = values && values.engine === 'ansi';
+
+        // Pandapower / ANSI: use object format
         const a = values && typeof values === 'object' && !Array.isArray(values)
             ? values
             : (Array.isArray(values) ? { fault: values[0], case: values[1], lv_tol_percent: values[2], topology: 'auto', tk_s: '1', r_fault_ohm: '0', x_fault_ohm: '0', inverse_y: 'True' } : {});
 
-        apka.spinner.spin(document.body, "Waiting for results...");
+        simProgress = startSimulationProgress({
+            title: isAnsi ? 'ANSI short circuit progress' : 'Short circuit progress',
+            statusText: isAnsi ? 'Running ANSI/IEEE C37 short circuit…' : 'Running short circuit…',
+            filePrefix: isAnsi ? 'shortcircuit-ansi' : 'shortcircuit'
+        });
+        simProgress.overlay.append('Preparing network data…', { time: true });
 
         const hasParams = Array.isArray(a) ? a.length > 0 : (a && typeof a === 'object' && ('fault' in a || 'engine' in a));
         if (!hasParams) {
-            apka.spinner.stop();
+            simProgress.overlay.remove();
+            simProgress = null;
             return;
         }
 
@@ -866,7 +1175,17 @@ window.shortCircuitPandaPower = function(a, b, c) {
             return 'unknown@user.com';
         }
 
-        const simulationParameters = {
+        const simulationParameters = isAnsi ? {
+            typ: "ShortCircuitAnsi Parameters",
+            fault_type: a.fault || '3ph',
+            frequency_hz: parseFloat(a.frequency_hz || '60'),
+            prefault_v_pu: parseFloat(a.prefault_v_pu || '1.0'),
+            contact_parting_cycles: parseFloat(a.contact_parting_cycles || '3'),
+            r_fault_ohm: a.r_fault_ohm || '0',
+            x_fault_ohm: a.x_fault_ohm || '0',
+            exportAnsiResults: a.exportAnsiResults === true,
+            user_email: getUserEmail()
+        } : {
             typ: "ShortCircuitPandaPower Parameters",
             fault_type: a.fault || a[0] || '3ph',
             fault_location: a.case || a[1] || 'max',
@@ -884,12 +1203,13 @@ window.shortCircuitPandaPower = function(a, b, c) {
             const obj = prepareNetworkData(b, simulationParameters, { removeResultCells: false });
             console.log('Short Circuit data prepared:', JSON.stringify(obj));
             console.log('Using backend URL:', ENV.backendUrl);
-            processNetworkData(ENV.backendUrl + "/", obj, b, grafka);
+            processNetworkData(ENV.backendUrl + "/", obj, b, grafka, { isAnsi });
         } catch (error) {
             console.error('Short circuit network preparation failed:', error);
             alert('Short circuit preparation failed: ' + (error.message || error));
-            if (typeof apka !== 'undefined' && apka.spinner) {
-                apka.spinner.stop();
+            if (simProgress) {
+                simProgress.overlay.remove();
+                simProgress = null;
             }
         }
         });

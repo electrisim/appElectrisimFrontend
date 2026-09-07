@@ -563,6 +563,7 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         cos_phi: 'cos_phi',
                         pg_percent: 'pg_percent',
                         power_station_trafo: 'power_station_trafo',
+                        ansi_machine_type: { name: 'ansi_machine_type', optional: true },
                         spectrum: { name: 'spectrum', optional: true },
                         spectrum_csv: { name: 'spectrum_csv', optional: true },
                         Xdpp: { name: 'Xdpp', optional: true },
@@ -1408,7 +1409,14 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                     type: 'type',
                     closed: 'closed',
                     z_ohm: 'z_ohm',
-                    in_ka: { name: 'in_ka', optional: true }
+                    in_ka: { name: 'in_ka', optional: true },
+                    ikss_ka: { name: 'ikss_ka', optional: true },
+                    ansi_device_class: { name: 'ansi_device_class', optional: true },
+                    interrupting_rating_ka: { name: 'interrupting_rating_ka', optional: true },
+                    momentary_rating_ka: { name: 'momentary_rating_ka', optional: true },
+                    rated_voltage_kv: { name: 'rated_voltage_kv', optional: true },
+                    contact_parting_cycles: { name: 'contact_parting_cycles', optional: true },
+                    generator_cb: { name: 'generator_cb', optional: true }
                 });
                 const switchElement = {
                     typ: `Switch${counters.switch++}`,

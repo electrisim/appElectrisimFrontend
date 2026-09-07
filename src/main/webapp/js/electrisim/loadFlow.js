@@ -1553,6 +1553,11 @@ import {
     applyWindTurbineControllerPrefs
 } from './utils/windTurbineControllerApply.js';
 import { collectParkControllers } from './utils/parkControllerCollect.js';
+import {
+    startSimulationProgress,
+    settleSimulationProgress,
+    formatDurationMs
+} from './utils/simulationProgressOverlay.js';
 
 // Advanced payload compression function to reduce data transfer size
 const compressPayload = (obj) => {
@@ -1619,6 +1624,7 @@ const executeInBatches = async (operations, batchSize = 5) => {
 };
 
 function loadFlowPandaPower(a, b, c) {
+    let simProgress = null;
 
     // Performance monitoring with run tracking
     globalThis.simulationRunCount++;
@@ -2888,6 +2894,9 @@ Loading[%]: ${formatNumber(cell.loading_percent, 1)}`;
             console.log('🔍 run_control value:', obj[0]?.run_control);
             console.log('🔍 Full payload keys:', Object.keys(obj));
 
+            const overlay = simProgress?.overlay;
+            overlay?.append('Sending request…', { time: true });
+            const requestStart = performance.now();
             const response = await fetch(url, {
                 mode: "cors",
                 method: "post",
@@ -2895,12 +2904,15 @@ Loading[%]: ${formatNumber(cell.loading_percent, 1)}`;
                     "Content-Type": "application/json",
                     "Accept-Encoding": "gzip, deflate, br"
                 },
-                body: JSON.stringify(obj)
+                body: JSON.stringify(obj),
+                signal: simProgress?.signal
             });
 
             if (response.status !== 200) {
                 throw new Error("server");
             }
+            overlay?.append(`Response ${response.status} in ${formatDurationMs(performance.now() - requestStart)}`, { time: true });
+            overlay?.append('Processing results…', { time: true });
 
             const dataJson = await response.json();
             console.log('Received data size:', JSON.stringify(dataJson).length, 'bytes');
@@ -2909,6 +2921,10 @@ Loading[%]: ${formatNumber(cell.loading_percent, 1)}`;
 
             // Handle errors first (pass payload so index→name resolution works without backend update)
             if (handleNetworkErrors(dataJson, obj)) {
+                if (simProgress) {
+                    simProgress.overlay.remove();
+                    simProgress = null;
+                }
                 return;
             }
 
@@ -3066,12 +3082,20 @@ Loading[%]: ${formatNumber(cell.loading_percent, 1)}`;
         } catch (err) {
             resultCellLookupMap = null;
             resultCellLookupGraph = null;
+            const settled = await settleSimulationProgress(simProgress?.overlay, err, simProgress?.abortController);
+            simProgress = null;
+            if (settled.aborted) {
+                console.log('Load flow stopped by user');
+                return;
+            }
             if (err.message === "server") return;
             console.error('Load flow: processNetworkData failed:', err);
-        } finally {
-            if (typeof apka !== 'undefined' && apka.spinner) {
-                apka.spinner.stop();
-            }
+            return;
+        }
+        if (simProgress) {
+            simProgress.overlay.append('Done.', { time: true });
+            await settleSimulationProgress(simProgress.overlay, null, simProgress.abortController);
+            simProgress = null;
         }
     }
 
@@ -3084,7 +3108,12 @@ Loading[%]: ${formatNumber(cell.loading_percent, 1)}`;
         const dialog = new LoadFlowDialog(a);
         dialog.show(function (a, c) {
 
-        apka.spinner.spin(document.body, "Waiting for results...")
+        simProgress = startSimulationProgress({
+            title: 'Load flow progress',
+            statusText: 'Running load flow…',
+            filePrefix: 'loadflow'
+        });
+        simProgress.overlay.append('Preparing network data…', { time: true });
 
         console.log('🔍 loadFlowPandaPower callback received parameter "a":', a);
         console.log('🔍 Type of "a":', typeof a, ', Is array?', Array.isArray(a));
@@ -4341,7 +4370,10 @@ Loading[%]: ${formatNumber(cell.loading_percent, 1)}`;
         attributeCache.clear();
         devLog('Caches cleared for next simulation');
         
-        } 
+        } else if (simProgress) {
+            simProgress.overlay.remove();
+            simProgress = null;
+        }
         });
     }
 }

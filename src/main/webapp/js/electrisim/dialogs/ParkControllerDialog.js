@@ -286,9 +286,56 @@ export class ParkControllerDialog extends Dialog {
         });
     }
 
-    show(callback) {
+    show(callback, options = {}) {
         this.callback = callback;
+        this._stackedOverStudy = Boolean(options && options.stacked);
         this.showTabDialog();
+    }
+
+    _closeParkDialog() {
+        const stacked = this._stackedOverStudy;
+        this.destroy();
+        if (!stacked && this.ui && typeof this.ui.hideDialog === 'function') {
+            this.ui.hideDialog();
+        }
+    }
+
+    _mountStackedOverlay(container) {
+        const overlay = document.createElement('div');
+        Object.assign(overlay.style, {
+            position: 'fixed',
+            inset: '0',
+            backgroundColor: 'rgba(0, 0, 0, 0.45)',
+            zIndex: '10050',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+            boxSizing: 'border-box'
+        });
+        const box = document.createElement('div');
+        Object.assign(box.style, {
+            backgroundColor: '#fff',
+            borderRadius: '8px',
+            boxShadow: '0 6px 24px rgba(0, 0, 0, 0.2)',
+            width: 'min(900px, 96vw)',
+            height: 'min(calc(100vh - 48px), 920px)',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            padding: '16px 20px',
+            boxSizing: 'border-box'
+        });
+        box.appendChild(container);
+        overlay.appendChild(box);
+        overlay.addEventListener('mousedown', (e) => {
+            if (e.target === overlay) {
+                e.preventDefault();
+                this._closeParkDialog();
+            }
+        });
+        document.body.appendChild(overlay);
+        this.modalOverlay = overlay;
     }
 
     showTabDialog() {
@@ -364,15 +411,13 @@ export class ParkControllerDialog extends Dialog {
         const apply = this.createButton('Apply', '#007bff', '#0056b3');
         cancel.onclick = (e) => {
             e.preventDefault();
-            this.destroy();
-            if (this.ui && typeof this.ui.hideDialog === 'function') this.ui.hideDialog();
+            this._closeParkDialog();
         };
         apply.onclick = (e) => {
             e.preventDefault();
             const values = this.getFormValues();
             if (this.callback) this.callback(values);
-            this.destroy();
-            if (this.ui && typeof this.ui.hideDialog === 'function') this.ui.hideDialog();
+            this._closeParkDialog();
         };
         footer.append(cancel, apply);
         container.appendChild(footer);
@@ -383,7 +428,9 @@ export class ParkControllerDialog extends Dialog {
         tabGeneral.onclick = () => this.switchTab('general', tabGeneral);
         tabDist.onclick = () => this.switchTab('distribution', tabDist);
 
-        if (this.ui && typeof this.ui.showDialog === 'function') {
+        if (this._stackedOverStudy) {
+            this._mountStackedOverlay(container);
+        } else if (this.ui && typeof this.ui.showDialog === 'function') {
             const h = window.innerHeight - 80;
             this.ui.showDialog(container, 900, h, true, false);
         } else {

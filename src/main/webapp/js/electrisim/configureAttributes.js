@@ -89,6 +89,7 @@ export function configureGeneratorAttributes(grafka, vertex, options = {}) {
     g.setAttribute("cos_phi", options.cos_phi || "0");
     g.setAttribute("pg_percent", options.pg_percent || "0");
     g.setAttribute("power_station_trafo", options.power_station_trafo || "0");
+    g.setAttribute("ansi_machine_type", options.ansi_machine_type || "turbo");
     
 
     //Optimal Power Flow
@@ -1298,6 +1299,15 @@ export function configureSwitchAttributes(grafka, vertex, options = {}) {
     g.setAttribute("closed", closed);
     g.setAttribute("z_ohm", options.z_ohm || "0.0");
     g.setAttribute("in_ka", options.in_ka !== undefined ? String(options.in_ka) : "0");
+
+    g.setAttribute("Short_circuit_parameters", "");
+    g.setAttribute("ikss_ka", options.ikss_ka !== undefined ? String(options.ikss_ka) : "0");
+    g.setAttribute("ansi_device_class", options.ansi_device_class || "auto");
+    g.setAttribute("interrupting_rating_ka", options.interrupting_rating_ka !== undefined ? String(options.interrupting_rating_ka) : "0");
+    g.setAttribute("momentary_rating_ka", options.momentary_rating_ka !== undefined ? String(options.momentary_rating_ka) : "0");
+    g.setAttribute("rated_voltage_kv", options.rated_voltage_kv !== undefined ? String(options.rated_voltage_kv) : "0");
+    g.setAttribute("contact_parting_cycles", options.contact_parting_cycles !== undefined ? String(options.contact_parting_cycles) : "3");
+    g.setAttribute("generator_cb", options.generator_cb === true || options.generator_cb === "true" ? "true" : "false");
     
     // Economic parameters
     g.setAttribute("Economic_parameters", "");

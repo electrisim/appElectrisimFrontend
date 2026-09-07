@@ -15,6 +15,11 @@
 import { ProtectionCoordinationDialog } from './dialogs/ProtectionCoordinationDialog.js';
 import { ProtectionCoordinationResultsDialog } from './dialogs/ProtectionCoordinationResultsDialog.js';
 import ENV from './config/environment.js';
+import {
+    startSimulationProgress,
+    settleSimulationProgress,
+    formatDurationMs
+} from './utils/simulationProgressOverlay.js';
 
 // The list of protection-coordination-specific attributes we copy from each Switch
 // cell into the backend payload (in addition to the standard switch attributes
@@ -232,7 +237,7 @@ function downloadProtectionResultsText(dataJson) {
     }
 }
 
-async function postProtectionPayload(payload) {
+async function postProtectionPayload(payload, signal) {
     const url = ENV.backendUrl + '/';
     console.log('[Protection Coordination] POST', url);
     const response = await fetch(url, {
@@ -242,7 +247,8 @@ async function postProtectionPayload(payload) {
             'Content-Type': 'application/json',
             'Accept-Encoding': 'gzip'
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        signal
     });
     if (!response.ok) {
         const text = await response.text().catch(() => '');
@@ -334,16 +340,26 @@ function protectionCoordinationPandaPower(a, b, c) {
 
         const dialog = new ProtectionCoordinationDialog(editorUi);
         dialog.show(async (values) => {
+            const simProgress = startSimulationProgress({
+                title: 'Protection progress',
+                statusText: 'Running protection coordination…',
+                filePrefix: 'protection'
+            });
+            const overlay = simProgress.overlay;
             try {
-                if (a && a.spinner && typeof a.spinner.spin === 'function') {
-                    try { a.spinner.spin(document.body, 'Running Protection Coordination...'); } catch (e) { /* ignore */ }
-                }
+                overlay.append('Preparing network data…', { time: true });
                 const payload = await buildPayloadFromGraph(graph, values);
-                const dataJson = await postProtectionPayload(payload);
+                overlay.append('Sending request…', { time: true });
+                const requestStart = performance.now();
+                const dataJson = await postProtectionPayload(payload, simProgress.signal);
+                overlay.append(`Response received in ${formatDurationMs(performance.now() - requestStart)}`, { time: true });
+                overlay.append('Processing results…', { time: true });
                 console.log('[Protection Coordination] response:', dataJson);
 
                 if (dataJson && dataJson.error) {
+                    overlay.remove();
                     alert('Protection Coordination: ' + (dataJson.message || 'unknown error'));
+                    return;
                 }
 
                 if (dataJson && !dataJson.error) {
@@ -359,13 +375,13 @@ function protectionCoordinationPandaPower(a, b, c) {
                 }
 
                 showResults(dataJson);
+                overlay.append('Done.', { time: true });
+                await settleSimulationProgress(overlay, null, simProgress.abortController);
             } catch (err) {
+                const settled = await settleSimulationProgress(overlay, err, simProgress.abortController);
+                if (settled.aborted) return;
                 console.error('Protection Coordination request failed:', err);
                 alert('Protection Coordination failed: ' + (err?.message || err));
-            } finally {
-                if (a && a.spinner && typeof a.spinner.stop === 'function') {
-                    try { a.spinner.stop(); } catch (e) { /* ignore */ }
-                }
             }
         });
     } catch (e) {

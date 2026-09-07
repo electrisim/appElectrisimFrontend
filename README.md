@@ -61,8 +61,7 @@ npm install
 ```
 
 This will install the required Node.js dependencies including:
-- `nodemailer` for email functionality
-- `cross-env` for environment variable management
+- `terser` for JavaScript minification
 
 ### 3. Environment Configuration
 

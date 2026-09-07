@@ -3,10 +3,16 @@ import { formatResultNameHeader } from './utils/attributeUtils.js';
 import { MotorStartingDialog } from './dialogs/MotorStartingDialog.js';
 import ENV from './config/environment.js';
 import { prepareNetworkData } from './utils/networkDataPreparation.js';
+import {
+    startSimulationProgress,
+    settleSimulationProgress,
+    formatDurationMs
+} from './utils/simulationProgressOverlay.js';
 
 window.motorStartingPandaPower = function (a, b, c) {
     const apka = a;
     const grafka = b;
+    let simProgress = null;
 
     const STYLES = {
         label: {
@@ -150,6 +156,9 @@ window.motorStartingPandaPower = function (a, b, c) {
             graph.getStylesheet().putCellStyle('labelstyle', STYLES.label);
             graph.getStylesheet().putCellStyle('lineStyle', STYLES.line);
 
+            const overlay = simProgress?.overlay;
+            overlay?.append('Sending request…', { time: true });
+            const requestStart = performance.now();
             const response = await fetch(url, {
                 mode: 'cors',
                 method: 'post',
@@ -157,7 +166,8 @@ window.motorStartingPandaPower = function (a, b, c) {
                     'Content-Type': 'application/json',
                     'Accept-Encoding': 'gzip'
                 },
-                body: JSON.stringify(obj)
+                body: JSON.stringify(obj),
+                signal: simProgress?.signal
             });
 
             if (response.status !== 200) {
@@ -167,9 +177,13 @@ window.motorStartingPandaPower = function (a, b, c) {
             let text = await response.text();
             text = text.replace(/:\s*-Infinity/g, ': null').replace(/:\s*Infinity/g, ': null').replace(/:\s*NaN/g, ': null');
             const dataJson = JSON.parse(text);
+            overlay?.append(`Response ${response.status} in ${formatDurationMs(performance.now() - requestStart)}`, { time: true });
+            overlay?.append('Processing results…', { time: true });
             console.log('Motor starting backend response:', dataJson);
 
             if (handleErrors(dataJson)) {
+                overlay?.remove();
+                simProgress = null;
                 return;
             }
 
@@ -219,26 +233,34 @@ window.motorStartingPandaPower = function (a, b, c) {
             } catch (e) {
                 console.warn('Motor starting results dialog failed:', e);
             }
+            overlay?.append('Done.', { time: true });
+            await settleSimulationProgress(overlay, null, simProgress?.abortController);
+            simProgress = null;
         } catch (err) {
+            const settled = await settleSimulationProgress(simProgress?.overlay, err, simProgress?.abortController);
+            simProgress = null;
+            if (settled.aborted) return;
             if (err.message === 'server') {
                 alert('Motor starting server error. Check that the backend is running.');
                 return;
             }
             alert('Error processing motor starting results. ' + err + '\n\nCheck input data or contact electrisim@electrisim.com');
-        } finally {
-            if (typeof apka !== 'undefined' && apka.spinner) {
-                apka.spinner.stop();
-            }
         }
     }
 
     if (b.isEnabled() && !b.isCellLocked(b.getDefaultParent())) {
         const dialog = new MotorStartingDialog(a);
         dialog.show(async function (values) {
-            apka.spinner.spin(document.body, 'Waiting for motor starting results...');
+            simProgress = startSimulationProgress({
+                title: 'Motor starting progress',
+                statusText: 'Running motor starting…',
+                filePrefix: 'motor-starting'
+            });
+            simProgress.overlay.append('Preparing network data…', { time: true });
 
             if (!values || typeof values !== 'object') {
-                apka.spinner.stop();
+                simProgress.overlay.remove();
+                simProgress = null;
                 return;
             }
 
@@ -270,8 +292,9 @@ window.motorStartingPandaPower = function (a, b, c) {
             } catch (error) {
                 console.error('Motor starting network preparation failed:', error);
                 alert('Motor starting preparation failed: ' + (error.message || error));
-                if (typeof apka !== 'undefined' && apka.spinner) {
-                    apka.spinner.stop();
+                if (simProgress) {
+                    simProgress.overlay.remove();
+                    simProgress = null;
                 }
             }
         });

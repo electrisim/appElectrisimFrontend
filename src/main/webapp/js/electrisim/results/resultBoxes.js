@@ -322,6 +322,171 @@ function updateOrCreateSinglePlaceholder(graph, componentCell, resultString, fal
     });
 }
 
+function cellStyleOf(model, cell) {
+    if (!cell) return '';
+    if (model && model.getStyle) {
+        var s = model.getStyle(cell);
+        if (s) return s;
+    }
+    if (cell.getStyle) {
+        try {
+            var gs = cell.getStyle();
+            if (gs) return gs;
+        } catch (e) { /* ignore */ }
+    }
+    return cell.style || '';
+}
+
+function indexStudyResultRows(rows) {
+    var byId = {};
+    var byName = {};
+    function put(map, key, row) {
+        if (key == null || key === '') return;
+        var s = String(key);
+        map[s] = row;
+        map[s.replace(/#/g, '_')] = row;
+        map[s.replace(/_/g, '#')] = row;
+        map[s.toLowerCase()] = row;
+    }
+    if (!Array.isArray(rows)) return { byId: byId, byName: byName };
+    for (var i = 0; i < rows.length; i++) {
+        var row = rows[i];
+        if (!row) continue;
+        put(byId, row.id, row);
+        put(byName, row.name, row);
+        put(byName, row.dialogName, row);
+        put(byName, row.userFriendlyName, row);
+    }
+    return { byId: byId, byName: byName };
+}
+
+function matchStudyRowToBus(busCell, index) {
+    if (!busCell || !index) return null;
+    var id = busCell.id != null ? String(busCell.id) : '';
+    var mx = busCell.mxObjectId ? String(busCell.mxObjectId) : '';
+    var mxU = mx.replace(/#/g, '_');
+    var dn = '';
+    try {
+        if (busCell.value && busCell.value.attributes && busCell.value.attributes.getNamedItem) {
+            var n = busCell.value.attributes.getNamedItem('name');
+            if (n && n.nodeValue) dn = String(n.nodeValue).trim();
+        }
+    } catch (e) { /* ignore */ }
+    return index.byId[id]
+        || index.byName[mx]
+        || index.byName[mxU]
+        || index.byName[mx.replace(/_/g, '#')]
+        || (dn ? (index.byName[dn] || index.byName[dn.toLowerCase()]) : null)
+        || null;
+}
+
+function busCellForPlaceholder(model, placeholder) {
+    if (!model || !placeholder) return null;
+    var parent = model.getParent(placeholder);
+    var pst = cellStyleOf(model, parent);
+    if (parent && isBusStyle(pst)) return parent;
+    var st = cellStyleOf(model, placeholder);
+    var m = st.match(/connectedTo=([^;]+)/);
+    if (m) {
+        var bid = String(m[1]).trim();
+        var bus = model.getCell(bid);
+        if (bus && isBusStyle(cellStyleOf(model, bus))) return bus;
+        var cells = model.cells || {};
+        for (var ck in cells) {
+            var c = cells[ck];
+            if (c && String(c.id) === bid && isBusStyle(cellStyleOf(model, c))) return c;
+        }
+    }
+    return null;
+}
+
+function setResultPlaceholderValue(graph, placeholder, text) {
+    if (!graph || !placeholder) return;
+    var model = graph.model || (graph.getModel && graph.getModel());
+    if (!model || !model.setValue) return;
+    model.setValue(placeholder, text);
+    if (graph.view && graph.view.invalidate) {
+        try { graph.view.invalidate(placeholder); } catch (e) { /* ignore */ }
+    }
+}
+
+/**
+ * Write study values onto existing bus ResultBus/Result placeholders (resultBoxes.js).
+ * Walks the diagram placeholders first so the boxes the user sees are updated.
+ *
+ * @param {mxGraph} graph
+ * @param {Array<object>} rows - backend bus result rows ({id, name, ...})
+ * @param {function(row, busCell): string} formatText
+ * @returns {{updated:number, created:number}}
+ */
+function applyBusPlaceholderResults(graph, rows, formatText) {
+    var empty = { updated: 0, created: 0 };
+    if (!graph || typeof formatText !== 'function') return empty;
+    var model = graph.model || (graph.getModel && graph.getModel());
+    if (!model) return empty;
+    runUpgradeOnce(graph);
+    var index = indexStudyResultRows(rows);
+    var updated = 0;
+    var created = 0;
+    var busesTouched = {};
+
+    function visit(cell) {
+        if (!cell) return;
+        var style = cellStyleOf(model, cell);
+        if (isResultPlaceholderStyle(style)) {
+            var bus = busCellForPlaceholder(model, cell);
+            var row = matchStudyRowToBus(bus, index);
+            if (row && bus) {
+                setResultPlaceholderValue(graph, cell, formatText(row, bus));
+                busesTouched[String(bus.id)] = true;
+                updated++;
+            }
+        }
+        var n = model.getChildCount(cell);
+        for (var i = 0; i < n; i++) visit(model.getChildAt(cell, i));
+    }
+    var root = model.getRoot ? model.getRoot() : null;
+    if (root) visit(root);
+
+    if (Array.isArray(rows)) {
+        for (var r = 0; r < rows.length; r++) {
+            var row = rows[r];
+            if (!row) continue;
+            var bus = null;
+            if (row.id != null) bus = model.getCell(row.id) || model.getCell(String(row.id));
+            if ((!bus || !isBusStyle(cellStyleOf(model, bus))) && model.cells) {
+                var wantName = row.name != null ? String(row.name).replace(/#/g, '_') : '';
+                for (var ck in model.cells) {
+                    var c = model.cells[ck];
+                    if (!c || !isBusStyle(cellStyleOf(model, c))) continue;
+                    if (row.id != null && String(c.id) === String(row.id)) { bus = c; break; }
+                    var mx = c.mxObjectId ? String(c.mxObjectId).replace(/#/g, '_') : '';
+                    if (wantName && mx === wantName) { bus = c; break; }
+                }
+            }
+            if (!bus || !isBusStyle(cellStyleOf(model, bus))) continue;
+            if (busesTouched[String(bus.id)]) continue;
+            var ph = findResultPlaceholder(graph, bus);
+            if (!ph) {
+                createBusResultPlaceholder(graph, bus);
+                ph = findResultPlaceholder(graph, bus);
+            }
+            if (ph) {
+                setResultPlaceholderValue(graph, ph, formatText(row, bus));
+                created++;
+            }
+        }
+    }
+
+    if (graph.view) {
+        try {
+            if (graph.view.validate) graph.view.validate();
+            if (graph.view.refresh) graph.view.refresh();
+        } catch (e) { /* ignore */ }
+    }
+    return { updated: updated, created: created };
+}
+
 if (typeof window !== 'undefined') {
     window.RESULT_BOX_STYLE = RESULT_BOX_STYLE;
     window.insertResultBox = insertResultBox;
@@ -329,6 +494,8 @@ if (typeof window !== 'undefined') {
     window.findResultPlaceholderForComponent = findResultPlaceholderForComponent;
     window.findAllResultPlaceholdersForComponent = findAllResultPlaceholdersForComponent;
     window.updateOrCreateSinglePlaceholder = updateOrCreateSinglePlaceholder;
+    window.applyBusPlaceholderResults = applyBusPlaceholderResults;
+    window.setResultPlaceholderValue = setResultPlaceholderValue;
 }
 
 //=============================================================================

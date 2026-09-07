@@ -131,10 +131,20 @@ function formatTapControlOnTrafo(cell) {
     const tc = cell.tap_control_result;
     if (!tc) return '';
     const range = `[${formatNumber(tc.tap_min, 0)}…${formatNumber(tc.tap_max, 0)}]`;
+    let line;
     if (tc.tap_pos_initial != null && Number(tc.tap_pos_initial) !== Number(tc.tap_pos)) {
-        return `\n            tap_pos: ${formatNumber(tc.tap_pos_initial, 0)} → ${formatNumber(tc.tap_pos, 0)} ${range}`;
+        line = `\n            tap_pos: ${formatNumber(tc.tap_pos_initial, 0)} → ${formatNumber(tc.tap_pos, 0)} ${range}`;
+    } else {
+        line = `\n            tap_pos: ${formatNumber(tc.tap_pos, 0)} ${range}`;
     }
-    return `\n            tap_pos: ${formatNumber(tc.tap_pos, 0)} ${range}`;
+    if (tc.controlled_vm_pu != null && tc.vm_lower_pu != null && tc.vm_upper_pu != null) {
+        const side = tc.control_side || 'ctrl';
+        line += `\n            U_${side}[pu]: ${formatNumber(tc.controlled_vm_pu, 3)} [${formatNumber(tc.vm_lower_pu, 3)}…${formatNumber(tc.vm_upper_pu, 3)}]`;
+        if (tc.in_limits === false) {
+            line += tc.at_limit ? ' NOT held (tap at limit)' : ' NOT held';
+        }
+    }
+    return line;
 }
 
 function formatShuntControlOnShunt(cell) {
@@ -320,8 +330,8 @@ Q/P: ${formatNumber(d.qp)}`;
             i_HV[kA]: ${formatNumber(cell.i_hv_ka)}
             i_LV[kA]: ${formatNumber(cell.i_lv_ka)}
             loading[%]: ${formatNumber(cell.loading_percent)}${tapBlock}`;
-            const boxW = tapBlock ? 74 : 68;
-            const boxH = tapBlock ? 72 : 64;
+            const boxW = tapBlock ? 90 : 68;
+            const boxH = tapBlock ? 88 : 64;
             updateSingleComponentResult(graph, resultCell, text, {
                 width: boxW, height: boxH, positionX: -0.3, tagComponent: true
             });
@@ -338,8 +348,8 @@ Q/P: ${formatNumber(d.qp)}`;
             i_MV[kA]: ${formatNumber(cell.i_mv_ka)}
             i_LV[kA]: ${formatNumber(cell.i_lv_ka)}
             loading[%]: ${formatNumber(cell.loading_percent)}${tapBlock}`;
-            const boxW = tapBlock ? 74 : 60;
-            const boxH = tapBlock ? 58 : 50;
+            const boxW = tapBlock ? 90 : 60;
+            const boxH = tapBlock ? 72 : 50;
             updateSingleComponentResult(graph, resultCell, text, {
                 width: boxW, height: boxH, positionX: -0.3, tagComponent: true
             });

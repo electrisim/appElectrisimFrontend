@@ -236,6 +236,10 @@ const RESULT_JSON_ARRAY_KEYS = [
     'impedances',
     'dclines',
     'arc_flash',
+    'device_duties',
+    'lines_sc',
+    'trafos_sc',
+    'trafos3w_sc',
 ];
 
 /**
