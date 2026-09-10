@@ -1,6 +1,6 @@
 /**
  * MapEditor - Embedded map for placing nodes and drawing cables with automatic distance calculation
- * Uses Leaflet; raster tiles from Carto CDN (OSM data, reliable global delivery)
+ * Uses Leaflet; raster tiles from Esri (no API key; Carto now watermarks tiles without one)
  */
 
 import { haversineDistanceKm, polylineLengthKm, generateMapId, placeTurbinesInPolygon, computeOffshoreCableRouting } from './mapUtils.js';
@@ -177,13 +177,13 @@ export class MapEditor {
             this.options.defaultZoom
         );
 
-        // Carto basemaps (OSM-derived, Fastly CDN) — fewer failed tiles than tile.openstreetmap.org under load / recording tools.
+        // Carto raster tiles now require an API key and overlay "API KEY REQUIRED" without one.
+        // Esri World Street Map is a no-key raster basemap on a global CDN (note z/y/x order).
         // Transparent errorTileUrl avoids broken-image icons when a tile transiently fails (ad blockers / flaky networks).
         var transparentPx = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-            subdomains: 'abcd',
-            maxZoom: 20,
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Garmin, USGS, HERE, OpenStreetMap contributors',
+            maxZoom: 19,
             crossOrigin: true,
             errorTileUrl: transparentPx
         }).addTo(this.map);
