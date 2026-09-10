@@ -125,6 +125,7 @@ function _appendDeviceSettingsSection(lines, dataJson) {
         const name = d.user_friendly_name || d.switch_name || d.switch_id || '?';
         lines.push(`  Switch: ${name}`);
         lines.push(`    Type: ${d.type || '-'} / ${d.subtype || '-'}`);
+        lines.push(`    Evaluated by: ${d.engine === 'electrisim' ? 'ElectriSim evaluator' : (d.engine || 'pandapower')}`);
         lines.push(`    Curve: ${d.curve_type || '-'}`);
         if (s.tms != null) lines.push(`    TMS: ${s.tms}`);
         if (s.t_grade != null) lines.push(`    t_grade [s] (overload grading delay): ${s.t_grade}`);
@@ -141,12 +142,21 @@ function _appendDeviceSettingsSection(lines, dataJson) {
 function _appendAttachSummariesSection(lines, dataJson) {
     const summaries = dataJson.attach_summaries || [];
     const skipped = summaries.filter(s => !s.attached);
-    if (!skipped.length) return;
-    lines.push('--- DEVICES NOT ATTACHED ---');
-    skipped.forEach(s => {
-        lines.push(`  ${s.user_friendly_name || s.switch_name || s.switch_id || '?'}: ${s.reason || 'unknown'}`);
-    });
-    lines.push('');
+    if (skipped.length) {
+        lines.push('--- DEVICES NOT ATTACHED ---');
+        skipped.forEach(s => {
+            lines.push(`  ${s.user_friendly_name || s.switch_name || s.switch_id || '?'}: ${s.reason || 'unknown'}`);
+        });
+        lines.push('');
+    }
+    const notes = summaries.filter(s => s.attached && s.reason);
+    if (notes.length) {
+        lines.push('--- EVALUATION NOTES ---');
+        notes.forEach(s => {
+            lines.push(`  ${s.user_friendly_name || s.switch_name || s.switch_id || '?'}: ${s.reason}`);
+        });
+        lines.push('');
+    }
 }
 
 function downloadProtectionResultsText(dataJson) {

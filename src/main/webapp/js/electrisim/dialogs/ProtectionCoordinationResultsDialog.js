@@ -43,6 +43,7 @@ export class ProtectionCoordinationResultsDialog {
             this._renderError(dialog);
         } else {
             this._renderSummary(dialog);
+            this._renderEngineNotes(dialog);
             const output = this.results.output || {};
             if (output.show_table !== false) this._renderTrippingTable(dialog);
             this._renderSettingsTable(dialog);
@@ -139,6 +140,22 @@ export class ProtectionCoordinationResultsDialog {
             section.appendChild(warn);
         }
         dialog.appendChild(section);
+    }
+
+    /**
+     * Notes for devices that were attached but evaluated by ElectriSim instead of
+     * pandapower, so the engine shown per device is explained rather than surprising.
+     */
+    _renderEngineNotes(dialog) {
+        const notes = (this.results.attach_summaries || []).filter(s => s.attached && s.reason);
+        if (!notes.length) return;
+        const box = document.createElement('div');
+        box.style.cssText = 'margin-bottom:16px;padding:10px 12px;background:#eef6ff;border:1px solid #cfe2ff;border-radius:6px;font-size:12px;line-height:1.5;color:#084298;';
+        const rows = notes.map(s =>
+            `<li><strong>${this._escape(s.user_friendly_name || s.switch_name || s.switch_id || '?')}</strong> — ${this._escape(s.reason)}</li>`
+        ).join('');
+        box.innerHTML = `<strong>Evaluation notes</strong><ul style="margin:6px 0 0 18px;padding:0;">${rows}</ul>`;
+        dialog.appendChild(box);
     }
 
     _renderTrippingTable(dialog) {
@@ -257,9 +274,12 @@ export class ProtectionCoordinationResultsDialog {
                 settings.pickup_current != null ? `I_pickup=${this._fmt(settings.pickup_current)} A` : null,
                 settings.rated_i_a != null ? `I_rated=${this._fmt(settings.rated_i_a)} A` : null
             ].filter(Boolean).join(', ');
+            const engine = d.engine === 'electrisim'
+                ? '<div style="color:#6c757d;font-size:11px;">ElectriSim evaluator</div>'
+                : (d.engine === 'pandapower' ? '<div style="color:#6c757d;font-size:11px;">pandapower</div>' : '');
             tr.innerHTML = `
                 <td style="border:1px solid #ddd;padding:6px;">${this._escape(d.user_friendly_name || d.switch_name || d.switch_id || '?')}</td>
-                <td style="border:1px solid #ddd;padding:6px;">${this._escape(d.type || '?')}</td>
+                <td style="border:1px solid #ddd;padding:6px;">${this._escape(d.type || '?')}${engine}</td>
                 <td style="border:1px solid #ddd;padding:6px;">${this._escape(d.subtype || '-')}</td>
                 <td style="border:1px solid #ddd;padding:6px;">${this._escape(d.curve_type || '-')}</td>
                 <td style="border:1px solid #ddd;padding:6px;text-align:right;">${this._fmt(settings.tms)}</td>
