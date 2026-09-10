@@ -761,8 +761,102 @@ const getTransformerConnections = (cell, strictValidation = false) => {
     return {
         hv_bus: hvEntry?.bus?.mxObjectId?.replace('#', '_'),
         lv_bus: lvEntry?.bus?.mxObjectId?.replace('#', '_'),
+        hv_cell: hvEntry?.bus || null,
+        lv_cell: lvEntry?.bus || null,
     };
 };
+
+function _cellAttrValue(cell, name) {
+    if (!cell?.value?.attributes) return '';
+    const attrs = cell.value.attributes;
+    for (let i = 0; i < attrs.length; i++) {
+        if (attrs[i].nodeName === name) return attrs[i].nodeValue;
+    }
+    return '';
+}
+
+function _voltageRatingMismatch(windingKv, busKv) {
+    const w = parseFloat(windingKv);
+    const b = parseFloat(busKv);
+    if (!Number.isFinite(w) || !Number.isFinite(b) || w <= 0 || b <= 0) return false;
+    const tol = Math.max(0.5, 0.02 * Math.max(w, b));
+    return Math.abs(w - b) > tol;
+}
+
+/** Transformer winding kV vs connected bus vn_kv (HV and LV / POC). */
+function collectTransformerVoltageMismatches(graph) {
+    const mismatches = [];
+    const cells = graph?.getModel?.()?.cells;
+    if (!cells) return mismatches;
+
+    const shapeOf = (cell) => {
+        const m = String(cell?.style || '').match(/shapeELXXX=([^;]+)/);
+        return m ? m[1] : '';
+    };
+
+    for (const id in cells) {
+        const cell = cells[id];
+        const shape = shapeOf(cell);
+        if (shape !== 'Transformer' && shape !== 'Three Winding Transformer') continue;
+        const trName = _cellAttrValue(cell, 'name') || cell.id || 'Transformer';
+
+        const pushRow = (side, windingKv, busCell) => {
+            const busKv = _cellAttrValue(busCell, 'vn_kv');
+            if (!_voltageRatingMismatch(windingKv, busKv)) return;
+            mismatches.push({
+                transformer: trName,
+                side,
+                windingKv: parseFloat(windingKv),
+                bus: _cellAttrValue(busCell, 'name') || busCell?.id || '',
+                busKv: parseFloat(busKv)
+            });
+        };
+
+        try {
+            if (shape === 'Transformer') {
+                const conn = getTransformerConnections(cell);
+                pushRow('HV', _cellAttrValue(cell, 'vn_hv_kv'), conn.hv_cell);
+                pushRow('LV / POC', _cellAttrValue(cell, 'vn_lv_kv'), conn.lv_cell);
+            } else {
+                const conn = getThreeWindingConnections(cell);
+                const findBus = (busId) => {
+                    if (!busId) return null;
+                    for (const k in cells) {
+                        const c = cells[k];
+                        const oid = c?.mxObjectId ? String(c.mxObjectId).replace('#', '_') : '';
+                        if (oid === busId) return c;
+                    }
+                    return null;
+                };
+                pushRow('HV', _cellAttrValue(cell, 'vn_hv_kv'), findBus(conn.hv_bus));
+                pushRow('MV', _cellAttrValue(cell, 'vn_mv_kv'), findBus(conn.mv_bus));
+                pushRow('LV / POC', _cellAttrValue(cell, 'vn_lv_kv'), findBus(conn.lv_bus));
+            }
+        } catch (_) {
+            /* skip unconnected transformers */
+        }
+    }
+    return mismatches;
+}
+
+/** Popup before load flow. Returns false if the user cancels. */
+async function confirmTransformerVoltageMismatches(graph) {
+    const rows = collectTransformerVoltageMismatches(graph);
+    if (!rows.length) return true;
+    return showConfirmDialog({
+        title: 'Voltage rating mismatch',
+        variant: 'warning',
+        message:
+            'A transformer winding does not match the connected bus nominal voltage (for example LV winding vs POC). ' +
+            'Per-unit voltages can be wrong.',
+        items: rows.map((r) =>
+            `Transformer "${r.transformer}": ${r.side} winding ${r.windingKv} kV, connected bus "${r.bus}" is ${r.busKv} kV`
+        ),
+        footerHint: 'Correct the bus or transformer kV values, or continue to run anyway.',
+        confirmLabel: 'Run anyway',
+        cancelLabel: 'Cancel'
+    });
+}
 
 //update Transformer connections 
 const updateTransformerBusConnections = (transformerArray, busbarArray, graphModel) => {
@@ -1535,6 +1629,7 @@ const COMPONENT_TYPES = {
 };
 
 import { DIALOG_STYLES } from './utils/dialogStyles.js';
+import { showConfirmDialog } from './utils/confirmDialog.js';
 import { LoadFlowDialog } from './dialogs/LoadFlowDialog.js';
 import { formatResultNameHeader, createDialogNameResolver, buildGraphCellLookupMap, resolveGraphCellForResult } from './utils/attributeUtils.js';
 import { highlightCalculationErrorElements, highlightGraphElementsByIdentifiers, calculationErrorHighlightSuffix } from './utils/calculationErrorHighlight.js';
@@ -1547,6 +1642,8 @@ import {
 import ENV from './config/environment.js';
 import { devLog, isDevEnvironment } from './utils/devLog.js';
 import { computeWindTurbinePMw } from './windTurbineDialog.js';
+import { resolveStorageFixedPf } from './storageDialog.js';
+import { resolveStorageQSetpoint } from './utils/storageQCapability.js';
 import {
     collectWindTurbineControllers,
     collectWindTurbineControllersForPayload,
@@ -3106,7 +3203,11 @@ Loading[%]: ${formatNumber(cell.loading_percent, 1)}`;
     if (b.isEnabled() && !b.isCellLocked(b.getDefaultParent())) {
         // Use  LoadFlowDialog directly
         const dialog = new LoadFlowDialog(a);
-        dialog.show(function (a, c) {
+        dialog.show(async function (a, c) {
+
+        if (!(await confirmTransformerVoltageMismatches(b || grafka))) {
+            return;
+        }
 
         simProgress = startSimulationProgress({
             title: 'Load flow progress',
@@ -3333,6 +3434,8 @@ Loading[%]: ${formatNumber(cell.loading_percent, 1)}`;
                                 rx_min: 'rx_min',
                                 r0x0_max: 'r0x0_max',
                                 x0x_max: 'x0x_max',
+                                r0x0_min: { name: 'r0x0_min', optional: true },
+                                x0x_min: { name: 'x0x_min', optional: true },
                                 in_service: { name: 'in_service', optional: true }
                             })
                         };
@@ -3929,9 +4032,38 @@ Loading[%]: ${formatNumber(cell.loading_percent, 1)}`;
                                 min_e_mwh: 'min_e_mwh',
                                 scaling: 'scaling',
                                 type: 'type',
-                                in_service: { name: 'in_service', optional: true }
+                                in_service: { name: 'in_service', optional: true },
+                                inv_control_mode: { name: 'inv_control_mode', optional: true },
+                                pf: { name: 'pf', optional: true },
+                                pf_q_mode: { name: 'pf_q_mode', optional: true },
+                                pf_charge: { name: 'pf_charge', optional: true },
+                                pf_charge_q_mode: { name: 'pf_charge_q_mode', optional: true },
+                                watt_priority: { name: 'watt_priority', optional: true },
+                                reactive_capability_curve: { name: 'reactive_capability_curve', optional: true },
+                                curve_style: { name: 'curve_style', optional: true },
+                                q_capability_curve_json: { name: 'q_capability_curve_json', optional: true },
+                                q_setpoint_mode: { name: 'q_setpoint_mode', optional: true },
+                                vv_curve_preset: { name: 'vv_curve_preset', optional: true },
+                                vv_xarray: { name: 'vv_xarray', optional: true },
+                                vv_yarray: { name: 'vv_yarray', optional: true },
+                                vw_curve_preset: { name: 'vw_curve_preset', optional: true },
+                                vw_xarray: { name: 'vw_xarray', optional: true },
+                                vw_yarray: { name: 'vw_yarray', optional: true },
+                                wattpf_xarray: { name: 'wattpf_xarray', optional: true },
+                                wattpf_yarray: { name: 'wattpf_yarray', optional: true },
+                                wattvar_xarray: { name: 'wattvar_xarray', optional: true },
+                                wattvar_yarray: { name: 'wattvar_yarray', optional: true }
                             })
                         };
+                        const storInv = String(storage.inv_control_mode || 'NONE').toUpperCase();
+                        if (storInv === 'FIXED_PF') {
+                            storage.q_mvar = resolveStorageFixedPf(storage.p_mw, storage).q_mvar;
+                        } else {
+                            const qCap = resolveStorageQSetpoint(storage.p_mw, storage);
+                            if (qCap.fromCurve) {
+                                storage.q_mvar = qCap.qEffective;
+                            }
+                        }
                         componentArrays.storage.push(storage);
                         break;
 
@@ -4360,7 +4492,7 @@ Loading[%]: ${formatNumber(cell.loading_percent, 1)}`;
             console.log('🔍 exportPandapowerResults value in payload:', obj[0]?.exportPandapowerResults);
             console.log('🌐 Using backend URL:', ENV.backendUrl);
         }
-        
+
         processNetworkData(ENV.backendUrl + "/", obj, b, grafka);
         
         // Clean up caches and references to prevent memory accumulation
@@ -4394,6 +4526,8 @@ export {
     parseCellStyle,
     getAttributesAsObject,
     getTransformerConnections,
+    collectTransformerVoltageMismatches,
+    confirmTransformerVoltageMismatches,
     getSwitchConnections,
     updateTransformerBusConnections,
     updateThreeWindingTransformerConnections,

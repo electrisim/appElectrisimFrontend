@@ -484,6 +484,8 @@ function optimalPowerFlowPandaPower(a, b, c) {
                                             rx_min: 'rx_min',
                                             r0x0_max: 'r0x0_max',
                                             x0x_max: 'x0x_max',
+                                            r0x0_min: { name: 'r0x0_min', optional: true },
+                                            x0x_min: { name: 'x0x_min', optional: true },
                                             max_p_mw: { name: 'max_p_mw', optional: true },
                                             min_p_mw: { name: 'min_p_mw', optional: true },
                                             max_q_mvar: { name: 'max_q_mvar', optional: true },

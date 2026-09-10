@@ -2194,7 +2194,7 @@ async function insertComponentsForData(grafka, a, target, point, data) {
             externalGridData.data.forEach((externalgrid, index) => {
                 const [
                     name, bus_no, vm_pu, va_degree, slack_weight, in_service,
-                    s_sc_max_mva, s_sc_min_mva, rx_max, rx_min, r0x0_max, x0x_max,
+                    s_sc_max_mva, s_sc_min_mva, rx_max, rx_min, r0x0_max, x0x_max, r0x0_min, x0x_min,
                 ] = externalgrid;
 
                 let bus = busData.data[bus_no];
@@ -2229,6 +2229,8 @@ async function insertComponentsForData(grafka, a, target, point, data) {
                     rx_min: rx_min,
                     r0x0_max: r0x0_max,
                     x0x_max: x0x_max,
+                    r0x0_min: r0x0_min != null ? r0x0_min : r0x0_max,
+                    x0x_min: x0x_min != null ? x0x_min : x0x_max,
                 })
 
                 const edgeStyle = importDeviceToBusEdgeStyle(

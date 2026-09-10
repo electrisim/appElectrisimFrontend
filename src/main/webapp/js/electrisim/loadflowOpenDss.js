@@ -12,8 +12,10 @@ import { MonteCarloResultsDialog } from './dialogs/MonteCarloResultsDialog.js';
 import { formatResultNameHeader, createDialogNameResolver } from './utils/attributeUtils.js';
 import { highlightCalculationErrorElements, calculationErrorHighlightSuffix } from './utils/calculationErrorHighlight.js';
 import ENV from './config/environment.js';
-import { getConnectedBusId, getLineBusEndpointsForPayload, getThreeWindingConnections } from './loadFlow.js';
+import { getConnectedBusId, getLineBusEndpointsForPayload, getThreeWindingConnections, confirmTransformerVoltageMismatches } from './loadFlow.js';
 import { computeWindTurbinePMw } from './windTurbineDialog.js';
+import { resolveStorageFixedPf } from './storageDialog.js';
+import { resolveStorageQSetpoint } from './utils/storageQCapability.js';
 import {
     collectWindTurbineControllers,
     applyWindTurbineControllerPrefs
@@ -1801,7 +1803,7 @@ function handleNetworkErrors(dataJson, graph) {
 }
 
 // Function to execute OpenDSS load flow calculation
-function executeOpenDSSLoadFlow(parameters, app, graph) {
+async function executeOpenDSSLoadFlow(parameters, app, graph) {
     // Handle both old array format and new object format
     let opendssParams;
     if (Array.isArray(parameters)) {
@@ -1881,6 +1883,10 @@ function executeOpenDSSLoadFlow(parameters, app, graph) {
     // Combine parameters with network data
     const completeData = [opendssData, ...networkData];
     dssLog('Complete OpenDSS data:', completeData);
+
+    if (!(await confirmTransformerVoltageMismatches(graph))) {
+        return;
+    }
     
     // Call the new processNetworkData function
     // Pass the exportCommands flag (opendssParams[7])
@@ -1893,7 +1899,7 @@ function executeOpenDSSLoadFlow(parameters, app, graph) {
  * OpenDSS harmonic analysis: same API envelope as power flow, with analysisType 'harmonic'
  * (see app.py PowerFlowOpenDss branch).
  */
-function executeOpenDSSHarmonicAnalysis(parameters, app, graph) {
+async function executeOpenDSSHarmonicAnalysis(parameters, app, graph) {
     function getUserEmail() {
         try {
             const userStr = localStorage.getItem('user');
@@ -1934,6 +1940,9 @@ function executeOpenDSSHarmonicAnalysis(parameters, app, graph) {
 
     const completeData = [opendssData, ...networkData];
     const exportCommands = opendssData.exportCommands || false;
+    if (!(await confirmTransformerVoltageMismatches(graph))) {
+        return;
+    }
     processNetworkData(ENV.backendUrl + '/', completeData, graph, graph, app, exportCommands);
 }
 
@@ -2789,6 +2798,10 @@ function collectNetworkDataStructured(graph) {
                         conn: 'conn',
                         phases: 'phases',
                         pf: 'pf',
+                        pf_q_mode: { name: 'pf_q_mode', optional: true },
+                        pf_charge: { name: 'pf_charge', optional: true },
+                        pf_charge_q_mode: { name: 'pf_charge_q_mode', optional: true },
+                        watt_priority: { name: 'watt_priority', optional: true },
                         // Additional parameters
                         max_e_mwh: 'max_e_mwh',
                         max_p_mw: 'max_p_mw',
@@ -2821,7 +2834,11 @@ function collectNetworkDataStructured(graph) {
                         wattpf_xarray: 'wattpf_xarray',
                         wattpf_yarray: 'wattpf_yarray',
                         wattvar_xarray: 'wattvar_xarray',
-                        wattvar_yarray: 'wattvar_yarray'
+                        wattvar_yarray: 'wattvar_yarray',
+                        reactive_capability_curve: { name: 'reactive_capability_curve', optional: true },
+                        curve_style: { name: 'curve_style', optional: true },
+                        q_capability_curve_json: { name: 'q_capability_curve_json', optional: true },
+                        q_setpoint_mode: { name: 'q_setpoint_mode', optional: true }
                     });
 
                     const storageInService = storageParams.in_service !== undefined
@@ -2854,6 +2871,10 @@ function collectNetworkDataStructured(graph) {
                         conn: storageParams.conn || 'wye',
                         phases: storageParams.phases ?? 3,
                         pf: storageParams.pf,
+                        pf_q_mode: storageParams.pf_q_mode || 'lagging',
+                        pf_charge: storageParams.pf_charge,
+                        pf_charge_q_mode: storageParams.pf_charge_q_mode || 'lagging',
+                        watt_priority: storageParams.watt_priority,
                         state: storageParams.state || 'IDLING',
                         disp_mode: storageParams.disp_mode || 'DEFAULT',
                         pct_charge: storageParams.pct_charge ?? 100,
@@ -2875,8 +2896,20 @@ function collectNetworkDataStructured(graph) {
                         wattpf_xarray: storageParams.wattpf_xarray || '',
                         wattpf_yarray: storageParams.wattpf_yarray || '',
                         wattvar_xarray: storageParams.wattvar_xarray || '',
-                        wattvar_yarray: storageParams.wattvar_yarray || ''
+                        wattvar_yarray: storageParams.wattvar_yarray || '',
+                        reactive_capability_curve: storageParams.reactive_capability_curve,
+                        curve_style: storageParams.curve_style || 'straightLineYValues',
+                        q_capability_curve_json: storageParams.q_capability_curve_json || '',
+                        q_setpoint_mode: storageParams.q_setpoint_mode || 'manual'
                     };
+                    if (String(cellData.inv_control_mode || 'NONE').toUpperCase() === 'FIXED_PF') {
+                        cellData.q_mvar = resolveStorageFixedPf(cellData.p_mw, cellData).q_mvar;
+                    } else {
+                        const qCap = resolveStorageQSetpoint(cellData.p_mw, cellData);
+                        if (qCap.fromCurve) {
+                            cellData.q_mvar = qCap.qEffective;
+                        }
+                    }
                     
                     // Validate bus connection
                     if (cellData.bus) {
@@ -3126,6 +3159,8 @@ function collectNetworkDataStructured(graph) {
                         rx_min: 'rx_min',
                         r0x0_max: 'r0x0_max',
                         x0x_max: 'x0x_max',
+                        r0x0_min: { name: 'r0x0_min', optional: true },
+                        x0x_min: { name: 'x0x_min', optional: true },
                         spectrum: { name: 'spectrum', optional: true },
                         spectrum_csv: { name: 'spectrum_csv', optional: true },
                         in_service: { name: 'in_service', optional: true }
@@ -3152,6 +3187,8 @@ function collectNetworkDataStructured(graph) {
                         rx_min: extGridParams.rx_min || 0.1,
                         r0x0_max: extGridParams.r0x0_max || 0.1,
                         x0x_max: extGridParams.x0x_max || 1.0,
+                        r0x0_min: extGridParams.r0x0_min || extGridParams.r0x0_max || 0.1,
+                        x0x_min: extGridParams.x0x_min || extGridParams.x0x_max || 1.0,
                         in_service: extGridInService,
                         spectrum: extGridParams.spectrum || 'defaultvsource',
                         spectrum_csv: extGridParams.spectrum_csv || ''

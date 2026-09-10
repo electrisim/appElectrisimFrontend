@@ -236,7 +236,7 @@ export function computeEffectiveSgenQSetpoint({
     };
 }
 
-function expandQCapabilityPolyline(parsed, qkey, curveStyle) {
+export function expandQCapabilityPolyline(parsed, qkey, curveStyle) {
     const n = parsed.length;
     const out = [];
     if (curveStyle === 'constantYValue') {

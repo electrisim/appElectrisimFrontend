@@ -19,6 +19,8 @@ export const defaultExternalGridData = {
     rx_min: 0.0,
     r0x0_max: 0.0,
     x0x_max: 0.0,
+    r0x0_min: 0.0,
+    x0x_min: 0.0,
     max_p_mw: 0.0,
     min_p_mw: 0.0,
     max_q_mvar: 0.0,
@@ -121,7 +123,7 @@ export class ExternalGridDialog extends Dialog {
             {
                 id: 'r0x0_max',
                 label: 'Max R0/X0 Ratio',
-                description: 'Maximal R/X-ratio to calculate Zero sequence internal impedance of ext_grid (0...1)',
+                description: 'Maximal R0/X0-ratio to calculate Zero sequence internal impedance of ext_grid for maximum short-circuit calculations (0...1)',
                 type: 'number',
                 value: this.data.r0x0_max.toString(),
                 step: '0.01',
@@ -131,12 +133,30 @@ export class ExternalGridDialog extends Dialog {
             {
                 id: 'x0x_max',
                 label: 'Max X0/X Ratio',
-                description: 'Maximal X0/X-ratio to calculate Zero sequence internal impedance of ext_grid (0...1)',
+                description: 'Maximal X0/X-ratio to calculate Zero sequence internal impedance of ext_grid for maximum short-circuit calculations',
                 type: 'number',
                 value: this.data.x0x_max.toString(),
                 step: '0.01',
+                min: '0'
+            },
+            {
+                id: 'r0x0_min',
+                label: 'Min R0/X0 Ratio',
+                description: 'Minimal R0/X0-ratio to calculate Zero sequence internal impedance of ext_grid for minimum short-circuit calculations (0...1). Required for single-phase minimum short-circuit.',
+                type: 'number',
+                value: this.data.r0x0_min.toString(),
+                step: '0.01',
                 min: '0',
                 max: '1'
+            },
+            {
+                id: 'x0x_min',
+                label: 'Min X0/X Ratio',
+                description: 'Minimal X0/X-ratio to calculate Zero sequence internal impedance of ext_grid for minimum short-circuit calculations. Required for single-phase minimum short-circuit.',
+                type: 'number',
+                value: this.data.x0x_min.toString(),
+                step: '0.01',
+                min: '0'
             }
         ];
         
@@ -718,6 +738,35 @@ export class ExternalGridDialog extends Dialog {
         return values;
     }
 
+    /**
+     * Existing diagrams only stored max zero-sequence ratios. Copy them into the
+     * min fields when r0x0_min / x0x_min are absent so the dialog and 1ph min SC
+     * stay consistent with the values already entered.
+     */
+    applyLegacyMinZeroSequenceIfMissing(cellValue) {
+        const attrs = {};
+        if (cellValue?.attributes) {
+            for (let i = 0; i < cellValue.attributes.length; i++) {
+                const attr = cellValue.attributes[i];
+                attrs[attr.name] = attr.value;
+            }
+        }
+        const r0x0Max = attrs.r0x0_max != null && attrs.r0x0_max !== '' ? attrs.r0x0_max : '0';
+        const x0xMax = attrs.x0x_max != null && attrs.x0x_max !== '' ? attrs.x0x_max : '0';
+        const r0x0Min = Object.prototype.hasOwnProperty.call(attrs, 'r0x0_min') && attrs.r0x0_min !== ''
+            ? attrs.r0x0_min
+            : r0x0Max;
+        const x0xMin = Object.prototype.hasOwnProperty.call(attrs, 'x0x_min') && attrs.x0x_min !== ''
+            ? attrs.x0x_min
+            : x0xMax;
+        const r0Param = this.shortCircuitParameters.find(p => p.id === 'r0x0_min');
+        const x0Param = this.shortCircuitParameters.find(p => p.id === 'x0x_min');
+        if (r0Param) r0Param.value = String(r0x0Min);
+        if (x0Param) x0Param.value = String(x0xMin);
+        this.data.r0x0_min = parseFloat(r0x0Min) || 0;
+        this.data.x0x_min = parseFloat(x0xMin) || 0;
+    }
+
     /** After cell attributes are applied, sync tri-state harmonic UI (spectrum + spectrum_csv). */
     applyHarmonicSpectrumCustomFromCell(cellValue) {
         if (!cellValue?.attributes || !this.harmonicParameters) return;
@@ -762,8 +811,10 @@ export const columnDefsExternalGrid = [
     { field: "s_sc_min_mva", headerTooltip: "minimal short circuit apparent power to calculate internal impedance of ext_grid for short circuit calculations", maxWidth: 160 },
     { field: "rx_max", headerTooltip: "maximal R/X-ratio to calculate internal impedance of ext_grid for short circuit calculations", maxWidth: 120 },
     { field: "rx_min", headerTooltip: "minimal R/X-ratio to calculate internal impedance of ext_grid for short circuit calculations", maxWidth: 100 },
-    { field: "r0x0_max", headerTooltip: "maximal R/X-ratio to calculate Zero sequence internal impedance of ext_grid", maxWidth: 100 },
-    { field: "x0x_max", headerTooltip: "maximal X0/X-ratio to calculate Zero sequence internal impedance of ext_grid", maxWidth: 120 }
+    { field: "r0x0_max", headerTooltip: "maximal R0/X0-ratio to calculate Zero sequence internal impedance of ext_grid", maxWidth: 100 },
+    { field: "x0x_max", headerTooltip: "maximal X0/X-ratio to calculate Zero sequence internal impedance of ext_grid", maxWidth: 120 },
+    { field: "r0x0_min", headerTooltip: "minimal R0/X0-ratio to calculate Zero sequence internal impedance of ext_grid", maxWidth: 100 },
+    { field: "x0x_min", headerTooltip: "minimal X0/X-ratio to calculate Zero sequence internal impedance of ext_grid", maxWidth: 120 }
 ];
   
 export const gridOptionsExternalGrid = {

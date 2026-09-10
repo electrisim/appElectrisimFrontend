@@ -301,6 +301,8 @@ export function prepareNetworkData(graph, editorUi, additionalParams = {}) {
                         rx_min: 'rx_min',
                         r0x0_max: 'r0x0_max',
                         x0x_max: 'x0x_max',
+                        r0x0_min: { name: 'r0x0_min', optional: true },
+                        x0x_min: { name: 'x0x_min', optional: true },
                         in_service: { name: 'in_service', optional: true }
                     })
                 });

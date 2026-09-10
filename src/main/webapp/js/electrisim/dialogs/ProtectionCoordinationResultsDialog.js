@@ -176,12 +176,16 @@ export class ProtectionCoordinationResultsDialog {
                 scBox.innerHTML = `<strong>Short-circuit at fault bus:</strong> ${parts.join(' · ')}`;
                 section.appendChild(scBox);
             }
-            if (sc.error) {
+            if (sc.error || sc.warning) {
                 const err = document.createElement('div');
-                err.style.cssText = 'padding:8px;border:1px solid #f5c2c7;background:#f8d7da;color:#842029;border-radius:4px;';
-                err.textContent = sc.error;
+                err.style.cssText = sc.error
+                    ? 'padding:8px;border:1px solid #f5c2c7;background:#f8d7da;color:#842029;border-radius:4px;margin-bottom:8px;'
+                    : 'padding:8px;border:1px solid #ffecb5;background:#fff3cd;color:#664d03;border-radius:4px;margin-bottom:8px;';
+                err.textContent = sc.error || sc.warning;
                 section.appendChild(err);
-                return;
+                if (sc.error && !(sc.trip && sc.trip.length)) {
+                    return;
+                }
             }
             const table = document.createElement('table');
             table.style.cssText = 'border-collapse:collapse;width:100%;margin-bottom:8px;border:1px solid #ddd;font-size:12px;';
@@ -247,11 +251,11 @@ export class ProtectionCoordinationResultsDialog {
             const tr = document.createElement('tr');
             const settings = d.settings || {};
             const pickup = [
-                settings.I_s != null ? `I_s=${this._fmt(settings.I_s)}A` : (settings.I_s_a != null ? `I_s=${this._fmt(settings.I_s_a)}A` : null),
-                settings.I_g != null ? `I_g=${this._fmt(settings.I_g)}A` : (settings.I_g_a != null ? `I_g=${this._fmt(settings.I_g_a)}A` : null),
-                settings.I_gg != null ? `I_gg=${this._fmt(settings.I_gg)}A` : (settings.I_gg_a != null ? `I_gg=${this._fmt(settings.I_gg_a)}A` : null),
-                settings.pickup_current != null ? `I_pickup=${this._fmt(settings.pickup_current)}A` : null,
-                settings.rated_i_a != null ? `I_rated=${this._fmt(settings.rated_i_a)}A` : null
+                settings.I_s_a != null ? `I_s=${this._fmt(settings.I_s_a)} A` : (settings.I_s != null ? `I_s=${this._fmt(settings.I_s * 1000)} A` : null),
+                settings.I_g_a != null ? `I_g=${this._fmt(settings.I_g_a)} A` : (settings.I_g != null ? `I_g=${this._fmt(settings.I_g * 1000)} A` : null),
+                settings.I_gg_a != null ? `I_gg=${this._fmt(settings.I_gg_a)} A` : (settings.I_gg != null ? `I_gg=${this._fmt(settings.I_gg * 1000)} A` : null),
+                settings.pickup_current != null ? `I_pickup=${this._fmt(settings.pickup_current)} A` : null,
+                settings.rated_i_a != null ? `I_rated=${this._fmt(settings.rated_i_a)} A` : null
             ].filter(Boolean).join(', ');
             tr.innerHTML = `
                 <td style="border:1px solid #ddd;padding:6px;">${this._escape(d.user_friendly_name || d.switch_name || d.switch_id || '?')}</td>

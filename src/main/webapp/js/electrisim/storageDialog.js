@@ -1,6 +1,14 @@
 import { Dialog } from './Dialog.js';
 import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
 import { OPF_COST_CURRENCY_OPTIONS } from './utils/opfCostCurrency.js';
+import {
+    StaticGeneratorDialog,
+    Q_SETPOINT_MODE_OPTIONS,
+    qCapabilityCurve15MwOffshoreWtgJson,
+    Q_CAPABILITY_PRESET_15MW_OFFSHORE_P_RATED_MW,
+    scaleQCapabilityPointsForPlantRating
+} from './staticGeneratorDialog.js';
+import { defaultStorageQCapabilityJson, resolveStorageQSetpoint } from './utils/storageQCapability.js';
 
 // Default values for storage parameters (based on pandapower and OpenDSS documentation)
 export const defaultStorageData = {
@@ -44,6 +52,15 @@ export const defaultStorageData = {
     // Inverter control (OpenDSS InvControl — https://opendss.epri.com/InvControl.html)
     inv_control_mode: 'NONE',
     pf: 1.0,
+    pf_q_mode: 'lagging',
+    pf_charge: 1.0,
+    pf_charge_q_mode: 'leading',
+    watt_priority: false,
+    // P–Q capability (Qmin/Qmax vs |P|) — same model as static generator
+    reactive_capability_curve: false,
+    curve_style: 'straightLineYValues',
+    q_capability_curve_json: defaultStorageQCapabilityJson(50),
+    q_setpoint_mode: 'manual',
     vv_curve_preset: 'IEEE_1547',
     vv_xarray: '0.92 0.98 1.02 1.08',
     vv_yarray: '0.44 0 -0.44 -0.44',
@@ -80,10 +97,44 @@ export class StorageDialog extends Dialog {
             {
                 id: 'q_mvar',
                 label: 'Reactive Power (MVar)',
-                description: 'Reactive power of the storage. Positive = absorbing (inductive), negative = supplying (capacitive).',
+                description: 'Manual reactive power setpoint when Q setpoint mode is Manual. For curve-based Q, choose Capacitive max or Inductive max below.',
                 type: 'number',
                 value: this.data.q_mvar.toString(),
                 step: '0.1'
+            },
+            {
+                id: 'q_setpoint_mode',
+                label: 'Q setpoint mode (load flow)',
+                description: 'When the Q capability curve is enabled: Capacitive max uses q_max at |P|; Inductive max uses q_min. Manual uses Reactive Power above. Curve is vs |P| (charge and discharge share the same envelope).',
+                type: 'select',
+                value: this.data.q_setpoint_mode || 'manual',
+                options: Q_SETPOINT_MODE_OPTIONS
+            }
+        ];
+
+        this.qCapabilityParameters = [
+            {
+                id: 'reactive_capability_curve',
+                label: 'Use Q capability curve',
+                description: 'Enforce Qmin/Qmax vs |P| in load flow (pandapower and OpenDSS). Works together with Volt-VAR (Q vs V) and Watt priority (P vs Q at kVA limit).',
+                type: 'checkbox',
+                value: this.data.reactive_capability_curve
+            },
+            {
+                id: 'curve_style',
+                label: 'Curve style',
+                description: 'straightLineYValues: linear segments. constantYValue: Q holds until the next P point.',
+                type: 'select',
+                value: this.data.curve_style,
+                options: ['straightLineYValues', 'constantYValue']
+            },
+            {
+                id: 'q_capability_curve_json',
+                label: 'Curve points (JSON)',
+                description: 'Array of { "p_mw", "q_min_mvar", "q_max_mvar" } vs |P|. Template scales to inverter rating / |Active power|.',
+                type: 'textarea',
+                value: this.data.q_capability_curve_json,
+                rows: 8
             }
         ];
         
@@ -385,13 +436,52 @@ export class StorageDialog extends Dialog {
             },
             {
                 id: 'pf',
-                label: 'Power Factor (pf)',
-                description: 'Used when Inverter Control Mode = Fixed PF. Enter the lagging power-factor magnitude (0.85–1.0), not a negative number. While exporting (P &lt; 0), 0.95 absorbs Q (same sign as Fixed Q &gt; 0). For leading / exporting Q, use Fixed Q with a negative Q[MVar] — a negative PF is not used in Electrisim.',
+                label: 'Discharge power factor (magnitude)',
+                description: 'Used when Inverter Control Mode = Fixed PF and the BESS is discharging (P &lt; 0). Enter 0.85–1.0. Q direction is set below — do not enter a negative PF.',
                 type: 'number',
                 value: String(this.data.pf ?? 1.0),
                 step: '0.01',
                 min: '0.5',
                 max: '1'
+            },
+            {
+                id: 'pf_q_mode',
+                label: 'Discharge Q direction',
+                description: 'Lagging = absorb Q from the grid (inductive). Leading = inject Q into the grid (capacitive, supports voltage). At PF = 1.0 this has no effect.',
+                type: 'select',
+                value: this.data.pf_q_mode || 'lagging',
+                options: [
+                    { value: 'lagging', label: 'Lagging (absorb Q)' },
+                    { value: 'leading', label: 'Leading (inject Q)' }
+                ]
+            },
+            {
+                id: 'pf_charge',
+                label: 'Charge power factor (magnitude)',
+                description: 'Fixed PF while charging (P &gt; 0). Leave 1.0 for unity. Typical plant practice: leading while charging to offset transformer var absorption.',
+                type: 'number',
+                value: String(this.data.pf_charge ?? 1.0),
+                step: '0.01',
+                min: '0.5',
+                max: '1'
+            },
+            {
+                id: 'pf_charge_q_mode',
+                label: 'Charge Q direction',
+                description: 'Lagging = absorb extra Q while charging (lowers voltage). Leading = inject Q from the PCS while charging (offsets transformer I²X and raises voltage). This is what you want for the 45 MW charge case — not a negative PF.',
+                type: 'select',
+                value: this.data.pf_charge_q_mode || 'leading',
+                options: [
+                    { value: 'lagging', label: 'Lagging (absorb Q)' },
+                    { value: 'leading', label: 'Leading (inject Q)' }
+                ]
+            },
+            {
+                id: 'watt_priority',
+                label: 'Watt priority (P over Q at kVA limit)',
+                description: 'At the kVA limit (sn_mva): on = keep P and reduce Q (OpenDSS WattPriority); off = keep Q and reduce P. Applies together with the P–Q capability curve and Volt-VAR — kW + kVA alone does not show Q clipping at a given P.',
+                type: 'checkbox',
+                value: this.data.watt_priority
             },
             {
                 id: 'vv_curve_preset',
@@ -539,6 +629,7 @@ export class StorageDialog extends Dialog {
         const configTab = this.createTab('Configuration', 'config', this.currentTab === 'config');
         const optimizationTab = this.createTab('Optimization (OPF)', 'optimization', this.currentTab === 'optimization');
         const opendssTab = this.createTab('OpenDSS Parameters', 'opendss', this.currentTab === 'opendss');
+        const qCapTab = this.createTab('Q capability', 'qcapability', this.currentTab === 'qcapability');
         const inverterTab = this.createTab('Inverter Control', 'inverter', this.currentTab === 'inverter');
         const economicTab = this.createTab('Economic', 'economic', this.currentTab === 'economic');
         
@@ -546,6 +637,7 @@ export class StorageDialog extends Dialog {
         tabContainer.appendChild(energyTab);
         tabContainer.appendChild(configTab);
         tabContainer.appendChild(optimizationTab);
+        tabContainer.appendChild(qCapTab);
         tabContainer.appendChild(opendssTab);
         tabContainer.appendChild(inverterTab);
         tabContainer.appendChild(economicTab);
@@ -565,17 +657,54 @@ export class StorageDialog extends Dialog {
 
         // Create tab content containers
         const powerContent = this.createTabContent('power', this.powerParameters);
+        this._mountQSetpointHint(powerContent);
+        this._wrapQSetpointGroup(powerContent);
         const energyContent = this.createTabContent('energy', this.energyParameters);
         const configContent = this.createTabContent('config', this.configParameters);
         const optimizationContent = this.createTabContent('optimization', this.optimizationParameters);
+        const qCapContent = StaticGeneratorDialog.prototype.createTabContent.call(this, 'qcapability', this.qCapabilityParameters);
+        const qCapForm = qCapContent.querySelector('form');
+        if (qCapForm) {
+            StaticGeneratorDialog.prototype._mountQCapabilityChartPanel.call(this, qCapContent, qCapForm);
+        }
         const opendssContent = this.createTabContent('opendss', this.opendssParameters);
         const inverterContent = this.createTabContent('inverter', this.inverterControlParameters);
         const economicContent = this.createTabContent('economic', this.economicParameters);
+
+        const qCapPresetWrap = document.createElement('div');
+        Object.assign(qCapPresetWrap.style, { padding: '0 16px 16px', marginTop: '4px' });
+        const qCapPresetHint = document.createElement('div');
+        Object.assign(qCapPresetHint.style, { fontSize: '12px', color: '#6c757d', marginBottom: '10px', lineHeight: '1.45' });
+        qCapPresetHint.innerHTML = '<strong>Template</strong> — ±0.95 PF capability scaled to |Active power (MW)| on the Power tab. Curve is stored vs |P| (same for charge and discharge).';
+        const presetBtn = document.createElement('button');
+        presetBtn.type = 'button';
+        presetBtn.textContent = 'Apply ±0.95 PF template';
+        Object.assign(presetBtn.style, { padding: '8px 14px', cursor: 'pointer', borderRadius: '6px', border: '1px solid #ced4da', background: '#fff' });
+        presetBtn.onclick = () => {
+            const pIn = this.inputs.get('p_mw');
+            const snIn = this.inputs.get('sn_mva');
+            let targetP = Math.abs(parseFloat(pIn && pIn.value) || parseFloat(snIn && snIn.value) || 50);
+            if (!Number.isFinite(targetP) || targetP <= 0) targetP = 50;
+            try {
+                this._qcapTemplateBasePoints = JSON.parse(qCapabilityCurve15MwOffshoreWtgJson);
+            } catch { return; }
+            this._qcapTemplatePRatedMw = Q_CAPABILITY_PRESET_15MW_OFFSHORE_P_RATED_MW;
+            this._qcapTemplateSnBase = targetP;
+            const cb = this.inputs.get('reactive_capability_curve');
+            const styleSel = this.inputs.get('curve_style');
+            if (cb) cb.checked = true;
+            if (styleSel) styleSel.value = 'straightLineYValues';
+            this._applyStorageQCapabilityScalingFromTemplate();
+        };
+        qCapPresetWrap.appendChild(qCapPresetHint);
+        qCapPresetWrap.appendChild(presetBtn);
+        qCapContent.appendChild(qCapPresetWrap);
         
         contentArea.appendChild(powerContent);
         contentArea.appendChild(energyContent);
         contentArea.appendChild(configContent);
         contentArea.appendChild(optimizationContent);
+        contentArea.appendChild(qCapContent);
         contentArea.appendChild(opendssContent);
         contentArea.appendChild(inverterContent);
         contentArea.appendChild(economicContent);
@@ -619,15 +748,23 @@ export class StorageDialog extends Dialog {
         this.container = container;
         
         // Tab click handlers
-        const allTabs = [powerTab, energyTab, configTab, optimizationTab, opendssTab, inverterTab, economicTab];
-        const allContents = [powerContent, energyContent, configContent, optimizationContent, opendssContent, inverterContent, economicContent];
+        const allTabs = [powerTab, energyTab, configTab, optimizationTab, qCapTab, opendssTab, inverterTab, economicTab];
+        const allContents = [powerContent, energyContent, configContent, optimizationContent, qCapContent, opendssContent, inverterContent, economicContent];
         powerTab.onclick = () => this.switchTab('power', powerTab, allTabs.filter(t => t !== powerTab), powerContent, allContents.filter(c => c !== powerContent));
         energyTab.onclick = () => this.switchTab('energy', energyTab, allTabs.filter(t => t !== energyTab), energyContent, allContents.filter(c => c !== energyContent));
         configTab.onclick = () => this.switchTab('config', configTab, allTabs.filter(t => t !== configTab), configContent, allContents.filter(c => c !== configContent));
         optimizationTab.onclick = () => this.switchTab('optimization', optimizationTab, allTabs.filter(t => t !== optimizationTab), optimizationContent, allContents.filter(c => c !== optimizationContent));
+        qCapTab.onclick = () => this.switchTab('qcapability', qCapTab, allTabs.filter(t => t !== qCapTab), qCapContent, allContents.filter(c => c !== qCapContent));
         opendssTab.onclick = () => this.switchTab('opendss', opendssTab, allTabs.filter(t => t !== opendssTab), opendssContent, allContents.filter(c => c !== opendssContent));
         inverterTab.onclick = () => this.switchTab('inverter', inverterTab, allTabs.filter(t => t !== inverterTab), inverterContent, allContents.filter(c => c !== inverterContent));
         economicTab.onclick = () => this.switchTab('economic', economicTab, allTabs.filter(t => t !== economicTab), economicContent, allContents.filter(c => c !== economicContent));
+
+        this._wireStorageQSetpointHintListeners();
+        const pIn = this.inputs.get('p_mw');
+        if (pIn) {
+            pIn.addEventListener('input', () => this._syncStorageQcapCurveToActivePowerIfPossible());
+            pIn.addEventListener('change', () => this._syncStorageQcapCurveToActivePowerIfPossible());
+        }
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
@@ -936,7 +1073,7 @@ export class StorageDialog extends Dialog {
         const values = {};
         
         // Collect all parameter values from all tabs
-        [...this.powerParameters, ...this.energyParameters, ...this.configParameters, ...this.optimizationParameters, ...this.opendssParameters, ...this.inverterControlParameters, ...(this.economicParameters || [])].forEach(param => {
+        [...this.powerParameters, ...this.energyParameters, ...this.configParameters, ...this.optimizationParameters, ...(this.qCapabilityParameters || []), ...this.opendssParameters, ...this.inverterControlParameters, ...(this.economicParameters || [])].forEach(param => {
             const input = this.inputs.get(param.id);
             if (input) {
                 if (param.id === 'cost_per_unit_by_currency') {
@@ -1056,13 +1193,24 @@ export class StorageDialog extends Dialog {
                     console.log(`  Updated Inverter ${attributeName}: ${oldValue} → ${inverterParam.value}`);
                 }
                 
+                const qCapParam = (this.qCapabilityParameters || []).find(p => p.id === attributeName);
+                if (qCapParam) {
+                    const oldValue = qCapParam.value;
+                    if (qCapParam.type === 'checkbox') {
+                        qCapParam.value = attributeValue === 'true' || attributeValue === true;
+                    } else {
+                        qCapParam.value = attributeValue;
+                    }
+                    console.log(`  Updated Q capability ${attributeName}: ${oldValue} → ${qCapParam.value}`);
+                }
+
                 const economicParam = (this.economicParameters || []).find(p => p.id === attributeName);
                 if (economicParam) {
                     economicParam.value = attributeValue;
                     this.data[attributeName] = attributeValue;
                 }
                 
-                if (!powerParam && !energyParam && !configParam && !optimizationParam && !opendssParam && !inverterParam && !economicParam) {
+                if (!powerParam && !energyParam && !configParam && !optimizationParam && !qCapParam && !opendssParam && !inverterParam && !economicParam) {
                     console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
             }
@@ -1078,6 +1226,122 @@ export class StorageDialog extends Dialog {
         
         console.log('=== StorageDialog.populateDialog completed ===');
     }
+
+    _mountQSetpointHint(powerContent) {
+        return StaticGeneratorDialog.prototype._mountQSetpointHint.call(this, powerContent);
+    }
+
+    _wrapQSetpointGroup(powerContent) {
+        return StaticGeneratorDialog.prototype._wrapQSetpointGroup.call(this, powerContent);
+    }
+
+    _wireStorageQSetpointHintListeners() {
+        return StaticGeneratorDialog.prototype._wireQSetpointHintListeners.call(this);
+    }
+
+    _updateQSetpointHint() {
+        const hint = this._qSetpointHintEl;
+        if (!hint) return;
+
+        const pIn = this.inputs.get('p_mw');
+        const qIn = this.inputs.get('q_mvar');
+        const modeIn = this.inputs.get('q_setpoint_mode');
+        const curveCb = this.inputs.get('reactive_capability_curve');
+        const styleIn = this.inputs.get('curve_style');
+        const jsonTa = this.inputs.get('q_capability_curve_json');
+
+        const curveOn = curveCb ? curveCb.checked : false;
+        const mode = modeIn ? modeIn.value : 'manual';
+        if (!curveOn || mode === 'manual') {
+            hint.style.display = 'none';
+            return;
+        }
+
+        const attrs = {
+            reactive_capability_curve: curveOn,
+            q_capability_curve_json: jsonTa ? jsonTa.value : '',
+            curve_style: styleIn ? styleIn.value : 'straightLineYValues',
+            q_setpoint_mode: mode,
+            q_mvar: qIn ? parseFloat(qIn.value) : 0
+        };
+        const pAbs = Math.abs(parseFloat(pIn && pIn.value) || 0);
+        const result = resolveStorageQSetpoint(pAbs, attrs);
+        const fmt = (v) => (Number.isFinite(v) ? (Math.round(v * 1000) / 1000).toString() : '—');
+
+        if (!result.fromCurve) {
+            hint.style.display = 'none';
+            return;
+        }
+        hint.style.display = 'block';
+        let modeText = 'capacitive max';
+        if (result.sourceLabel === 'inductive_max') modeText = 'inductive max';
+        hint.innerHTML =
+            `Load flow uses <strong>${fmt(result.qEffective)} MVar</strong> from the Q capability curve ` +
+            `(${modeText} at |P| = ${fmt(pAbs)} MW).`;
+    }
+
+    _syncStorageQcapCurveToActivePowerIfPossible() {
+        const cb = this.inputs.get('reactive_capability_curve');
+        if (!cb || !cb.checked) return;
+        const ta = this.inputs.get('q_capability_curve_json');
+        if (!this._qcapTemplateBasePoints) {
+            if (!ta || !StaticGeneratorDialog.prototype._tryAttachQCapabilityTemplateFromJsonString.call(this, ta.value)) return;
+        }
+        this._applyStorageQCapabilityScalingFromTemplate();
+    }
+
+    _applyStorageQCapabilityScalingFromTemplate() {
+        if (!this._qcapTemplateBasePoints || this._qcapTemplatePRatedMw == null || this._qcapTemplatePRatedMw <= 0) {
+            return;
+        }
+        const ta = this.inputs.get('q_capability_curve_json');
+        const pIn = this.inputs.get('p_mw');
+        const snIn = this.inputs.get('sn_mva');
+        if (!ta) return;
+
+        let targetP = Math.abs(parseFloat(pIn && pIn.value));
+        if (!Number.isFinite(targetP) || targetP <= 0) {
+            const sn = parseFloat(snIn && snIn.value);
+            targetP = Number.isFinite(sn) && sn > 0 ? sn : this._qcapTemplatePRatedMw;
+        }
+        const scale = targetP / this._qcapTemplatePRatedMw;
+        const scaled = scaleQCapabilityPointsForPlantRating(this._qcapTemplateBasePoints, scale);
+        if (scaled.length < 2) return;
+
+        StaticGeneratorDialog.prototype._setQCapabilityJsonProgrammatically.call(this, ta, JSON.stringify(scaled));
+
+        if (snIn && Number.isFinite(this._qcapTemplateSnBase) && this._qcapTemplateSnBase > 0) {
+            const sn = this._qcapTemplateSnBase * scale;
+            snIn.value = String(Math.round(sn * 10000) / 10000);
+        }
+
+        if (typeof this._qCapabilityChartRedraw === 'function') {
+            this._qCapabilityChartRedraw();
+        }
+        this._updateQSetpointHint();
+    }
+}
+
+/** Fixed-PF Q for storage. Lagging = absorb Q (q_mvar > 0); leading = inject Q (q_mvar < 0). */
+export function resolveStorageFixedPf(p_mw, attrs = {}) {
+    const p = Number(p_mw);
+    const charging = Number.isFinite(p) && p > 0;
+    let magRaw = charging ? (attrs.pf_charge ?? attrs.pf) : attrs.pf;
+    let mode = charging
+        ? (attrs.pf_charge_q_mode || attrs.pf_q_mode || 'lagging')
+        : (attrs.pf_q_mode || 'lagging');
+    const magNum = parseFloat(magRaw);
+    if (Number.isFinite(magNum) && magNum < 0) {
+        mode = 'leading';
+    }
+    const mag = Math.abs(Number.isFinite(magNum) ? magNum : 1);
+    const leading = String(mode).toLowerCase() === 'leading';
+    let q_mvar = 0;
+    if (Number.isFinite(p) && Math.abs(p) > 1e-9 && mag < 0.999 && mag >= 0.5) {
+        const qAbs = Math.abs(p) * Math.tan(Math.acos(Math.min(0.999999, mag)));
+        q_mvar = leading ? -qAbs : qAbs;
+    }
+    return { mag, leading, q_mvar, mode: leading ? 'leading' : 'lagging' };
 }
 
 // Legacy exports for backward compatibility (maintaining AG-Grid structure for existing code)

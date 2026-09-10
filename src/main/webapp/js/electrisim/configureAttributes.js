@@ -1,6 +1,7 @@
 // Export all configure functions and make them globally available
 
 import { qCapabilityCurve15MwOffshoreWtgJson } from './staticGeneratorDialog.js';
+import { defaultStorageQCapabilityJson } from './utils/storageQCapability.js';
 import {
     defaultWindPowerCurveJson,
     DEFAULT_WIND_SPEED_MS,
@@ -38,6 +39,8 @@ export function configureExternalGridAttributes(grafka, vertex, options = {}) {
     g.setAttribute("rx_min", options.rx_min != null ? String(options.rx_min) : "0");
     g.setAttribute("r0x0_max", options.r0x0_max != null ? String(options.r0x0_max) : "0");
     g.setAttribute("x0x_max", options.x0x_max != null ? String(options.x0x_max) : "0");
+    g.setAttribute("r0x0_min", options.r0x0_min != null ? String(options.r0x0_min) : (options.r0x0_max != null ? String(options.r0x0_max) : "0"));
+    g.setAttribute("x0x_min", options.x0x_min != null ? String(options.x0x_min) : (options.x0x_max != null ? String(options.x0x_max) : "0"));
 
     // Harmonic analysis parameters (OpenDSS Vsource)
     g.setAttribute("Harmonic_parameters", "");
@@ -802,6 +805,10 @@ export function configureStorageAttributes(grafka, vertex, options = {}) {
     g.setAttribute("Inverter_control_parameters", "");
     g.setAttribute("inv_control_mode", options.inv_control_mode || "NONE");
     g.setAttribute("pf", String(options.pf ?? 1.0));
+    g.setAttribute("pf_q_mode", String(options.pf_q_mode || "lagging"));
+    g.setAttribute("pf_charge", String(options.pf_charge ?? options.pf ?? 1.0));
+    g.setAttribute("pf_charge_q_mode", String(options.pf_charge_q_mode || "leading"));
+    g.setAttribute("watt_priority", String(options.watt_priority ?? false));
     g.setAttribute("vv_curve_preset", options.vv_curve_preset || "IEEE_1547");
     g.setAttribute("vv_xarray", options.vv_xarray || "0.92 0.98 1.02 1.08");
     g.setAttribute("vv_yarray", options.vv_yarray || "0.44 0 -0.44 -0.44");
@@ -812,6 +819,17 @@ export function configureStorageAttributes(grafka, vertex, options = {}) {
     g.setAttribute("wattpf_yarray", options.wattpf_yarray || "1 0.98 0.95");
     g.setAttribute("wattvar_xarray", options.wattvar_xarray || "0.2 0.5 1");
     g.setAttribute("wattvar_yarray", options.wattvar_yarray || "0.44 0.22 0");
+
+    // P–Q capability (Qmin/Qmax vs |P|)
+    const storageQcapOn = options.reactive_capability_curve === true || options.reactive_capability_curve === 'true';
+    g.setAttribute("Q_capability_parameters", "");
+    g.setAttribute("reactive_capability_curve", storageQcapOn ? "true" : "false");
+    g.setAttribute("curve_style", options.curve_style || "straightLineYValues");
+    g.setAttribute(
+        "q_capability_curve_json",
+        options.q_capability_curve_json || defaultStorageQCapabilityJson(options.sn_mva || options.p_mw || 50)
+    );
+    g.setAttribute("q_setpoint_mode", options.q_setpoint_mode || "manual");
 
     // Economic parameters
     g.setAttribute("Economic_parameters", "");

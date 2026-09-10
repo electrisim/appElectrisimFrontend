@@ -329,6 +329,8 @@ export class ComponentsDataDialog {
                 rx_min: "rx_min",
                 r0x0_max: "r0x0_max",
                 x0x_max: "x0x_max",
+                r0x0_min: { name: "r0x0_min", optional: !0 },
+                x0x_min: { name: "x0x_min", optional: !0 },
                 max_p_mw: "max_p_mw",
                 min_p_mw: "min_p_mw",
                 max_q_mvar: "max_q_mvar",

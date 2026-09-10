@@ -22,6 +22,8 @@ import {
     isSwitchClosedForPowerFlow
 } from '../loadFlow.js';
 import { computeWindTurbinePMw } from '../windTurbineDialog.js';
+import { resolveStorageFixedPf } from '../storageDialog.js';
+import { resolveStorageQSetpoint } from './storageQCapability.js';
 import {
     collectWindTurbineControllers,
     collectWindTurbineControllersForPayload,
@@ -531,6 +533,8 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         rx_min: 'rx_min',
                         r0x0_max: 'r0x0_max',
                         x0x_max: 'x0x_max',
+                        r0x0_min: { name: 'r0x0_min', optional: true },
+                        x0x_min: { name: 'x0x_min', optional: true },
                         spectrum: { name: 'spectrum', optional: true },
                         spectrum_csv: { name: 'spectrum_csv', optional: true },
                         in_service: { name: 'in_service', optional: true },
@@ -545,6 +549,12 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         opf_cost_currency: { name: 'opf_cost_currency', optional: true },
                     })
                 };
+                if (externalGrid.r0x0_min == null || externalGrid.r0x0_min === '') {
+                    externalGrid.r0x0_min = externalGrid.r0x0_max;
+                }
+                if (externalGrid.x0x_min == null || externalGrid.x0x_min === '') {
+                    externalGrid.x0x_min = externalGrid.x0x_max;
+                }
                 componentArrays.externalGrid.push(externalGrid);
                 break;
 
@@ -1235,9 +1245,38 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         discharge_trigger: { name: 'discharge_trigger', optional: true },
                         charge_trigger: { name: 'charge_trigger', optional: true },
                         time_charge_trig: { name: 'time_charge_trig', optional: true },
+                        inv_control_mode: { name: 'inv_control_mode', optional: true },
+                        pf: { name: 'pf', optional: true },
+                        pf_q_mode: { name: 'pf_q_mode', optional: true },
+                        pf_charge: { name: 'pf_charge', optional: true },
+                        pf_charge_q_mode: { name: 'pf_charge_q_mode', optional: true },
+                        watt_priority: { name: 'watt_priority', optional: true },
+                        reactive_capability_curve: { name: 'reactive_capability_curve', optional: true },
+                        curve_style: { name: 'curve_style', optional: true },
+                        q_capability_curve_json: { name: 'q_capability_curve_json', optional: true },
+                        q_setpoint_mode: { name: 'q_setpoint_mode', optional: true },
+                        vv_curve_preset: { name: 'vv_curve_preset', optional: true },
+                        vv_xarray: { name: 'vv_xarray', optional: true },
+                        vv_yarray: { name: 'vv_yarray', optional: true },
+                        vw_curve_preset: { name: 'vw_curve_preset', optional: true },
+                        vw_xarray: { name: 'vw_xarray', optional: true },
+                        vw_yarray: { name: 'vw_yarray', optional: true },
+                        wattpf_xarray: { name: 'wattpf_xarray', optional: true },
+                        wattpf_yarray: { name: 'wattpf_yarray', optional: true },
+                        wattvar_xarray: { name: 'wattvar_xarray', optional: true },
+                        wattvar_yarray: { name: 'wattvar_yarray', optional: true },
                         cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
                     })
                 };
+                const storInv = String(storage.inv_control_mode || 'NONE').toUpperCase();
+                if (storInv === 'FIXED_PF') {
+                    storage.q_mvar = resolveStorageFixedPf(storage.p_mw, storage).q_mvar;
+                } else {
+                    const qCap = resolveStorageQSetpoint(storage.p_mw, storage);
+                    if (qCap.fromCurve) {
+                        storage.q_mvar = qCap.qEffective;
+                    }
+                }
                 componentArrays.storage.push(storage);
                 break;
 
