@@ -1322,6 +1322,18 @@ export class StorageDialog extends Dialog {
     }
 }
 
+// Chart helpers live on StaticGeneratorDialog; mount/redraw call them as `this._redraw…`.
+[
+    '_redrawQCapabilityChartSvg',
+    '_showQCapKnotTooltip',
+    '_hideQCapKnotTooltip',
+    '_setQCapabilityJsonProgrammatically',
+    '_tryAttachQCapabilityTemplateFromJsonString',
+    '_mountQCapabilityChartPanel'
+].forEach((name) => {
+    StorageDialog.prototype[name] = StaticGeneratorDialog.prototype[name];
+});
+
 /** Fixed-PF Q for storage. Lagging = absorb Q (q_mvar > 0); leading = inject Q (q_mvar < 0). */
 export function resolveStorageFixedPf(p_mw, attrs = {}) {
     const p = Number(p_mw);
