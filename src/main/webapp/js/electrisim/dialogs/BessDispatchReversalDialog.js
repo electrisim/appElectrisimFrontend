@@ -21,10 +21,88 @@ function _attr(cell, name, fallback = '') {
     return fallback;
 }
 
+function _styleOf(cell) {
+    try {
+        if (typeof cell.getStyle === 'function') return cell.getStyle() || '';
+    } catch (e) { /* ignore */ }
+    return cell?.style || '';
+}
+
 function _shapeOf(cell) {
-    const style = cell?.style || '';
-    const m = /shapeELXXX=([^;]+)/.exec(style);
+    const m = /shapeELXXX=([^;]+)/.exec(_styleOf(cell));
     return m ? m[1] : '';
+}
+
+function _cellId(cell) {
+    try {
+        if (typeof cell.getId === 'function' && cell.getId() != null) return String(cell.getId());
+    } catch (e) { /* ignore */ }
+    if (cell?.id != null) return String(cell.id);
+    if (cell?.mxObjectId != null) return String(cell.mxObjectId);
+    return '';
+}
+
+function _connectedBusId(cell) {
+    const edges = cell?.edges || [];
+    for (const e of edges) {
+        const other = e.source === cell ? e.target : e.source;
+        if (!other) continue;
+        const shape = _shapeOf(other);
+        if (shape === 'Bus' || shape === 'Busbar' || _styleOf(other).includes('shapeELXXX=Bus')) {
+            return _cellId(other);
+        }
+    }
+    return '';
+}
+
+function _defaultPocBusId(buses) {
+    if (!buses.length) return '';
+    const namedPoc = buses.find((b) => /poc/i.test(b.name || b.label || ''));
+    if (namedPoc) return namedPoc.value;
+    const notSource = buses.filter((b) => !b.isSource);
+    const pool = [...(notSource.length ? notSource : buses)];
+    pool.sort((a, b) => (b.vnKv || 0) - (a.vnKv || 0));
+    return pool[0].value;
+}
+
+function _scanGraph(graph) {
+    const buses = [];
+    const storages = [];
+    const sourceBusIds = new Set();
+    if (!graph?.getModel) return { buses, storages };
+    const model = graph.getModel();
+    const cells = (typeof model.getDescendants === 'function' ? model.getDescendants() : []) || [];
+    cells.forEach((cell) => {
+        if (!cell || (typeof cell.isEdge === 'function' && cell.isEdge()) || cell.edge) return;
+        const style = _styleOf(cell);
+        const shape = _shapeOf(cell);
+        const id = _cellId(cell);
+        if (!id) return;
+        if (shape === 'External Grid' || style.includes('shapeELXXX=External Grid')) {
+            const busId = _connectedBusId(cell);
+            if (busId) sourceBusIds.add(busId);
+        }
+        if (shape === 'Storage' || style.includes('shapeELXXX=Storage') || style.includes('multicell_battery')) {
+            const pMw = _attr(cell, 'p_mw', '0');
+            storages.push({
+                value: id,
+                label: `${_cellLabel(cell, id)} (P=${pMw} MW)`,
+                pMw: parseFloat(pMw) || 0
+            });
+        }
+        if (shape === 'Bus' || shape === 'Busbar' || style.includes('shapeELXXX=Bus')) {
+            const vnKv = parseFloat(_attr(cell, 'vn_kv', '0')) || 0;
+            const name = _cellLabel(cell, id);
+            buses.push({ value: id, name, vnKv, isSource: false, label: name });
+        }
+    });
+    buses.forEach((b) => {
+        b.isSource = sourceBusIds.has(b.value);
+        const kv = b.vnKv > 0 ? `${b.vnKv} kV` : 'kV?';
+        const src = b.isSource ? ' — source/slack' : '';
+        b.label = `${b.name} — ${kv}${src}`;
+    });
+    return { buses, storages };
 }
 
 export class BessDispatchReversalDialog extends Dialog {
@@ -33,29 +111,10 @@ export class BessDispatchReversalDialog extends Dialog {
         this.ui = editorUi || window.App?.main?.editor?.editorUi;
         this.graph = this.ui?.editor?.graph;
 
-        const buses = [];
-        const storages = [];
+        let buses = [];
+        let storages = [];
         try {
-            const model = this.graph.getModel();
-            const parent = this.graph.getDefaultParent();
-            const cells = model.getChildren(parent) || [];
-            cells.forEach((cell) => {
-                if (!cell || cell.isEdge?.()) return;
-                const shape = _shapeOf(cell);
-                const id = cell.mxObjectId || cell.id;
-                const label = _cellLabel(cell, id);
-                if (shape === 'Bus' || shape === 'Busbar') {
-                    buses.push({ value: String(id), label: `${label} (${id})` });
-                }
-                if (shape === 'Storage') {
-                    const pMw = _attr(cell, 'p_mw', '0');
-                    storages.push({
-                        value: String(id),
-                        label: `${label} (P=${pMw} MW)`,
-                        pMw: parseFloat(pMw) || 0
-                    });
-                }
-            });
+            ({ buses, storages } = _scanGraph(this.graph));
         } catch (e) {
             console.warn('BessDispatchReversalDialog: failed to scan graph', e);
         }
@@ -67,12 +126,14 @@ export class BessDispatchReversalDialog extends Dialog {
                 id: 'storageId',
                 label: 'BESS / Storage element',
                 type: 'select',
+                value: storages[0]?.value || '',
                 options: storages.length ? storages : [{ value: '', label: '(no Storage found)' }]
             },
             {
                 id: 'pocBusId',
-                label: 'POC bus (grid connection)',
+                label: 'POC bus (plant HV / grid connection — not the source bus)',
                 type: 'select',
+                value: _defaultPocBusId(buses),
                 options: buses.length ? buses : [{ value: '', label: '(no buses found)' }]
             },
             {
@@ -164,12 +225,34 @@ export class BessDispatchReversalDialog extends Dialog {
         ];
     }
 
+    getFormValues() {
+        const values = {};
+        (this.parameters || []).forEach((param) => {
+            if (!param || param.type === 'section') return;
+            if (param.type === 'radio') {
+                const selected = (param.options || []).find((option) =>
+                    this.inputs.get(`${param.id}_${option.value}`)?.checked
+                );
+                values[param.id] = selected
+                    ? selected.value
+                    : (param.options || []).find((opt) => opt.default)?.value;
+                return;
+            }
+            const input = this.inputs.get(param.id);
+            if (param.type === 'checkbox') {
+                values[param.id] = input ? input.checked : !!param.value;
+            } else {
+                values[param.id] = input ? input.value : (param.value ?? '');
+            }
+        });
+        return values;
+    }
+
     getDescription() {
         return '<strong>BESS dispatch reversal — voltage overshoot screening</strong><br>' +
             'Ramp active power from charge to discharge (e.g. +45 MW → −45 MW in 10 s) while co-simulating ' +
             'the IEEE 1547 inverter (EPRI <a href="https://www.epri.com/opender" target="_blank" rel="noopener noreferrer">OpenDER</a>) ' +
             'with the OpenDSS network. Plot POC voltage, P, and Q vs time to check ±2% limits during FCR / primary-market reversals.<br><br>' +
-            '<em>RMS screening model — not a vendor EMT/PCS model for formal TSO submission.</em> ' +
             'Set charge/discharge PF and Volt-VAR on the Storage → Inverter Control tab; they are mapped into OpenDER.';
     }
 
@@ -194,6 +277,7 @@ export class BessDispatchReversalDialog extends Dialog {
                 callback?.(null);
                 return;
             }
+            const form = (values && !Array.isArray(values)) ? values : this.getFormValues();
             try {
                 const hasSubscription = await this.checkSubscriptionStatus();
                 if (!hasSubscription) {
@@ -211,16 +295,16 @@ export class BessDispatchReversalDialog extends Dialog {
                 console.warn('Subscription check error', e);
             }
 
-            const meta = this._storageMeta[values.storageId];
+            const meta = this._storageMeta[form.storageId];
             if (meta && Number.isFinite(meta.pMw) && meta.pMw !== 0) {
-                if (!values.pStartMw || values.pStartMw === '45') {
-                    values.pStartMw = String(meta.pMw);
+                if (!form.pStartMw || form.pStartMw === '45') {
+                    form.pStartMw = String(meta.pMw);
                 }
-                if (!values.pEndMw || values.pEndMw === '-45') {
-                    values.pEndMw = String(-meta.pMw);
+                if (!form.pEndMw || form.pEndMw === '-45') {
+                    form.pEndMw = String(-meta.pMw);
                 }
             }
-            callback?.(values);
+            callback?.(form);
         }, this.parameters);
     }
 }

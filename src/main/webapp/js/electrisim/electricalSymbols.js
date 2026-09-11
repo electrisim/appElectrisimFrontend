@@ -32,8 +32,9 @@ export const ELECTRICAL_SYMBOLS = {
   'sym-3w-transformer': { url: BASE + 'sym-3w-transformer.svg', ...fit(72, 72, ELECTRISIM_TRANSFORMER_SYMBOL_MAX) },
   'sym-shunt': { url: BASE + 'sym-shunt.svg', ...fit(38, 58) },
   'sym-capacitor': { url: BASE + 'sym-capacitor.svg', ...fit(50, 75) },
-  'sym-load': { url: BASE + 'sym-load.svg', ...fit(52, 62) },
-  'sym-asym-load': { url: BASE + 'sym-asym-load.svg', ...fit(52, 62) },
+  // viewBox -25 -44 50 64; stem runs to the top of the viewBox
+  'sym-load': { url: BASE + 'sym-load.svg', ...fit(50, 64) },
+  'sym-asym-load': { url: BASE + 'sym-asym-load.svg', ...fit(50, 64) },
   'sym-impedance': { url: BASE + 'sym-impedance.svg', ...fit(74, 28) },
   'sym-ward': { url: BASE + 'sym-ward.svg', ...fit(74, 38) },
   'sym-ext-ward': { url: BASE + 'sym-ext-ward.svg', ...fit(74, 38) },
@@ -62,7 +63,7 @@ export function symbolStyle(symbolKey, baseStyle = '') {
 
 /** Same visual language as sidebar / map editor: SVG symbol + shapeELXXX (used by Pandapower import). */
 export const ELECTRISIM_SYMBOL_VERTEX_BASE =
-  'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;';
+  'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;fillColor=none;strokeColor=none;';
 
 export function vertexStyleFromElectrisimSymbol(symbolKey, shapeELXXX) {
   const sym = ELECTRICAL_SYMBOLS[symbolKey];

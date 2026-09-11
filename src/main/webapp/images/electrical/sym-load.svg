@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80">
-  <!-- Vertical line from top to triangle apex -->
-  <line x1="40" y1="0" x2="40" y2="20" stroke="black" stroke-width="2.5" stroke-linecap="round"/>
-  <!-- Downward-pointing triangle (open) -->
-  <polygon points="40,70 10,20 70,20" fill="none" stroke="black" stroke-width="2.5" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-25 -44 50 64" width="50" height="64">
+  <!-- Start the stem above the viewBox so the stroke is full-width at the cell edge -->
+  <line x1="0" y1="-46" x2="0" y2="-12" stroke="#1a1a2e" stroke-width="2" stroke-linecap="butt"/>
+  <polygon points="0,16 -18,-12 18,-12" fill="none" stroke="#1a1a2e" stroke-width="2" stroke-linejoin="round"/>
 </svg>

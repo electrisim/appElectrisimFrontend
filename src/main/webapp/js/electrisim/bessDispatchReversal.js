@@ -30,10 +30,14 @@ function bessDispatchReversalStudy(a, b, c) {
     const dialog = new BessDispatchReversalDialog(editorUi);
     dialog.show(async (values) => {
         if (!values) return;
-        if (!values.storageId) {
-            alert('Please select a Storage (BESS) element.');
+        const form = (!Array.isArray(values) && typeof values === 'object')
+            ? values
+            : (typeof dialog.getFormValues === 'function' ? dialog.getFormValues() : {});
+        if (!form.storageId) {
+            alert('Please select a Storage (BESS) element. Open the Storage element on the canvas so it appears in the study dialog list.');
             return;
         }
+        values = form;
 
         const simProgress = startSimulationProgress({
             title: 'BESS dispatch reversal progress',

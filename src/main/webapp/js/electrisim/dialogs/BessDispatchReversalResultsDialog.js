@@ -72,10 +72,10 @@ export class BessDispatchReversalResultsDialog {
         sum.innerHTML = `
             <span><strong>Engine:</strong> ${r.engine || '—'}</span>
             <span><strong>POC:</strong> ${r.poc_bus || '—'}</span>
-            <span><strong>V range:</strong> ${fmt(r.v_min, 4)} – ${fmt(r.v_max, 4)} pu</span>
+            <span><strong>V(t):</strong> ${fmt(r.v_min, 4)} – ${fmt(r.v_max, 4)} pu</span>
             <span><strong>Limits:</strong> ${fmt(r.vmin_pu, 3)} – ${fmt(r.vmax_pu, 3)} pu</span>
             <span><strong>Check:</strong> ${passBadge(r.within_limits)}</span>
-            <span><strong>ΔV peak:</strong> ${fmt((r.dv_overshoot_pu || 0) * 100, 2)} %</span>
+            <span><strong>ΔV during ramp:</strong> ${fmt((r.dv_overshoot_pu || 0) * 100, 2)} %</span>
             <span><strong>t peak:</strong> ${fmt(r.t_peak_s, 1)} s</span>
             <span><strong>P ramp:</strong> ${fmt(r.p_start_mw, 1)} → ${fmt(r.p_end_mw, 1)} MW / ${fmt(r.ramp_s, 1)} s</span>
         `;
@@ -153,7 +153,7 @@ export class BessDispatchReversalResultsDialog {
             const t = r.time || [];
             const colors = ['#0d6efd', '#dc3545', '#198754', '#fd7e14'];
 
-            const addChart = (title, datasets, yLabel, limitLines) => {
+            const addChart = (title, datasets, yLabel, extraY, limitLines) => {
                 const section = document.createElement('div');
                 section.innerHTML = `<h3 style="margin:16px 0 8px;font-size:15px;">${title}</h3>`;
                 const canvas = document.createElement('canvas');
@@ -171,6 +171,7 @@ export class BessDispatchReversalResultsDialog {
                         ctx.lineWidth = 1;
                         limitLines.forEach((ll) => {
                             const y = scales.y.getPixelForValue(ll.value);
+                            if (y < chartArea.top || y > chartArea.bottom) return;
                             ctx.strokeStyle = ll.color || '#999';
                             ctx.beginPath();
                             ctx.moveTo(chartArea.left, y);
@@ -190,7 +191,10 @@ export class BessDispatchReversalResultsDialog {
                         plugins: { legend: { display: datasets.length > 1 } },
                         scales: {
                             x: { type: 'linear', title: { display: true, text: 't [s]' } },
-                            y: { title: { display: true, text: yLabel } }
+                            y: {
+                                title: { display: true, text: yLabel },
+                                ...(extraY || {})
+                            }
                         }
                     },
                     plugins
@@ -198,6 +202,10 @@ export class BessDispatchReversalResultsDialog {
             };
 
             const vVals = (r.bus_voltage && r.bus_voltage[0]?.values) || [];
+            const vmin = Number(r.vmin_pu);
+            const vmax = Number(r.vmax_pu);
+            const yLo = Number.isFinite(vmin) ? Math.min(vmin, ...vVals.filter(Number.isFinite)) - 0.005 : undefined;
+            const yHi = Number.isFinite(vmax) ? Math.max(vmax, ...vVals.filter(Number.isFinite)) + 0.005 : undefined;
             addChart('POC voltage vs time', [{
                 label: r.poc_bus || 'POC',
                 data: vVals.map((y, j) => ({ x: t[j], y })),
@@ -205,7 +213,10 @@ export class BessDispatchReversalResultsDialog {
                 borderWidth: 1.5,
                 pointRadius: 0,
                 tension: 0.1
-            }], 'V [pu]', [
+            }], 'V [pu]', {
+                min: Number.isFinite(yLo) ? yLo : undefined,
+                max: Number.isFinite(yHi) ? yHi : undefined
+            }, [
                 { value: r.vmin_pu, color: '#dc3545' },
                 { value: r.vmax_pu, color: '#dc3545' },
                 { value: 1.0, color: '#aaa' }
@@ -213,14 +224,22 @@ export class BessDispatchReversalResultsDialog {
 
             const pVals = (r.p_mw && r.p_mw[0]?.values) || [];
             const pCmd = (r.p_cmd_mw && r.p_cmd_mw[0]?.values) || [];
-            addChart('Active power vs time', [
+            const pSpan = Math.max(
+                5,
+                ...[...pVals, ...pCmd].filter(Number.isFinite).map((v) => Math.abs(v)),
+                Math.abs(Number(r.p_start_mw) || 0),
+                Math.abs(Number(r.p_end_mw) || 0)
+            );
+            const pPad = Math.max(pSpan * 0.08, 1);
+            addChart('Active power vs time (+ charge, − discharge)', [
                 {
                     label: 'P command',
                     data: pCmd.map((y, j) => ({ x: t[j], y })),
                     borderColor: colors[3],
                     borderDash: [4, 3],
                     borderWidth: 1.2,
-                    pointRadius: 0
+                    pointRadius: 0,
+                    tension: 0
                 },
                 {
                     label: r.storage_name || 'BESS',
@@ -228,19 +247,25 @@ export class BessDispatchReversalResultsDialog {
                     borderColor: colors[1],
                     borderWidth: 1.5,
                     pointRadius: 0,
-                    tension: 0.1
+                    tension: 0
                 }
-            ], 'P [MW]');
+            ], 'P [MW]', { min: -(pSpan + pPad), max: pSpan + pPad });
 
             const qVals = (r.q_mvar && r.q_mvar[0]?.values) || [];
-            addChart('Reactive power vs time', [{
+            const qSpan = Math.max(
+                5,
+                ...qVals.filter(Number.isFinite).map((v) => Math.abs(v)),
+                pSpan * 0.15
+            );
+            const qPad = Math.max(qSpan * 0.1, 1);
+            addChart('Reactive power vs time (+ absorb, − inject)', [{
                 label: r.storage_name || 'BESS',
                 data: qVals.map((y, j) => ({ x: t[j], y })),
                 borderColor: colors[2],
                 borderWidth: 1.5,
                 pointRadius: 0,
-                tension: 0.1
-            }], 'Q [MVAr]');
+                tension: 0
+            }], 'Q [MVAr]', { min: -(qSpan + qPad), max: qSpan + qPad });
         } catch (err) {
             console.error('Chart render failed', err);
         }

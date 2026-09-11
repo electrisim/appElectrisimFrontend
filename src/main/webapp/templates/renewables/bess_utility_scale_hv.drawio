@@ -1,0 +1,118 @@
+<mxfile host="app.diagrams.net" modified="2026-09-11T00:00:00.000Z" agent="Electrisim" version="22.0.0">
+  <diagram id="bess-hv-template" name="BESS HV POC">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="title" value="Utility-scale BESS (HV POC) — 2 strings. Open Simulate → BESS Studies → BESS Preliminary Design to add strings or update ratings." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;fontColor=#2563eb;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="8" width="720" height="28" as="geometry"/>
+        </mxCell>
+        <object label="Grid" id="extGrid" name="Grid" vm_pu="1" va_degree="0" s_sc_max_mva="10000" bessPlantRole="extGrid">
+          <mxCell style="pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;fillColor=none;strokeColor=none;shape=image;image=images/electrical/sym-ext-grid.svg;shapeELXXX=External Grid" vertex="1" parent="1">
+            <mxGeometry x="270" y="32" width="56" height="56" as="geometry"/>
+          </mxCell>
+        </object>
+        <object label="POC_HV" id="poc" name="POC_HV" vn_kv="132" min_vm_pu="0.9" max_vm_pu="1.1" bessPlantRole="poc">
+          <mxCell style="pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;fillColor=none;strokeColor=none;shape=image;image=images/electrical/sym-bus.svg;shapeELXXX=Bus" vertex="1" parent="1">
+            <mxGeometry x="376" y="60" width="88" height="10" as="geometry"/>
+          </mxCell>
+        </object>
+        <mxCell id="e_grid_poc" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;shapeELXXX=NotEditableLine" edge="1" parent="1" source="extGrid" target="poc">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <object label="POC_Transformer" id="hvTrafo" name="POC_Transformer" sn_mva="60" vn_hv_kv="132" vn_lv_kv="33" vk_percent="12" vkr_percent="0.4" pfe_kw="10" i0_percent="0.1" tap_side="hv" tap_pos="0" tap_neutral="0" tap_min="-5" tap_max="5" tap_step_percent="1.25" tap_changer_type="Ratio" discrete_tap_control="true" vm_lower_pu="0.99" vm_upper_pu="1.01" control_side="lv" max_loading_percent="100" bessPlantRole="hvTrafo">
+          <mxCell style="pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;fillColor=none;strokeColor=none;shape=image;image=images/electrical/sym-transformer-v.svg;shapeELXXX=Transformer" vertex="1" parent="1">
+            <mxGeometry x="384" y="170" width="72" height="108" as="geometry"/>
+          </mxCell>
+        </object>
+        <mxCell id="e_hv_poc" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;shapeELXXX=NotEditableLine" edge="1" parent="1" source="hvTrafo" target="poc">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <object label="MV_Collection" id="mvBus" name="MV_Collection" vn_kv="33" min_vm_pu="0.9" max_vm_pu="1.1" bessPlantRole="mvBus">
+          <mxCell style="pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;fillColor=none;strokeColor=none;shape=image;image=images/electrical/sym-bus.svg;shapeELXXX=Bus" vertex="1" parent="1">
+            <mxGeometry x="376" y="320" width="88" height="10" as="geometry"/>
+          </mxCell>
+        </object>
+        <mxCell id="e_hv_mv" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;shapeELXXX=NotEditableLine" edge="1" parent="1" source="hvTrafo" target="mvBus">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <object label="Aux_Load" id="aux" name="Aux_Load" p_mw="0.5" q_mvar="0.1" sn_mva="1" bessPlantRole="aux">
+          <mxCell style="pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;fillColor=none;strokeColor=none;shape=image;image=images/electrical/sym-load.svg;shapeELXXX=Load" vertex="1" parent="1">
+            <mxGeometry x="504" y="293" width="44" height="56" as="geometry"/>
+          </mxCell>
+        </object>
+        <mxCell id="e_aux" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;shapeELXXX=NotEditableLine" edge="1" parent="1" source="aux" target="mvBus">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <object label="String_HV_1" id="stringBus_0" name="String_HV_1" vn_kv="33" min_vm_pu="0.9" max_vm_pu="1.1" bessPlantRole="stringBus_0">
+          <mxCell style="pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;fillColor=none;strokeColor=none;shape=image;image=images/electrical/sym-bus.svg;shapeELXXX=Bus" vertex="1" parent="1">
+            <mxGeometry x="266" y="430" width="88" height="10" as="geometry"/>
+          </mxCell>
+        </object>
+        <object label="MV_Cable_1" id="cable_0" name="MV_Cable_1" length_km="0.3" r_ohm_per_km="0.08" x_ohm_per_km="0.12" c_nf_per_km="0" max_i_ka="0.5" max_loading_percent="100" bessPlantRole="cable_0">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;shapeELXXX=Line" edge="1" parent="1" source="mvBus" target="stringBus_0">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object label="MV_LV_Trafo_1" id="lvTrafo_0" name="MV_LV_Trafo_1" sn_mva="15" vn_hv_kv="33" vn_lv_kv="0.69" vk_percent="8" vkr_percent="0.5" pfe_kw="10" i0_percent="0.1" tap_side="hv" tap_pos="0" tap_neutral="0" tap_min="0" tap_max="0" tap_step_percent="0" tap_changer_type="Ratio" max_loading_percent="100" bessPlantRole="lvTrafo_0">
+          <mxCell style="pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;fillColor=none;strokeColor=none;shape=image;image=images/electrical/sym-transformer-v.svg;shapeELXXX=Transformer" vertex="1" parent="1">
+            <mxGeometry x="274" y="540" width="72" height="108" as="geometry"/>
+          </mxCell>
+        </object>
+        <mxCell id="e_lv0_str" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;shapeELXXX=NotEditableLine" edge="1" parent="1" source="lvTrafo_0" target="stringBus_0">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <object label="LV_Bus_1" id="lvBus_0" name="LV_Bus_1" vn_kv="0.69" min_vm_pu="0.9" max_vm_pu="1.1" bessPlantRole="lvBus_0">
+          <mxCell style="pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;fillColor=none;strokeColor=none;shape=image;image=images/electrical/sym-bus.svg;shapeELXXX=Bus" vertex="1" parent="1">
+            <mxGeometry x="266" y="700" width="88" height="10" as="geometry"/>
+          </mxCell>
+        </object>
+        <mxCell id="e_lv0_lv" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;shapeELXXX=NotEditableLine" edge="1" parent="1" source="lvTrafo_0" target="lvBus_0">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <object label="BESS_1" id="storage_0" name="BESS_1" p_mw="0" q_mvar="0" sn_mva="15" max_p_mw="12" min_p_mw="-12" max_q_mvar="9" min_q_mvar="-9" max_e_mwh="24" reactive_capability_curve="false" bessPlantRole="storage_0">
+          <mxCell style="pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;fillColor=none;strokeColor=none;shape=image;image=images/electrical/sym-storage.svg;shapeELXXX=Storage" vertex="1" parent="1">
+            <mxGeometry x="283" y="738" width="54" height="54" as="geometry"/>
+          </mxCell>
+        </object>
+        <mxCell id="e_st0" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;shapeELXXX=NotEditableLine" edge="1" parent="1" source="storage_0" target="lvBus_0">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <object label="String_HV_2" id="stringBus_1" name="String_HV_2" vn_kv="33" min_vm_pu="0.9" max_vm_pu="1.1" bessPlantRole="stringBus_1">
+          <mxCell style="pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;fillColor=none;strokeColor=none;shape=image;image=images/electrical/sym-bus.svg;shapeELXXX=Bus" vertex="1" parent="1">
+            <mxGeometry x="486" y="430" width="88" height="10" as="geometry"/>
+          </mxCell>
+        </object>
+        <object label="MV_Cable_2" id="cable_1" name="MV_Cable_2" length_km="0.3" r_ohm_per_km="0.08" x_ohm_per_km="0.12" c_nf_per_km="0" max_i_ka="0.5" max_loading_percent="100" bessPlantRole="cable_1">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;shapeELXXX=Line" edge="1" parent="1" source="mvBus" target="stringBus_1">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object label="MV_LV_Trafo_2" id="lvTrafo_1" name="MV_LV_Trafo_2" sn_mva="15" vn_hv_kv="33" vn_lv_kv="0.69" vk_percent="8" vkr_percent="0.5" pfe_kw="10" i0_percent="0.1" tap_side="hv" tap_pos="0" tap_neutral="0" tap_min="0" tap_max="0" tap_step_percent="0" tap_changer_type="Ratio" max_loading_percent="100" bessPlantRole="lvTrafo_1">
+          <mxCell style="pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;fillColor=none;strokeColor=none;shape=image;image=images/electrical/sym-transformer-v.svg;shapeELXXX=Transformer" vertex="1" parent="1">
+            <mxGeometry x="494" y="540" width="72" height="108" as="geometry"/>
+          </mxCell>
+        </object>
+        <mxCell id="e_lv1_str" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;shapeELXXX=NotEditableLine" edge="1" parent="1" source="lvTrafo_1" target="stringBus_1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <object label="LV_Bus_2" id="lvBus_1" name="LV_Bus_2" vn_kv="0.69" min_vm_pu="0.9" max_vm_pu="1.1" bessPlantRole="lvBus_1">
+          <mxCell style="pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;fillColor=none;strokeColor=none;shape=image;image=images/electrical/sym-bus.svg;shapeELXXX=Bus" vertex="1" parent="1">
+            <mxGeometry x="486" y="700" width="88" height="10" as="geometry"/>
+          </mxCell>
+        </object>
+        <mxCell id="e_lv1_lv" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;shapeELXXX=NotEditableLine" edge="1" parent="1" source="lvTrafo_1" target="lvBus_1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <object label="BESS_2" id="storage_1" name="BESS_2" p_mw="0" q_mvar="0" sn_mva="15" max_p_mw="12" min_p_mw="-12" max_q_mvar="9" min_q_mvar="-9" max_e_mwh="24" reactive_capability_curve="false" bessPlantRole="storage_1">
+          <mxCell style="pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;fillColor=none;strokeColor=none;shape=image;image=images/electrical/sym-storage.svg;shapeELXXX=Storage" vertex="1" parent="1">
+            <mxGeometry x="503" y="738" width="54" height="54" as="geometry"/>
+          </mxCell>
+        </object>
+        <mxCell id="e_st1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;shapeELXXX=NotEditableLine" edge="1" parent="1" source="storage_1" target="lvBus_1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

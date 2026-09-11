@@ -25,7 +25,7 @@ export function configureExternalGridAttributes(grafka, vertex, options = {}) {
     // Create XML document
     var g = mxUtils.createXmlDocument().createElement("object");
     
-    g.setAttribute("name", "External Grid");
+        g.setAttribute("name", options.name || "External Grid");
     g.setAttribute("Load_flow_parameters", "");
     g.setAttribute("vm_pu", options.vm_pu || "1");
     g.setAttribute("va_degree", options.va_degree || "0");

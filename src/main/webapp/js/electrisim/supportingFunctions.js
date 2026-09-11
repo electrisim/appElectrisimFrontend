@@ -1018,11 +1018,11 @@ const OPENDSS_1PH_EDGE_TRAFO_TO_LV =
     OPENDSS_1PH_EDGE_BASE +
     'exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;' +
     'entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;shapeELXXX=NotEditableLine';
-/** LV bus (bottom) → Load 1ph top connection pin (entryY=0). */
+/** LV bus (bottom) → Load 1ph top connection pin. */
 const OPENDSS_1PH_EDGE_LV_TO_LOAD =
     OPENDSS_1PH_EDGE_BASE +
     'exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;' +
-    'entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;shapeELXXX=NotEditableLine';
+    'entryX=0.5;entryY=' + (2 / 64) + ';entryDx=0;entryDy=0;entryPerimeter=0;shapeELXXX=NotEditableLine';
 const OPENDSS_1PH_EDGE_SOURCE =
     OPENDSS_1PH_EDGE_BASE +
     'exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;' +
@@ -1111,7 +1111,7 @@ function insertOpenDss1phFeederImport(grafka, parent, layoutCenterX, startY, bun
 
     const feedLeft = layoutCenterX + OPENDSS_1PH_FEEDER_X_OFFSET - OPENDSS_1PH_BUS_W / 2;
     const [trW, trH] = vertexSizeFromElectrisimSymbol('sym-transformer', 40, 60);
-    const [ldW, ldH] = vertexSizeFromElectrisimSymbol('sym-load', 47, 56);
+    const [ldW, ldH] = vertexSizeFromElectrisimSymbol('sym-load', 44, 56);
     const tapBlockW = OPENDSS_1PH_TAP_GAP + trW + OPENDSS_1PH_LV_GAP + OPENDSS_1PH_BUS_W;
     const trafoLeft = feedLeft + OPENDSS_1PH_BUS_W + OPENDSS_1PH_TAP_GAP;
     const lvLeft = trafoLeft + trW + OPENDSS_1PH_LV_GAP;
@@ -1336,7 +1336,7 @@ function insertOpenDss1phFeederImportHorizontal(grafka, parent, layoutCenterX, s
     const feedTop = startY + OPENDSS_1PH_SOURCE_ABOVE;
     const feedStartX = layoutCenterX + OPENDSS_1PH_FEEDER_X_OFFSET;
     const [trW, trH] = vertexSizeFromElectrisimSymbol('sym-transformer', 40, 60);
-    const [ldW, ldH] = vertexSizeFromElectrisimSymbol('sym-load', 47, 56);
+    const [ldW, ldH] = vertexSizeFromElectrisimSymbol('sym-load', 44, 56);
     let trafoStyle = vertexStyleFromElectrisimSymbol('sym-transformer', 'Transformer 1ph');
     let trafoW = trW;
     let trafoH = trH;

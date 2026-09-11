@@ -6983,9 +6983,15 @@ if (typeof mxVertexHandler != 'undefined')
 					{
 						elConstraints = [new mxConnectionConstraint(new mxPoint(0, 0.5), false)];
 					}
-					// Single pin at top center (loads, shunt devices, generators, ward)
-					else if (shapeELXXX === 'Load' || shapeELXXX === 'Asymmetric Load' || shapeELXXX === 'Shunt Reactor' ||
-						shapeELXXX === 'Capacitor' || shapeELXXX === 'Ground' ||
+					// Load / Ground: viewBox -25 -44 50 64, stem at the top of the cell
+					else if (shapeELXXX === 'Load' || shapeELXXX === 'Asymmetric Load' ||
+						shapeELXXX === 'Load 1ph' || shapeELXXX === 'Ground')
+					{
+						elConstraints = [new mxConnectionConstraint(new mxPoint(0.5, 2/64), false)];
+					}
+					// Single pin at top center (shunt devices, generators, ward)
+					else if (shapeELXXX === 'Shunt Reactor' ||
+						shapeELXXX === 'Capacitor' ||
 						shapeELXXX === 'Generator' || shapeELXXX === 'Static Generator' || shapeELXXX === 'Wind Turbine' || shapeELXXX === 'Asymmetric Static Generator' ||
 						shapeELXXX === 'Ward' || shapeELXXX === 'Extended Ward')
 					{

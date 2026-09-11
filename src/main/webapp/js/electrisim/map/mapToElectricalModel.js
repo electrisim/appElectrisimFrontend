@@ -39,7 +39,7 @@ import {
 
 // ── Styles using electrical_symbols.svg from website ────────────────────────
 
-const IMG_BASE = 'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;';
+const IMG_BASE = 'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;fillColor=none;strokeColor=none;';
 
 const BUS_STYLE    = vertexStyleImportedBusbar('Bus');
 const DC_BUS_STYLE = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-dc-bus'].url + ';shapeELXXX=DC Bus';

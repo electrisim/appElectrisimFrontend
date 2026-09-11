@@ -1465,10 +1465,179 @@
     /* ---------------------------------------------------------------------
      *  PDF generation
      * ------------------------------------------------------------------- */
+    async function generateBessPreliminaryPdfOnly(dataJson, graph, meta) {
+        const jspdfNs = await ensurePdfLibs();
+        const JsPDFCtor = (jspdfNs && jspdfNs.jsPDF) || jspdfNs;
+        if (!JsPDFCtor) throw new Error('jsPDF unavailable');
+        const doc = new JsPDFCtor({ unit: 'mm', format: 'a4', compress: true });
+        const r = dataJson.bess_preliminary_results || {};
+        const summary = r.summary || {};
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(16);
+        doc.text(meta.project || 'BESS Preliminary Design', PAGE.margin, 20);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.text(`Engineer: ${meta.engineer || '—'}  ·  ${new Date().toLocaleString()}`, PAGE.margin, 28);
+        doc.setFontSize(12);
+        doc.text(`Cases passed: ${summary.passed_cases ?? 0} / ${summary.total_cases ?? 0}`, PAGE.margin, 40);
+        if (summary.target_cases) {
+            doc.text(
+                `Requested POC target met: ${summary.target_met_cases ?? 0} / ${summary.target_cases}`,
+                PAGE.margin, 47);
+        }
+        if (doc.autoTable) {
+            const targets = (r.named_cases || []).filter((c) => c.target_met != null);
+            let tableY = summary.target_cases ? 55 : 48;
+            if (targets.length) {
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(11);
+                doc.text('Requested POC operating point (export-positive)', PAGE.margin, tableY);
+                doc.autoTable({
+                    startY: tableY + 4,
+                    margin: { left: PAGE.margin, right: PAGE.margin },
+                    head: [['Case', 'P target [MW]', 'P achieved', 'Q target [Mvar]', 'Q achieved', 'Result']],
+                    body: targets.map((c) => [
+                        c.name,
+                        fmt(c.target_p_mw),
+                        fmt(c.p_poc_mw),
+                        fmt(c.target_q_mvar),
+                        fmt(c.q_poc_mvar),
+                        c.target_met ? 'Met' : (c.rating_clamped ? 'PCS rating exceeded' : 'Not reachable'),
+                    ]),
+                    theme: 'striped',
+                    styles: { fontSize: 8 },
+                });
+                tableY = (doc.lastAutoTable && doc.lastAutoTable.finalY)
+                    ? doc.lastAutoTable.finalY + 10 : tableY + 20;
+            }
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(11);
+            doc.text('Named load-flow cases', PAGE.margin, tableY);
+            doc.autoTable({
+                startY: tableY + 4,
+                margin: { left: PAGE.margin, right: PAGE.margin },
+                    head: [['Case', 'P POC [MW]', 'Q POC [Mvar]', 'Losses [MW]', 'Status', 'Limiter']],
+                    body: (r.named_cases || []).map((c) => [
+                        c.name,
+                        fmt(c.p_poc_mw),
+                        fmt(c.q_poc_mvar),
+                        fmt(c.p_loss_mw),
+                        !c.converged ? 'Diverged' : (c.pass ? 'Pass' : 'Fail'),
+                        c.limiting_element ? `${c.limiting_element.type}:${c.limiting_element.name}` : '—',
+                    ]),
+                theme: 'striped',
+                styles: { fontSize: 8 },
+            });
+            let y = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 10 : 60;
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(11);
+            doc.text('Rating verification (worst loading vs nameplate)', PAGE.margin, y);
+            doc.autoTable({
+                startY: y + 4,
+                margin: { left: PAGE.margin, right: PAGE.margin },
+                head: [['Element', 'Type', 'Nameplate', 'Loading %']],
+                body: (r.rating_table || []).map((el) => [
+                    el.name,
+                    el.type,
+                    el.sn_mva != null ? `${fmt(el.sn_mva, 1)} MVA` : (el.max_i_ka != null ? `${fmt(el.max_i_ka, 2)} kA` : '—'),
+                    fmt(el.loading_percent, 1),
+                ]),
+                theme: 'striped',
+                styles: { fontSize: 8 },
+            });
+            y = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 10 : y + 20;
+            const profile = r.voltage_profile || [];
+            if (profile.length) {
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(11);
+                doc.text('Voltage profile (Unom, requested POC point)', PAGE.margin, y);
+                doc.autoTable({
+                    startY: y + 4,
+                    margin: { left: PAGE.margin, right: PAGE.margin },
+                    head: [['Bus', 'Vn [kV]', 'V [pu]']],
+                    body: profile.map((b) => [b.name, fmt(b.vn_kv, 2), fmt(b.vm_pu, 4)]),
+                    theme: 'striped',
+                    styles: { fontSize: 8 },
+                });
+                y = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 10 : y + 20;
+            }
+            const taps = (r.tap_sweep || []).filter((t) => t.converged);
+            if (taps.length) {
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(11);
+                doc.text('Tap impact on voltage and available Q (rated discharge)', PAGE.margin, y);
+                doc.autoTable({
+                    startY: y + 4,
+                    margin: { left: PAGE.margin, right: PAGE.margin },
+                    head: [['Tap', 'MV V [pu]', 'Qmax [Mvar]', 'Qmin [Mvar]']],
+                    body: taps.map((t) => [
+                        String(t.tap_pos),
+                        fmt(t.mv_vm_pu, 4),
+                        fmt(t.q_max_mvar),
+                        fmt(t.q_min_mvar),
+                    ]),
+                    theme: 'striped',
+                    styles: { fontSize: 8 },
+                });
+                y = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 10 : y + 20;
+            }
+            if (r.pq_envelope && r.pq_envelope.error) {
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(11);
+                doc.text('P/Q capability envelope', PAGE.margin, y);
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(9);
+                doc.text(
+                    doc.splitTextToSize(`Not computed: ${r.pq_envelope.error}`, 180),
+                    PAGE.margin, y + 6);
+                y += 18;
+            }
+            const envRows = [];
+            const seenLim = new Set();
+            Object.entries(r.pq_envelope?.curves || {}).forEach(([vk, c]) => {
+                (c.p_mw || []).forEach((p, i) => {
+                    ['limit_max', 'limit_min'].forEach((key) => {
+                        const lim = (c[key] || [])[i];
+                        if (!lim) return;
+                        const id = `${vk}|${lim.type}|${lim.name}|${lim.limit_reason || ''}`;
+                        if (seenLim.has(id)) return;
+                        seenLim.add(id);
+                        envRows.push([
+                            vk,
+                            key === 'limit_max' ? 'Qmax' : 'Qmin',
+                            fmt(p),
+                            `${lim.type || ''}: ${lim.name || ''}${lim.limit_reason ? ` [${lim.limit_reason}]` : ''}`,
+                        ]);
+                    });
+                });
+            });
+            if (envRows.length) {
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(11);
+                doc.text('P/Q envelope binding constraints', PAGE.margin, y);
+                doc.autoTable({
+                    startY: y + 4,
+                    margin: { left: PAGE.margin, right: PAGE.margin },
+                    head: [['U [pu]', 'Side', 'P [MW]', 'Limiter']],
+                    body: envRows,
+                    theme: 'striped',
+                    styles: { fontSize: 8 },
+                });
+            }
+        }
+        const slugName = slug(meta.project || 'bess_preliminary');
+        doc.save(`${slugName}_${nowIso()}.pdf`);
+        return doc;
+    }
+
     async function generatePdf(dataJson, graph, meta) {
         const jspdfNs = await ensurePdfLibs();
         const JsPDFCtor = (jspdfNs && jspdfNs.jsPDF) || jspdfNs;
         if (!JsPDFCtor) throw new Error('jsPDF unavailable');
+
+        if (dataJson.bess_preliminary_results && !dataJson.busbars && !dataJson.buses && !dataJson.lines) {
+            return generateBessPreliminaryPdfOnly(dataJson, graph, meta);
+        }
 
         const doc = new JsPDFCtor({ unit: 'mm', format: 'a4', compress: true });
 
