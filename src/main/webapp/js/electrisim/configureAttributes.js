@@ -809,6 +809,10 @@ export function configureStorageAttributes(grafka, vertex, options = {}) {
     g.setAttribute("pf_charge", String(options.pf_charge ?? options.pf ?? 1.0));
     g.setAttribute("pf_charge_q_mode", String(options.pf_charge_q_mode || "leading"));
     g.setAttribute("watt_priority", String(options.watt_priority ?? false));
+    g.setAttribute(
+        "q_cap_voltage_dependent",
+        String(options.q_cap_voltage_dependent === true || options.q_cap_voltage_dependent === 'true')
+    );
     g.setAttribute("vv_curve_preset", options.vv_curve_preset || "IEEE_1547");
     g.setAttribute("vv_xarray", options.vv_xarray || "0.92 0.98 1.02 1.08");
     g.setAttribute("vv_yarray", options.vv_yarray || "0.44 0 -0.44 -0.44");
@@ -827,8 +831,12 @@ export function configureStorageAttributes(grafka, vertex, options = {}) {
     g.setAttribute("curve_style", options.curve_style || "straightLineYValues");
     g.setAttribute(
         "q_capability_curve_json",
-        options.q_capability_curve_json || defaultStorageQCapabilityJson(options.sn_mva || options.p_mw || 50)
+        options.q_capability_curve_json || defaultStorageQCapabilityJson(
+            options.sn_mva || options.p_mw || 50,
+            options.max_p_mw || options.p_mw || options.sn_mva || 50
+        )
     );
+    g.setAttribute("q_capability_preset", options.q_capability_preset || "pcs_circle");
     g.setAttribute("q_setpoint_mode", options.q_setpoint_mode || "manual");
 
     // Economic parameters

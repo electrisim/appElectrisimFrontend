@@ -2836,8 +2836,10 @@ function collectNetworkDataStructured(graph) {
                         wattvar_xarray: 'wattvar_xarray',
                         wattvar_yarray: 'wattvar_yarray',
                         reactive_capability_curve: { name: 'reactive_capability_curve', optional: true },
+                        q_cap_voltage_dependent: { name: 'q_cap_voltage_dependent', optional: true },
                         curve_style: { name: 'curve_style', optional: true },
                         q_capability_curve_json: { name: 'q_capability_curve_json', optional: true },
+                        q_capability_preset: { name: 'q_capability_preset', optional: true },
                         q_setpoint_mode: { name: 'q_setpoint_mode', optional: true }
                     });
 
@@ -2898,8 +2900,10 @@ function collectNetworkDataStructured(graph) {
                         wattvar_xarray: storageParams.wattvar_xarray || '',
                         wattvar_yarray: storageParams.wattvar_yarray || '',
                         reactive_capability_curve: storageParams.reactive_capability_curve,
+                        q_cap_voltage_dependent: storageParams.q_cap_voltage_dependent,
                         curve_style: storageParams.curve_style || 'straightLineYValues',
                         q_capability_curve_json: storageParams.q_capability_curve_json || '',
+                        q_capability_preset: storageParams.q_capability_preset || 'pcs_circle',
                         q_setpoint_mode: storageParams.q_setpoint_mode || 'manual'
                     };
                     if (String(cellData.inv_control_mode || 'NONE').toUpperCase() === 'FIXED_PF') {

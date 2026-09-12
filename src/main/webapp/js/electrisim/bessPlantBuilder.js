@@ -15,6 +15,7 @@ import {
     vertexStyleFromElectrisimSymbol,
     vertexSizeFromElectrisimSymbol,
 } from './electricalSymbols.js';
+import { defaultStorageQCapabilityJson } from './utils/storageQCapability.js';
 
 const BUS_W = 88;
 const BUS_H = 10;
@@ -176,6 +177,8 @@ function storageNameplate(params, suggested, storName) {
             ? maxE
             : (Number.isFinite(hours) && hours > 0 ? hours * pDis : 2 * pDis),
         reactive_capability_curve: params.useQCurve === true,
+        q_capability_preset: 'pcs_circle',
+        q_capability_curve_json: defaultStorageQCapabilityJson(sn, pAbs),
     };
 }
 
@@ -197,6 +200,7 @@ function insertStorage(graph, parent, bus, opts, role) {
         max_e_mwh: String(opts.max_e_mwh ?? 0),
         reactive_capability_curve: opts.reactive_capability_curve ?? false,
         q_capability_curve_json: opts.q_capability_curve_json,
+        q_capability_preset: opts.q_capability_preset || 'pcs_circle',
     });
     connect(graph, parent, v, bus);
     tagRole(graph, v, role);

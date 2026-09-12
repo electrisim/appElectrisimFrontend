@@ -62,6 +62,7 @@ function bessDispatchReversalStudy(a, b, c) {
                 vmax_pu: parseFloat(values.vmaxPu || '1.02'),
                 olrt_s: parseFloat(values.olrtS || '5'),
                 engine: values.engine || 'opender',
+                q_source: values.qSource || values.q_source || 'inverter',
                 frequency: parseFloat(values.frequency || '50'),
                 user_email: window.userEmail || window.USER_EMAIL || 'unknown@user.com'
             };
@@ -84,14 +85,23 @@ function bessDispatchReversalStudy(a, b, c) {
             }
 
             overlay.append('Sending request…', { time: true });
+            const backendUrl = getBackendUrl();
+            const body = JSON.stringify(in_data);
+            console.log('BESS Dispatch Reversal - Using backend URL:', backendUrl);
+            console.log('BESS Dispatch Reversal - POST starting', {
+                origin: window.location.origin,
+                backendUrl,
+                bytes: body.length,
+                aborted: !!simProgress.signal?.aborted
+            });
             const requestStart = performance.now();
-            const response = await fetch(getBackendUrl(), {
+            const response = await fetch(backendUrl, {
+                mode: 'cors',
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Accept-Encoding': 'gzip'
+                    'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(in_data),
+                body,
                 signal: simProgress.signal
             });
             if (!response.ok) {
@@ -115,9 +125,12 @@ function bessDispatchReversalStudy(a, b, c) {
 
             new BessDispatchReversalResultsDialog(dataJson).show();
         } catch (err) {
-            const settled = await settleSimulationProgress(overlay, err, simProgress.abortController);
-            if (settled.aborted) return;
             console.error('BESS Dispatch Reversal failed:', err);
+            const settled = await settleSimulationProgress(overlay, err, simProgress.abortController);
+            if (settled.aborted) {
+                overlay?.append?.('Request aborted (Stop or tab pause).', { time: true });
+                return;
+            }
             alert('BESS Dispatch Reversal failed: ' + (err?.message || err));
         }
     });

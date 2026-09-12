@@ -84,10 +84,19 @@ function _scanGraph(graph) {
         }
         if (shape === 'Storage' || style.includes('shapeELXXX=Storage') || style.includes('multicell_battery')) {
             const pMw = _attr(cell, 'p_mw', '0');
+            const curveOn = /^(true|1|yes|on)$/i.test(String(_attr(cell, 'reactive_capability_curve', '')));
+            const qMode = String(_attr(cell, 'q_setpoint_mode', 'manual') || 'manual').toLowerCase();
+            let qSource = 'inverter';
+            if (curveOn) {
+                qSource = qMode === 'capacitive_max' ? 'curve_absorb' : 'curve_inject';
+            }
             storages.push({
                 value: id,
                 label: `${_cellLabel(cell, id)} (P=${pMw} MW)`,
-                pMw: parseFloat(pMw) || 0
+                pMw: parseFloat(pMw) || 0,
+                curveOn,
+                voltDep: /^(true|1|yes|on)$/i.test(String(_attr(cell, 'q_cap_voltage_dependent', ''))),
+                qSource
             });
         }
         if (shape === 'Bus' || shape === 'Busbar' || style.includes('shapeELXXX=Bus')) {
@@ -205,6 +214,28 @@ export class BessDispatchReversalDialog extends Dialog {
                 min: '0.1'
             },
             {
+                id: 'qSource',
+                label: 'Reactive power during the ramp',
+                type: 'radio',
+                options: [
+                    {
+                        value: 'inverter',
+                        label: 'Storage inverter settings (Fixed PF / Q setpoint / Volt-VAR)',
+                        default: (storages[0]?.qSource || 'inverter') === 'inverter'
+                    },
+                    {
+                        value: 'curve_inject',
+                        label: 'Q capability — inject max (q_min). Use this to see the P–Q curve and voltage derate.',
+                        default: (storages[0]?.qSource || 'inverter') === 'curve_inject'
+                    },
+                    {
+                        value: 'curve_absorb',
+                        label: 'Q capability — absorb max (q_max)',
+                        default: (storages[0]?.qSource || 'inverter') === 'curve_absorb'
+                    }
+                ]
+            },
+            {
                 id: 'engine',
                 label: 'Simulation engine',
                 type: 'radio',
@@ -253,7 +284,9 @@ export class BessDispatchReversalDialog extends Dialog {
             'Ramp active power from charge to discharge (e.g. +45 MW → −45 MW in 10 s) while co-simulating ' +
             'the IEEE 1547 inverter (EPRI <a href="https://www.epri.com/opender" target="_blank" rel="noopener noreferrer">OpenDER</a>) ' +
             'with the OpenDSS network. Plot POC voltage, P, and Q vs time to check ±2% limits during FCR / primary-market reversals.<br><br>' +
-            'Set charge/discharge PF and Volt-VAR on the Storage → Inverter Control tab; they are mapped into OpenDER.';
+            'Set charge/discharge PF and Volt-VAR on the Storage → Inverter Control tab; they are mapped into OpenDER.<br>' +
+            '<strong>Use Q capability curve</strong> and <strong>Voltage-dependent Q envelope</strong> only change V(t)/Q(t) when Q is taken from the envelope ' +
+            '(choose inject or absorb max below) or when a non-unity PF hits the kVA / curve limit. Unity PF with inverter Q stays at Q = 0.';
     }
 
     async checkSubscriptionStatus() {

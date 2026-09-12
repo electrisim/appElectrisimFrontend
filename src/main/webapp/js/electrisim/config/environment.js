@@ -2,10 +2,30 @@
 // The auth API must use this exact "from" in development and production (not onboarding@resend.dev).
 const MAIL_FROM_TRANSACTIONAL = 'ElectriSim <noreply@noreply.electrisim.com>';
 
+const LOCAL_BACKEND_URL = 'http://127.0.0.1:5000';
+const TUNNEL_BACKEND_URL = 'https://03dht3kc-5000.euw.devtunnels.ms';
+
+function resolveDevBackendUrl() {
+    try {
+        const params = new URLSearchParams(window.location.search);
+        const q = String(params.get('backend') || '').toLowerCase();
+        if (q === 'tunnel') return TUNNEL_BACKEND_URL;
+        if (q === 'local' || q === 'localhost') return LOCAL_BACKEND_URL;
+        const stored = String(localStorage.getItem('electrisimBackend') || '').toLowerCase();
+        if (stored === 'tunnel') return TUNNEL_BACKEND_URL;
+        if (stored === 'local' || stored === 'localhost') return LOCAL_BACKEND_URL;
+    } catch (_) { /* ignore */ }
+    const host = String(window.location.hostname || '');
+    if (host === 'localhost' || host === '127.0.0.1') return LOCAL_BACKEND_URL;
+    return TUNNEL_BACKEND_URL;
+}
+
 const config = {
     development: {
-      // Backend simulation API
-      backendUrl: 'https://03dht3kc-5000.euw.devtunnels.ms',
+      // Local live-server (127.0.0.1 / localhost) talks straight to Flask so
+      // python app.py shows request logs. Override: ?backend=tunnel or
+      // localStorage.electrisimBackend = 'tunnel'
+      backendUrl: resolveDevBackendUrl(),
       
       // Stripe subscription API  
       apiBaseUrl: 'http://localhost:5502/api',
@@ -42,6 +62,7 @@ const currentConfig = config[env];
 
 window.ENV = currentConfig;
 console.log('Current environment:', env);
+console.log('Using backend URL:', currentConfig.backendUrl);
 console.log('Using API URL:', currentConfig.apiBaseUrl);
 
 

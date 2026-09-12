@@ -3,12 +3,19 @@ import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/ec
 import { OPF_COST_CURRENCY_OPTIONS } from './utils/opfCostCurrency.js';
 import {
     StaticGeneratorDialog,
-    Q_SETPOINT_MODE_OPTIONS,
-    qCapabilityCurve15MwOffshoreWtgJson,
-    Q_CAPABILITY_PRESET_15MW_OFFSHORE_P_RATED_MW,
-    scaleQCapabilityPointsForPlantRating
+    Q_SETPOINT_MODE_OPTIONS
 } from './staticGeneratorDialog.js';
-import { defaultStorageQCapabilityJson, resolveStorageQSetpoint } from './utils/storageQCapability.js';
+import {
+    BESS_PCS_CIRCLE,
+    BESS_PCS_CUSTOM,
+    BESS_PCS_D_SHAPE,
+    buildBessPcsEnvelopePoints,
+    defaultStorageQCapabilityJson,
+    looksLikeWtgPfTriangle,
+    parseCurvePoints,
+    resolveBessPcsRatings,
+    resolveStorageQSetpoint
+} from './utils/storageQCapability.js';
 
 // Default values for storage parameters (based on pandapower and OpenDSS documentation)
 export const defaultStorageData = {
@@ -58,8 +65,10 @@ export const defaultStorageData = {
     watt_priority: false,
     // P–Q capability (Qmin/Qmax vs |P|) — same model as static generator
     reactive_capability_curve: false,
+    q_cap_voltage_dependent: false,
     curve_style: 'straightLineYValues',
     q_capability_curve_json: defaultStorageQCapabilityJson(50),
+    q_capability_preset: BESS_PCS_CIRCLE,
     q_setpoint_mode: 'manual',
     vv_curve_preset: 'IEEE_1547',
     vv_xarray: '0.92 0.98 1.02 1.08',
@@ -105,7 +114,7 @@ export class StorageDialog extends Dialog {
             {
                 id: 'q_setpoint_mode',
                 label: 'Q setpoint mode (load flow)',
-                description: 'When the Q capability curve is enabled: Capacitive max uses q_max at |P|; Inductive max uses q_min. Manual uses Reactive Power above. Curve is vs |P| (charge and discharge share the same envelope).',
+                description: 'When the Q capability curve is enabled: Capacitive max uses q_max (absorb); Inductive max uses q_min (inject). Manual uses Reactive Power above. Dispatch reversal can also command inject/absorb max from this envelope.',
                 type: 'select',
                 value: this.data.q_setpoint_mode || 'manual',
                 options: Q_SETPOINT_MODE_OPTIONS
@@ -116,9 +125,28 @@ export class StorageDialog extends Dialog {
             {
                 id: 'reactive_capability_curve',
                 label: 'Use Q capability curve',
-                description: 'Enforce Qmin/Qmax vs |P| in load flow (pandapower and OpenDSS). Works together with Volt-VAR (Q vs V) and Watt priority (P vs Q at kVA limit).',
+                description: 'Enforce the four-quadrant PCS envelope (STATCOM Q at P = 0, leftover Q at rated P). Dispatch reversal uses this as the Q command when you choose inject/absorb max. Watt priority still decides what is clipped at Sn.',
                 type: 'checkbox',
                 value: this.data.reactive_capability_curve
+            },
+            {
+                id: 'q_cap_voltage_dependent',
+                label: 'Voltage-dependent Q envelope',
+                description: 'Scale Qmin/Qmax with terminal voltage (capability vs U). Full Q at 1.00 pu; reduced toward 0.88 / 1.10 pu (already visible at 0.98 / 1.02). This is the PCS envelope, not Volt-VAR droop.',
+                type: 'checkbox',
+                value: this.data.q_cap_voltage_dependent
+            },
+            {
+                id: 'q_capability_preset',
+                label: 'PCS envelope',
+                description: 'PCS circle = √(Sn²−P²) with a D-cut at Pmax. D-shape holds Q at 0.9·Sn until the current circle binds. Custom = edit JSON (vendor curve).',
+                type: 'select',
+                value: this.data.q_capability_preset || BESS_PCS_CIRCLE,
+                options: [
+                    { value: BESS_PCS_CIRCLE, label: 'PCS circle (kVA) — typical BESS' },
+                    { value: BESS_PCS_D_SHAPE, label: 'PCS D-shape (flat Q + circle)' },
+                    { value: BESS_PCS_CUSTOM, label: 'Custom (edit JSON)' }
+                ]
             },
             {
                 id: 'curve_style',
@@ -131,7 +159,7 @@ export class StorageDialog extends Dialog {
             {
                 id: 'q_capability_curve_json',
                 label: 'Curve points (JSON)',
-                description: 'Array of { "p_mw", "q_min_mvar", "q_max_mvar" } vs |P|. Template scales to inverter rating / |Active power|.',
+                description: 'Array of { "p_mw", "q_min_mvar", "q_max_mvar" }. Four-quadrant: −P discharge, +P charge. Rebuilds from Sn and Pmax when the envelope preset is not Custom.',
                 type: 'textarea',
                 value: this.data.q_capability_curve_json,
                 rows: 8
@@ -479,7 +507,7 @@ export class StorageDialog extends Dialog {
             {
                 id: 'watt_priority',
                 label: 'Watt priority (P over Q at kVA limit)',
-                description: 'At the kVA limit (sn_mva): on = keep P and reduce Q (OpenDSS WattPriority); off = keep Q and reduce P. Applies together with the P–Q capability curve and Volt-VAR — kW + kVA alone does not show Q clipping at a given P.',
+                description: 'When hypot(P, Q) would exceed sn_mva: on = keep P and clip Q (typical FCR / energy dispatch); off = keep Q and clip P. kW + kVA alone is only the circle — this switch chooses which axis is sacrificed.',
                 type: 'checkbox',
                 value: this.data.watt_priority
             },
@@ -675,29 +703,8 @@ export class StorageDialog extends Dialog {
         Object.assign(qCapPresetWrap.style, { padding: '0 16px 16px', marginTop: '4px' });
         const qCapPresetHint = document.createElement('div');
         Object.assign(qCapPresetHint.style, { fontSize: '12px', color: '#6c757d', marginBottom: '10px', lineHeight: '1.45' });
-        qCapPresetHint.innerHTML = '<strong>Template</strong> — ±0.95 PF capability scaled to |Active power (MW)| on the Power tab. Curve is stored vs |P| (same for charge and discharge).';
-        const presetBtn = document.createElement('button');
-        presetBtn.type = 'button';
-        presetBtn.textContent = 'Apply ±0.95 PF template';
-        Object.assign(presetBtn.style, { padding: '8px 14px', cursor: 'pointer', borderRadius: '6px', border: '1px solid #ced4da', background: '#fff' });
-        presetBtn.onclick = () => {
-            const pIn = this.inputs.get('p_mw');
-            const snIn = this.inputs.get('sn_mva');
-            let targetP = Math.abs(parseFloat(pIn && pIn.value) || parseFloat(snIn && snIn.value) || 50);
-            if (!Number.isFinite(targetP) || targetP <= 0) targetP = 50;
-            try {
-                this._qcapTemplateBasePoints = JSON.parse(qCapabilityCurve15MwOffshoreWtgJson);
-            } catch { return; }
-            this._qcapTemplatePRatedMw = Q_CAPABILITY_PRESET_15MW_OFFSHORE_P_RATED_MW;
-            this._qcapTemplateSnBase = targetP;
-            const cb = this.inputs.get('reactive_capability_curve');
-            const styleSel = this.inputs.get('curve_style');
-            if (cb) cb.checked = true;
-            if (styleSel) styleSel.value = 'straightLineYValues';
-            this._applyStorageQCapabilityScalingFromTemplate();
-        };
+        qCapPresetHint.innerHTML = '<strong>BESS PCS envelope</strong> — four-quadrant kVA circle (STATCOM Q at P = 0). Built from <em>Nominal / Inverter Rating (MVA)</em> and charge/discharge Pmax, not the wind-turbine ±0.95 PF triangle.';
         qCapPresetWrap.appendChild(qCapPresetHint);
-        qCapPresetWrap.appendChild(presetBtn);
         qCapContent.appendChild(qCapPresetWrap);
         
         contentArea.appendChild(powerContent);
@@ -760,11 +767,9 @@ export class StorageDialog extends Dialog {
         economicTab.onclick = () => this.switchTab('economic', economicTab, allTabs.filter(t => t !== economicTab), economicContent, allContents.filter(c => c !== economicContent));
 
         this._wireStorageQSetpointHintListeners();
-        const pIn = this.inputs.get('p_mw');
-        if (pIn) {
-            pIn.addEventListener('input', () => this._syncStorageQcapCurveToActivePowerIfPossible());
-            pIn.addEventListener('change', () => this._syncStorageQcapCurveToActivePowerIfPossible());
-        }
+        this._wireBessPcsEnvelopeListeners();
+        this._maybeReplaceLegacyWtgCurve();
+        this._rebuildBessPcsEnvelopeIfPreset();
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
@@ -1225,6 +1230,9 @@ export class StorageDialog extends Dialog {
         });
         
         console.log('=== StorageDialog.populateDialog completed ===');
+        if (this.inputs && this.inputs.size) {
+            this._maybeReplaceLegacyWtgCurve();
+        }
     }
 
     _mountQSetpointHint(powerContent) {
@@ -1280,41 +1288,75 @@ export class StorageDialog extends Dialog {
             `(${modeText} at |P| = ${fmt(pAbs)} MW).`;
     }
 
-    _syncStorageQcapCurveToActivePowerIfPossible() {
-        const cb = this.inputs.get('reactive_capability_curve');
-        if (!cb || !cb.checked) return;
-        const ta = this.inputs.get('q_capability_curve_json');
-        if (!this._qcapTemplateBasePoints) {
-            if (!ta || !StaticGeneratorDialog.prototype._tryAttachQCapabilityTemplateFromJsonString.call(this, ta.value)) return;
-        }
-        this._applyStorageQCapabilityScalingFromTemplate();
+    _storageRatingsFromInputs() {
+        const val = (id) => {
+            const el = this.inputs.get(id);
+            return el ? el.value : this.data[id];
+        };
+        return resolveBessPcsRatings({
+            sn_mva: val('sn_mva'),
+            p_mw: val('p_mw'),
+            max_p_mw: val('max_p_mw'),
+            min_p_mw: val('min_p_mw')
+        });
     }
 
-    _applyStorageQCapabilityScalingFromTemplate() {
-        if (!this._qcapTemplateBasePoints || this._qcapTemplatePRatedMw == null || this._qcapTemplatePRatedMw <= 0) {
-            return;
+    _wireBessPcsEnvelopeListeners() {
+        const rebuild = () => this._rebuildBessPcsEnvelopeIfPreset();
+        ['sn_mva', 'max_p_mw', 'min_p_mw', 'p_mw'].forEach((id) => {
+            const el = this.inputs.get(id);
+            if (!el) return;
+            el.addEventListener('change', rebuild);
+            el.addEventListener('input', rebuild);
+        });
+        const preset = this.inputs.get('q_capability_preset');
+        if (preset) {
+            preset.addEventListener('change', () => {
+                if (preset.value !== BESS_PCS_CUSTOM) {
+                    const cb = this.inputs.get('reactive_capability_curve');
+                    if (cb) cb.checked = true;
+                    this._rebuildBessPcsEnvelopeIfPreset(true);
+                }
+            });
+        }
+        const cb = this.inputs.get('reactive_capability_curve');
+        if (cb) {
+            cb.addEventListener('change', () => {
+                if (cb.checked) this._maybeReplaceLegacyWtgCurve();
+                this._rebuildBessPcsEnvelopeIfPreset();
+            });
         }
         const ta = this.inputs.get('q_capability_curve_json');
-        const pIn = this.inputs.get('p_mw');
-        const snIn = this.inputs.get('sn_mva');
+        if (ta) {
+            ta.addEventListener('input', () => {
+                if (this._qcapProgrammaticJsonUpdate) return;
+                const presetEl = this.inputs.get('q_capability_preset');
+                if (presetEl) presetEl.value = BESS_PCS_CUSTOM;
+            });
+        }
+    }
+
+    _maybeReplaceLegacyWtgCurve() {
+        const ta = this.inputs.get('q_capability_curve_json');
+        const pts = parseCurvePoints(ta ? ta.value : '');
+        if (!looksLikeWtgPfTriangle(pts)) return;
+        const presetEl = this.inputs.get('q_capability_preset');
+        if (presetEl) presetEl.value = BESS_PCS_CIRCLE;
+        this._rebuildBessPcsEnvelopeIfPreset(true);
+    }
+
+    _rebuildBessPcsEnvelopeIfPreset(force = false) {
+        const presetEl = this.inputs.get('q_capability_preset');
+        const preset = presetEl ? presetEl.value : (this.data.q_capability_preset || BESS_PCS_CIRCLE);
+        if (!force && preset === BESS_PCS_CUSTOM) return;
+        if (preset !== BESS_PCS_CIRCLE && preset !== BESS_PCS_D_SHAPE) return;
+        const ta = this.inputs.get('q_capability_curve_json');
         if (!ta) return;
-
-        let targetP = Math.abs(parseFloat(pIn && pIn.value));
-        if (!Number.isFinite(targetP) || targetP <= 0) {
-            const sn = parseFloat(snIn && snIn.value);
-            targetP = Number.isFinite(sn) && sn > 0 ? sn : this._qcapTemplatePRatedMw;
-        }
-        const scale = targetP / this._qcapTemplatePRatedMw;
-        const scaled = scaleQCapabilityPointsForPlantRating(this._qcapTemplateBasePoints, scale);
-        if (scaled.length < 2) return;
-
-        StaticGeneratorDialog.prototype._setQCapabilityJsonProgrammatically.call(this, ta, JSON.stringify(scaled));
-
-        if (snIn && Number.isFinite(this._qcapTemplateSnBase) && this._qcapTemplateSnBase > 0) {
-            const sn = this._qcapTemplateSnBase * scale;
-            snIn.value = String(Math.round(sn * 10000) / 10000);
-        }
-
+        const { sn, pMax } = this._storageRatingsFromInputs();
+        const pts = buildBessPcsEnvelopePoints(sn, pMax, preset);
+        StaticGeneratorDialog.prototype._setQCapabilityJsonProgrammatically.call(
+            this, ta, JSON.stringify(pts)
+        );
         if (typeof this._qCapabilityChartRedraw === 'function') {
             this._qCapabilityChartRedraw();
         }

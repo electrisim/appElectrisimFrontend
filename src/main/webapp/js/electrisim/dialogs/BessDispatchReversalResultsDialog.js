@@ -135,9 +135,11 @@ export class BessDispatchReversalResultsDialog {
         const p = (r.p_mw && r.p_mw[0]?.values) || [];
         const q = (r.q_mvar && r.q_mvar[0]?.values) || [];
         const pc = (r.p_cmd_mw && r.p_cmd_mw[0]?.values) || [];
-        const lines = ['t_s,v_poc_pu,p_mw,q_mvar,p_cmd_mw'];
+        const qn = (r.q_min_mvar && r.q_min_mvar[0]?.values) || [];
+        const qx = (r.q_max_mvar && r.q_max_mvar[0]?.values) || [];
+        const lines = ['t_s,v_poc_pu,p_mw,q_mvar,p_cmd_mw,q_min_mvar,q_max_mvar'];
         for (let i = 0; i < t.length; i++) {
-            lines.push([t[i], v[i], p[i], q[i], pc[i]].join(','));
+            lines.push([t[i], v[i], p[i], q[i], pc[i], qn[i], qx[i]].join(','));
         }
         const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
         const a = document.createElement('a');
@@ -153,9 +155,10 @@ export class BessDispatchReversalResultsDialog {
             const t = r.time || [];
             const colors = ['#0d6efd', '#dc3545', '#198754', '#fd7e14'];
 
-            const addChart = (title, datasets, yLabel, extraY, limitLines) => {
+            const addChart = (title, datasets, yLabel, extraY, limitLines, note) => {
                 const section = document.createElement('div');
-                section.innerHTML = `<h3 style="margin:16px 0 8px;font-size:15px;">${title}</h3>`;
+                section.innerHTML = `<h3 style="margin:16px 0 8px;font-size:15px;">${title}</h3>` +
+                    (note ? `<p style="margin:-4px 0 8px;font-size:12px;color:#666;">${note}</p>` : '');
                 const canvas = document.createElement('canvas');
                 canvas.height = 200;
                 section.appendChild(canvas);
@@ -231,41 +234,92 @@ export class BessDispatchReversalResultsDialog {
                 Math.abs(Number(r.p_end_mw) || 0)
             );
             const pPad = Math.max(pSpan * 0.08, 1);
+            const nP = Math.min(pVals.length, pCmd.length);
+            let maxDp = 0;
+            for (let i = 0; i < nP; i++) {
+                if (Number.isFinite(pVals[i]) && Number.isFinite(pCmd[i])) {
+                    maxDp = Math.max(maxDp, Math.abs(pVals[i] - pCmd[i]));
+                }
+            }
+            const pTrackNote = maxDp < 0.05
+                ? `P command (thick dashed orange) and BESS (solid red) overlap — max |P − P<sub>cmd</sub>| = ${fmt(maxDp, 3)} MW`
+                : `P command (thick dashed orange) vs BESS (solid red) — max |P − P<sub>cmd</sub>| = ${fmt(maxDp, 3)} MW`;
             addChart('Active power vs time (+ charge, − discharge)', [
                 {
                     label: 'P command',
                     data: pCmd.map((y, j) => ({ x: t[j], y })),
                     borderColor: colors[3],
-                    borderDash: [4, 3],
-                    borderWidth: 1.2,
+                    backgroundColor: 'rgba(253, 126, 20, 0.12)',
+                    borderDash: [10, 6],
+                    borderWidth: 4,
                     pointRadius: 0,
-                    tension: 0
+                    tension: 0,
+                    order: 1
                 },
                 {
                     label: r.storage_name || 'BESS',
                     data: pVals.map((y, j) => ({ x: t[j], y })),
                     borderColor: colors[1],
-                    borderWidth: 1.5,
+                    borderWidth: 1.8,
                     pointRadius: 0,
-                    tension: 0
+                    tension: 0,
+                    order: 2
                 }
-            ], 'P [MW]', { min: -(pSpan + pPad), max: pSpan + pPad });
+            ], 'P [MW]', { min: -(pSpan + pPad), max: pSpan + pPad }, [
+                { value: 0, color: '#999' }
+            ], pTrackNote);
 
             const qVals = (r.q_mvar && r.q_mvar[0]?.values) || [];
-            const qSpan = Math.max(
-                5,
-                ...qVals.filter(Number.isFinite).map((v) => Math.abs(v)),
-                pSpan * 0.15
-            );
-            const qPad = Math.max(qSpan * 0.1, 1);
-            addChart('Reactive power vs time (+ absorb, − inject)', [{
+            const qMinVals = (r.q_min_mvar && r.q_min_mvar[0]?.values) || [];
+            const qMaxVals = (r.q_max_mvar && r.q_max_mvar[0]?.values) || [];
+            const qAbs = [
+                ...qVals,
+                ...qMinVals,
+                ...qMaxVals
+            ].filter(Number.isFinite).map((v) => Math.abs(v));
+            const qPeak = qAbs.length ? Math.max(...qAbs) : 0;
+            const qSpan = qPeak > 1e-4 ? qPeak : 0.02;
+            const qPad = Math.max(qSpan * 0.2, qPeak > 0.05 ? 0.02 : 0.005);
+            const qSets = [];
+            if (qMinVals.some(Number.isFinite)) {
+                qSets.push({
+                    label: 'Qmin (envelope)',
+                    data: qMinVals.map((y, j) => ({ x: t[j], y })),
+                    borderColor: '#6c757d',
+                    borderDash: [6, 4],
+                    borderWidth: 1.2,
+                    pointRadius: 0,
+                    tension: 0
+                });
+            }
+            if (qMaxVals.some(Number.isFinite)) {
+                qSets.push({
+                    label: 'Qmax (envelope)',
+                    data: qMaxVals.map((y, j) => ({ x: t[j], y })),
+                    borderColor: '#6c757d',
+                    borderDash: [2, 4],
+                    borderWidth: 1.2,
+                    pointRadius: 0,
+                    tension: 0
+                });
+            }
+            qSets.push({
                 label: r.storage_name || 'BESS',
                 data: qVals.map((y, j) => ({ x: t[j], y })),
                 borderColor: colors[2],
-                borderWidth: 1.5,
+                borderWidth: 1.8,
                 pointRadius: 0,
                 tension: 0
-            }], 'Q [MVAr]', { min: -(qSpan + qPad), max: qSpan + qPad });
+            });
+            const qNote = r.q_source && String(r.q_source).startsWith('curve')
+                ? 'Solid = BESS Q. Dashed = P–Q envelope at this P (and U if voltage-dependent is on).'
+                : 'Unity PF / inverter Q stays near 0 unless the envelope is selected as the Q source.';
+            addChart('Reactive power vs time (+ absorb, − inject)', qSets, 'Q [MVAr]', {
+                min: -(qSpan + qPad),
+                max: qSpan + qPad
+            }, [
+                { value: 0, color: '#999' }
+            ], qNote);
         } catch (err) {
             console.error('Chart render failed', err);
         }
