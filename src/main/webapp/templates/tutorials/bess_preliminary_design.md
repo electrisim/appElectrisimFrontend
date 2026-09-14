@@ -4,28 +4,27 @@ This tutorial walks through the **Simulate → BESS Studies → BESS Preliminary
 
 ## Steps
 
-1. Open a blank diagram or the template **Utility-scale BESS (HV POC)** (a two-string HV plant).
+1. Open a blank diagram or the template **Utility-scale BESS (HV POC)**.
 2. Run **BESS Preliminary Design** and enter:
-   - POC active/reactive power (or power factor)
-   - HV and MV voltages, PCS count and ratings
-   - Optional: tick **Use PCS P–Q capability curve** to constrain Q from the Storage curve instead of a circular MVA rating
-   - POC transformer OLTC range
-   - MV cable and string transformer data
-   - Auxiliary load on the MV bus
-3. Click **Generate / Update SLD** to build or resize:
-   `Grid → POC (HV) → HV/MV transformer → MV bus → N× (cable → MV/LV trafo → Storage)`
-4. Click **Run Study** to execute:
-   - Requested vs achieved P/Q at the POC (aux and losses included)
-   - Named load-flow cases at Umin, Unom, Umax (discharge, charge, Qmax)
-   - Per-bus voltage profile and rating / loading verification (including PCS nameplate)
-   - P/Q capability envelope at the POC with the limiting element at each point
-   - Tap-position sweep: internal voltages and available Qmax/Qmin
-5. Review results and export a PDF summary.
+   - POC active power Pn and grid-code power factor (Q = Pn × tan(acos(PF)); tick **Specify Q directly** only if you have a Q in Mvar)
+   - HV and MV voltages, PCS count and ratings, Battery DC Pmax (tighter AC Storage P cap; shown as a DC rack on the SLD)
+   - Optional: **Use PCS P–Q capability curve**
+   - Optional: three-winding MV skid (2 or 4 inverters per 690 V winding)
+   - POC transformer OLTC range, MV cables, auxiliary load
+3. Click **Generate / Update SLD**. The wizard hides so you can inspect:
+   `Grid → POC (HV) → HV/MV transformer → MV bus → N× (cable → MV/LV trafo → PCS inverter → DC bus → Battery)`
+4. Click **Run Study** (progress log while it runs).
+5. In results:
+   - Click a **case name** to fill SLD result boxes (default Unom_POC_Target)
+   - Click a **limiting element** to select it on the canvas (results window minimizes)
+   - **Export PDF Summary** minimizes the results window, then opens the report dialog
+6. Wizard inputs are kept in the browser and on the POC bus for the next run.
 
 ## Notes
 
-- PCS is modeled as the **Storage** element (`sn_mva` + optional Q capability curve).
-- Storage sign: `p_mw > 0` = charge, `p_mw < 0` = discharge (Electrisim / pandapower).
+- PCS is modelled as the **Storage** element (`sn_mva` + optional Q capability curve). The SLD uses an inverter symbol for that element (AC above, DC below); the battery rack is a separate Source DC on the DC bus.
+- Storage sign: `p_mw > 0` = charge, `p_mw < 0` = discharge.
 - POC results are **export-positive**: P > 0 delivers into the grid, Q > 0 is capacitive.
-- Re-run the study after editing any diagram parameter without regenerating the SLD.
-- The template is tagged with `bessPlantRole`, so the wizard updates it instead of duplicating it.
+- Named-case P setpoints are capped at the Pn you entered.
+- Battery DC Pmax tightens the AC Storage P limit and is checked in the rating table. The SLD shows a PCS inverter, DC bus, and battery rack per string; the AC load-flow does not solve a coupled DC network.
+- Re-run after editing diagram parameters without regenerating the SLD unless topology changed.

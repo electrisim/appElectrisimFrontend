@@ -1256,6 +1256,7 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         curve_style: { name: 'curve_style', optional: true },
                         q_capability_curve_json: { name: 'q_capability_curve_json', optional: true },
                         q_capability_preset: { name: 'q_capability_preset', optional: true },
+                        battery_dc_pmax_mw: { name: 'battery_dc_pmax_mw', optional: true },
                         q_setpoint_mode: { name: 'q_setpoint_mode', optional: true },
                         vv_curve_preset: { name: 'vv_curve_preset', optional: true },
                         vv_xarray: { name: 'vv_xarray', optional: true },

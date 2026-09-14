@@ -12,6 +12,7 @@ import { WindTurbineControllerDialog } from './WindTurbineControllerDialog.js';
 import { WindTurbineDynamicControllerDialog } from './WindTurbineDynamicControllerDialog.js';
 import { ParkControllerDialog } from './ParkControllerDialog.js';
 import { syncWindTurbineFromController } from '../utils/windTurbineControllerApply.js';
+import { hideMxGraphTooltip, isElectrisimDialogOpen } from '../Dialog.js';
 
 // Make dialogs available globally for legacy code compatibility
 window.EditDataDialog = EditDataDialog;
@@ -98,11 +99,61 @@ function openEditDataForCell(ui, graph, cell, evt) {
     }
     ui._editDataOpenedAt = now;
     if (evt) mxEvent.consume(evt);
+    hideMxGraphTooltip();
     try {
         graph.setSelectionCell(target);
     } catch (e) { /* selection optional */ }
     ui.showDataDialog(target);
     return true;
+}
+
+/**
+ * Draw.io dumps every XML attribute into the hover tooltip. That grey box sits
+ * above parameter dialogs (tooltip z-index 10005). For Electrisim cells show
+ * only name + type; while a dialog is open show nothing.
+ */
+function installElectricalCellTooltips() {
+    const GraphCtor = window.Graph;
+    if (!GraphCtor || !GraphCtor.prototype || GraphCtor.prototype._electrisimTooltipPatched) {
+        return;
+    }
+    const original = GraphCtor.prototype.getTooltipForCell;
+    GraphCtor.prototype.getTooltipForCell = function (cell) {
+        if (isElectrisimDialogOpen()) return '';
+        if (!cell) {
+            return typeof original === 'function' ? original.apply(this, arguments) : '';
+        }
+        const style = getCellStyleString(cell);
+        const match = style.match(/shapeELXXX=([^;]+)/);
+        if (match) {
+            const type = match[1];
+            if (type.indexOf('Result') === 0 || type === 'FlowArrow' || type === 'NotEditableLine') {
+                return '';
+            }
+            let name = '';
+            try {
+                name = cell.value && cell.value.getAttribute ? (cell.value.getAttribute('name') || '') : '';
+            } catch (e) { /* ignore */ }
+            const esc = (s) => (typeof mxUtils !== 'undefined' && mxUtils.htmlEntities)
+                ? mxUtils.htmlEntities(String(s))
+                : String(s);
+            if (name) return esc(name) + ' (' + esc(type) + ')';
+            return esc(type);
+        }
+        return typeof original === 'function' ? original.apply(this, arguments) : '';
+    };
+    GraphCtor.prototype._electrisimTooltipPatched = true;
+}
+
+function guardTooltipWhileDialogOpen(graph) {
+    const th = graph?.tooltipHandler;
+    if (!th || th._electrisimDialogGuard) return;
+    const originalShow = th.show;
+    th.show = function (text, x, y) {
+        if (isElectrisimDialogOpen()) return;
+        return originalShow.apply(this, arguments);
+    };
+    th._electrisimDialogGuard = true;
 }
 
 /**
@@ -125,6 +176,8 @@ function installDoubleClickEditData(retryCount) {
     ui._doubleClickEditDataInstalled = true;
 
     const graph = ui.editor.graph;
+    installElectricalCellTooltips();
+    guardTooltipWhileDialogOpen(graph);
     const previousDblClick = graph.dblClick;
     const DOUBLE_MS = 400;
     const TOLERANCE = 12;
@@ -189,6 +242,9 @@ function initializeDialogs() {
         // Double-click handler is idempotent; keep trying even if dialog overrides
         // were already installed (e.g. late App ready / re-entry).
         installDoubleClickEditData();
+        installElectricalCellTooltips();
+        const liveUi = getEditorUi();
+        if (liveUi?.editor?.graph) guardTooltipWhileDialogOpen(liveUi.editor.graph);
 
         // Check if already initialized to prevent multiple initializations
         if (EditorUi.prototype._dialogOverridesInitialized) {
@@ -223,6 +279,7 @@ function initializeDialogs() {
         // Completely replace the showDataDialog method to prevent conflicts
         const customShowDataDialog = function(cell) {
             try {
+                hideMxGraphTooltip();
                 console.log('showDataDialog called with cell:', cell);
                 
                 if (!cell) {
@@ -401,6 +458,9 @@ if (document.readyState === 'loading') {
 window.addEventListener('load', () => {
     setTimeout(() => {
         installDoubleClickEditData();
+        installElectricalCellTooltips();
+        const liveUi = getEditorUi();
+        if (liveUi?.editor?.graph) guardTooltipWhileDialogOpen(liveUi.editor.graph);
         if (window.EditorUi && !window.EditorUi.prototype._dialogOverridesInitialized) {
             console.log('Attempting to initialize dialogs on window load...');
             waitForApp(initializeDialogs);

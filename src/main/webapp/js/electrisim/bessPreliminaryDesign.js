@@ -3,6 +3,7 @@ import { BessPreliminaryDesignDialog } from './dialogs/BessPreliminaryDesignDial
 import { BessPreliminaryDesignResultsDialog } from './dialogs/BessPreliminaryDesignResultsDialog.js';
 import { prepareNetworkData } from './utils/networkDataPreparation.js';
 import { findBessPlantElements } from './bessPlantBuilder.js';
+import { applyBessPreliminaryResultsToSld } from './utils/bessPreliminarySldResults.js';
 import {
     startSimulationProgress,
     settleSimulationProgress,
@@ -37,8 +38,11 @@ function buildStudyPayload(graph, wizardParams) {
         hvTrafoName: wizardParams.hvTrafoName || 'POC_Transformer',
         pocP_MW: wizardParams.pocP_MW,
         pocQ_Mvar: wizardParams.pocQ_Mvar,
+        powerFactor: wizardParams.powerFactor,
+        specifyQDirectly: wizardParams.specifyQDirectly === true,
         pMaxDischarge_MW: wizardParams.pMaxDischarge_MW,
         pMaxCharge_MW: wizardParams.pMaxCharge_MW,
+        batteryPmax_MW: wizardParams.batteryPmax_MW,
         unom_pu: wizardParams.unom_pu,
         umin_pu: wizardParams.umin_pu,
         umax_pu: wizardParams.umax_pu,
@@ -138,6 +142,14 @@ function bessPreliminaryDesign(a, b, c) {
 
             overlay.append('Done.', { time: true });
             await settleSimulationProgress(overlay, null, simProgress.abortController);
+            try {
+                applyBessPreliminaryResultsToSld(graph, dataJson?.bess_preliminary_results || dataJson, {
+                    umin_pu: values.umin_pu,
+                    umax_pu: values.umax_pu,
+                });
+            } catch (paintErr) {
+                console.warn('BESS preliminary SLD paint failed', paintErr);
+            }
             const resultsDlg = new BessPreliminaryDesignResultsDialog(editorUi, dataJson, graph, values);
             resultsDlg.show();
         } catch (err) {

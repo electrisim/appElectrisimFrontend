@@ -138,6 +138,61 @@ export function attachBackdropCloseHandler(overlay, dialogPanel, onClose) {
     });
 }
 
+/**
+ * Hide a full-screen overlay so the diagram is usable, and show a restore chip.
+ * @returns {{ restore: Function, dismiss: Function }}
+ */
+export function parkOverlayForCanvas(overlay, {
+    restoreLabel = 'Back to dialog',
+    zIndex = 10001,
+    accent = '#2563eb',
+} = {}) {
+    const noop = { restore() {}, dismiss() {} };
+    if (!overlay) return noop;
+
+    overlay.style.display = 'none';
+    overlay.setAttribute('aria-hidden', 'true');
+
+    const removeChip = () => {
+        const existing = overlay._electrisimRestoreBtn;
+        if (existing?.parentNode) existing.parentNode.removeChild(existing);
+        overlay._electrisimRestoreBtn = null;
+    };
+    removeChip();
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = restoreLabel;
+    btn.title = restoreLabel;
+    btn.style.cssText = `
+        position:fixed;right:20px;bottom:20px;z-index:${Number(zIndex) || 10001};
+        max-width:min(420px, calc(100vw - 40px));
+        padding:10px 16px;background:${accent};color:#fff;border:none;
+        border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;
+        box-shadow:0 4px 14px rgba(0,0,0,0.35);font-family:Arial,sans-serif;
+        white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    `;
+    btn.onmouseenter = () => { btn.style.filter = 'brightness(0.92)'; };
+    btn.onmouseleave = () => { btn.style.filter = ''; };
+
+    const restore = () => {
+        removeChip();
+        if (overlay.isConnected) {
+            overlay.style.display = 'flex';
+            overlay.removeAttribute('aria-hidden');
+        }
+    };
+    btn.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        restore();
+    };
+    document.body.appendChild(btn);
+    overlay._electrisimRestoreBtn = btn;
+
+    return { restore, dismiss: removeChip };
+}
+
 export const DIALOG_STYLES = {
     // Common dialog container styles
     container: {

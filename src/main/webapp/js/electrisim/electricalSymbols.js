@@ -30,6 +30,8 @@ export const ELECTRICAL_SYMBOLS = {
   // Vertical windings (top–bottom) for vertical SLD; circle Ø slightly under static-gen.
   'sym-transformer-v': { url: BASE + 'sym-transformer-v.svg', w: 72, h: 108 },
   'sym-3w-transformer': { url: BASE + 'sym-3w-transformer.svg', ...fit(72, 72, ELECTRISIM_TRANSFORMER_SYMBOL_MAX) },
+  // Vertical 3W for plant SLD: HV up, two LV windings down.
+  'sym-3w-transformer-v': { url: BASE + 'sym-3w-transformer-v.svg', w: 96, h: 100 },
   'sym-shunt': { url: BASE + 'sym-shunt.svg', ...fit(38, 58) },
   'sym-capacitor': { url: BASE + 'sym-capacitor.svg', ...fit(50, 75) },
   // viewBox -25 -44 50 64; stem runs to the top of the viewBox
@@ -40,6 +42,10 @@ export const ELECTRICAL_SYMBOLS = {
   'sym-ext-ward': { url: BASE + 'sym-ext-ward.svg', ...fit(74, 38) },
   'sym-motor': { url: BASE + 'sym-motor.svg', ...fit(58, 58) },
   'sym-storage': { url: BASE + 'sym-storage.svg', ...fit(54, 54) },
+  // Vertical battery for plant SLD (terminal up toward the DC bus).
+  'sym-storage-v': { url: BASE + 'sym-storage-v.svg', w: 40, h: 56 },
+  // Vertical PCS / inverter for BESS SLD (AC top, DC bottom). Still shapeELXXX=Storage.
+  'sym-pcs': { url: BASE + 'sym-pcs.svg', w: 56, h: 72 },
   'sym-svc': { url: BASE + 'sym-svc.svg', ...fit(58, 68) },
   'sym-tcsc': { url: BASE + 'sym-tcsc.svg', ...fit(92, 46) },
   'sym-ssc': { url: BASE + 'sym-ssc.svg', ...fit(58, 62) },
@@ -63,14 +69,15 @@ export function symbolStyle(symbolKey, baseStyle = '') {
 
 /** Same visual language as sidebar / map editor: SVG symbol + shapeELXXX (used by Pandapower import). */
 export const ELECTRISIM_SYMBOL_VERTEX_BASE =
-  'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;fillColor=none;strokeColor=none;';
+  'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;fillColor=none;strokeColor=none;imageBackground=none;imageBorder=none;';
 
 export function vertexStyleFromElectrisimSymbol(symbolKey, shapeELXXX) {
   const sym = ELECTRICAL_SYMBOLS[symbolKey];
-  if (!sym) {
-    return `shapeELXXX=${shapeELXXX}`;
-  }
-  return `${ELECTRISIM_SYMBOL_VERTEX_BASE}shape=image;image=${sym.url};shapeELXXX=${shapeELXXX}`;
+  // Always keep shape=image. A catalog miss used to return only shapeELXXX=…,
+  // which mxGraph draws as a blank white rectangle and wipes a working glyph
+  // on the next Generate / Update SLD.
+  const url = (sym && sym.url) || (BASE + symbolKey + '.svg');
+  return `${ELECTRISIM_SYMBOL_VERTEX_BASE}shape=image;image=${url};shapeELXXX=${shapeELXXX}`;
 }
 
 export function vertexSizeFromElectrisimSymbol(symbolKey, fallbackW = 56, fallbackH = 56) {

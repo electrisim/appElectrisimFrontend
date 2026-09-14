@@ -2,6 +2,7 @@
 import {
     DIALOG_STYLES,
     attachBackdropCloseHandler,
+    parkOverlayForCanvas,
     getDrawioStudyDialogHeight,
     getStudyModalDialogBoxStyle,
     preventAccidentalFormSubmit,
@@ -376,9 +377,38 @@ export class Dialog {
             fontWeight: '600',
             fontSize: '16px',
             color: '#495057',
-            flexShrink: '0'
+            flexShrink: '0',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
         });
-        titleBar.textContent = this.title;
+        const titleText = document.createElement('span');
+        titleText.textContent = this.title;
+        titleBar.appendChild(titleText);
+        if (this.studyModalParkable) {
+            const minBtn = document.createElement('button');
+            minBtn.type = 'button';
+            minBtn.textContent = 'Minimize';
+            minBtn.title = 'Hide this window and show the diagram';
+            Object.assign(minBtn.style, {
+                padding: '4px 10px',
+                border: '1px solid #ced4da',
+                background: '#fff',
+                color: '#495057',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '12px',
+                fontWeight: '600',
+                flexShrink: '0',
+            });
+            minBtn.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.parkStudyModal();
+            };
+            titleBar.appendChild(minBtn);
+        }
         dialogBox.appendChild(titleBar);
 
         const contentWrapper = document.createElement('div');
@@ -390,7 +420,22 @@ export class Dialog {
         document.body.appendChild(this.modalOverlay);
 
         preventAccidentalFormSubmitOnTree(this.container);
+        hideMxGraphTooltip();
         attachBackdropCloseHandler(this.modalOverlay, dialogBox, () => this.destroy());
+    }
+
+    parkStudyModal(restoreLabel) {
+        if (!this.modalOverlay) return;
+        this._parkHandle?.dismiss?.();
+        this._parkHandle = parkOverlayForCanvas(this.modalOverlay, {
+            restoreLabel: restoreLabel || `Back to ${this.title}`,
+            zIndex: 10001,
+        });
+    }
+
+    restoreStudyModal() {
+        this._parkHandle?.restore?.();
+        this._parkHandle = null;
     }
 
     calculateContentHeight() {
@@ -572,6 +617,7 @@ export class Dialog {
         overlay.appendChild(dialogContainer);
         document.body.appendChild(overlay);
         this.modalOverlay = overlay;
+        hideMxGraphTooltip();
         attachBackdropCloseHandler(overlay, dialogContainer, () => {
             this.destroy();
             if (document.body.contains(overlay)) {
@@ -670,6 +716,9 @@ export class Dialog {
             }
         }
         
+        this._parkHandle?.dismiss?.();
+        this._parkHandle = null;
+
         // Clean up modal overlay if using fallback (guard against double-removal/ESC race)
         if (this.modalOverlay && document.body.contains(this.modalOverlay)) {
             try { document.body.removeChild(this.modalOverlay); } catch (e) { /* ignore */ }
@@ -866,12 +915,39 @@ export class Dialog {
     }
 }
 
+/** Hide the mxGraph hover tooltip so it cannot sit on top of a parameter dialog. */
+export function hideMxGraphTooltip() {
+    try {
+        const ui = window.App?._editorUi
+            || window.App?._instance
+            || window.App?.main?.editor?.editorUi;
+        const th = ui?.editor?.graph?.tooltipHandler;
+        if (th) {
+            if (typeof th.hide === 'function') th.hide();
+            else if (typeof th.hideTooltip === 'function') th.hideTooltip();
+        }
+        document.querySelectorAll('.mxTooltip').forEach((el) => {
+            el.style.visibility = 'hidden';
+            el.innerHTML = '';
+        });
+    } catch (e) { /* ignore */ }
+}
+
+export function isElectrisimDialogOpen() {
+    return !!(
+        document.querySelector('.geDialog') ||
+        document.querySelector('.modal-overlay') ||
+        document.querySelector('.not-editable-message-dialog')
+    );
+}
+
 function patchEditorUiShowDialogFormGuard() {
     const tryPatch = () => {
         const proto = window.EditorUi?.prototype;
         if (!proto || proto._electrisimFormGuardPatched) return !!proto;
         const original = proto.showDialog;
         proto.showDialog = function(elt, ...args) {
+            hideMxGraphTooltip();
             preventAccidentalFormSubmitOnTree(elt);
             return original.call(this, elt, ...args);
         };

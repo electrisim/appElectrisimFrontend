@@ -441,41 +441,42 @@ export function configureThreeWindingTransformerAttributes(grafka, vertex, optio
 
     g.setAttribute("parameters", true);  //na potrzeby wyboru elementu z biblioteki
 
-    g.setAttribute("name", "-"); 
+    const s3 = (v, d = "0") => (v != null && v !== "") ? String(v) : d;
+    g.setAttribute("name", options.name || "-");
     g.setAttribute("term_label_0", options.term_label_0 != null ? options.term_label_0 : "HV");
     g.setAttribute("term_label_1", options.term_label_1 != null ? options.term_label_1 : "MV");
     g.setAttribute("term_label_2", options.term_label_2 != null ? options.term_label_2 : "LV");
 
     //INPUT
     g.setAttribute("Load_flow_parameters", "");
-    g.setAttribute("sn_hv_mva", "0");
-    g.setAttribute("sn_mv_mva", "0");
-    g.setAttribute("sn_lv_mva", "0");
+    g.setAttribute("sn_hv_mva", s3(options.sn_hv_mva));
+    g.setAttribute("sn_mv_mva", s3(options.sn_mv_mva));
+    g.setAttribute("sn_lv_mva", s3(options.sn_lv_mva));
 
-    g.setAttribute("vn_hv_kv", "0");
-    g.setAttribute("vn_mv_kv", "0");
-    g.setAttribute("vn_lv_kv", "0");
+    g.setAttribute("vn_hv_kv", s3(options.vn_hv_kv));
+    g.setAttribute("vn_mv_kv", s3(options.vn_mv_kv));
+    g.setAttribute("vn_lv_kv", s3(options.vn_lv_kv));
 
-    g.setAttribute("vk_hv_percent", "0");
-    g.setAttribute("vk_mv_percent", "0");
-    g.setAttribute("vk_lv_percent", "0");
+    g.setAttribute("vk_hv_percent", s3(options.vk_hv_percent, "8"));
+    g.setAttribute("vk_mv_percent", s3(options.vk_mv_percent, "8"));
+    g.setAttribute("vk_lv_percent", s3(options.vk_lv_percent, "8"));
 
 
     g.setAttribute("Short_circuit_parameters", "");
-    g.setAttribute("vkr_hv_percent", "0");
-    g.setAttribute("vkr_mv_percent", "0");
-    g.setAttribute("vkr_lv_percent", "0");
+    g.setAttribute("vkr_hv_percent", s3(options.vkr_hv_percent, "0.5"));
+    g.setAttribute("vkr_mv_percent", s3(options.vkr_mv_percent, "0.5"));
+    g.setAttribute("vkr_lv_percent", s3(options.vkr_lv_percent, "0.5"));
 
-    g.setAttribute("pfe_kw", "0");
-    g.setAttribute("i0_percent", "0");
+    g.setAttribute("pfe_kw", s3(options.pfe_kw, "12"));
+    g.setAttribute("i0_percent", s3(options.i0_percent, "0.1"));
 
-    g.setAttribute("vk0_hv_percent", "0");
-    g.setAttribute("vk0_mv_percent", "0");
-    g.setAttribute("vk0_lv_percent", "0");
-    g.setAttribute("vkr0_hv_percent", "0");
-    g.setAttribute("vkr0_mv_percent", "0");
-    g.setAttribute("vkr0_lv_percent", "0");
-    g.setAttribute("vector_group", "YNynd");  //vector_group (list of String) - Vector group of the transformer3w
+    g.setAttribute("vk0_hv_percent", s3(options.vk0_hv_percent));
+    g.setAttribute("vk0_mv_percent", s3(options.vk0_mv_percent));
+    g.setAttribute("vk0_lv_percent", s3(options.vk0_lv_percent));
+    g.setAttribute("vkr0_hv_percent", s3(options.vkr0_hv_percent));
+    g.setAttribute("vkr0_mv_percent", s3(options.vkr0_mv_percent));
+    g.setAttribute("vkr0_lv_percent", s3(options.vkr0_lv_percent));
+    g.setAttribute("vector_group", options.vector_group || "YNyn0yn0");
 
 
     //OPTIONAL
@@ -845,7 +846,7 @@ export function configureStorageAttributes(grafka, vertex, options = {}) {
 
     grafka.getModel().setValue(vertex, g)
 
-    grafka.insertVertex(vertex, null, 'Storage', 0.5, 1.5, 0, 0, null, true);
+    grafka.insertVertex(vertex, null, options.name || 'Storage', 0.5, 1.5, 0, 0, null, true);
 }
 
 export function configureLoad1phAttributes(grafka, vertex, options = {}) {
@@ -1289,7 +1290,7 @@ export function configureLoadDcAttributes(grafka, vertex, options = {}) {
 
 export function configureSourceDcAttributes(grafka, vertex, options = {}) {
     var g = mxUtils.createXmlDocument().createElement("object");
-    g.setAttribute("name", "Source DC");
+    g.setAttribute("name", options.name || "Source DC");
     
     g.setAttribute("Load_flow_parameters", "");
     g.setAttribute("vm_pu", options.vm_pu || "1.0");
@@ -1299,7 +1300,7 @@ export function configureSourceDcAttributes(grafka, vertex, options = {}) {
     g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
     
     grafka.getModel().setValue(vertex, g);
-    grafka.insertVertex(vertex, null, 'Source DC', 0.5, -0.25, 0, 0, null, true);
+    grafka.insertVertex(vertex, null, options.name || 'Source DC', 0.5, -0.25, 0, 0, null, true);
 }
 
 /** Update Switch cell style to show closed or open symbol based on closed attribute */

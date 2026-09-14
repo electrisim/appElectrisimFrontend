@@ -7,7 +7,54 @@ import {
     preventAccidentalFormSubmit,
 } from '../utils/dialogStyles.js';
 import { createDialogBracketGroup } from '../utils/dialogBracketGroup.js';
-import { buildOrUpdateBessPlant, computeSuggestedRatings } from '../bessPlantBuilder.js';
+import { buildOrUpdateBessPlant, computeSuggestedRatings, findBessPlantElements, resolvedStringTrafoSnMva, resolvedUnitPmaxMw } from '../bessPlantBuilder.js';
+
+const WIZARD_STORE_KEY = 'electrisim.bessPreliminaryDesign.v1';
+const WIZARD_GRAPH_ATTR = 'bessPrelimWizard';
+
+function qFromPPf(p, pf) {
+    const pAbs = Math.abs(Number(p) || 0);
+    const c = Math.min(0.999999, Math.max(0.1, Math.abs(Number(pf) || 0.95)));
+    return pAbs * Math.tan(Math.acos(c));
+}
+
+function loadWizardDraft(graph) {
+    try {
+        const cells = graph?.getModel?.().getDescendants?.() || [];
+        const tagged = cells.find((c) => c?.value?.getAttribute?.(WIZARD_GRAPH_ATTR));
+        const raw = tagged?.value?.getAttribute?.(WIZARD_GRAPH_ATTR);
+        if (raw) return JSON.parse(raw);
+    } catch { /* ignore */ }
+    try {
+        const raw = localStorage.getItem(WIZARD_STORE_KEY);
+        if (raw) return JSON.parse(raw);
+    } catch { /* ignore */ }
+    return null;
+}
+
+function saveWizardDraft(graph, values) {
+    const payload = JSON.stringify(values);
+    try { localStorage.setItem(WIZARD_STORE_KEY, payload); } catch { /* ignore */ }
+    try {
+        const cells = graph?.getModel?.().getDescendants?.() || [];
+        const poc = cells.find((c) => c?.value?.getAttribute?.('bessPlantRole') === 'poc');
+        if (poc?.value?.setAttribute) {
+            graph.getModel().beginUpdate();
+            try { poc.value.setAttribute(WIZARD_GRAPH_ATTR, payload); }
+            finally { graph.getModel().endUpdate(); }
+        }
+    } catch { /* ignore */ }
+}
+
+function inferTopologyFromGraph(graph) {
+    try {
+        const plant = findBessPlantElements(graph);
+        if (plant?.lvTrafo3ws?.length && !plant?.lvTrafos?.length) return 'three_winding';
+        if (plant?.lvTrafos?.length && !plant?.lvTrafo3ws?.length) return 'two_winding';
+        if (plant?.lvTrafo3ws?.length) return 'three_winding';
+    } catch { /* ignore */ }
+    return null;
+}
 
 export class BessPreliminaryDesignDialog extends Dialog {
     constructor(editorUi) {
@@ -16,58 +63,96 @@ export class BessPreliminaryDesignDialog extends Dialog {
         this.graph = this.ui?.editor?.graph;
         this.useStudyModalShell = true;
         this.studyModalBoxWidth = 800;
+        this.studyModalParkable = true;
     }
 
     getDescription() {
-        return '<strong>BESS Preliminary Design</strong><br>Enter project parameters, generate the plant SLD, then run load-flow cases, rating checks, and a P/Q capability envelope at the POC.';
+        return '<strong>BESS Preliminary Design</strong><br>' +
+            'Set the agreed POC active power and the grid-code power factor (typically 0.95). ' +
+            'Q at the POC is computed from P and PF. Generate the plant SLD, then run load-flow corner cases and a P/Q envelope against that requirement.';
     }
 
-    _field(id, label, value, type = 'number', step = 'any') {
-        return { id, label, type, value: type === 'checkbox' ? !!value : String(value ?? ''), step };
+    _field(id, label, value, type = 'number', step = 'any', extra = {}) {
+        return {
+            id, label, type,
+            value: type === 'checkbox' ? !!value : String(value ?? ''),
+            step,
+            ...extra,
+        };
     }
 
     _section(title) {
         return { type: 'section', title };
     }
 
-    buildFieldList() {
+    _savedVal(saved, id, fallback) {
+        if (saved && saved[id] != null && saved[id] !== '') return saved[id];
+        return fallback;
+    }
+
+    buildFieldList(saved) {
+        const inferred = inferTopologyFromGraph(this.graph);
+        const v = (id, def) => this._savedVal(saved, id, def);
+        const p = Number(v('pocP_MW', 50));
+        const pf = Number(v('powerFactor', 0.95));
+        const qDefault = v('specifyQDirectly', false) ? v('pocQ_Mvar', qFromPPf(p, pf)) : qFromPPf(p, pf);
+        const topoDefault = inferred || 'two_winding';
         return [
             this._section('POC / Grid'),
-            this._field('pocP_MW', 'Active power at POC (MW)', 50),
-            this._field('pocQ_Mvar', 'Reactive power at POC (Mvar)', 10),
-            this._field('hvVoltage_kV', 'POC / HV voltage (kV)', 132),
-            this._field('frequency', 'Frequency (Hz)', 50),
-            this._field('umin_pu', 'Minimum POC voltage (pu)', 0.95),
-            this._field('umax_pu', 'Maximum POC voltage (pu)', 1.05),
-            this._field('unom_pu', 'Nominal grid voltage (pu)', 1.0),
-            this._field('powerFactor', 'Power factor (optional check)', 0.98),
+            this._field('pocP_MW', 'Active power at POC / Pn (MW)', v('pocP_MW', 50)),
+            this._field('powerFactor', 'Grid-code power factor', v('powerFactor', 0.95)),
+            this._field('pocQ_Mvar', 'Reactive power at POC (Mvar)', qDefault, 'number', 'any', {
+                hint: 'Computed from Pn and PF: Q = Pn × tan(acos(PF)) (at 0.95 this is about 0.329 × Pn). Check “Specify Q directly” only if the grid operator gave a Q in Mvar.',
+            }),
+            this._field('specifyQDirectly', 'Specify Q directly (do not use PF)', v('specifyQDirectly', false), 'checkbox'),
+            this._field('hvVoltage_kV', 'POC / HV voltage (kV)', v('hvVoltage_kV', 132)),
+            this._field('frequency', 'Frequency (Hz)', v('frequency', 50)),
+            this._field('umin_pu', 'Minimum POC voltage (pu)', v('umin_pu', 0.95)),
+            this._field('umax_pu', 'Maximum POC voltage (pu)', v('umax_pu', 1.05)),
+            this._field('unom_pu', 'Nominal grid voltage (pu)', v('unom_pu', 1.0)),
             this._section('PCS / BESS'),
-            this._field('numUnits', 'Number of PCS / Storage units', 4, 'number', '1'),
-            this._field('storageSnMva', 'PCS rating per unit (MVA)', 15),
-            this._field('pMaxDischarge_MW', 'Max discharge per unit (MW)', 12),
-            this._field('pMaxCharge_MW', 'Max charge per unit (MW)', 12),
-            this._field('lvVoltage_kV', 'LV / PCS voltage (kV)', 0.69),
-            this._field('useQCurve', 'Use PCS P–Q capability curve', false, 'checkbox'),
+            this._field('numUnits', 'Number of PCS / Storage units', v('numUnits', 4), 'number', '1'),
+            this._field('storageSnMva', 'PCS rating per unit (MVA)', v('storageSnMva', 15)),
+            this._field('pMaxDischarge_MW', 'Max discharge per unit (MW)', v('pMaxDischarge_MW', 12)),
+            this._field('pMaxCharge_MW', 'Max charge per unit (MW)', v('pMaxCharge_MW', 12)),
+            this._field('batteryPmax_MW', 'Battery DC Pmax per rack (MW)', v('batteryPmax_MW', 12), 'number', 'any', {
+                hint: 'Tighter of PCS Pmax and this value is applied as the Storage P limit and checked in the rating table. Generate SLD places a PCS inverter, DC bus, and battery rack per string. Those DC elements are shown on the diagram; the AC load-flow does not solve a coupled DC network.',
+            }),
+            this._field('lvVoltage_kV', 'LV / PCS voltage (kV)', v('lvVoltage_kV', 0.69)),
+            this._field('useQCurve', 'Use PCS P–Q capability curve', v('useQCurve', false), 'checkbox'),
             this._section('HV/MV transformer (OLTC)'),
-            this._field('mvVoltage_kV', 'MV collection voltage (kV)', 33),
-            this._field('hvTrafoSnMva', 'POC transformer rating (MVA)', 60),
-            this._field('hvVkPercent', 'Short-circuit voltage vk (%)', 12),
-            this._field('tapMin', 'Tap min', -5, 'number', '1'),
-            this._field('tapMax', 'Tap max', 5, 'number', '1'),
-            this._field('tapStepPercent', 'Tap step (%)', 1.25),
-            this._field('oltcVmLower', 'OLTC band lower (pu)', 0.99),
-            this._field('oltcVmUpper', 'OLTC band upper (pu)', 1.01),
+            this._field('mvVoltage_kV', 'MV collection voltage (kV)', v('mvVoltage_kV', 33)),
+            this._field('hvTrafoSnMva', 'POC transformer rating (MVA)', v('hvTrafoSnMva', 60)),
+            this._field('hvVkPercent', 'Short-circuit voltage vk (%)', v('hvVkPercent', 12)),
+            this._field('tapMin', 'Tap min', v('tapMin', -5), 'number', '1'),
+            this._field('tapMax', 'Tap max', v('tapMax', 5), 'number', '1'),
+            this._field('tapStepPercent', 'Tap step (%)', v('tapStepPercent', 1.25)),
+            this._field('oltcVmLower', 'OLTC band lower (pu)', v('oltcVmLower', 0.99)),
+            this._field('oltcVmUpper', 'OLTC band upper (pu)', v('oltcVmUpper', 1.01)),
             this._section('MV cables'),
-            this._field('cableLength_km', 'Cable length per string (km)', 0.3),
-            this._field('cableR_ohmPerKm', 'R (ohm/km)', 0.08),
-            this._field('cableX_ohmPerKm', 'X (ohm/km)', 0.12),
-            this._field('cableMaxIKa', 'Thermal rating (kA)', 0.5),
+            this._field('cableLength_km', 'Cable length per string (km)', v('cableLength_km', 0.3)),
+            this._field('cableR_ohmPerKm', 'R (ohm/km)', v('cableR_ohmPerKm', 0.08)),
+            this._field('cableX_ohmPerKm', 'X (ohm/km)', v('cableX_ohmPerKm', 0.12)),
+            this._field('cableMaxIKa', 'Thermal rating (kA)', v('cableMaxIKa', 0.5)),
             this._section('MV/LV transformers'),
-            this._field('stringTrafoSnMva', 'String transformer rating (MVA)', 15),
-            this._field('stringVkPercent', 'String vk (%)', 8),
+            this._field('stringTopology', 'String transformer type', v('stringTopology', topoDefault), 'select', null, {
+                options: [
+                    { value: 'two_winding', label: 'Two-winding (1 PCS per trafo)' },
+                    { value: 'three_winding', label: 'Three-winding skid (2 × 0.69 kV windings)' },
+                ],
+                hint: 'Three-winding: one MV/LV skid transformer with two 690 V windings, 2 or 4 inverters on each.',
+            }),
+            this._field('pcsPerWinding', 'PCS per LV winding (3W skid)', v('pcsPerWinding', 2), 'select', null, {
+                options: [
+                    { value: '2', label: '2 inverters per winding' },
+                    { value: '4', label: '4 inverters per winding' },
+                ],
+            }),
+            this._field('stringTrafoSnMva', 'String transformer rating (MVA)', v('stringTrafoSnMva', 15)),
+            this._field('stringVkPercent', 'String vk (%)', v('stringVkPercent', 8)),
             this._section('Auxiliary load'),
-            this._field('auxP_MW', 'Auxiliary P (MW)', 0.5),
-            this._field('auxQ_Mvar', 'Auxiliary Q (Mvar)', 0.1),
+            this._field('auxP_MW', 'Auxiliary P (MW)', v('auxP_MW', 0.5)),
+            this._field('auxQ_Mvar', 'Auxiliary Q (Mvar)', v('auxQ_Mvar', 0.1)),
         ];
     }
 
@@ -92,10 +177,10 @@ export class BessPreliminaryDesignDialog extends Dialog {
             const v = parseInt(raw[k], 10);
             return Number.isFinite(v) ? v : def;
         };
-        return {
+        const out = {
             pocP_MW: num('pocP_MW', 50),
             pocQ_Mvar: num('pocQ_Mvar', 0),
-            powerFactor: num('powerFactor', 0.98),
+            powerFactor: num('powerFactor', 0.95),
             hvVoltage_kV: num('hvVoltage_kV', 132),
             mvVoltage_kV: num('mvVoltage_kV', 33),
             lvVoltage_kV: num('lvVoltage_kV', 0.69),
@@ -122,12 +207,20 @@ export class BessPreliminaryDesignDialog extends Dialog {
             stringVkPercent: num('stringVkPercent', 8),
             auxP_MW: num('auxP_MW', 0.5),
             auxQ_Mvar: num('auxQ_Mvar', 0.1),
+            batteryPmax_MW: num('batteryPmax_MW', num('pMaxDischarge_MW', 12)),
+            stringTopology: raw.stringTopology === 'three_winding' ? 'three_winding' : 'two_winding',
+            pcsPerWinding: int('pcsPerWinding', 2) === 4 ? 4 : 2,
+            specifyQDirectly: raw.specifyQDirectly === true || raw.specifyQDirectly === 'true',
             useQCurve: raw.useQCurve === true || raw.useQCurve === 'true',
             oltcEnabled: true,
             pocBusName: 'POC_HV',
             extGridName: 'Grid',
             hvTrafoName: 'POC_Transformer',
         };
+        if (!out.specifyQDirectly) {
+            out.pocQ_Mvar = qFromPPf(out.pocP_MW, out.powerFactor);
+        }
+        return out;
     }
 
     async checkSubscriptionStatus() {
@@ -190,6 +283,12 @@ export class BessPreliminaryDesignDialog extends Dialog {
                 hint.style.cssText = 'margin-top:2px;font-size:12px;color:#6c757d;line-height:1.4;';
                 col.appendChild(hint);
             }
+            if (field.id === 'specifyQDirectly') {
+                const hint = document.createElement('div');
+                hint.textContent = 'Leave unchecked to set Q from the grid-code power factor: Q = P × tan(acos(PF)).';
+                hint.style.cssText = 'margin-top:2px;font-size:12px;color:#6c757d;line-height:1.4;';
+                col.appendChild(hint);
+            }
             this.inputs.set(field.id, input);
             group.appendChild(input);
             group.appendChild(col);
@@ -208,22 +307,44 @@ export class BessPreliminaryDesignDialog extends Dialog {
             color: '#495057',
             textDecoration: 'none',
         });
-        const input = document.createElement('input');
-        input.type = field.type || 'number';
-        input.id = field.id;
-        input.value = field.value ?? '';
-        if (field.step) input.step = field.step;
-        this._styleNumberInput(input);
+        let input;
+        if (field.type === 'select') {
+            input = document.createElement('select');
+            input.id = field.id;
+            (field.options || []).forEach((opt) => {
+                const o = document.createElement('option');
+                o.value = opt.value;
+                o.textContent = opt.label;
+                if (String(field.value) === String(opt.value)) o.selected = true;
+                input.appendChild(o);
+            });
+            this._styleNumberInput(input);
+        } else {
+            input = document.createElement('input');
+            input.type = field.type || 'number';
+            input.id = field.id;
+            input.value = field.value ?? '';
+            if (field.step) input.step = field.step;
+            this._styleNumberInput(input);
+        }
         this.inputs.set(field.id, input);
         group.appendChild(label);
         group.appendChild(input);
+        if (field.hint) {
+            const hint = document.createElement('div');
+            hint.textContent = field.hint;
+            hint.style.cssText = 'font-size:11px;color:#6c757d;line-height:1.35;';
+            group.appendChild(hint);
+        }
         return group;
     }
 
     displayDialog(callback) {
         this.callback = callback;
         this.ui = this.ui || window.App?.main?.editor?.editorUi;
+        this.graph = this.graph || this.ui?.editor?.graph;
         this.inputs = new Map();
+        const saved = loadWizardDraft(this.graph);
 
         const container = document.createElement('div');
         Object.assign(container.style, {
@@ -263,7 +384,7 @@ export class BessPreliminaryDesignDialog extends Dialog {
             form.appendChild(sectionBox);
         };
 
-        this.buildFieldList().forEach((field) => {
+        this.buildFieldList(saved).forEach((field) => {
             if (field.type === 'section') {
                 startSection(field.title);
                 return;
@@ -287,14 +408,57 @@ export class BessPreliminaryDesignDialog extends Dialog {
         suggestBox.appendChild(suggestText);
 
         const updateSuggest = () => {
-            const s = computeSuggestedRatings(this.parseNumericValues(this.getFormValues()));
-            suggestText.innerHTML =
+            const parsed = this.parseNumericValues(this.getFormValues());
+            const s = computeSuggestedRatings(parsed);
+            const usedSn = resolvedStringTrafoSnMva(parsed, s);
+            const usedP = resolvedUnitPmaxMw(parsed, s);
+            let html =
                 `<strong>Suggested ratings</strong> from the POC power and unit count<br>` +
                 `POC transformer ${s.hvTrafoSnMva} MVA · String trafo ${s.stringTrafoSnMva} MVA · ` +
                 `PCS ${s.storageSnMva} MVA · Pmax ${s.storagePMaxMw} MW · Cable ${s.cableMaxIKa} kA`;
+            if (parsed.stringTopology === 'three_winding' && Number(parsed.stringTrafoSnMva) + 1e-6 < s.stringTrafoSnMva) {
+                html += `<div style="margin-top:8px;color:#b45309;">` +
+                    `A three-winding skid with ${s.pcsPerSkid} PCS needs about ${s.stringTrafoSnMva} MVA, ` +
+                    `not the ${parsed.stringTrafoSnMva} MVA two-winding default. ` +
+                    `Generate / Run will use ${usedSn} MVA for the string transformer.` +
+                    `</div>`;
+            }
+            if (usedP.bumped) {
+                html += `<div style="margin-top:8px;color:#b45309;">` +
+                    `${parsed.numUnits} × ${parsed.batteryPmax_MW || parsed.pMaxDischarge_MW} MW ` +
+                    `cannot export ${parsed.pocP_MW} MW at the POC after auxiliaries and losses. ` +
+                    `Generate / Run will use ${usedP.batteryPmax_MW} MW per rack.` +
+                    `</div>`;
+            }
+            suggestText.innerHTML = html;
         };
-        form.addEventListener('input', updateSuggest);
+        const syncQFromPf = () => {
+            const specify = this.inputs.get('specifyQDirectly');
+            const qInp = this.inputs.get('pocQ_Mvar');
+            const pInp = this.inputs.get('pocP_MW');
+            const pfInp = this.inputs.get('powerFactor');
+            if (!qInp) return;
+            const locked = !(specify && specify.checked);
+            qInp.readOnly = locked;
+            qInp.style.background = locked ? '#f1f5f9' : '#fff';
+            if (locked && pInp && pfInp) {
+                qInp.value = String(Math.round(qFromPPf(pInp.value, pfInp.value) * 1000) / 1000);
+            }
+        };
+        form.addEventListener('input', () => { syncQFromPf(); updateSuggest(); });
+        form.addEventListener('change', (e) => {
+            const id = e.target && e.target.id;
+            if (id === 'stringTopology' || id === 'pcsPerWinding' || id === 'numUnits') {
+                const parsed = this.parseNumericValues(this.getFormValues());
+                const s = computeSuggestedRatings(parsed);
+                const inp = this.inputs.get('stringTrafoSnMva');
+                if (inp) inp.value = String(s.stringTrafoSnMva);
+            }
+            syncQFromPf();
+            updateSuggest();
+        });
         updateSuggest();
+        syncQFromPf();
 
         const applySuggest = document.createElement('button');
         applySuggest.type = 'button';
@@ -319,6 +483,7 @@ export class BessPreliminaryDesignDialog extends Dialog {
             set('storageSnMva', s.storageSnMva);
             set('pMaxDischarge_MW', s.storagePMaxMw);
             set('pMaxCharge_MW', s.storagePMaxMw);
+            set('batteryPmax_MW', s.storagePMaxMw);
             set('cableMaxIKa', s.cableMaxIKa);
             updateSuggest();
         };
@@ -345,12 +510,41 @@ export class BessPreliminaryDesignDialog extends Dialog {
 
         cancelBtn.onclick = (e) => { e.preventDefault(); this.closeDialog(); };
 
+        const preparePlantParams = () => {
+            const params = this.parseNumericValues(this.getFormValues());
+            const s = computeSuggestedRatings(params);
+            params.stringTrafoSnMva = resolvedStringTrafoSnMva(params, s);
+            const pmax = resolvedUnitPmaxMw(params, s);
+            params.pMaxDischarge_MW = pmax.pMaxDischarge_MW;
+            params.pMaxCharge_MW = pmax.pMaxCharge_MW;
+            params.batteryPmax_MW = pmax.batteryPmax_MW;
+            const setInp = (id, val) => {
+                const inp = this.inputs.get(id);
+                if (inp) inp.value = String(val);
+            };
+            setInp('stringTrafoSnMva', params.stringTrafoSnMva);
+            setInp('pMaxDischarge_MW', params.pMaxDischarge_MW);
+            setInp('pMaxCharge_MW', params.pMaxCharge_MW);
+            setInp('batteryPmax_MW', params.batteryPmax_MW);
+            return params;
+        };
+
         genBtn.onclick = (e) => {
             e.preventDefault();
             try {
-                const params = this.parseNumericValues(this.getFormValues());
+                const params = preparePlantParams();
+                saveWizardDraft(this.graph, { ...this.getFormValues(), ...params });
                 const result = buildOrUpdateBessPlant(this.graph, params);
-                alert(result.created ? 'BESS plant SLD created.' : 'BESS plant SLD updated.');
+                this.parkStudyModal(result.created
+                    ? 'SLD created — back to BESS Preliminary Design'
+                    : 'SLD updated — back to BESS Preliminary Design');
+                requestAnimationFrame(() => {
+                    try {
+                        this.graph?.refresh?.();
+                        this.graph?.fit?.();
+                        this.graph?.center?.(true, true);
+                    } catch { /* ignore */ }
+                });
             } catch (err) {
                 alert('Failed to generate SLD: ' + (err?.message || err));
             }
@@ -376,7 +570,8 @@ export class BessPreliminaryDesignDialog extends Dialog {
                 }
                 // destroy() clears this.callback, so capture it before closing.
                 const onRun = this.callback;
-                const params = this.parseNumericValues(this.getFormValues());
+                const params = preparePlantParams();
+                saveWizardDraft(this.graph, { ...this.getFormValues(), ...params });
                 buildOrUpdateBessPlant(this.graph, params);
                 const values = { ...this.getFormValues(), ...params, action: 'run' };
                 this.closeDialog();

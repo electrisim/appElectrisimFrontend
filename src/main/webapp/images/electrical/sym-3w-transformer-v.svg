@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-48 -48 96 100" width="96" height="100">
+  <!-- HV winding (top), overlapping the two LV windings -->
+  <circle cx="0" cy="-8" r="14" fill="none" stroke="#1a1a2e" stroke-width="1.5"/>
+  <circle cx="-12" cy="12" r="14" fill="none" stroke="#1a1a2e" stroke-width="1.5"/>
+  <circle cx="12" cy="12" r="14" fill="none" stroke="#1a1a2e" stroke-width="1.5"/>
+  <!-- HV stub up -->
+  <line x1="0" y1="-22" x2="0" y2="-40" stroke="#1a1a2e" stroke-width="1.5"/>
+  <line x1="0" y1="-40" x2="0" y2="-44" stroke="#1a1a2e" stroke-width="1.25" stroke-linecap="square"/>
+  <!-- LV-A stub down -->
+  <line x1="-12" y1="26" x2="-12" y2="42" stroke="#1a1a2e" stroke-width="1.5"/>
+  <line x1="-12" y1="42" x2="-12" y2="46" stroke="#1a1a2e" stroke-width="1.25" stroke-linecap="square"/>
+  <!-- LV-B stub down -->
+  <line x1="12" y1="26" x2="12" y2="42" stroke="#1a1a2e" stroke-width="1.5"/>
+  <line x1="12" y1="42" x2="12" y2="46" stroke="#1a1a2e" stroke-width="1.25" stroke-linecap="square"/>
+</svg>

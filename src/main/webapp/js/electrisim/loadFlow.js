@@ -491,6 +491,11 @@ const getConnectedBusId = (cell, isLine = false, strictValidation = false) => {
     //console.log('cell in getConnectedBusId', cell);
 
     // Helper function to check if a cell is a bus
+    const shapeElxxx = (connectedCell) => {
+        const m = (connectedCell?.style || '').match(/shapeELXXX=([^;]+)/);
+        return m ? m[1] : '';
+    };
+    const isDcBus = (connectedCell) => shapeElxxx(connectedCell) === 'DC Bus';
     const isBus = (connectedCell) => {
         if (!connectedCell || !connectedCell.style) return false;
         // Check if the style contains 'Bus' or if it's a busbar shape
@@ -498,6 +503,7 @@ const getConnectedBusId = (cell, isLine = false, strictValidation = false) => {
                connectedCell.style.includes('Bus') ||
                (connectedCell.value && connectedCell.value.nodeName && connectedCell.value.nodeName.includes('Bus'));
     };
+    const isAcBus = (connectedCell) => isBus(connectedCell) && !isDcBus(connectedCell);
 
     /** Opposite endpoint of an edge incident to `vertex` (avoids treating a dangling end as the bus). */
     const getOppositeVertexOfEdge = (edge, vertex) => {
@@ -570,15 +576,21 @@ const getConnectedBusId = (cell, isLine = false, strictValidation = false) => {
 
     const cellOid = cell.mxObjectId;
 
-    // Prefer a bus neighbor; scan all edges (edges[0] alone is wrong when order varies or first edge is incomplete).
-    for (let ei = 0; ei < cell.edges.length; ei++) {
-        const other = getOppositeVertexOfEdge(cell.edges[ei], cell);
-        if (!other || !other.mxObjectId) continue;
-        if (cellOid && other.mxObjectId === cellOid) continue;
-        if (isBus(other)) {
-            return other.mxObjectId.replace('#', '_');
+    // Prefer an AC bus. Storage may also have a visual drop to a DC rack; that
+    // must not become the pandapower bus (shapeELXXX=DC Bus still matches "Bus").
+    const firstBusOfKind = (pred) => {
+        for (let ei = 0; ei < cell.edges.length; ei++) {
+            const other = getOppositeVertexOfEdge(cell.edges[ei], cell);
+            if (!other || !other.mxObjectId) continue;
+            if (cellOid && other.mxObjectId === cellOid) continue;
+            if (pred(other)) return other.mxObjectId.replace('#', '_');
         }
-    }
+        return null;
+    };
+    const acBus = firstBusOfKind(isAcBus);
+    if (acBus) return acBus;
+    const dcBus = firstBusOfKind(isDcBus);
+    if (dcBus) return dcBus;
 
     // Legacy fallback: first non-self neighbor (e.g. unusual bus styling)
     for (let ei = 0; ei < cell.edges.length; ei++) {

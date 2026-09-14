@@ -96,7 +96,7 @@ function kindFromStencilStyle(styleStr) {
         if (typeof xml !== 'string' || xml.length < 20) {
             return null;
         }
-        if (xml.indexOf('sym-3w-transformer.svg') >= 0) {
+        if (xml.indexOf('sym-3w-transformer') >= 0) {
             return 'Three Winding Transformer';
         }
         if (xml.indexOf('sym-transformer.svg') >= 0) {
@@ -151,7 +151,7 @@ function kindFromLiveStencilDesc(state) {
         if (typeof xml !== 'string') {
             return null;
         }
-        if (xml.indexOf('sym-3w-transformer.svg') >= 0 || xml.indexOf('name="three_winding_transformer"') >= 0) {
+        if (xml.indexOf('sym-3w-transformer') >= 0 || xml.indexOf('name="three_winding_transformer"') >= 0) {
             return 'Three Winding Transformer';
         }
         if (xml.indexOf('sym-transformer.svg') >= 0) {
@@ -257,6 +257,23 @@ const SVG_3W_TEMPLATE =
     '<text x="10" y="38" text-anchor="middle" font-family="sans-serif" font-weight="bold" font-size="9" fill="#1a1a2e">%%2%%</text>' +
     '</svg>';
 
+/** Vertical plant SLD: HV up, two LV windings down (BESS three-winding skid). */
+const SVG_3W_TEMPLATE_VERTICAL =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-48 -48 96 100">' +
+    '<circle cx="0" cy="-8" r="14" fill="none" stroke="#1a1a2e" stroke-width="1.5"/>' +
+    '<circle cx="-12" cy="12" r="14" fill="none" stroke="#1a1a2e" stroke-width="1.5"/>' +
+    '<circle cx="12" cy="12" r="14" fill="none" stroke="#1a1a2e" stroke-width="1.5"/>' +
+    '<line x1="0" y1="-22" x2="0" y2="-40" stroke="#1a1a2e" stroke-width="1.5"/>' +
+    '<line x1="0" y1="-40" x2="0" y2="-44" stroke="#1a1a2e" stroke-width="1.25" stroke-linecap="square"/>' +
+    '<line x1="-12" y1="26" x2="-12" y2="42" stroke="#1a1a2e" stroke-width="1.5"/>' +
+    '<line x1="-12" y1="42" x2="-12" y2="46" stroke="#1a1a2e" stroke-width="1.25" stroke-linecap="square"/>' +
+    '<line x1="12" y1="26" x2="12" y2="42" stroke="#1a1a2e" stroke-width="1.5"/>' +
+    '<line x1="12" y1="42" x2="12" y2="46" stroke="#1a1a2e" stroke-width="1.25" stroke-linecap="square"/>' +
+    '<text x="16" y="-6" text-anchor="start" font-family="sans-serif" font-weight="bold" font-size="9" fill="#1a1a2e">%%0%%</text>' +
+    '<text x="-28" y="16" text-anchor="end" font-family="sans-serif" font-weight="bold" font-size="9" fill="#1a1a2e">%%1%%</text>' +
+    '<text x="28" y="16" text-anchor="start" font-family="sans-serif" font-weight="bold" font-size="9" fill="#1a1a2e">%%2%%</text>' +
+    '</svg>';
+
 function escapeXml(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
@@ -277,7 +294,17 @@ function isVerticalTwoWindingTrafo(state, mxUtils) {
     const img = mxUtils && state.style ? String(mxUtils.getValue(state.style, 'image', '') || '') : '';
     // Important: do NOT treat rotation=90 as vertical here. That rotates the *horizontal*
     // asset; painting the vertical template as well double-orients and stretches the circles.
-    return /sym-transformer-v/i.test(styleStr) || /sym-transformer-v/i.test(img);
+    return (/sym-transformer-v/i.test(styleStr) || /sym-transformer-v/i.test(img))
+        && !/sym-3w-transformer/i.test(styleStr)
+        && !/sym-3w-transformer/i.test(img);
+}
+
+function isVerticalThreeWindingTrafo(state, mxUtils) {
+    const styleStr = state.cell && typeof state.cell.getStyle === 'function'
+        ? String(state.cell.getStyle() || '')
+        : '';
+    const img = mxUtils && state.style ? String(mxUtils.getValue(state.style, 'image', '') || '') : '';
+    return /sym-3w-transformer-v/i.test(styleStr) || /sym-3w-transformer-v/i.test(img);
 }
 
 function paintTransformerTerminalLabels(state) {
@@ -312,7 +339,9 @@ function paintTransformerTerminalLabels(state) {
             : SVG_2W_TEMPLATE;
         labels = [getTermLabel(cell, 0, 'HV'), getTermLabel(cell, 1, 'LV')];
     } else {
-        template = SVG_3W_TEMPLATE;
+        template = isVerticalThreeWindingTrafo(state, mxUtils)
+            ? SVG_3W_TEMPLATE_VERTICAL
+            : SVG_3W_TEMPLATE;
         labels = [getTermLabel(cell, 0, 'HV'), getTermLabel(cell, 1, 'MV'), getTermLabel(cell, 2, 'LV')];
     }
 
