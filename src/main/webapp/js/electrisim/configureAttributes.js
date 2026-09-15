@@ -418,6 +418,19 @@ export function configureTransformerAttributes(grafka, vertex, options = {}) {
     g.setAttribute("tap_step_degree", options.tap_step_degree ||"0");
     g.setAttribute("tap_phase_shifter", false);
     g.setAttribute("tap_changer_type", options.tap_changer_type || "Ratio"); // pandapower 3.0+: "Ratio", "Symmetrical", or "Ideal"
+    if (options.discrete_tap_control !== undefined) {
+        const dtc = options.discrete_tap_control === true || options.discrete_tap_control === 'true';
+        g.setAttribute("discrete_tap_control", dtc ? "true" : "false");
+    }
+    if (options.vm_lower_pu != null && options.vm_lower_pu !== '') {
+        g.setAttribute("vm_lower_pu", String(options.vm_lower_pu));
+    }
+    if (options.vm_upper_pu != null && options.vm_upper_pu !== '') {
+        g.setAttribute("vm_upper_pu", String(options.vm_upper_pu));
+    }
+    if (options.control_side) {
+        g.setAttribute("control_side", options.control_side);
+    }
 
     g.setAttribute("OPF_parameters", "");
     g.setAttribute("max_loading_percent", options.max_loading_percent != null ? String(options.max_loading_percent) : "0");

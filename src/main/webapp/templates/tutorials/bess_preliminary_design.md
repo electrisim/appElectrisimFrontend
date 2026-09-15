@@ -15,7 +15,7 @@ This tutorial walks through the **Simulate → BESS Studies → BESS Preliminary
    `Grid → POC (HV) → HV/MV transformer → MV bus → N× (cable → MV/LV trafo → PCS inverter → DC bus → Battery)`
 4. Click **Run Study** (progress log while it runs).
 5. In results:
-   - Click a **case name** to fill SLD result boxes (default Unom_POC_Target)
+   - Click a **case name** to fill SLD result boxes (default Unom_Export_Capacitive)
    - Click a **limiting element** to select it on the canvas (results window minimizes)
    - **Export PDF Summary** minimizes the results window, then opens the report dialog
 6. Wizard inputs are kept in the browser and on the POC bus for the next run.

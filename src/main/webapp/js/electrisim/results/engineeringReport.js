@@ -1479,15 +1479,25 @@
         doc.setFontSize(10);
         doc.text(`Engineer: ${meta.engineer || '—'}  ·  ${new Date().toLocaleString()}`, PAGE.margin, 28);
         doc.setFontSize(12);
-        doc.text(`Cases passed: ${summary.passed_cases ?? 0} / ${summary.total_cases ?? 0}`, PAGE.margin, 40);
+        let yCursor = 40;
+        doc.text(`Cases passed: ${summary.passed_cases ?? 0} / ${summary.total_cases ?? 0}`, PAGE.margin, yCursor);
         if (summary.target_cases) {
+            yCursor += 7;
             doc.text(
                 `Requested POC target met: ${summary.target_met_cases ?? 0} / ${summary.target_cases}`,
-                PAGE.margin, 47);
+                PAGE.margin, yCursor);
+        }
+        const uq = r.pq_envelope?.uq_at_rated_p;
+        if (uq && typeof uq.compliant === 'boolean') {
+            yCursor += 7;
+            doc.text(
+                `U–Q at rated P: ${uq.compliant ? 'COMPLIANT' : 'NON-COMPLIANT'}` +
+                (uq.q_over_pn != null ? `  (|Q|/Pn = ${fmt(uq.q_over_pn, 3)})` : ''),
+                PAGE.margin, yCursor);
         }
         if (doc.autoTable) {
             const targets = (r.named_cases || []).filter((c) => c.target_met != null);
-            let tableY = summary.target_cases ? 55 : 48;
+            let tableY = yCursor + 8;
             if (targets.length) {
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(11);

@@ -103,6 +103,7 @@ export function collectBackendResultLookupKeys(backendRow) {
         }
     };
     add(backendRow.id);
+    add(backendRow.technical_name);
     if (backendRow.dialogName != null) {
         const dn = String(backendRow.dialogName).trim();
         if (dn) {

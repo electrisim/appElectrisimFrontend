@@ -4,6 +4,7 @@
  * matches them to the selected named case. POC P/Q is export-positive.
  */
 import { findBessPlantElements, parkPlantResultBoxes } from '../bessPlantBuilder.js';
+import { applyLoadFlowResultsToGraph } from './applyLoadFlowResults.js';
 
 function nfmt(v, d = 2) {
     const x = Number(v);
@@ -177,7 +178,7 @@ function header(cell, fallback) {
 }
 
 function pocExtra(cse) {
-    return [cse.name];
+    return cse?.name ? [`Case: ${cse.name}`] : [];
 }
 
 function busText(row, cell, extraLines, pocCse) {
@@ -249,6 +250,7 @@ function extGridText(cse, cell) {
     const title = header(cell, 'Grid');
     return [
         title,
+        cse?.name ? `Case: ${cse.name}` : null,
         'POC export',
         `P[MW]: ${nfmt(cse.p_poc_mw)}`,
         `Q[Mvar]: ${nfmt(cse.q_poc_mvar)}`,
@@ -348,10 +350,15 @@ export function pickBessSldCase(results, preferredName) {
     const src = unwrapBessResults(results) || {};
     const cases = src.named_cases || [];
     if (preferredName) {
-        const hit = cases.find((c) => c.converged && c.name === preferredName);
+        const want = String(preferredName);
+        const hit = cases.find((c) => c.name === want && (c.converged || (c.voltage_profile || []).length));
         if (hit) return hit;
+        const byName = cases.find((c) => c.name === want);
+        if (byName) return byName;
     }
-    return cases.find((c) => c.converged && c.name === 'Unom_POC_Target')
+    return cases.find((c) => c.converged && c.name === 'Unom_Export_Capacitive')
+        || cases.find((c) => c.converged && c.name === 'Unom_POC_Target')
+        || cases.find((c) => c.converged && String(c.name).includes('Unom_Export_Capacitive'))
         || cases.find((c) => c.converged && String(c.name).includes('Unom_POC_Target'))
         || cases.find((c) => c.converged && String(c.name).startsWith('Unom'))
         || cases.find((c) => c.converged)
@@ -383,6 +390,23 @@ export function applyBessPreliminaryResultsToSld(graph, results, {
 
     try { parkPlantResultBoxes(graph); } catch { /* ignore */ }
 
+    const lf = namedCaseToLoadFlowJson(cse);
+    if (cse.tap_pos != null) {
+        (lf.transformers || []).forEach((tr) => {
+            if (tr.tap_pos == null) {
+                tr.tap_pos = cse.tap_pos;
+                tr.tap_control_result = tr.tap_control_result || { tap_pos: cse.tap_pos };
+            }
+        });
+    }
+    let lfApplied = false;
+    try {
+        applyLoadFlowResultsToGraph(graph, lf);
+        lfApplied = true;
+    } catch (err) {
+        console.warn('BESS case load-flow box apply failed', err);
+    }
+
     const placeholders = [];
     const root = model.getRoot ? model.getRoot() : null;
     if (root) collectPlaceholders(model, root, placeholders);
@@ -391,6 +415,29 @@ export function applyBessPreliminaryResultsToSld(graph, results, {
     try {
         placeholders.forEach((ph) => {
             const owner = resolveOwner(model, ph, buses, elements);
+            if (!owner) return;
+            if (lfApplied) {
+                if (isPocBus(owner, plant)) {
+                    const busRow = rowFor(owner, buses);
+                    writePh(graph, ph, busText(busRow, owner, pocExtra(cse), cse),
+                        vmKind(busRow?.vm_pu, umin, umax));
+                    return;
+                }
+                if (isExtGridCell(owner)) {
+                    writePh(graph, ph, extGridText(cse, owner), cse.pass === false ? 'fail' : 'ok');
+                    return;
+                }
+                const battRow = batteryRowFor(owner, elements);
+                const sh = shapeOf(owner);
+                const role = cellRole(owner);
+                if (battRow && (
+                    sh === 'Source DC' || sh === 'DC Bus'
+                    || String(role).startsWith('battery_') || String(role).startsWith('dcBus_')
+                )) {
+                    writePh(graph, ph, batteryDcText(battRow, owner), loadKind(battRow.loading_percent));
+                }
+                return;
+            }
             const painted = textForOwner(owner, cse, buses, elements, plant, umin, umax);
             if (!painted) return;
             writePh(graph, ph, painted.text, painted.kind);
@@ -398,11 +445,84 @@ export function applyBessPreliminaryResultsToSld(graph, results, {
     } finally {
         model.endUpdate();
     }
+    refreshGraphView(graph);
+    return cse.name;
+}
+
+function pqMeta(p, q) {
+    const P = Number(p);
+    const Q = Number(q);
+    const s = Math.hypot(P, Q);
+    return {
+        pf: Number.isFinite(P) && s > 1e-9 ? P / s : null,
+        q_p: Number.isFinite(P) && Math.abs(P) > 1e-9 ? Q / P : null,
+    };
+}
+
+/** Keep display name for labels; use pandapower/cell id for graph lookup. */
+function lfIdentity(row) {
+    if (!row) return row;
+    return {
+        ...row,
+        dialogName: row.dialogName || row.name,
+        name: row.technical_name || row.id || row.name,
+    };
+}
+
+function isTrafo3wRow(e) {
+    return e.type === 'transformer3w'
+        || (e.type === 'transformer' && (e.p_mv_mw != null || e.q_mv_mvar != null
+            || e.i_mv_ka != null));
+}
+
+/** Shape a named BESS case like a pandapower load-flow payload for result boxes. */
+export function namedCaseToLoadFlowJson(cse) {
+    if (!cse) return {};
+    const els = cse.elements || [];
+    const busbars = (cse.voltage_profile || []).map((b) => ({
+        ...lfIdentity(b),
+        ...pqMeta(b.p_mw, b.q_mvar),
+    }));
+    const lines = [];
+    const transformers = [];
+    const transformers3W = [];
+    const externalgrids = [];
+    const loads = [];
+    const storages = [];
+    const batteries = [];
+    for (const e of els) {
+        if (!e || !e.type) continue;
+        const row = lfIdentity(e);
+        if (e.type === 'line') {
+            lines.push(row);
+        } else if (isTrafo3wRow(e)) {
+            transformers3W.push(row);
+        } else if (e.type === 'transformer') {
+            const tap = e.tap_control_result || (e.tap_pos != null ? {
+                tap_pos: e.tap_pos,
+                tap_min: e.tap_min,
+                tap_max: e.tap_max,
+            } : null);
+            transformers.push({ ...row, tap_control_result: tap || undefined });
+        } else if (e.type === 'ext_grid') {
+            externalgrids.push({ ...row, ...pqMeta(e.p_mw, e.q_mvar) });
+        } else if (e.type === 'load') {
+            loads.push(row);
+        } else if (e.type === 'storage') {
+            storages.push(row);
+        } else if (e.type === 'battery_dc' || e.type === 'source_dc') {
+            batteries.push(row);
+        }
+    }
+    return { busbars, lines, transformers, transformers3W, externalgrids, loads, storages, batteries };
+}
+
+function refreshGraphView(graph) {
     try {
         if (graph.view?.validate) graph.view.validate();
+        if (graph.getView?.()?.refresh) graph.getView().refresh();
         else graph.refresh?.();
     } catch { /* ignore */ }
-    return cse.name;
 }
 
 if (typeof window !== 'undefined') {

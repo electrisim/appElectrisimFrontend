@@ -770,6 +770,15 @@ export function computeSuggestedRatings(params) {
     };
 }
 
+/** Wizard default 0.5 kA and LV catalog cables (~0.27 kA) cannot carry a utility MV feeder. */
+export function resolvedCableMaxIKa(params, suggested) {
+    const sug = Number(suggested?.cableMaxIKa) || 0;
+    const user = Number(params?.cableMaxIKa);
+    if (!Number.isFinite(user) || user <= 0) return sug || 0.5;
+    if (sug > 0.8 && user <= 0.55) return sug;
+    return user;
+}
+
 /** 3W skids still carrying the 2W default (15 MVA) would run at ~300 % loading. */
 export function resolvedStringTrafoSnMva(params, suggested) {
     const sug = Number(suggested?.stringTrafoSnMva) || 0;
@@ -961,6 +970,9 @@ export function buildOrUpdateBessPlant(graph, params) {
                 tap_pos: String(params.tapPos ?? 0),
                 tap_changer_type: 'Ratio',
                 discrete_tap_control: params.oltcEnabled !== false ? 'true' : 'false',
+                vm_lower_pu: params.oltcVmLower ?? 0.99,
+                vm_upper_pu: params.oltcVmUpper ?? 1.01,
+                control_side: 'lv',
                 max_loading_percent: '100',
             });
             if (params.oltcEnabled !== false) {
@@ -1068,7 +1080,7 @@ export function buildOrUpdateBessPlant(graph, params) {
                 length_km: params.cableLength_km ?? 0.3,
                 r_ohm_per_km: params.cableR_ohmPerKm ?? 0.08,
                 x_ohm_per_km: params.cableX_ohmPerKm ?? 0.12,
-                max_i_ka: params.cableMaxIKa ?? suggested.cableMaxIKa,
+                max_i_ka: resolvedCableMaxIKa(params, suggested),
             }, `cable_${s}`, colX);
 
             if (!threeW) {

@@ -54,6 +54,8 @@ function buildStudyPayload(graph, wizardParams) {
         user_email: getUserEmail(),
         rpc_stream: true,
         oltcEnabled: wizardParams.oltcEnabled !== false,
+        oltcVmLower: wizardParams.oltcVmLower,
+        oltcVmUpper: wizardParams.oltcVmUpper,
         tapSweep: true,
         tapQCapability: true,
         storageSnMva: wizardParams.storageSnMva,

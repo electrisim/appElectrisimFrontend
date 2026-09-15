@@ -432,6 +432,19 @@ Q/P: ${formatNumber(d.qp)}`;
             updateEdgeAttachedPlaceholder(graph, resultCell, text, { width: 60, height: 40, positionX: -0.3 });
         });
 
+        (dataJson.storages || []).forEach((cell) => {
+            const resultCell = resolveCell(cell);
+            if (!resultCell) return;
+            const label = formatResultNameHeader(resultCell, replaceUnderscores(cell.name), 'Storage');
+            const loadLine = cell.loading_percent != null
+                ? `\n            Loading[%]: ${formatNumber(cell.loading_percent, 1)}` : '';
+            const text = `${label}
+            P[MW]: ${formatNumber(cell.p_mw)}
+            Q[MVar]: ${formatNumber(cell.q_mvar)}${loadLine}`;
+            updateEdgeAttachedPlaceholder(graph, resultCell, text, { width: 70, height: 80, positionX: -0.3 });
+            processLoadingColor(graph, resultCell, cell.loading_percent);
+        });
+
         (dataJson.switches || []).forEach((cell) => {
             const resultCell = resolveCell(cell);
             if (!resultCell) return;

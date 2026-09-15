@@ -7,7 +7,7 @@ import {
     preventAccidentalFormSubmit,
 } from '../utils/dialogStyles.js';
 import { createDialogBracketGroup } from '../utils/dialogBracketGroup.js';
-import { buildOrUpdateBessPlant, computeSuggestedRatings, findBessPlantElements, resolvedStringTrafoSnMva, resolvedUnitPmaxMw } from '../bessPlantBuilder.js';
+import { buildOrUpdateBessPlant, computeSuggestedRatings, findBessPlantElements, resolvedCableMaxIKa, resolvedStringTrafoSnMva, resolvedUnitPmaxMw } from '../bessPlantBuilder.js';
 
 const WIZARD_STORE_KEY = 'electrisim.bessPreliminaryDesign.v1';
 const WIZARD_GRAPH_ATTR = 'bessPrelimWizard';
@@ -412,6 +412,7 @@ export class BessPreliminaryDesignDialog extends Dialog {
             const s = computeSuggestedRatings(parsed);
             const usedSn = resolvedStringTrafoSnMva(parsed, s);
             const usedP = resolvedUnitPmaxMw(parsed, s);
+            const usedCable = resolvedCableMaxIKa(parsed, s);
             let html =
                 `<strong>Suggested ratings</strong> from the POC power and unit count<br>` +
                 `POC transformer ${s.hvTrafoSnMva} MVA · String trafo ${s.stringTrafoSnMva} MVA · ` +
@@ -428,6 +429,13 @@ export class BessPreliminaryDesignDialog extends Dialog {
                     `${parsed.numUnits} × ${parsed.batteryPmax_MW || parsed.pMaxDischarge_MW} MW ` +
                     `cannot export ${parsed.pocP_MW} MW at the POC after auxiliaries and losses. ` +
                     `Generate / Run will use ${usedP.batteryPmax_MW} MW per rack.` +
+                    `</div>`;
+            }
+            if (usedCable > Number(parsed.cableMaxIKa) + 1e-6) {
+                html += `<div style="margin-top:8px;color:#b45309;">` +
+                    `MV cable ${parsed.cableMaxIKa} kA cannot carry this string ` +
+                    `(about ${s.cableMaxIKa} kA at ${parsed.mvVoltage_kV || 33} kV). ` +
+                    `Generate / Run will use ${usedCable} kA.` +
                     `</div>`;
             }
             suggestText.innerHTML = html;
@@ -514,6 +522,7 @@ export class BessPreliminaryDesignDialog extends Dialog {
             const params = this.parseNumericValues(this.getFormValues());
             const s = computeSuggestedRatings(params);
             params.stringTrafoSnMva = resolvedStringTrafoSnMva(params, s);
+            params.cableMaxIKa = resolvedCableMaxIKa(params, s);
             const pmax = resolvedUnitPmaxMw(params, s);
             params.pMaxDischarge_MW = pmax.pMaxDischarge_MW;
             params.pMaxCharge_MW = pmax.pMaxCharge_MW;
@@ -523,6 +532,7 @@ export class BessPreliminaryDesignDialog extends Dialog {
                 if (inp) inp.value = String(val);
             };
             setInp('stringTrafoSnMva', params.stringTrafoSnMva);
+            setInp('cableMaxIKa', params.cableMaxIKa);
             setInp('pMaxDischarge_MW', params.pMaxDischarge_MW);
             setInp('pMaxCharge_MW', params.pMaxCharge_MW);
             setInp('batteryPmax_MW', params.batteryPmax_MW);
