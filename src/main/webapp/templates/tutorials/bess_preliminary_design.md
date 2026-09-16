@@ -4,7 +4,7 @@ This tutorial walks through the **Simulate → BESS Studies → BESS Preliminary
 
 ## Steps
 
-1. Open a blank diagram or the template **Utility-scale BESS (HV POC)**.
+1. Open a blank diagram.
 2. Run **BESS Preliminary Design** and enter:
    - POC active power Pn and grid-code power factor (Q = Pn × tan(acos(PF)); tick **Specify Q directly** only if you have a Q in Mvar)
    - HV and MV voltages, PCS count and ratings, Battery DC Pmax (tighter AC Storage P cap; shown as a DC rack on the SLD)

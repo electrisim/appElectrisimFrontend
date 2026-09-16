@@ -63,6 +63,32 @@ function indexRows(rows) {
     return map;
 }
 
+function roleNameKeys(cell) {
+    const role = String(cellRole(cell) || '');
+    const keys = [];
+    const push = (s) => { if (s) keys.push(s, String(s).toLowerCase()); };
+    let m = role.match(/^lvBusA_(\d+)$/);
+    if (m) {
+        const n = Number(m[1]) + 1;
+        push(`LV_Bus_${n}A`);
+        push(`LV_Bus_${n}a`);
+    }
+    m = role.match(/^lvBusB_(\d+)$/);
+    if (m) {
+        const n = Number(m[1]) + 1;
+        push(`LV_Bus_${n}B`);
+    }
+    m = role.match(/^lvBus_(\d+)$/);
+    if (m) push(`LV_Bus_${Number(m[1]) + 1}`);
+    m = role.match(/^stringBus_(\d+)$/);
+    if (m) push(`String_Bus_${Number(m[1]) + 1}`);
+    m = role.match(/^dcBus_(\d+)$/);
+    if (m) push(`DC_Bus_${Number(m[1]) + 1}`);
+    if (role === 'poc') push('POC_HV');
+    if (role === 'mvBus') push('MV_Bus');
+    return keys;
+}
+
 function rowFor(cell, index) {
     if (!cell || !index) return null;
     const keys = [];
@@ -73,10 +99,31 @@ function rowFor(cell, index) {
     }
     const name = cellName(cell);
     if (name) keys.push(name, name.toLowerCase());
+    keys.push(...roleNameKeys(cell));
     for (let i = 0; i < keys.length; i++) {
         if (index.has(keys[i])) return index.get(keys[i]);
     }
     return null;
+}
+
+function placeholderPlainText(ph) {
+    const raw = ph?.value;
+    let s = '';
+    if (raw == null) s = '';
+    else if (typeof raw === 'string') s = raw;
+    else if (raw.getAttribute) s = raw.getAttribute('label') || '';
+    else s = String(raw);
+    return s.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function placeholderLooksEmpty(ph) {
+    const plain = placeholderPlainText(ph);
+    return !plain || /click simulate/i.test(plain);
+}
+
+function isBusOwner(owner) {
+    const sh = shapeOf(owner);
+    return sh === 'Bus' || sh === 'DC Bus' || /^lvBus|^stringBus|^dcBus|^mvBus$|^poc$/.test(cellRole(owner));
 }
 
 function isResultStyle(st) {
@@ -144,10 +191,15 @@ function tintPlaceholder(graph, ph, kind) {
 }
 
 function setPlaceholderText(graph, ph, text) {
+    const st = (graph.getModel?.().getStyle?.(ph) || ph.style || '');
+    let value = text;
+    if (st.indexOf('html=1') >= 0 && typeof text === 'string' && text.indexOf('<') < 0) {
+        value = text.replace(/\r\n/g, '\n').replace(/\n/g, '<br>');
+    }
     if (typeof window !== 'undefined' && window.setResultPlaceholderValue) {
-        window.setResultPlaceholderValue(graph, ph, text);
+        window.setResultPlaceholderValue(graph, ph, value);
     } else {
-        graph.getModel().setValue(ph, text);
+        graph.getModel().setValue(ph, value);
     }
 }
 
@@ -435,8 +487,13 @@ export function applyBessPreliminaryResultsToSld(graph, results, {
                     || String(role).startsWith('battery_') || String(role).startsWith('dcBus_')
                 )) {
                     writePh(graph, ph, batteryDcText(battRow, owner), loadKind(battRow.loading_percent));
+                    return;
                 }
-                return;
+                // Load-flow apply can miss LV/MV bus boxes (lookup or leftover placeholders).
+                // Always write buses, and any box still showing the empty placeholder.
+                if (!isBusOwner(owner) && !placeholderLooksEmpty(ph) && !rowFor(owner, buses)) {
+                    return;
+                }
             }
             const painted = textForOwner(owner, cse, buses, elements, plant, umin, umax);
             if (!painted) return;

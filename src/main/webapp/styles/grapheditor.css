@@ -840,6 +840,16 @@ table.geProperties tr td {
 .gePropEditor input:invalid {
   border: 1px solid red;
 }
+/* File → New template tiles: two columns so a third tile sits under the first */
+.geDialog div:has(> .geTemplate) {
+	display: grid;
+	grid-template-columns: repeat(2, 140px);
+	gap: 10px 12px;
+	align-content: start;
+}
+.geTemplate {
+	float: none !important;
+}
 /* Templates dialog css */
 .geTemplateDlg {
 	width: 987px;

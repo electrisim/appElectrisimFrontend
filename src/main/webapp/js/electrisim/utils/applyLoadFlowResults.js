@@ -207,10 +207,13 @@ function removeExtraPlaceholders(graph, keep, resultCell) {
 }
 
 function updateOrCreatePlaceholder(graph, parent, text, opts) {
-    const model = graph.getModel();
     const existing = findPlaceholder(graph, parent);
     if (existing) {
-        model.setValue(existing, text);
+        if (typeof window !== 'undefined' && window.setResultPlaceholderValue) {
+            window.setResultPlaceholderValue(graph, existing, text);
+        } else {
+            graph.getModel().setValue(existing, text);
+        }
         return existing;
     }
     return insertBox(graph, parent, text, opts);
