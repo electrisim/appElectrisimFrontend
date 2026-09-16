@@ -172,7 +172,7 @@ const GRID_CODE_TEMPLATES = {
 };
 
 /** U-Q/Pmax grid-code envelopes (Q vs voltage at P = Pmax). */
-const UQ_GRID_CODE_TEMPLATES = {
+export const UQ_GRID_CODE_TEMPLATES = {
     'none': {
         name: '-- Select U-Q Template --',
         description: '',
@@ -524,7 +524,7 @@ export class RPCDialog extends Dialog {
             'Optionally checks U-Q/Pmax at rated power versus grid-code voltage bands. ' +
             'To use manufacturer-style limits per unit, enable <em>Use Q capability curve</em> on each static generator or wind turbine and pick <strong>From static generator or wind turbine P–Q curve</strong> below. ' +
             'Use <strong>Include controller</strong> to run each power flow with pandapower controls where enabled in the diagram: DiscreteTapControl on 2- or 3-winding transformers and shunt step control (DiscreteShuntController and Line P→shunt step), independently. Shunt reactors can use a per-step P/Q characteristic table in the shunt dialog. ' +
-            'See the <a href="https://electrisim.com/documentation.html#reactive-power-capability" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
+            'See the <a href="https://electrisim.com/documentation.html#grid-code-pq" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
 
     populateOptions() {
@@ -1016,6 +1016,11 @@ export class RPCDialog extends Dialog {
             const pMax = pMaxIn ? parseFloat(pMaxIn.value) : NaN;
             if (!isNaN(pMax) && pMax > 0) pRated = pMax;
         }
+        if (!(pRated > 0)) {
+            const pnIn = this.inputs.get('pnMw');
+            const pn = pnIn ? parseFloat(pnIn.value) : NaN;
+            if (!isNaN(pn) && pn > 0) pRated = pn;
+        }
         if (!(pRated > 0) && this.graph) {
             pRated = estimateRpcInstalledMw(this.graph);
         }
@@ -1032,6 +1037,27 @@ export class RPCDialog extends Dialog {
         this.uqRequirementRows.forEach(r => { if (r.tr.parentNode) tbody.removeChild(r.tr); });
         this.uqRequirementRows = [];
         scaled.forEach(row => this._addUqRequirementRow(tbody, row.u, row.qMin, row.qMax));
+        if (options.fillVoltageLevels !== false) {
+            this._fillVoltageLevelsFromUqRows();
+        }
+    }
+
+    _fillVoltageLevelsFromUqRows() {
+        const vl = this.inputs.get('voltageLevels');
+        if (!vl || !this.uqRequirementRows.length) return;
+        const us = this.uqRequirementRows
+            .map((r) => parseFloat(r.inputs.u.value))
+            .filter((n) => !isNaN(n));
+        if (!us.length) return;
+        const current = String(vl.value || '').trim();
+        const defaults = new Set([
+            '',
+            '1.0',
+            '0.9, 0.95, 1.0, 1.05, 1.1'
+        ]);
+        if (!defaults.has(current)) return;
+        const uniq = [...new Set(us.map((u) => Number(u.toFixed(4))))].sort((a, b) => a - b);
+        vl.value = uniq.join(', ');
     }
 
     _addUqRequirementRow(tbody, uVal = '', qMinVal = '', qMaxVal = '') {

@@ -410,6 +410,7 @@
             { src: 'js/electrisim/bessSizing.js', type: 'module', async: true },
             { src: 'js/electrisim/rpcAnalysis.js', type: 'module', async: true },
             { src: 'js/electrisim/gridCodePqAnalysis.js', type: 'module', async: true },
+            { src: 'js/electrisim/gridCodeVqAnalysis.js', type: 'module', async: true },
             { src: 'js/electrisim/optimalPowerFlow.js', type: 'module', async: true },
             { src: 'js/electrisim/shortCircuit.js', type: 'module', async: true },
             { src: 'js/electrisim/contingencyAnalysis.js', type: 'module', async: true },
@@ -765,6 +766,8 @@
 								'js/electrisim/dialogs/RPCResultsDialog.js',
 								'js/electrisim/dialogs/GridCodePqDialog.js',
 								'js/electrisim/dialogs/GridCodePqResultsDialog.js',
+								'js/electrisim/dialogs/GridCodeVqDialog.js',
+								'js/electrisim/dialogs/GridCodeVqResultsDialog.js',
 								'js/electrisim/dialogs/DiagnosticReportDialog.js',
 								'js/electrisim/dialogs/OptimalPowerFlowDialog.js',
 								'js/electrisim/dialogs/OptimalPowerFlowResultsDialog.js',
@@ -822,7 +825,7 @@
                                 // Loaded on demand by their menu actions in app.min.js, which
                                 // fall back to import() when the global is not defined yet:
                                 // arcFlash, motorStarting, transientStability, eigenvalueAnalysis,
-                                // protectionCoordination, bessSizing, bessPreliminaryDesign, rpcAnalysis, gridCodePqAnalysis, dgInterconnection, bessDispatchReversal
+                                // protectionCoordination, bessSizing, bessPreliminaryDesign, rpcAnalysis, gridCodePqAnalysis, gridCodeVqAnalysis, dgInterconnection, bessDispatchReversal
                             ];
 							
 							// Auth scripts (Stripe, etc.) - deferred until after Electrisim scripts for faster initial load

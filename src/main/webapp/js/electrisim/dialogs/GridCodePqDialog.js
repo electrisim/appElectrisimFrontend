@@ -102,7 +102,7 @@ export class GridCodePqDialog extends RPCDialog {
                         label: 'Park Controller — constant Q at the point of connection'
                     }
                 ],
-                help: 'Local Q sets each unit’s q_mvar from its P–Q capability (same idea as Grid Code Compliance P-Q & U-Q). Park Controller uses BinarySearchControl so the plant meets a constant-Q setpoint at the point of connection. Other park controllers are taken out of service so they cannot overwrite Q.',
+                help: 'Local Q sets each unit’s q_mvar from its P–Q capability. Park Controller uses BinarySearchControl so the plant meets a constant-Q setpoint at the point of connection. Other park controllers are taken out of service so they cannot overwrite Q.',
                 bracketGroup: 'plant',
                 bracketGroupTitle: 'Plant'
             },
@@ -216,7 +216,7 @@ export class GridCodePqDialog extends RPCDialog {
             {
                 id: 'run_control_shunt',
                 label: 'Shunt reactor control',
-                checkboxLabel: 'DiscreteShuntController (voltage / target step) and Line P→shunt step, as configured on the shunt dialog. Both require this tick. Same controllers as Load Flow / Grid Code Compliance (P-Q & U-Q).',
+                checkboxLabel: 'DiscreteShuntController (voltage / target step) and Line P→shunt step, as configured on the shunt dialog. Both require this tick. Same controllers as Load Flow.',
                 type: 'checkbox',
                 value: false,
                 requiresCanvas: 'shuntReactor',

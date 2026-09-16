@@ -129,7 +129,7 @@ export class DgInterconnectionDialog extends Dialog {
         return '<strong>DG Interconnection Screening (OpenDSS)</strong><br>' +
             'Screens a proposed DER at a POC for voltage band, thermal loading, and reverse power. ' +
             'Optionally compares Volt-VAR InvControl mitigation and estimates hosting capacity by binary search. ' +
-            'Related: BESS sizing (pandapower) and Grid Code Compliance (RPC).';
+            'Related: BESS sizing (pandapower) and Grid Code Compliance (P-Q).';
     }
 
     async checkSubscriptionStatus() {

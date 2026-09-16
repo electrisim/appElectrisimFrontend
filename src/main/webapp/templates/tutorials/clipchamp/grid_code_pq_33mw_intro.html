@@ -324,40 +324,58 @@
       height: 64px;
       z-index: 5;
     }
-    .slide-title .title-stack {
+    .slide-title .title-hero {
       position: absolute;
-      inset: 100px 80px 88px;
+      inset: 118px 72px 92px;
       z-index: 3;
+      display: grid;
+      grid-template-columns: 1.08fr 0.92fr;
+      gap: 48px;
+      align-items: center;
+    }
+    .slide-title .title-stack {
       display: flex;
       flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
+      align-items: flex-start;
+      text-align: left;
+    }
+    .slide-title .study-kicker {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 2.4px;
+      text-transform: uppercase;
+      color: var(--royal);
+      margin-bottom: 12px;
     }
     .slide-title .compliance-line {
-      font-size: 88px;
+      font-size: 78px;
       font-weight: 800;
-      letter-spacing: -2.5px;
-      line-height: 1;
+      letter-spacing: -2.4px;
+      line-height: 0.95;
       color: var(--royal);
-      margin-bottom: 22px;
+      margin-bottom: 14px;
     }
     .slide-title .topic-line {
-      font-size: 40px;
+      font-size: 34px;
       font-weight: 700;
       color: var(--text);
       line-height: 1.2;
-      max-width: 1600px;
-      margin-bottom: 20px;
+      margin-bottom: 10px;
+    }
+    .slide-title .farm-line {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--muted);
+      margin-bottom: 22px;
     }
     .slide-title .oss-line {
       display: inline-flex;
       align-items: center;
       gap: 14px;
-      font-size: 32px;
+      font-size: 28px;
       font-weight: 700;
       color: var(--royal);
-      margin-bottom: 24px;
+      margin-bottom: 22px;
     }
     .slide-title .oss-pill {
       font-size: 16px;
@@ -371,17 +389,17 @@
       border-radius: 999px;
     }
     .slide-title .tech-line {
-      font-size: 28px;
-      margin-bottom: 28px;
-      max-width: 1500px;
+      font-size: 22px;
+      margin-bottom: 22px;
+      max-width: 920px;
     }
     .slide-title .badges {
-      justify-content: center;
-      gap: 18px;
+      justify-content: flex-start;
+      gap: 14px;
     }
     .slide-title .badge {
-      font-size: 20px;
-      padding: 14px 22px;
+      font-size: 18px;
+      padding: 12px 18px;
       border-radius: 14px;
     }
     .slide-title .title-accent {
@@ -389,8 +407,36 @@
       height: 5px;
       background: linear-gradient(90deg, var(--royal), #10b981);
       border-radius: 3px;
-      margin: 0 auto 36px;
+      margin: 0 0 28px;
     }
+    .slide-title .title-chart {
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(22, 58, 122, 0.12);
+      border-radius: 20px;
+      padding: 22px 24px 16px;
+      box-shadow: 0 12px 32px rgba(22, 58, 122, 0.08);
+    }
+    .slide-title .chart-legend {
+      display: flex;
+      gap: 22px;
+      margin-top: 8px;
+      padding-left: 8px;
+    }
+    .slide-title .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--muted);
+    }
+    .slide-title .legend-swatch {
+      width: 22px;
+      height: 6px;
+      border-radius: 3px;
+    }
+    .slide-title .legend-swatch.red { background: #dc3545; }
+    .slide-title .legend-swatch.blue { background: #0d6efd; }
   </style>
 </head>
 <body>
@@ -403,20 +449,40 @@
     <img class="logo-corner" src="https://electrisim.com/assets/img/logo_Electrisim_removebg-preview.png" alt="Electrisim" />
     <div class="header-pill">Tutorial • Grid Code (P-Q)</div>
 
-    <div class="title-stack">
-      <div class="title-accent"></div>
-      <div class="compliance-line">Grid Code Compliance (P-Q)</div>
-      <div class="topic-line">33 MW Onshore Wind Farm · Point of Connection</div>
-      <div class="oss-line">
-        <span class="oss-pill">Open source</span>
-        in Electrisim software
+    <div class="title-hero">
+      <div class="title-stack">
+        <div class="title-accent"></div>
+        <div class="study-kicker">Grid Code Compliance</div>
+        <div class="compliance-line">P–Q envelope</div>
+        <div class="topic-line">at the 110 kV point of connection</div>
+        <div class="farm-line">33 MW onshore wind farm</div>
+        <div class="oss-line">
+          <span class="oss-pill">Open source</span>
+          in Electrisim software
+        </div>
+        <div class="tech-line">Simulate → Grid Code Compliance (P-Q) · net P and Q at the PoC</div>
+        <div class="badges">
+          <span class="badge green">110 kV POC</span>
+          <span class="badge yellow">Park Controller</span>
+          <span class="badge blue">ENTSO-E PPM inner</span>
+          <span class="badge teal">P and Q at PoC</span>
+        </div>
       </div>
-      <div class="tech-line">P-Q envelope at the 110 kV POC · ENTSO-E PPM inner · net P and Q at the PoC</div>
-      <div class="badges">
-        <span class="badge green">110 kV POC</span>
-        <span class="badge yellow">Park Controller</span>
-        <span class="badge blue">ENTSO-E PPM inner</span>
-        <span class="badge teal">P and Q at PoC</span>
+      <div class="title-chart">
+        <div class="panel-caption">Capability vs requirement at the PCC</div>
+        <svg viewBox="0 0 420 320" width="100%" height="318" aria-hidden="true">
+          <line x1="48" y1="286" x2="392" y2="286" stroke="#94a3b8" stroke-width="1.5"/>
+          <line x1="210" y1="28" x2="210" y2="286" stroke="#94a3b8" stroke-width="1.5"/>
+          <text x="352" y="276" font-size="15" fill="#64748b" font-weight="700">Q [Mvar]</text>
+          <text x="56" y="44" font-size="15" fill="#64748b" font-weight="700">P [MW]</text>
+          <polygon points="210,286 128,236 102,78 210,58 318,78 292,236" fill="rgba(220,53,69,0.12)" stroke="#dc3545" stroke-width="3"/>
+          <polygon points="210,286 152,250 138,102 210,86 282,102 268,250" fill="rgba(13,110,253,0.16)" stroke="#0d6efd" stroke-width="3"/>
+          <text x="218" y="50" font-size="14" fill="#163a7a" font-weight="700">Pmax at PCC</text>
+        </svg>
+        <div class="chart-legend">
+          <div class="legend-item"><span class="legend-swatch red"></span>Red · plant Q at the PCC</div>
+          <div class="legend-item"><span class="legend-swatch blue"></span>Blue · ENTSO-E PPM inner</div>
+        </div>
       </div>
     </div>
 

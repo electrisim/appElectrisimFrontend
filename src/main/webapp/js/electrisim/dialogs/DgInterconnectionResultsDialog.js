@@ -91,7 +91,7 @@ export class DgInterconnectionResultsDialog {
             <h3 style="margin:16px 0 8px;">Suggested mitigations</h3>
             <ul>${(r.mitigations || []).map((m) => `<li>${this._escape(m)}</li>`).join('') || '<li>None</li>'}</ul>
             <p style="color:#666;font-size:12px;margin-top:16px;">
-                Related studies: BESS Sizing for Busbar Requirements; Grid Code Compliance (P-Q &amp; U-Q).
+                Related studies: BESS Sizing for Busbar Requirements; Grid Code Compliance (P-Q).
             </p>
         `;
 
