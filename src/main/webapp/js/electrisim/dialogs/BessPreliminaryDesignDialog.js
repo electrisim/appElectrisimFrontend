@@ -7,7 +7,7 @@ import {
     preventAccidentalFormSubmit,
 } from '../utils/dialogStyles.js';
 import { createDialogBracketGroup } from '../utils/dialogBracketGroup.js';
-import { buildOrUpdateBessPlant, computeSuggestedRatings, findBessPlantElements, resolvedCableMaxIKa, resolvedStringTrafoSnMva, resolvedUnitPmaxMw } from '../bessPlantBuilder.js';
+import { buildOrUpdateBessPlant, computeSuggestedRatings, findBessPlantElements, resolvedCableMaxIKa, resolvedHvTrafoSnMva, resolvedPlantVk, resolvedStorageSnMva, resolvedStringTrafoSnMva, resolvedUnitPmaxMw } from '../bessPlantBuilder.js';
 
 const WIZARD_STORE_KEY = 'electrisim.bessPreliminaryDesign.v1';
 const WIZARD_GRAPH_ATTR = 'bessPrelimWizard';
@@ -16,6 +16,53 @@ function qFromPPf(p, pf) {
     const pAbs = Math.abs(Number(p) || 0);
     const c = Math.min(0.999999, Math.max(0.1, Math.abs(Number(pf) || 0.95)));
     return pAbs * Math.tan(Math.acos(c));
+}
+
+/** Old wizard catalog — replaced by computeSuggestedRatings, not kept as user intent. */
+const CATALOG_RATINGS = {
+    storageSnMva: [15, 18, 22],
+    pMaxDischarge_MW: [12, 14, 15],
+    pMaxCharge_MW: [12, 14, 15],
+    batteryPmax_MW: [12, 14, 15],
+    hvTrafoSnMva: [60, 70, 75],
+    stringTrafoSnMva: [15, 18, 22],
+    cableMaxIKa: [0.5, 0.6],
+    hvVkPercent: [12, 10],
+    stringVkPercent: [8],
+};
+
+const RATING_DRIVERS = new Set([
+    'pocP_MW', 'powerFactor', 'pocQ_Mvar', 'specifyQDirectly', 'numUnits',
+    'stringTopology', 'pcsPerWinding', 'umin_pu', 'auxP_MW', 'mvVoltage_kV',
+]);
+
+function isCatalogRating(id, raw) {
+    if (raw == null || raw === '') return true;
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n <= 0) return true;
+    return (CATALOG_RATINGS[id] || []).some((d) => Math.abs(n - d) < 0.06);
+}
+
+function pickRating(saved, id, suggested) {
+    return isCatalogRating(id, saved?.[id]) ? suggested : saved[id];
+}
+
+function pickStringTrafo(saved, suggested, topology) {
+    const raw = saved?.stringTrafoSnMva;
+    const n = Number(raw);
+    if (isCatalogRating('stringTrafoSnMva', raw)) return suggested;
+    if (topology === 'three_winding' && Number.isFinite(n) && n <= 22.05) return suggested;
+    if (topology !== 'three_winding' && Number.isFinite(n) && n >= 40) return suggested;
+    return raw;
+}
+
+function pickCable(saved, suggested, topology) {
+    const raw = saved?.cableMaxIKa;
+    const n = Number(raw);
+    if (isCatalogRating('cableMaxIKa', raw)) return suggested;
+    if (topology === 'three_winding' && Number.isFinite(n) && n <= 0.65) return suggested;
+    if (topology !== 'three_winding' && Number.isFinite(n) && n >= 0.8) return suggested;
+    return raw;
 }
 
 function loadWizardDraft(graph) {
@@ -90,13 +137,43 @@ export class BessPreliminaryDesignDialog extends Dialog {
         return fallback;
     }
 
+    _writeSuggestedRatings(s) {
+        const set = (id, val) => {
+            const inp = this.inputs.get(id);
+            if (inp) inp.value = String(val);
+        };
+        set('hvTrafoSnMva', s.hvTrafoSnMva);
+        set('stringTrafoSnMva', s.stringTrafoSnMva);
+        set('storageSnMva', s.storageSnMva);
+        set('pMaxDischarge_MW', s.storagePMaxMw);
+        set('pMaxCharge_MW', s.storagePMaxMw);
+        set('batteryPmax_MW', s.storagePMaxMw);
+        set('cableMaxIKa', s.cableMaxIKa);
+        const hvVk = this.inputs.get('hvVkPercent');
+        if (hvVk && isCatalogRating('hvVkPercent', hvVk.value)) hvVk.value = '8';
+        const stVk = this.inputs.get('stringVkPercent');
+        if (stVk && isCatalogRating('stringVkPercent', stVk.value)) stVk.value = '6';
+    }
+
     buildFieldList(saved) {
         const inferred = inferTopologyFromGraph(this.graph);
         const v = (id, def) => this._savedVal(saved, id, def);
         const p = Number(v('pocP_MW', 50));
         const pf = Number(v('powerFactor', 0.95));
         const qDefault = v('specifyQDirectly', false) ? v('pocQ_Mvar', qFromPPf(p, pf)) : qFromPPf(p, pf);
-        const topoDefault = inferred || 'two_winding';
+        const topoDefault = inferred || v('stringTopology', 'two_winding') || 'two_winding';
+        const s = computeSuggestedRatings({
+            pocP_MW: p,
+            powerFactor: pf,
+            pocQ_Mvar: qDefault,
+            numUnits: parseInt(v('numUnits', 4), 10) || 4,
+            stringTopology: topoDefault === 'three_winding' ? 'three_winding' : 'two_winding',
+            pcsPerWinding: Number(v('pcsPerWinding', 2)) === 4 ? 4 : 2,
+            umin_pu: Number(v('umin_pu', 0.95)) || 0.95,
+            auxP_MW: Number(v('auxP_MW', 0.5)) || 0,
+            mvVoltage_kV: Number(v('mvVoltage_kV', 33)) || 33,
+        });
+        const r = (id, sug) => pickRating(saved, id, sug);
         return [
             this._section('POC / Grid'),
             this._field('pocP_MW', 'Active power at POC / Pn (MW)', v('pocP_MW', 50)),
@@ -116,18 +193,18 @@ export class BessPreliminaryDesignDialog extends Dialog {
             this._field('vmax_allow_pu', 'Plant voltage max (pu)', v('vmax_allow_pu', 1.10)),
             this._section('PCS / BESS'),
             this._field('numUnits', 'Number of PCS / Storage units', v('numUnits', 4), 'number', '1'),
-            this._field('storageSnMva', 'PCS rating per unit (MVA)', v('storageSnMva', 15)),
-            this._field('pMaxDischarge_MW', 'Max discharge per unit (MW)', v('pMaxDischarge_MW', 12)),
-            this._field('pMaxCharge_MW', 'Max charge per unit (MW)', v('pMaxCharge_MW', 12)),
-            this._field('batteryPmax_MW', 'Battery DC Pmax per rack (MW)', v('batteryPmax_MW', 12), 'number', 'any', {
+            this._field('storageSnMva', 'PCS rating per unit (MVA)', r('storageSnMva', s.storageSnMva)),
+            this._field('pMaxDischarge_MW', 'Max discharge per unit (MW)', r('pMaxDischarge_MW', s.storagePMaxMw)),
+            this._field('pMaxCharge_MW', 'Max charge per unit (MW)', r('pMaxCharge_MW', s.storagePMaxMw)),
+            this._field('batteryPmax_MW', 'Battery DC Pmax per rack (MW)', r('batteryPmax_MW', s.storagePMaxMw), 'number', 'any', {
                 hint: 'Tighter of PCS Pmax and this value is applied as the Storage P limit and checked in the rating table. Generate SLD places a PCS inverter, DC bus, and battery rack per string. Those DC elements are shown on the diagram; the AC load-flow does not solve a coupled DC network.',
             }),
             this._field('lvVoltage_kV', 'LV / PCS voltage (kV)', v('lvVoltage_kV', 0.69)),
             this._field('useQCurve', 'Use PCS P–Q capability curve', v('useQCurve', false), 'checkbox'),
             this._section('HV/MV transformer (OLTC)'),
             this._field('mvVoltage_kV', 'MV collection voltage (kV)', v('mvVoltage_kV', 33)),
-            this._field('hvTrafoSnMva', 'POC transformer rating (MVA)', v('hvTrafoSnMva', 60)),
-            this._field('hvVkPercent', 'Short-circuit voltage vk (%)', v('hvVkPercent', 12)),
+            this._field('hvTrafoSnMva', 'POC transformer rating (MVA)', r('hvTrafoSnMva', s.hvTrafoSnMva)),
+            this._field('hvVkPercent', 'Short-circuit voltage vk (%)', r('hvVkPercent', 8)),
             this._field('tapMin', 'Tap min', v('tapMin', -5), 'number', '1'),
             this._field('tapMax', 'Tap max', v('tapMax', 5), 'number', '1'),
             this._field('tapStepPercent', 'Tap step (%)', v('tapStepPercent', 1.25)),
@@ -140,7 +217,7 @@ export class BessPreliminaryDesignDialog extends Dialog {
             this._field('cableLength_km', 'Cable length per string (km)', v('cableLength_km', 0.3)),
             this._field('cableR_ohmPerKm', 'R (ohm/km)', v('cableR_ohmPerKm', 0.08)),
             this._field('cableX_ohmPerKm', 'X (ohm/km)', v('cableX_ohmPerKm', 0.12)),
-            this._field('cableMaxIKa', 'Thermal rating (kA)', v('cableMaxIKa', 0.5)),
+            this._field('cableMaxIKa', 'Thermal rating (kA)', pickCable(saved, s.cableMaxIKa, topoDefault)),
             this._section('MV/LV transformers'),
             this._field('stringTopology', 'String transformer type', v('stringTopology', topoDefault), 'select', null, {
                 options: [
@@ -155,8 +232,8 @@ export class BessPreliminaryDesignDialog extends Dialog {
                     { value: '4', label: '4 inverters per winding' },
                 ],
             }),
-            this._field('stringTrafoSnMva', 'String transformer rating (MVA)', v('stringTrafoSnMva', 15)),
-            this._field('stringVkPercent', 'String vk (%)', v('stringVkPercent', 8)),
+            this._field('stringTrafoSnMva', 'String transformer rating (MVA)', pickStringTrafo(saved, s.stringTrafoSnMva, topoDefault)),
+            this._field('stringVkPercent', 'String vk (%)', r('stringVkPercent', 6)),
             this._section('Auxiliary load'),
             this._field('auxP_MW', 'Auxiliary P (MW)', v('auxP_MW', 0.5)),
             this._field('auxQ_Mvar', 'Auxiliary Q (Mvar)', v('auxQ_Mvar', 0.1)),
@@ -198,11 +275,11 @@ export class BessPreliminaryDesignDialog extends Dialog {
             vmax_allow_pu: num('vmax_allow_pu', 1.1),
             frequency: num('frequency', 50),
             numUnits: int('numUnits', 4),
-            storageSnMva: num('storageSnMva', 15),
-            pMaxDischarge_MW: num('pMaxDischarge_MW', 12),
-            pMaxCharge_MW: num('pMaxCharge_MW', 12),
-            hvTrafoSnMva: num('hvTrafoSnMva', 60),
-            hvVkPercent: num('hvVkPercent', 12),
+            storageSnMva: num('storageSnMva', 22),
+            pMaxDischarge_MW: num('pMaxDischarge_MW', 15),
+            pMaxCharge_MW: num('pMaxCharge_MW', 15),
+            hvTrafoSnMva: num('hvTrafoSnMva', 75),
+            hvVkPercent: num('hvVkPercent', 8),
             tapMin: int('tapMin', -5),
             tapMax: int('tapMax', 5),
             tapStepPercent: num('tapStepPercent', 1.25),
@@ -211,12 +288,12 @@ export class BessPreliminaryDesignDialog extends Dialog {
             cableLength_km: num('cableLength_km', 0.3),
             cableR_ohmPerKm: num('cableR_ohmPerKm', 0.08),
             cableX_ohmPerKm: num('cableX_ohmPerKm', 0.12),
-            cableMaxIKa: num('cableMaxIKa', 0.5),
-            stringTrafoSnMva: num('stringTrafoSnMva', 15),
-            stringVkPercent: num('stringVkPercent', 8),
+            cableMaxIKa: num('cableMaxIKa', 0.6),
+            stringTrafoSnMva: num('stringTrafoSnMva', 22),
+            stringVkPercent: num('stringVkPercent', 6),
             auxP_MW: num('auxP_MW', 0.5),
             auxQ_Mvar: num('auxQ_Mvar', 0.1),
-            batteryPmax_MW: num('batteryPmax_MW', num('pMaxDischarge_MW', 12)),
+            batteryPmax_MW: num('batteryPmax_MW', num('pMaxDischarge_MW', 15)),
             stringTopology: raw.stringTopology === 'three_winding' ? 'three_winding' : 'two_winding',
             pcsPerWinding: int('pcsPerWinding', 2) === 4 ? 4 : 2,
             specifyQDirectly: raw.specifyQDirectly === true || raw.specifyQDirectly === 'true',
@@ -403,53 +480,6 @@ export class BessPreliminaryDesignDialog extends Dialog {
             (sectionGrid || form).appendChild(control);
         });
 
-        const suggestBox = document.createElement('div');
-        suggestBox.id = 'bess-prelim-suggest';
-        Object.assign(suggestBox.style, {
-            background: '#f0f9ff',
-            border: '1px solid #bae6fd',
-            borderRadius: '6px',
-            padding: '12px 14px',
-            fontSize: '13px',
-            color: '#0c4a6e',
-            lineHeight: '1.5',
-        });
-        const suggestText = document.createElement('div');
-        suggestBox.appendChild(suggestText);
-
-        const updateSuggest = () => {
-            const parsed = this.parseNumericValues(this.getFormValues());
-            const s = computeSuggestedRatings(parsed);
-            const usedSn = resolvedStringTrafoSnMva(parsed, s);
-            const usedP = resolvedUnitPmaxMw(parsed, s);
-            const usedCable = resolvedCableMaxIKa(parsed, s);
-            let html =
-                `<strong>Suggested ratings</strong> from the POC power and unit count<br>` +
-                `POC transformer ${s.hvTrafoSnMva} MVA · String trafo ${s.stringTrafoSnMva} MVA · ` +
-                `PCS ${s.storageSnMva} MVA · Pmax ${s.storagePMaxMw} MW · Cable ${s.cableMaxIKa} kA`;
-            if (parsed.stringTopology === 'three_winding' && Number(parsed.stringTrafoSnMva) + 1e-6 < s.stringTrafoSnMva) {
-                html += `<div style="margin-top:8px;color:#b45309;">` +
-                    `A three-winding skid with ${s.pcsPerSkid} PCS needs about ${s.stringTrafoSnMva} MVA, ` +
-                    `not the ${parsed.stringTrafoSnMva} MVA two-winding default. ` +
-                    `Generate / Run will use ${usedSn} MVA for the string transformer.` +
-                    `</div>`;
-            }
-            if (usedP.bumped) {
-                html += `<div style="margin-top:8px;color:#b45309;">` +
-                    `${parsed.numUnits} × ${parsed.batteryPmax_MW || parsed.pMaxDischarge_MW} MW ` +
-                    `cannot export ${parsed.pocP_MW} MW at the POC after auxiliaries and losses. ` +
-                    `Generate / Run will use ${usedP.batteryPmax_MW} MW per rack.` +
-                    `</div>`;
-            }
-            if (usedCable > Number(parsed.cableMaxIKa) + 1e-6) {
-                html += `<div style="margin-top:8px;color:#b45309;">` +
-                    `MV cable ${parsed.cableMaxIKa} kA cannot carry this string ` +
-                    `(about ${s.cableMaxIKa} kA at ${parsed.mvVoltage_kV || 33} kV). ` +
-                    `Generate / Run will use ${usedCable} kA.` +
-                    `</div>`;
-            }
-            suggestText.innerHTML = html;
-        };
         const syncQFromPf = () => {
             const specify = this.inputs.get('specifyQDirectly');
             const qInp = this.inputs.get('pocQ_Mvar');
@@ -463,50 +493,15 @@ export class BessPreliminaryDesignDialog extends Dialog {
                 qInp.value = String(Math.round(qFromPPf(pInp.value, pfInp.value) * 1000) / 1000);
             }
         };
-        form.addEventListener('input', () => { syncQFromPf(); updateSuggest(); });
+        form.addEventListener('input', () => { syncQFromPf(); });
         form.addEventListener('change', (e) => {
-            const id = e.target && e.target.id;
-            if (id === 'stringTopology' || id === 'pcsPerWinding' || id === 'numUnits') {
-                const parsed = this.parseNumericValues(this.getFormValues());
-                const s = computeSuggestedRatings(parsed);
-                const inp = this.inputs.get('stringTrafoSnMva');
-                if (inp) inp.value = String(s.stringTrafoSnMva);
-            }
             syncQFromPf();
-            updateSuggest();
+            const id = e.target && e.target.id;
+            if (RATING_DRIVERS.has(id)) {
+                this._writeSuggestedRatings(computeSuggestedRatings(this.parseNumericValues(this.getFormValues())));
+            }
         });
-        updateSuggest();
         syncQFromPf();
-
-        const applySuggest = document.createElement('button');
-        applySuggest.type = 'button';
-        applySuggest.textContent = 'Apply suggested ratings';
-        Object.assign(applySuggest.style, {
-            marginTop: '10px',
-            padding: '6px 12px',
-            border: '1px solid #38bdf8',
-            background: '#fff',
-            color: '#0369a1',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontSize: '12px',
-            fontWeight: '600',
-        });
-        applySuggest.onclick = (e) => {
-            e.preventDefault();
-            const s = computeSuggestedRatings(this.parseNumericValues(this.getFormValues()));
-            const set = (id, v) => { const inp = this.inputs.get(id); if (inp) inp.value = String(v); };
-            set('hvTrafoSnMva', s.hvTrafoSnMva);
-            set('stringTrafoSnMva', s.stringTrafoSnMva);
-            set('storageSnMva', s.storageSnMva);
-            set('pMaxDischarge_MW', s.storagePMaxMw);
-            set('pMaxCharge_MW', s.storagePMaxMw);
-            set('batteryPmax_MW', s.storagePMaxMw);
-            set('cableMaxIKa', s.cableMaxIKa);
-            updateSuggest();
-        };
-        suggestBox.appendChild(applySuggest);
-        form.appendChild(suggestBox);
 
         contentArea.appendChild(form);
         container.appendChild(contentArea);
@@ -533,19 +528,29 @@ export class BessPreliminaryDesignDialog extends Dialog {
             const s = computeSuggestedRatings(params);
             params.stringTrafoSnMva = resolvedStringTrafoSnMva(params, s);
             params.cableMaxIKa = resolvedCableMaxIKa(params, s);
+            params.hvTrafoSnMva = resolvedHvTrafoSnMva(params, s);
+            const sn = resolvedStorageSnMva(params, s);
+            params.storageSnMva = sn.storageSnMva;
             const pmax = resolvedUnitPmaxMw(params, s);
             params.pMaxDischarge_MW = pmax.pMaxDischarge_MW;
             params.pMaxCharge_MW = pmax.pMaxCharge_MW;
             params.batteryPmax_MW = pmax.batteryPmax_MW;
+            const vk = resolvedPlantVk(params);
+            params.hvVkPercent = vk.hvVkPercent;
+            params.stringVkPercent = vk.stringVkPercent;
             const setInp = (id, val) => {
                 const inp = this.inputs.get(id);
                 if (inp) inp.value = String(val);
             };
             setInp('stringTrafoSnMva', params.stringTrafoSnMva);
             setInp('cableMaxIKa', params.cableMaxIKa);
+            setInp('hvTrafoSnMva', params.hvTrafoSnMva);
+            setInp('storageSnMva', params.storageSnMva);
             setInp('pMaxDischarge_MW', params.pMaxDischarge_MW);
             setInp('pMaxCharge_MW', params.pMaxCharge_MW);
             setInp('batteryPmax_MW', params.batteryPmax_MW);
+            setInp('hvVkPercent', params.hvVkPercent);
+            setInp('stringVkPercent', params.stringVkPercent);
             return params;
         };
 

@@ -619,10 +619,9 @@ function storageNameplate(params, suggested, storName) {
     const pDis = Math.abs(Number(params.pMaxDischarge_MW ?? suggested.storagePMaxMw) || 0);
     const pChg = Math.abs(Number(params.pMaxCharge_MW ?? suggested.storagePMaxMw) || 0);
     const batt = Math.abs(Number(params.batteryPmax_MW) || 0);
-    const pAbs = Math.max(pDis, pChg, batt);
     const pDisLim = batt > 0 ? Math.min(pDis, batt) : pDis;
     const pChgLim = batt > 0 ? Math.min(pChg, batt) : pChg;
-    const qMax = Math.sqrt(Math.max(0, sn * sn - Math.min(pAbs, sn) * Math.min(pAbs, sn)));
+    const qMax = sn;
     const hours = Number(params.durationHours);
     const maxE = Number(params.maxE_mwh);
     return {
@@ -747,15 +746,22 @@ function insertAuxLoad(graph, parent, bus, opts, role, x, y) {
  */
 export function computeSuggestedRatings(params) {
     const p = Math.abs(Number(params.pocP_MW) || 0);
-    const q = Math.abs(Number(params.pocQ_Mvar) || 0);
-    const pf = Number(params.powerFactor);
-    const sPoc = pf > 0 && pf <= 1 ? p / pf : Math.hypot(p, q);
+    const pf = Math.min(0.999999, Math.max(0.1, Math.abs(Number(params.powerFactor) || 0.95)));
+    let q = Math.abs(Number(params.pocQ_Mvar) || 0);
+    if (!(q > 0) && p > 0) q = p * Math.tan(Math.acos(pf));
     const n = Math.max(1, parseInt(params.numUnits, 10) || 1);
     const aux = Number(params.auxP_MW) || 0;
-    const margin = 1.05;
-    const plantMva = sPoc * margin + aux;
-    const unitP = (p * margin) / n;
-    const unitSn = Math.max(unitP, Math.hypot(unitP, q / n)) * 1.1;
+    const umin = Math.min(1, Math.max(0.8, Math.abs(Number(params.umin_pu) || 0.95)));
+    // Charge at the POC is Pn + aux + losses. Envelope Q is clipped when
+    // transformer loading exceeds 100 %; at Umin that is S / (Sn·U). Plant X
+    // also consumes Q. Size PCS / trafos so the PF rectangle still fits at Umin.
+    const importP = p + aux + 0.05 * p;
+    const qAtPcs = q / 0.82;
+    const unitP = (importP * 1.12) / n;
+    const unitQ = (qAtPcs * 1.30) / n;
+    const uLv = Math.max(0.84, umin - 0.05);
+    const unitSn = (Math.hypot(unitP, unitQ) / uLv) * 1.18;
+    const plantMva = (Math.hypot(importP, qAtPcs) / umin) * 1.22;
     const threeW = params.stringTopology === 'three_winding';
     const pcsPerWinding = Number(params.pcsPerWinding) === 4 ? 4 : 2;
     const pcsPerSkid = threeW ? 2 * pcsPerWinding : 1;
@@ -779,21 +785,58 @@ export function resolvedCableMaxIKa(params, suggested) {
     return user;
 }
 
-/** 3W skids still carrying the 2W default (15 MVA) would run at ~300 % loading. */
+/** 3W skids still carrying the 2W default would run far above 100 % loading.
+ *  2W catalog 15 / 18 MVA is also below the PF 0.95 / Umin Q headroom. */
 export function resolvedStringTrafoSnMva(params, suggested) {
     const sug = Number(suggested?.stringTrafoSnMva) || 0;
     const user = Number(params?.stringTrafoSnMva);
     if (!Number.isFinite(user) || user <= 0) return sug || 15;
-    if (params.stringTopology === 'three_winding' && user <= 15.05 && sug > 20) {
+    if (params.stringTopology === 'three_winding' && user <= 22.05 && sug > 20) {
         return sug;
     }
+    if (user <= 22.05 && sug > user + 0.05) return sug;
     return user;
 }
 
+/** Wizard catalog 15 / 18 MVA × N cannot cover the PF rectangle at Umin. */
+export function resolvedStorageSnMva(params, suggested) {
+    const sug = Number(suggested?.storageSnMva) || 0;
+    const user = Number(params?.storageSnMva);
+    const stillDefault = !Number.isFinite(user) || user <= 0 || user <= 22.05;
+    const useSug = stillDefault && sug > (Number.isFinite(user) ? user : 0) + 0.05;
+    return {
+        storageSnMva: useSug ? sug : (user || sug || 15),
+        bumped: useSug,
+    };
+}
+
+/** Catalog vk 12 % / 10 % (HV) and 8 % (string) eats too much Q at Umin. */
+export function resolvedPlantVk(params) {
+    const hv = Number(params?.hvVkPercent);
+    const st = Number(params?.stringVkPercent);
+    const hvCatalog = [12, 10];
+    const hvDefault = !Number.isFinite(hv) || hv <= 0
+        || hvCatalog.some((d) => Math.abs(hv - d) < 0.06);
+    const stDefault = !Number.isFinite(st) || st <= 0 || Math.abs(st - 8) < 0.06;
+    return {
+        hvVkPercent: hvDefault ? 8 : hv,
+        stringVkPercent: stDefault ? 6 : st,
+        bumped: hvDefault || stDefault,
+    };
+}
+
+/** Wizard catalog 60 / 70 MVA POC transformer is tight for PF 0.95 at Umin. */
+export function resolvedHvTrafoSnMva(params, suggested) {
+    const sug = Number(suggested?.hvTrafoSnMva) || 0;
+    const user = Number(params?.hvTrafoSnMva);
+    const stillDefault = !Number.isFinite(user) || user <= 0 || user <= 75.05;
+    const useSug = stillDefault && sug > (Number.isFinite(user) ? user : 0) + 0.05;
+    return useSug ? sug : (user || sug || 60);
+}
+
 /**
- * Wizard defaults (12 MW × 4 units) cannot export 50 MW at the POC after aux
- * and losses. If charge/discharge/battery Pmax are still those defaults and
- * the plant P cap is below Pn, use the suggested per-unit Pmax.
+ * Wizard catalog (12 or 14 MW × N) cannot export Pn at the POC after aux
+ * and losses, and leaves too little kVA for Q at Umin import.
  */
 export function resolvedUnitPmaxMw(params, suggested) {
     const sug = Number(suggested?.storagePMaxMw) || 0;
@@ -804,9 +847,9 @@ export function resolvedUnitPmaxMw(params, suggested) {
     const batt = Math.abs(Number(params?.batteryPmax_MW) || 0);
     const perUnit = batt > 0 ? Math.min(dis || batt, batt) : dis;
     const plantP = n * perUnit;
-    const stillDefault = dis <= 12.05 && (batt <= 0 || batt <= 12.05);
+    const stillDefault = dis <= 15.05 && (batt <= 0 || batt <= 15.05);
     const needHeadroom = poc > 0 && plantP + 1e-6 < poc * 1.03;
-    const useSug = stillDefault && needHeadroom && sug > 12.05;
+    const useSug = stillDefault && sug > (dis || 0) + 0.02 && (needHeadroom || sug > 15.05);
     return {
         pMaxDischarge_MW: useSug ? sug : (dis || sug || 12),
         pMaxCharge_MW: useSug ? Math.max(chg, sug) : (chg || sug || 12),
@@ -830,6 +873,13 @@ export function buildOrUpdateBessPlant(graph, params) {
     params.pMaxDischarge_MW = pmax.pMaxDischarge_MW;
     params.pMaxCharge_MW = pmax.pMaxCharge_MW;
     params.batteryPmax_MW = pmax.batteryPmax_MW;
+    params.storageSnMva = resolvedStorageSnMva(params, suggested).storageSnMva;
+    params.hvTrafoSnMva = resolvedHvTrafoSnMva(params, suggested);
+    params.stringTrafoSnMva = resolvedStringTrafoSnMva(params, suggested);
+    params.cableMaxIKa = resolvedCableMaxIKa(params, suggested);
+    const vk = resolvedPlantVk(params);
+    params.hvVkPercent = vk.hvVkPercent;
+    params.stringVkPercent = vk.stringVkPercent;
 
     const hvKv = Number(params.hvVoltage_kV) || 132;
     const mvKv = Number(params.mvVoltage_kV) || 33;
@@ -941,7 +991,7 @@ export function buildOrUpdateBessPlant(graph, params) {
                 sn_mva: params.hvTrafoSnMva ?? suggested.hvTrafoSnMva,
                 vn_hv_kv: hvKv,
                 vn_lv_kv: mvKv,
-                vk_percent: params.hvVkPercent ?? 12,
+                vk_percent: params.hvVkPercent ?? 8,
                 vkr_percent: params.hvVkrPercent ?? 0.4,
                 tap_min: params.tapMin ?? -5,
                 tap_max: params.tapMax ?? 5,
@@ -960,7 +1010,7 @@ export function buildOrUpdateBessPlant(graph, params) {
                 sn_mva: String(params.hvTrafoSnMva ?? suggested.hvTrafoSnMva),
                 vn_hv_kv: String(hvKv),
                 vn_lv_kv: String(mvKv),
-                vk_percent: String(params.hvVkPercent ?? 12),
+                vk_percent: String(params.hvVkPercent ?? 8),
                 vkr_percent: String(params.hvVkrPercent ?? 0.4),
                 tap_side: 'hv',
                 tap_min: String(params.tapMin ?? -5),
@@ -1091,7 +1141,7 @@ export function buildOrUpdateBessPlant(graph, params) {
                         sn_mva: stringTrafoSn,
                         vn_hv_kv: mvKv,
                         vn_lv_kv: lvKv,
-                        vk_percent: params.stringVkPercent ?? 8,
+                        vk_percent: params.stringVkPercent ?? 6,
                         vkr_percent: params.stringVkrPercent ?? 0.5,
                     }, `lvTrafo_${s}`, true);
                 } else {
@@ -1100,7 +1150,7 @@ export function buildOrUpdateBessPlant(graph, params) {
                         sn_mva: String(stringTrafoSn),
                         vn_hv_kv: String(mvKv),
                         vn_lv_kv: String(lvKv),
-                        vk_percent: String(params.stringVkPercent ?? 8),
+                        vk_percent: String(params.stringVkPercent ?? 6),
                         vkr_percent: String(params.stringVkrPercent ?? 0.5),
                         max_loading_percent: '100',
                     });
@@ -1127,7 +1177,7 @@ export function buildOrUpdateBessPlant(graph, params) {
             }
 
             let lvTrafo3w = existing[`lvTrafo3w_${s}`];
-            const vk = params.stringVkPercent ?? 8;
+            const vk = params.stringVkPercent ?? 6;
             const vkr = params.stringVkrPercent ?? 0.5;
             if (!lvTrafo3w) {
                 lvTrafo3w = insertTrafo3w(graph, parent, colX, stringTrafoY, {

@@ -2,6 +2,8 @@
 import { attachBackdropCloseHandler, parkOverlayForCanvas } from '../utils/dialogStyles.js';
 import { buildGraphCellLookupMap, resolveGraphCellForResult } from '../utils/attributeUtils.js';
 import { applyBessPreliminaryResultsToSld, pickBessSldCase } from '../utils/bessPreliminarySldResults.js';
+import { applyLoadFlowResultsToGraph } from '../utils/applyLoadFlowResults.js';
+import { parkPlantResultBoxes } from '../bessPlantBuilder.js';
 
 function fmt(v, d = 3) {
     if (v == null || Number.isNaN(Number(v))) return '—';
@@ -50,12 +52,13 @@ function envelopeRequirement(pq) {
 
 function requirementPnQ(pq, wizardParams) {
     const req = envelopeRequirement(pq);
-    let pn = 0;
-    if (req?.p_mw?.length) {
+    // Wizard / study Pn is the contracted POC rating. Do not take max(|req.p_mw|)
+    // after a PCC-Pmax rescale — that stretches the grey rectangle past Pn.
+    let pn = Math.abs(Number(wizardParams?.pocP_MW)) || 0;
+    if (!(pn > 0)) pn = Math.abs(Number(pq?.pn_mw)) || 0;
+    if (!(pn > 0) && req?.p_mw?.length) {
         pn = Math.max(...req.p_mw.map((p) => Math.abs(Number(p))), 0);
     }
-    if (!(pn > 0)) pn = Math.abs(Number(pq?.pn_mw)) || 0;
-    if (!(pn > 0)) pn = Math.abs(Number(wizardParams?.pocP_MW)) || 0;
     let qPn = Number(req?.q_over_pn);
     if (!(qPn > 0) && pn > 0 && req?.q_req_max_mvar?.length) {
         qPn = Math.max(...req.q_req_max_mvar.map((q) => Math.abs(Number(q))), 0) / pn;
@@ -106,7 +109,7 @@ function optNum(v) {
     return Number.isFinite(n) ? n : null;
 }
 
-function mergeTicks(min, max, preferred) {
+function mergeTicks(min, max, preferred, includeEnds = true) {
     const out = [];
     const seen = new Set();
     const add = (t) => {
@@ -118,10 +121,75 @@ function mergeTicks(min, max, preferred) {
         out.push(n);
     };
     (preferred || []).forEach(add);
-    add(min);
-    add(max);
+    if (includeEnds) {
+        add(min);
+        add(max);
+    }
     out.sort((a, b) => a - b);
     return out;
+}
+
+function namedCaseKind(name) {
+    const n = String(name || '');
+    if (/Rated_Discharge|Rated_Charge/i.test(n)) return 'rated';
+    if (/Export_|Import_/.test(n)) return 'corner';
+    return 'named';
+}
+
+function voltageColorForCase(name) {
+    const n = String(name || '');
+    if (n.startsWith('Umin')) return '#2563eb';
+    if (n.startsWith('Unom')) return '#16a34a';
+    if (n.startsWith('Umax')) return '#dc2626';
+    return '#334155';
+}
+
+/** Umin / Unom / Umax named cases share almost the same POC P/Q, so fan them out. */
+function voltageMarkerOffset(name) {
+    const n = String(name || '');
+    if (n.startsWith('Umin')) return { dx: -8, dy: 8 };
+    if (n.startsWith('Umax')) return { dx: 8, dy: -8 };
+    return { dx: 0, dy: 0 };
+}
+
+function countEnvelopeNodes(pq) {
+    let n = 0;
+    Object.values(pq?.curves || {}).forEach((c) => {
+        const p = c?.p_mw || [];
+        p.forEach((_, j) => {
+            if (c.q_max_mvar?.[j] != null) n += 1;
+            if (c.q_min_mvar?.[j] != null) n += 1;
+        });
+    });
+    return n;
+}
+
+function envelopePointId(vKey, side, pMw) {
+    return `env:${Number(vKey).toFixed(4)}:${side}:${Number(pMw).toFixed(4)}`;
+}
+
+function resolveEnvelopeLoadflow(pq, vKey, side, pMw, pDisp) {
+    const root = pq?.point_loadflows || {};
+    const vk = Number(vKey).toFixed(4);
+    const vl = root[vk] || root[String(vKey)] || root[vKey];
+    if (!vl) return null;
+    const sideMap = vl[side] || {};
+    const keys = [pMw, pDisp]
+        .filter((x) => x != null && Number.isFinite(Number(x)))
+        .map((x) => Number(x).toFixed(4));
+    for (const k of keys) {
+        if (sideMap[k]) return sideMap[k];
+    }
+    let best = null;
+    let bestD = Infinity;
+    Object.keys(sideMap).forEach((k) => {
+        const d = Math.abs(Number(k) - Number(pMw));
+        if (d < bestD) {
+            bestD = d;
+            best = sideMap[k];
+        }
+    });
+    return bestD <= 0.5 ? best : null;
 }
 
 function fmtTick(v, digits) {
@@ -159,13 +227,14 @@ function hatchRect(ctx, x, y, w, h, color) {
 function defaultChartPrefs() {
     return {
         pqTitle: 'P/Q capability envelope at POC',
-        pqXLabel: 'P [MW]  (− import / + export)',
-        pqYLabel: 'Q [Mvar]  (− inductive / + capacitive)',
+        pqXLabel: '',
+        pqYLabel: '',
         pqXMin: '',
         pqXMax: '',
         pqYMin: '',
         pqYMax: '',
         pqPu: false,
+        pqGridCodeAxes: false,
         uqTitle: 'U–Q at rated P',
         uqXLabel: 'Q / Pn',
         uqYLabel: 'U / Uc  [pu]',
@@ -196,20 +265,6 @@ function voltageBandLabel(u, wizardParams, results) {
     return best[0];
 }
 
-function envelopePointCaseName(p, q, u, wizardParams, results, qReq) {
-    const uLabel = voltageBandLabel(u, wizardParams, results);
-    const pn = Math.abs(Number(wizardParams?.pocP_MW) || 0);
-    const qNeed = Number(qReq) > 0 ? Number(qReq) : pn * 0.329;
-    const pAbs = Math.abs(Number(p) || 0);
-    const qAbs = Math.abs(Number(q) || 0);
-    if (qNeed > 0 && qAbs < 0.22 * qNeed && pAbs > 0.35 * Math.max(pn, 1e-6)) {
-        return Number(p) >= 0 ? `${uLabel}_Rated_Discharge` : `${uLabel}_Rated_Charge`;
-    }
-    const pName = Number(p) >= 0 ? 'Export' : 'Import';
-    const qName = Number(q) >= 0 ? 'Capacitive' : 'Inductive';
-    return `${uLabel}_${pName}_${qName}`;
-}
-
 function existingCaseName(results, want) {
     const cases = results?.named_cases || [];
     if (!want) return null;
@@ -235,20 +290,53 @@ function nearestHit(hits, x, y, maxDist) {
 
 function drawHitMarkers(ctx, hits, selectedName) {
     (hits || []).forEach((h) => {
-        const sel = h.caseName && h.caseName === selectedName;
-        ctx.beginPath();
-        ctx.arc(h.x, h.y, sel ? 6.5 : 3.6, 0, Math.PI * 2);
-        ctx.fillStyle = h.color || '#334155';
-        ctx.fill();
-        if (sel) {
+        const sel = (h.caseName && h.caseName === selectedName)
+            || (h.id && h.id === selectedName);
+        if (h.kind === 'envelope') {
+            if (!sel) return;
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(h.x, h.y, 7, 0, Math.PI * 2);
             ctx.strokeStyle = '#1d4ed8';
             ctx.lineWidth = 2.5;
             ctx.stroke();
+            ctx.restore();
+            return;
+        }
+        const col = h.color || '#334155';
+        ctx.save();
+        if (h.kind === 'rated') {
+            const s = sel ? 7 : 5.5;
+            ctx.beginPath();
+            ctx.moveTo(h.x, h.y - s);
+            ctx.lineTo(h.x + s, h.y);
+            ctx.lineTo(h.x, h.y + s);
+            ctx.lineTo(h.x - s, h.y);
+            ctx.closePath();
+            ctx.fillStyle = '#fff';
+            ctx.fill();
+            ctx.strokeStyle = sel ? '#1d4ed8' : col;
+            ctx.lineWidth = sel ? 2.5 : 1.75;
+            ctx.stroke();
+        } else if (h.kind === 'corner' || h.kind === 'named') {
+            const s = sel ? 5.5 : 4.2;
+            ctx.beginPath();
+            ctx.rect(h.x - s, h.y - s, s * 2, s * 2);
+            ctx.fillStyle = col;
+            ctx.fill();
+            ctx.strokeStyle = sel ? '#1d4ed8' : 'rgba(15,23,42,0.85)';
+            ctx.lineWidth = sel ? 2.5 : 1.25;
+            ctx.stroke();
         } else {
-            ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(h.x, h.y, sel ? 6.5 : 3.6, 0, Math.PI * 2);
+            ctx.fillStyle = col;
+            ctx.fill();
+            ctx.strokeStyle = sel ? '#1d4ed8' : 'rgba(255,255,255,0.85)';
+            ctx.lineWidth = sel ? 2.5 : 1;
             ctx.stroke();
         }
+        ctx.restore();
     });
 }
 
@@ -297,6 +385,103 @@ function assessUqAtRatedP(pq, wizardParams, results) {
         u_outer_min: band.vmin,
         u_outer_max: band.vmax,
         points,
+    };
+}
+
+function interpQAtP(pArr, qArr, pWant) {
+    const pts = [];
+    (pArr || []).forEach((p, i) => {
+        const q = qArr?.[i];
+        if (q == null || !Number.isFinite(Number(q)) || !Number.isFinite(Number(p))) return;
+        pts.push([Number(p), Number(q)]);
+    });
+    if (!pts.length || !Number.isFinite(Number(pWant))) return null;
+    pts.sort((a, b) => a[0] - b[0]);
+    const p = Math.min(pts[pts.length - 1][0], Math.max(pts[0][0], Number(pWant)));
+    if (pts.length === 1) return pts[0][1];
+    for (let i = 0; i < pts.length - 1; i++) {
+        if (p >= pts[i][0] && p <= pts[i + 1][0]) {
+            const den = pts[i + 1][0] - pts[i][0];
+            const t = den === 0 ? 0 : (p - pts[i][0]) / den;
+            return pts[i][1] + t * (pts[i + 1][1] - pts[i][1]);
+        }
+    }
+    return pts[pts.length - 1][1];
+}
+
+function assessPqEnvelopeCoverage(pq, wizardParams, results) {
+    if (!pq || pq.error || !pq.curves) return null;
+    const { pn, qPn, qReq } = requirementPnQ(pq, wizardParams);
+    if (!(pn > 0) || !(qReq > 0)) return null;
+    const tolQ = Math.max(0.05, 0.002 * pn);
+    const pTol = Math.max(0.05, 0.02 * pn);
+    const voltages = Object.entries(pq.curves)
+        .map(([vk, curve]) => ({ vk, u: Number(vk), curve }))
+        .filter((x) => Number.isFinite(x.u) && x.curve)
+        .sort((a, b) => a.u - b.u);
+    if (!voltages.length) return null;
+    const points = voltages.map(({ vk, u, curve }) => {
+        const pArr = curve.p_mw || [];
+        const nums = pArr.map(Number).filter((p) => Number.isFinite(p));
+        const pMin = nums.length ? Math.min(...nums) : 0;
+        const pMax = nums.length ? Math.max(...nums) : 0;
+        const checkP = [];
+        const seen = new Set();
+        const addP = (p) => {
+            const n = Number(p);
+            if (!Number.isFinite(n)) return;
+            const k = n.toFixed(4);
+            if (seen.has(k)) return;
+            seen.add(k);
+            checkP.push(n);
+        };
+        nums.filter((p) => p >= -pn - pTol && p <= pn + pTol).forEach(addP);
+        addP(0);
+        addP(pn);
+        addP(-pn);
+        let qOk = true;
+        const fails = [];
+        checkP.forEach((pWant) => {
+            const qmax = interpQAtP(pArr, curve.q_max_mvar, pWant);
+            const qmin = interpQAtP(pArr, curve.q_min_mvar, pWant);
+            if (qmax == null || qmin == null) {
+                qOk = false;
+                fails.push(pWant);
+                return;
+            }
+            if (qmax < qReq - tolQ || qmin > -qReq + tolQ) {
+                qOk = false;
+                fails.push(pWant);
+            }
+        });
+        return {
+            u_pu: u,
+            v_key: vk,
+            p_min_mw: pMin,
+            p_max_mw: pMax,
+            export_reaches_pn: pMax >= pn - pTol,
+            import_reaches_pn: pMin <= -pn + pTol,
+            q_covers: qOk,
+            fail_p_mw: fails,
+        };
+    });
+    const compliant = points.every((p) => p.q_covers);
+    const pNotes = [];
+    points.forEach((p) => {
+        if (!p.export_reaches_pn) {
+            pNotes.push(`U=${p.u_pu.toFixed(2)} export Pmax ${p.p_max_mw.toFixed(2)} MW vs Pn ${pn.toFixed(2)} MW`);
+        }
+        if (!p.import_reaches_pn) {
+            pNotes.push(`U=${p.u_pu.toFixed(2)} import Pmin ${p.p_min_mw.toFixed(2)} MW vs −Pn`);
+        }
+    });
+    return {
+        compliant,
+        pn_mw: pn,
+        q_req_mvar: qReq,
+        q_over_pn: qPn,
+        points,
+        p_notes: [...new Set(pNotes)],
     };
 }
 
@@ -582,6 +767,36 @@ export class BessPreliminaryDesignResultsDialog {
         if (this._chartMaxKind) this.drawMaximizedChart();
     }
 
+    paintEnvelopePoint(hit) {
+        const graph = this.graph || this.ui?.editor?.graph;
+        if (!graph || !hit) return;
+        const lf = resolveEnvelopeLoadflow(
+            this.results.pq_envelope,
+            hit.vKey,
+            hit.side,
+            hit.pMw,
+            hit.pDisp
+        );
+        if (!lf) {
+            alert('No stored load-flow for this envelope point. Re-run BESS Preliminary Design to refresh the P/Q snapshots, then click the circle again.');
+            return;
+        }
+        try {
+            try { parkPlantResultBoxes(graph); } catch { /* ignore */ }
+            applyLoadFlowResultsToGraph(graph, lf);
+            this._paintedCase = hit.id;
+            this.redrawCharts(this._body);
+            if (this._chartMaxKind) this.drawMaximizedChart();
+            const sideLabel = hit.side === 'q_max' ? 'Qmax' : 'Qmin';
+            this.parkForCanvas(
+                `Envelope ${sideLabel} U=${Number(hit.vKey).toFixed(4)} pu P=${fmt(hit.pMw, 2)} MW`
+            );
+        } catch (err) {
+            console.warn('BESS envelope SLD paint failed', err);
+            alert('Could not paint this envelope load-flow on the diagram.');
+        }
+    }
+
     focusElement(name) {
         const graph = this.graph || this.ui?.editor?.graph;
         if (!graph || !name) return false;
@@ -614,6 +829,12 @@ export class BessPreliminaryDesignResultsDialog {
                 `${summary.target_met_cases ?? 0} / ${summary.target_cases}`,
                 allMet ? '#16a34a' : '#dc2626');
         }
+        const pqKpi = assessPqEnvelopeCoverage(r.pq_envelope, this.wizardParams, r);
+        if (pqKpi) {
+            html += this.kpi('P/Q envelope',
+                pqKpi.compliant ? 'Compliant' : 'Non-compliant',
+                pqKpi.compliant ? '#16a34a' : '#dc2626');
+        }
         const uqKpi = assessUqAtRatedP(r.pq_envelope, this.wizardParams, r);
         if (uqKpi) {
             html += this.kpi('U–Q at rated P',
@@ -636,7 +857,7 @@ export class BessPreliminaryDesignResultsDialog {
         html += `<p style="font-size:11px;color:#64748b;margin:0 0 8px;">SLD result boxes show the selected load-flow case (default <b>Unom_Export_Capacitive</b>, POC P/Q export-positive). Click a case row to paint that load-flow on the diagram. Click a limiter or bus name to select that element.</p>`;
         html += `<h3>Named load-flow cases</h3>`;
         const band = plantVoltageBand(this.wizardParams, r);
-        html += `<p style="font-size:12px;color:#64748b;margin:4px 0 8px;">|P| at the POC is capped at the Pn you entered (charge is scaled so auxiliaries and losses do not import more than Pn). Rated Discharge/Charge are unity power factor. OLTC tap is the position after that case’s load-flow. Named-case voltage pass/fail uses the plant allowance <b>${band.vmin.toFixed(2)}–${band.vmax.toFixed(2)} pu</b> (wizard plant voltage min/max), not the POC Umin/Umax study voltages.</p>`;
+        html += `<p style="font-size:12px;color:#64748b;margin:4px 0 8px;">18 screening load-flows, separate from the P/Q envelope sweep: 12 requested POC corners (export/import × capacitive/inductive at Pn and the entered PF) plus 6 Rated Discharge/Charge at unity PF (PCS Q = 0; POC Q is leftover plant vars). |P| at the POC is capped at the Pn you entered (charge is scaled so auxiliaries and losses do not import more than Pn). Rated Discharge therefore often shows |P| slightly below Pn because of losses; Rated Charge is held at −Pn. OLTC tap is the position after that case’s load-flow. Named-case voltage pass/fail uses the plant allowance <b>${band.vmin.toFixed(2)}–${band.vmax.toFixed(2)} pu</b> (wizard plant voltage min/max), not the POC Umin/Umax study voltages.</p>`;
         html += `<table style="width:100%;border-collapse:collapse;margin-bottom:16px;font-size:12px;">`;
         html += `<tr style="background:#f1f5f9;"><th style="text-align:left;padding:6px;">Case</th><th>P POC</th><th>Q POC</th><th>Losses</th><th>Tap</th><th>Status</th><th>Limiting element</th></tr>`;
         (r.named_cases || []).forEach((c) => {
@@ -678,8 +899,11 @@ export class BessPreliminaryDesignResultsDialog {
             html += `<h3>P/Q capability envelope at POC</h3>`;
             html += `<p style="font-size:12px;color:#64748b;">P/Q envelope was not run.</p>`;
         } else {
+            const envNodes = countEnvelopeNodes(r.pq_envelope);
+            const namedN = (r.named_cases || []).length;
             html += this.chartHeadingHtml('P/Q capability envelope at POC', 'pq');
-            html += `<p style="font-size:12px;color:#64748b;margin:4px 0 8px;">Solid coloured curves are plant <b>Qmax (capacitive, Q&gt;0)</b>; dashed coloured curves are plant <b>Qmin (inductive, Q&lt;0)</b>, at Umin / Unom / Umax. The grey band is the grid-code |Q| rectangle at the entered PF, from −Pn (charge / import) to +Pn (discharge / export). Envelope at the diagram tap, 25% Pn steps. Axis ticks mark Pn, |Q|/Pn from the entered PF, and import/export quadrants. <b>Click a point</b> on a voltage curve to paint that load-flow on the SLD result boxes.</p>`;
+            html += `<p style="font-size:12px;color:#64748b;margin:4px 0 8px;">Solid coloured curves are plant <b>Qmax (capacitive, Q&gt;0)</b>; dashed coloured curves are plant <b>Qmin (inductive, Q&lt;0)</b>, at Umin / Unom / Umax — a P sweep at 25% Pn (typically 9 P-points including 0) × Qmax and Qmin × 3 voltages. This plot has <b>${envNodes} envelope nodes</b>; the table above has <b>${namedN} named load-flow cases</b>. They are separate studies. Coloured <b>circles</b> are envelope Qmax/Qmin at the POC after losses (so |P| at 100% dispatch is not exactly Pn). <b>Squares</b> are the 12 named PF corners (4 P/Q corners × Umin/Unom/Umax); <b>diamonds</b> are the 6 Rated Charge/Discharge cases (unity PF). Markers of the same corner are offset slightly because the three voltages land on almost the same P/Q. Colour is voltage (blue Umin, green Unom, red Umax). The grey rectangle is the grid-code |Q| band at <b>±Pn</b>. <b>Click a circle, square, or diamond</b> to paint that load-flow on the SLD.</p>`;
+            html += this.buildPqCompliance();
             html += this.chartOptionsHtml('pq');
             html += `<div data-chart-wrap="pq" style="width:100%;"><canvas id="bess-prelim-pq-canvas" width="900" height="420" style="display:block;width:100%;height:420px;border:1px solid #e2e8f0;border-radius:6px;background:#fafafa;"></canvas></div>`;
             html += `<p style="font-size:12px;color:#334155;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px;margin:8px 0 0;">The larger gap between the three voltage traces on the <b>inductive</b> (dashed) side is from the load-flow, not from axis scaling. Absorbing Q lowers plant voltages, so available Qmin changes more with the POC voltage setpoint. Injecting Q (capacitive) raises voltages toward the OLTC / voltage limits, so the three Qmax curves stay closer together.</p>`;
@@ -772,6 +996,45 @@ export class BessPreliminaryDesignResultsDialog {
                 `<td style="text-align:center;color:${bad ? '#dc2626' : 'inherit'}">${fmt(b.vm_pu, 4)}</td></tr>`;
         });
         html += `</table>`;
+        return html;
+    }
+
+    buildPqCompliance() {
+        const pq = assessPqEnvelopeCoverage(this.results.pq_envelope, this.wizardParams, this.results);
+        if (!pq) return '';
+        const ok = pq.compliant;
+        const fails = (pq.points || []).filter((p) => !p.q_covers);
+        const failTxt = fails.length
+            ? ` Shortfall at ${fails.map((p) => `U=${Number(p.u_pu).toFixed(2)} pu`).join(', ')}.`
+            : '';
+        const note = (pq.p_notes || []).length
+            ? ` POC |P| at 100% dispatch can differ from Pn because of losses (${pq.p_notes[0]}). Q is checked at delivered P.`
+            : '';
+        let html = `<p style="font-size:13px;font-weight:700;margin:0 0 8px;padding:8px 10px;border-radius:6px;` +
+            `border:1px solid ${ok ? '#bbf7d0' : '#fecaca'};background:${ok ? '#f0fdf4' : '#fef2f2'};` +
+            `color:${ok ? '#15803d' : '#b91c1c'};">` +
+            (ok
+                ? `COMPLIANT — plant Qmax/Qmin cover the grid-code |Q| rectangle (|Q|/Pn = ${fmt(pq.q_over_pn, 3)}, ±Pn = ±${fmt(pq.pn_mw, 2)} MW) at Umin / Unom / Umax.`
+                : `NON-COMPLIANT — plant Qmax/Qmin do not cover the grid-code |Q| rectangle (|Q|/Pn = ${fmt(pq.q_over_pn, 3)}) over −Pn…+Pn.${failTxt}`) +
+            `</p>`;
+        if (note) {
+            html += `<p style="font-size:12px;color:#64748b;margin:0 0 8px;">${escapeHtml(note)}</p>`;
+        }
+        if ((pq.points || []).length) {
+            html += `<table style="width:100%;border-collapse:collapse;margin:0 0 8px;font-size:12px;">`;
+            html += `<tr style="background:#f1f5f9;"><th style="text-align:left;padding:6px;">U [pu]</th>` +
+                `<th>P min / max [MW]</th><th>Q band</th></tr>`;
+            pq.points.forEach((p) => {
+                const status = p.q_covers
+                    ? '<span style="color:#16a34a;font-weight:600;">Pass</span>'
+                    : '<span style="color:#dc2626;font-weight:600;">Fail</span>';
+                html += `<tr style="border-bottom:1px solid #e2e8f0;">` +
+                    `<td style="padding:6px;">${fmt(p.u_pu, 4)}</td>` +
+                    `<td style="text-align:center">${fmt(p.p_min_mw, 2)} / ${fmt(p.p_max_mw, 2)}</td>` +
+                    `<td style="text-align:center">${status}</td></tr>`;
+            });
+            html += `</table>`;
+        }
         return html;
     }
 
@@ -873,6 +1136,10 @@ export class BessPreliminaryDesignResultsDialog {
 
     chartOptionsHtml(kind) {
         const p = this._chartPrefs;
+        const pu = !!p.pqPu;
+        const swap = !!p.pqGridCodeAxes;
+        const pLab = pu ? 'P / Pn' : 'P [MW]';
+        const qLab = pu ? 'Q / Pn' : 'Q [Mvar]';
         const inp = (key, placeholder = '') =>
             `<input data-chart-pref="${key}" value="${escapeHtml(p[key] ?? '')}" ` +
             `placeholder="${escapeHtml(placeholder)}" ` +
@@ -880,15 +1147,20 @@ export class BessPreliminaryDesignResultsDialog {
         const extra = kind === 'pq'
             ? `<label style="display:flex;align-items:center;gap:8px;grid-column:1/-1;">` +
               `<input type="checkbox" data-chart-pref="pqPu"${p.pqPu ? ' checked' : ''}> ` +
-              `Per-unit axes (P/Pn vs Q/Pn)</label>`
+              `Per-unit axes (P/Pn vs Q/Pn)</label>` +
+              `<label style="display:flex;align-items:center;gap:8px;grid-column:1/-1;">` +
+              `<input type="checkbox" data-chart-pref="pqGridCodeAxes"${p.pqGridCodeAxes ? ' checked' : ''}> ` +
+              `Grid-code axes (Q horizontal, P vertical)</label>`
             : '';
+        const xPh = kind === 'pq' ? (swap ? qLab : pLab) : (kind === 'uq' ? 'Q / Pn' : '');
+        const yPh = kind === 'pq' ? (swap ? pLab : qLab) : (kind === 'uq' ? 'U / Uc  [pu]' : '');
         return `<details style="margin:8px 0 10px;font-size:12px;color:#334155;">` +
             `<summary style="cursor:pointer;font-weight:600;">Chart options — title, axis labels, scaling</summary>` +
             `<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px;` +
             `padding:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;">` +
             `<label>Title<br>${inp(`${kind}Title`)}</label>` +
-            `<label>X axis<br>${inp(`${kind}XLabel`)}</label>` +
-            `<label>Y axis<br>${inp(`${kind}YLabel`)}</label>` +
+            `<label>X axis<br>${inp(`${kind}XLabel`, xPh)}</label>` +
+            `<label>Y axis<br>${inp(`${kind}YLabel`, yPh)}</label>` +
             `<span></span>` +
             `<label>X min<br>${inp(`${kind}XMin`, 'auto')}</label>` +
             `<label>X max<br>${inp(`${kind}XMax`, 'auto')}</label>` +
@@ -909,7 +1181,7 @@ export class BessPreliminaryDesignResultsDialog {
                 this.redrawCharts(body);
             });
         });
-        body.querySelectorAll('[data-chart-pref="pqPu"]').forEach((el) => {
+        body.querySelectorAll('[data-chart-pref="pqPu"], [data-chart-pref="pqGridCodeAxes"]').forEach((el) => {
             el.addEventListener('change', () => {
                 this.readChartPrefs(body);
                 this.redrawCharts(body);
@@ -933,14 +1205,21 @@ export class BessPreliminaryDesignResultsDialog {
         const hit = nearestHit(canvas._bessHits, ev.offsetX, ev.offsetY, 22);
         canvas.style.cursor = hit ? 'pointer' : 'crosshair';
         if (hit?.caseName) canvas.title = `Show ${hit.caseName} on the SLD`;
+        else if (hit?.kind === 'envelope') canvas.title = `${hit.label || 'Envelope point'} — click to show load-flow on the SLD`;
+        else if (hit?.label) canvas.title = hit.label;
         else canvas.removeAttribute('title');
     }
 
     handleChartClick(canvas, ev) {
         const hit = nearestHit(canvas._bessHits, ev.offsetX, ev.offsetY, 28);
-        if (!hit?.caseName) return;
+        if (!hit) return;
         ev.preventDefault();
         ev.stopPropagation();
+        if (hit.kind === 'envelope') {
+            this.paintEnvelopePoint(hit);
+            return;
+        }
+        if (!hit.caseName) return;
         const name = existingCaseName(this.results, hit.caseName);
         if (!name) return;
         this.paintSld(name);
@@ -1014,7 +1293,9 @@ export class BessPreliminaryDesignResultsDialog {
             ctx.lineTo(x, H - padB + 5);
             ctx.stroke();
             ctx.strokeStyle = '#e2e8f0';
-            ctx.textAlign = 'center';
+            const nearL = x - padL < 28;
+            const nearR = (W - padR) - x < 28;
+            ctx.textAlign = nearL ? 'left' : nearR ? 'right' : 'center';
             ctx.textBaseline = 'top';
             ctx.fillText((xFmt || fmtTick)(t), x, H - padB + 7);
         });
@@ -1024,6 +1305,8 @@ export class BessPreliminaryDesignResultsDialog {
             ctx.moveTo(padL, y);
             ctx.lineTo(W - padR, y);
             ctx.stroke();
+            if (Math.abs(y - (H - padB)) < 12) return;
+            if (Math.abs(y - padT) < 8) return;
             ctx.textAlign = 'right';
             ctx.textBaseline = 'middle';
             ctx.fillText((yFmt || fmtTick)(t), padL - 6, y);
@@ -1087,14 +1370,20 @@ export class BessPreliminaryDesignResultsDialog {
         const prefs = this._chartPrefs;
         const { ctx, W, H } = this.prepareCanvas(canvas, this.chartCssHeight('pq'));
         const padL = 64;
-        const padR = 118;
-        const padT = 36;
+        const padR = 132;
+        const padT = 44;
         const padB = 62;
         const { pn, qPn, qReq } = requirementPnQ(pq, this.wizardParams);
         const pf = Math.abs(Number(this.wizardParams?.powerFactor) || 0.95);
         const pu = !!prefs.pqPu;
+        const swap = !!prefs.pqGridCodeAxes;
         const denomP = pu && pn > 0 ? pn : 1;
         const denomQ = pu && pn > 0 ? pn : 1;
+        const pnX = pu ? 1 : pn;
+        const qY = pu ? qPn : qReq;
+
+        const toX = (p, q) => (swap ? q : p);
+        const toY = (p, q) => (swap ? p : q);
 
         const strokePoly = (pts, qKey, dash, xScale, yScale) => {
             ctx.save();
@@ -1104,8 +1393,10 @@ export class BessPreliminaryDesignResultsDialog {
             pts.forEach((p, j) => {
                 const q = qKey?.[j];
                 if (q == null) return;
-                const x = xScale(Number(p) / denomP);
-                const y = yScale(Number(q) / denomQ);
+                const pd = Number(p) / denomP;
+                const qd = Number(q) / denomQ;
+                const x = xScale(toX(pd, qd));
+                const y = yScale(toY(pd, qd));
                 if (!started) {
                     ctx.moveTo(x, y);
                     started = true;
@@ -1122,12 +1413,13 @@ export class BessPreliminaryDesignResultsDialog {
             (c.q_max_mvar || []).forEach((q) => { if (q != null) allQ.push(Number(q) / denomQ); });
             (c.q_min_mvar || []).forEach((q) => { if (q != null) allQ.push(Number(q) / denomQ); });
         });
-        const reqMap = pq?.requirements || {};
-        const req = Object.values(reqMap).find((r) => r && r.p_mw) || null;
-        if (req) {
-            (req.p_mw || []).forEach((p) => allP.push(Number(p) / denomP));
-            (req.q_req_max_mvar || []).forEach((q) => allQ.push(Number(q) / denomQ));
-            (req.q_req_min_mvar || []).forEach((q) => allQ.push(Number(q) / denomQ));
+        (this.results.named_cases || []).forEach((c) => {
+            if (c.p_poc_mw != null) allP.push(Number(c.p_poc_mw) / denomP);
+            if (c.q_poc_mvar != null) allQ.push(Number(c.q_poc_mvar) / denomQ);
+        });
+        if (pnX > 0) {
+            allP.push(pnX, -pnX);
+            allQ.push(qY, -qY);
         }
         if (!allP.length) {
             ctx.fillStyle = '#64748b';
@@ -1135,16 +1427,26 @@ export class BessPreliminaryDesignResultsDialog {
             ctx.fillText('P/Q envelope not available', padL, H / 2);
             return;
         }
-        let xMin = Math.min(...allP, 0);
-        let xMax = Math.max(...allP, 0);
-        let yMin = Math.min(...allQ, 0);
-        let yMax = Math.max(...allQ, 0);
-        const padX = Math.max((xMax - xMin) * 0.06, pu ? 0.05 : 1);
-        const padY = Math.max((yMax - yMin) * 0.08, pu ? 0.04 : 1);
-        xMin -= padX;
-        xMax += padX;
-        yMin -= padY;
-        yMax += padY;
+
+        const pAbs = Math.max(...allP.map((v) => Math.abs(v)), pnX || 0, 0);
+        const qAbs = Math.max(...allQ.map((v) => Math.abs(v)), qY || 0, 0);
+        const padP = Math.max(pAbs * 0.08, pu ? 0.05 : 1);
+        const padQ = Math.max(qAbs * 0.10, pu ? 0.04 : 1);
+        let xMin;
+        let xMax;
+        let yMin;
+        let yMax;
+        if (swap) {
+            xMin = -(qAbs + padQ);
+            xMax = qAbs + padQ;
+            yMin = -(pAbs + padP);
+            yMax = pAbs + padP;
+        } else {
+            xMin = -(pAbs + padP);
+            xMax = pAbs + padP;
+            yMin = -(qAbs + padQ);
+            yMax = qAbs + padQ;
+        }
         xMin = optNum(prefs.pqXMin) ?? xMin;
         xMax = optNum(prefs.pqXMax) ?? xMax;
         yMin = optNum(prefs.pqYMin) ?? yMin;
@@ -1152,38 +1454,51 @@ export class BessPreliminaryDesignResultsDialog {
         if (xMax <= xMin) xMax = xMin + 1;
         if (yMax <= yMin) yMax = yMin + 1;
 
-        const pnX = pu ? 1 : pn;
-        const qY = pu ? qPn : qReq;
-        const xTicks = mergeTicks(xMin, xMax, [xMin, -pnX, 0, pnX, xMax]);
-        const yTicks = mergeTicks(yMin, yMax, [yMin, -qY, 0, qY, yMax]);
-        const xLabel = prefs.pqXLabel || (pu ? 'P / Pn  (− import / + export)' : 'P [MW]  (− import / + export)');
-        const yLabel = prefs.pqYLabel || (pu ? 'Q / Pn  (− inductive / + capacitive)' : 'Q [Mvar]  (− inductive / + capacitive)');
+        const pTicks = [-pnX, 0, pnX].filter((t) => Number.isFinite(t));
+        const qTicks = [-qY, 0, qY].filter((t) => Number.isFinite(t));
+        const xTicks = mergeTicks(xMin, xMax, swap ? qTicks : pTicks, false);
+        const yTicks = mergeTicks(yMin, yMax, swap ? pTicks : qTicks, false);
+        const defaultX = swap
+            ? (pu ? 'Q / Pn' : 'Q [Mvar]')
+            : (pu ? 'P / Pn' : 'P [MW]');
+        const defaultY = swap
+            ? (pu ? 'P / Pn' : 'P [MW]')
+            : (pu ? 'Q / Pn' : 'Q [Mvar]');
+        const xLabel = prefs.pqXLabel || defaultX;
+        const yLabel = prefs.pqYLabel || defaultY;
         const { xScale, yScale } = this.drawChartFrame(ctx, {
             W, H, padL, padR, padT, padB, xMin, xMax, yMin, yMax, xTicks, yTicks,
-            xFmt: (v) => fmtTick(v, pu ? 2 : 1),
-            yFmt: (v) => fmtTick(v, pu ? 3 : 1),
+            xFmt: (v) => fmtTick(v, pu ? (swap ? 3 : 2) : 1),
+            yFmt: (v) => fmtTick(v, pu ? (swap ? 2 : 3) : 1),
             title: prefs.pqTitle,
             xLabel,
             yLabel,
         });
+        const pqComp = assessPqEnvelopeCoverage(pq, this.wizardParams, this.results);
+        if (pqComp) {
+            ctx.font = 'bold 12px Arial';
+            ctx.fillStyle = pqComp.compliant ? '#15803d' : '#b91c1c';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            ctx.fillText(pqComp.compliant ? 'COMPLIANT' : 'NON-COMPLIANT', padL, 24);
+        }
 
-        if (req && (req.p_mw || []).length) {
+        if (pn > 0 && qReq > 0) {
+            const corners = [
+                [-pnX, qY], [pnX, qY], [pnX, -qY], [-pnX, -qY],
+            ];
             ctx.save();
             ctx.fillStyle = 'rgba(148, 163, 184, 0.18)';
             ctx.strokeStyle = '#64748b';
             ctx.setLineDash([5, 4]);
             ctx.lineWidth = 1.5;
             ctx.beginPath();
-            const n = Math.min(req.p_mw.length, (req.q_req_max_mvar || []).length, (req.q_req_min_mvar || []).length);
-            for (let i = 0; i < n; i++) {
-                const x = xScale(Number(req.p_mw[i]) / denomP);
-                const y = yScale(Number(req.q_req_max_mvar[i]) / denomQ);
+            corners.forEach(([p, q], i) => {
+                const x = xScale(toX(p, q));
+                const y = yScale(toY(p, q));
                 if (i === 0) ctx.moveTo(x, y);
                 else ctx.lineTo(x, y);
-            }
-            for (let i = n - 1; i >= 0; i--) {
-                ctx.lineTo(xScale(Number(req.p_mw[i]) / denomP), yScale(Number(req.q_req_min_mvar[i]) / denomQ));
-            }
+            });
             ctx.closePath();
             ctx.fill();
             ctx.stroke();
@@ -1211,40 +1526,50 @@ export class BessPreliminaryDesignResultsDialog {
         const legendY = padT + 4 + Object.keys(curves).length * 16 + 10;
         ctx.fillText('Solid: Qmax (cap.)', W - padR + 8, legendY);
         ctx.fillText('Dashed: Qmin (ind.)', W - padR + 8, legendY + 13);
-        ctx.fillText('Grey band: grid-code |Q|', W - padR + 8, legendY + 26);
+        ctx.fillText('Grey box: |Q| at ±Pn', W - padR + 8, legendY + 26);
+        ctx.fillText('Square: PF corner × 3 U', W - padR + 8, legendY + 39);
+        ctx.fillText('Diamond: rated P, PF=1', W - padR + 8, legendY + 52);
 
         ctx.fillStyle = '#64748b';
         ctx.font = '10px Arial';
-        ctx.textAlign = 'center';
+        const pMidNeg = -Math.max(pnX, pAbs) * 0.5;
+        const pMidPos = Math.max(pnX, pAbs) * 0.5;
+        const qMidPos = Math.max(qY, qAbs) * 0.55;
+        const qMidNeg = -Math.max(qY, qAbs) * 0.55;
+        // Horizontal end-labels inside the plot so +Q stays at the top (rotated
+        // axis titles were reading −inductive at the top).
+        ctx.textAlign = 'left';
         ctx.textBaseline = 'top';
-        if (xMin < 0) ctx.fillText('Import', xScale(Math.min(0, xMin) * 0.5), H - padB + 22);
-        if (xMax > 0) ctx.fillText('Export', xScale(Math.max(0, xMax) * 0.5), H - padB + 22);
-        ctx.save();
-        ctx.fillStyle = '#64748b';
-        ctx.translate(padL - 38, yScale(Math.max(0, yMax) * 0.55));
-        ctx.rotate(-Math.PI / 2);
-        ctx.textAlign = 'center';
-        ctx.fillText('+ capacitive', 0, 0);
-        ctx.restore();
-        ctx.save();
-        ctx.fillStyle = '#64748b';
-        ctx.translate(padL - 38, yScale(Math.min(0, yMin) * 0.55));
-        ctx.rotate(-Math.PI / 2);
-        ctx.textAlign = 'center';
-        ctx.fillText('− inductive', 0, 0);
-        ctx.restore();
+        if (swap) {
+            ctx.fillText('Export (+P)', padL + 8, padT + 4);
+            ctx.textBaseline = 'bottom';
+            ctx.fillText('Import (−P)', padL + 8, H - padB - 4);
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText('Q import (−)', xScale(toX(0, qMidNeg)), H - padB + 22);
+            ctx.fillText('Q export (+)', xScale(toX(0, qMidPos)), H - padB + 22);
+        } else {
+            ctx.fillText('+ capacitive', padL + 8, padT + 4);
+            ctx.textBaseline = 'bottom';
+            ctx.fillText('− inductive', padL + 8, H - padB - 4);
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText('Import', xScale(toX(pMidNeg, 0)), H - padB + 22);
+            ctx.fillText('Export', xScale(toX(pMidPos, 0)), H - padB + 22);
+        }
 
-        const labelPt = (x, y, text, align = 'left') => {
+        const labelPt = (p, q, text, align = 'left') => {
             ctx.fillStyle = '#0f172a';
             ctx.font = '10px Arial';
             ctx.textAlign = align;
             ctx.textBaseline = 'bottom';
-            ctx.fillText(text, xScale(x) + (align === 'left' ? 4 : -4), yScale(y) - 3);
+            ctx.fillText(text, xScale(toX(p, q)) + (align === 'left' ? 4 : -4), yScale(toY(p, q)) - 3);
         };
         if (pnX > 0 && qY > 0) {
             labelPt(pnX, qY, `PF = ${pf.toFixed(2)}`);
-            labelPt(pnX, -qY, `PF = −${pf.toFixed(2)}`, 'left');
+            labelPt(pnX, -qY, `PF = −${pf.toFixed(2)}`);
             labelPt(-pnX, qY, `PF = ${pf.toFixed(2)}`, 'right');
+            labelPt(-pnX, -qY, `PF = −${pf.toFixed(2)}`, 'right');
             labelPt(pnX, 0, 'P/Pn = 1');
         }
         if (qY > 0) {
@@ -1252,8 +1577,8 @@ export class BessPreliminaryDesignResultsDialog {
             ctx.font = '10px Arial';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
-            ctx.fillText(`Q/Pn = ${qPn.toFixed(3)}`, xScale(Math.min(xMax, pnX || xMax)) + 6, yScale(qY));
-            ctx.fillText(`Q/Pn = −${qPn.toFixed(3)}`, xScale(Math.min(xMax, pnX || xMax)) + 6, yScale(-qY));
+            ctx.fillText(`Q/Pn = ${qPn.toFixed(3)}`, xScale(toX(pnX, qY)) + 6, yScale(toY(pnX, qY)));
+            ctx.fillText(`Q/Pn = −${qPn.toFixed(3)}`, xScale(toX(pnX, -qY)) + 6, yScale(toY(pnX, -qY)));
         }
 
         const hits = [];
@@ -1262,23 +1587,50 @@ export class BessPreliminaryDesignResultsDialog {
             const u = Number(vk);
             (curve.p_mw || []).forEach((rawP, j) => {
                 const p = Number(rawP);
-                const qmax = curve.q_max_mvar?.[j];
-                const qmin = curve.q_min_mvar?.[j];
-                const add = (q) => {
+                const add = (q, sideLabel, sideKey) => {
                     if (q == null || !Number.isFinite(Number(q))) return;
                     const qn = Number(q);
+                    const pd = p / denomP;
+                    const qd = qn / denomQ;
+                    const x = xScale(toX(pd, qd));
+                    const y = yScale(toY(pd, qd));
+                    ctx.beginPath();
+                    ctx.arc(x, y, 3.2, 0, Math.PI * 2);
+                    ctx.fillStyle = col;
+                    ctx.fill();
+                    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                    const pDisp = Number(curve.p_dispatch_mw?.[j]);
                     hits.push({
-                        x: xScale(p / denomP),
-                        y: yScale(qn / denomQ),
-                        caseName: existingCaseName(
-                            this.results,
-                            envelopePointCaseName(p, qn, u, this.wizardParams, this.results, qReq)
-                        ),
-                        color: col,
+                        x, y, color: col, kind: 'envelope',
+                        id: envelopePointId(u, sideKey, p),
+                        vKey: u,
+                        side: sideKey,
+                        pMw: p,
+                        pDisp: Number.isFinite(pDisp) ? pDisp : null,
+                        qMvar: qn,
+                        label: `Envelope ${sideLabel}  U=${u.toFixed(4)} pu  P=${fmt(p, 2)} MW  Q=${fmt(qn, 2)} Mvar`,
                     });
                 };
-                add(qmax);
-                add(qmin);
+                add(curve.q_max_mvar?.[j], 'Qmax', 'q_max');
+                add(curve.q_min_mvar?.[j], 'Qmin', 'q_min');
+            });
+        });
+
+        (this.results.named_cases || []).forEach((c) => {
+            if (c.p_poc_mw == null || c.q_poc_mvar == null) return;
+            const pd = Number(c.p_poc_mw) / denomP;
+            const qd = Number(c.q_poc_mvar) / denomQ;
+            if (!Number.isFinite(pd) || !Number.isFinite(qd)) return;
+            const off = voltageMarkerOffset(c.name);
+            hits.push({
+                x: xScale(toX(pd, qd)) + off.dx,
+                y: yScale(toY(pd, qd)) + off.dy,
+                caseName: c.name,
+                color: voltageColorForCase(c.name),
+                kind: namedCaseKind(c.name),
+                label: `${c.name}  P=${fmt(c.p_poc_mw, 3)} MW  Q=${fmt(c.q_poc_mvar, 3)} Mvar`,
             });
         });
         drawHitMarkers(ctx, hits, this._paintedCase);
