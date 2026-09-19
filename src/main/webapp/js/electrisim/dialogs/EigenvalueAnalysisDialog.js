@@ -4,6 +4,8 @@ import { Dialog } from '../Dialog.js';
 export class EigenvalueAnalysisDialog extends Dialog {
     constructor(editorUi) {
         super('Eigenvalue Analysis (ANDES EIG)', 'Run Analysis');
+        this.requiresSubscription = true;
+        this.subscriptionFeatureName = 'Eigenvalue Analysis (ANDES)';
         this.useStudyModalShell = true;
         this.studyModalBoxWidth = 640;
         this.ui = editorUi || window.App?.main?.editor?.editorUi;

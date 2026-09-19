@@ -408,7 +408,6 @@
             { src: 'js/electrisim/loadFlow.js', type: 'module', async: true },
             { src: 'js/electrisim/loadflowOpenDss.js', type: 'module', async: true },
             { src: 'js/electrisim/bessSizing.js', type: 'module', async: true },
-            { src: 'js/electrisim/rpcAnalysis.js', type: 'module', async: true },
             { src: 'js/electrisim/gridCodePqAnalysis.js', type: 'module', async: true },
             { src: 'js/electrisim/gridCodeVqAnalysis.js', type: 'module', async: true },
             { src: 'js/electrisim/optimalPowerFlow.js', type: 'module', async: true },
@@ -825,7 +824,7 @@
                                 // Loaded on demand by their menu actions in app.min.js, which
                                 // fall back to import() when the global is not defined yet:
                                 // arcFlash, motorStarting, transientStability, eigenvalueAnalysis,
-                                // protectionCoordination, bessSizing, bessPreliminaryDesign, rpcAnalysis, gridCodePqAnalysis, gridCodeVqAnalysis, dgInterconnection, bessDispatchReversal
+                                // protectionCoordination, bessSizing, bessPreliminaryDesign, gridCodePqAnalysis, gridCodeVqAnalysis, dgInterconnection, bessDispatchReversal
                             ];
 							
 							// Auth scripts (Stripe, etc.) - deferred until after Electrisim scripts for faster initial load

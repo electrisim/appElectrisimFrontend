@@ -45,6 +45,8 @@ function collectBusesAndLines(graph) {
 export class TransientStabilityDialog extends Dialog {
     constructor(editorUi) {
         super('Transient Stability (ANDES TDS)', 'Run Simulation');
+        this.requiresSubscription = true;
+        this.subscriptionFeatureName = 'Transient Stability (ANDES)';
         this.useStudyModalShell = true;
         this.studyModalBoxWidth = 720;
         this.ui = editorUi || window.App?.main?.editor?.editorUi;

@@ -5,6 +5,8 @@ import { getCurrencyOptionsForSelect } from '../utils/economicTabHelper.js';
 export class EconomicAnalysisDialog extends Dialog {
     constructor(editorUi) {
         super('Economic Analysis Parameters', 'Calculate');
+        this.requiresSubscription = true;
+        this.subscriptionFeatureName = 'Economic Analysis';
         this.ui = editorUi || window.App?.main?.editor?.editorUi;
         this.useModalFallback = true; // Avoid duplicate Cancel/Calculate buttons from DrawIO wrapper
         this.graph = this.ui?.editor?.graph;

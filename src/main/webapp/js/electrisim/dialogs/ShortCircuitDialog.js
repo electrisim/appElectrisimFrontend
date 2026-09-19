@@ -611,6 +611,7 @@ export class ShortCircuitDialog extends Dialog {
                 const hasSubscription = await this.checkSubscriptionStatus();
 
                 if (!hasSubscription) {
+                    this.closeDialog();
                     if (window.showSubscriptionModal) {
                         window.showSubscriptionModal();
                     } else {
