@@ -7,7 +7,7 @@ import {
     preventAccidentalFormSubmit,
 } from '../utils/dialogStyles.js';
 import { createDialogBracketGroup } from '../utils/dialogBracketGroup.js';
-import { buildOrUpdateBessPlant, computeSuggestedRatings, findBessPlantElements, resolvedCableMaxIKa, resolvedHvTrafoSnMva, resolvedPlantVk, resolvedStorageSnMva, resolvedStringTrafoSnMva, resolvedUnitPmaxMw } from '../bessPlantBuilder.js';
+import { buildOrUpdateBessPlant, computeSuggestedRatings, findBessPlantElements } from '../bessPlantBuilder.js';
 
 const WIZARD_STORE_KEY = 'electrisim.bessPreliminaryDesign.v1';
 const WIZARD_GRAPH_ATTR = 'bessPrelimWizard';
@@ -18,51 +18,44 @@ function qFromPPf(p, pf) {
     return pAbs * Math.tan(Math.acos(c));
 }
 
-/** Old wizard catalog — replaced by computeSuggestedRatings, not kept as user intent. */
-const CATALOG_RATINGS = {
-    storageSnMva: [15, 18, 22],
-    pMaxDischarge_MW: [12, 14, 15],
-    pMaxCharge_MW: [12, 14, 15],
-    batteryPmax_MW: [12, 14, 15],
-    hvTrafoSnMva: [60, 70, 75],
-    stringTrafoSnMva: [15, 18, 22],
-    cableMaxIKa: [0.5, 0.6],
-    hvVkPercent: [12, 10],
-    stringVkPercent: [8],
-};
+/** Equipment ratings auto-sized from the POC inputs until the user edits them. */
+const RATING_FIELDS = [
+    'storageSnMva', 'pMaxDischarge_MW', 'pMaxCharge_MW', 'batteryPmax_MW',
+    'hvTrafoSnMva', 'hvVkPercent', 'stringTrafoSnMva', 'stringVkPercent', 'cableMaxIKa',
+];
 
+/** Editing one of these re-sizes the rating fields the user has not typed into. */
 const RATING_DRIVERS = new Set([
     'pocP_MW', 'powerFactor', 'pocQ_Mvar', 'specifyQDirectly', 'numUnits',
     'stringTopology', 'pcsPerWinding', 'umin_pu', 'auxP_MW', 'mvVoltage_kV',
 ]);
 
-function isCatalogRating(id, raw) {
-    if (raw == null || raw === '') return true;
-    const n = Number(raw);
-    if (!Number.isFinite(n) || n <= 0) return true;
-    return (CATALOG_RATINGS[id] || []).some((d) => Math.abs(n - d) < 0.06);
-}
+const DRAFT_EDITED_KEY = '_userEditedRatings';
 
-function pickRating(saved, id, suggested) {
-    return isCatalogRating(id, saved?.[id]) ? suggested : saved[id];
-}
+/** Ratings where a value below the auto-sized one limits what the plant can deliver. */
+const CAPACITY_FIELDS = [
+    ['storageSnMva', 'PCS rating per unit', 'MVA'],
+    ['pMaxDischarge_MW', 'Max discharge per unit', 'MW'],
+    ['pMaxCharge_MW', 'Max charge per unit', 'MW'],
+    ['batteryPmax_MW', 'Battery DC Pmax per rack', 'MW'],
+    ['hvTrafoSnMva', 'POC transformer', 'MVA'],
+    ['stringTrafoSnMva', 'String transformer', 'MVA'],
+    ['cableMaxIKa', 'Cable thermal rating', 'kA'],
+];
 
-function pickStringTrafo(saved, suggested, topology) {
-    const raw = saved?.stringTrafoSnMva;
-    const n = Number(raw);
-    if (isCatalogRating('stringTrafoSnMva', raw)) return suggested;
-    if (topology === 'three_winding' && Number.isFinite(n) && n <= 22.05) return suggested;
-    if (topology !== 'three_winding' && Number.isFinite(n) && n >= 40) return suggested;
-    return raw;
-}
-
-function pickCable(saved, suggested, topology) {
-    const raw = saved?.cableMaxIKa;
-    const n = Number(raw);
-    if (isCatalogRating('cableMaxIKa', raw)) return suggested;
-    if (topology === 'three_winding' && Number.isFinite(n) && n <= 0.65) return suggested;
-    if (topology !== 'three_winding' && Number.isFinite(n) && n >= 0.8) return suggested;
-    return raw;
+/** computeSuggestedRatings covers MVA/MW/kA; vk is a fixed low-impedance default. */
+function suggestedRatingValues(suggested) {
+    return {
+        storageSnMva: suggested.storageSnMva,
+        pMaxDischarge_MW: suggested.storagePMaxMw,
+        pMaxCharge_MW: suggested.storagePMaxMw,
+        batteryPmax_MW: suggested.storagePMaxMw,
+        hvTrafoSnMva: suggested.hvTrafoSnMva,
+        hvVkPercent: 8,
+        stringTrafoSnMva: suggested.stringTrafoSnMva,
+        stringVkPercent: 6,
+        cableMaxIKa: suggested.cableMaxIKa,
+    };
 }
 
 function loadWizardDraft(graph) {
@@ -137,22 +130,50 @@ export class BessPreliminaryDesignDialog extends Dialog {
         return fallback;
     }
 
-    _writeSuggestedRatings(s) {
-        const set = (id, val) => {
+    _markEdited(id) {
+        if (!this._editedRatings) this._editedRatings = new Set();
+        if (RATING_FIELDS.includes(id)) this._editedRatings.add(id);
+    }
+
+    _isEdited(id) {
+        return !!this._editedRatings?.has(id);
+    }
+
+    /** Re-size only the rating fields the user has not typed into. */
+    _writeSuggestedRatings(suggested) {
+        const values = suggestedRatingValues(suggested);
+        RATING_FIELDS.forEach((id) => {
+            if (this._isEdited(id)) return;
             const inp = this.inputs.get(id);
-            if (inp) inp.value = String(val);
-        };
-        set('hvTrafoSnMva', s.hvTrafoSnMva);
-        set('stringTrafoSnMva', s.stringTrafoSnMva);
-        set('storageSnMva', s.storageSnMva);
-        set('pMaxDischarge_MW', s.storagePMaxMw);
-        set('pMaxCharge_MW', s.storagePMaxMw);
-        set('batteryPmax_MW', s.storagePMaxMw);
-        set('cableMaxIKa', s.cableMaxIKa);
-        const hvVk = this.inputs.get('hvVkPercent');
-        if (hvVk && isCatalogRating('hvVkPercent', hvVk.value)) hvVk.value = '8';
-        const stVk = this.inputs.get('stringVkPercent');
-        if (stVk && isCatalogRating('stringVkPercent', stVk.value)) stVk.value = '6';
+            if (inp) inp.value = String(values[id]);
+        });
+    }
+
+    /** Drop every typed rating and put the auto-sized set back in the fields. */
+    _resetRatingsToAuto() {
+        this._editedRatings = new Set();
+        this._writeSuggestedRatings(computeSuggestedRatings(this.parseNumericValues(this.getFormValues())));
+    }
+
+    /**
+     * Entered ratings are used as they stand, so a value below the auto-sized one
+     * caps the plant and the study reports it as non-compliant. Name those fields.
+     */
+    _undersizedRatings() {
+        const params = this.parseNumericValues(this.getFormValues());
+        const suggested = suggestedRatingValues(computeSuggestedRatings(params));
+        return CAPACITY_FIELDS
+            .filter(([id]) => {
+                const entered = Number(params[id]);
+                const target = Number(suggested[id]);
+                return entered > 0 && target > 0 && entered < target * 0.995;
+            })
+            .map(([id, label, unit]) => ({
+                label,
+                unit,
+                entered: Number(params[id]),
+                target: Number(suggested[id]),
+            }));
     }
 
     buildFieldList(saved) {
@@ -173,7 +194,9 @@ export class BessPreliminaryDesignDialog extends Dialog {
             auxP_MW: Number(v('auxP_MW', 0.5)) || 0,
             mvVoltage_kV: Number(v('mvVoltage_kV', 33)) || 33,
         });
-        const r = (id, sug) => pickRating(saved, id, sug);
+        const sugRatings = suggestedRatingValues(s);
+        // A rating the user typed in is kept; the rest follow the POC inputs.
+        const r = (id) => (this._isEdited(id) ? this._savedVal(saved, id, sugRatings[id]) : sugRatings[id]);
         return [
             this._section('POC / Grid'),
             this._field('pocP_MW', 'Active power at POC / Pn (MW)', v('pocP_MW', 50)),
@@ -193,18 +216,21 @@ export class BessPreliminaryDesignDialog extends Dialog {
             this._field('vmax_allow_pu', 'Plant voltage max (pu)', v('vmax_allow_pu', 1.10)),
             this._section('PCS / BESS'),
             this._field('numUnits', 'Number of PCS / Storage units', v('numUnits', 4), 'number', '1'),
-            this._field('storageSnMva', 'PCS rating per unit (MVA)', r('storageSnMva', s.storageSnMva)),
-            this._field('pMaxDischarge_MW', 'Max discharge per unit (MW)', r('pMaxDischarge_MW', s.storagePMaxMw)),
-            this._field('pMaxCharge_MW', 'Max charge per unit (MW)', r('pMaxCharge_MW', s.storagePMaxMw)),
-            this._field('batteryPmax_MW', 'Battery DC Pmax per rack (MW)', r('batteryPmax_MW', s.storagePMaxMw), 'number', 'any', {
+            this._field('storageSnMva', 'PCS rating per unit (MVA)', r('storageSnMva'), 'number', 'any', {
+                hint: 'Auto-sized from Pn, PF, and unit count until you type a value here; after that your rating is used as entered, '
+                    + 'including in later sessions. “Reset ratings to auto-size” hands every rating back to the auto-sizer.',
+            }),
+            this._field('pMaxDischarge_MW', 'Max discharge per unit (MW)', r('pMaxDischarge_MW')),
+            this._field('pMaxCharge_MW', 'Max charge per unit (MW)', r('pMaxCharge_MW')),
+            this._field('batteryPmax_MW', 'Battery DC Pmax per rack (MW)', r('batteryPmax_MW'), 'number', 'any', {
                 hint: 'Tighter of PCS Pmax and this value is applied as the Storage P limit and checked in the rating table. Generate SLD places a PCS inverter, DC bus, and battery rack per string. Those DC elements are shown on the diagram; the AC load-flow does not solve a coupled DC network.',
             }),
             this._field('lvVoltage_kV', 'LV / PCS voltage (kV)', v('lvVoltage_kV', 0.69)),
             this._field('useQCurve', 'Use PCS P–Q capability curve', v('useQCurve', false), 'checkbox'),
             this._section('HV/MV transformer (OLTC)'),
             this._field('mvVoltage_kV', 'MV collection voltage (kV)', v('mvVoltage_kV', 33)),
-            this._field('hvTrafoSnMva', 'POC transformer rating (MVA)', r('hvTrafoSnMva', s.hvTrafoSnMva)),
-            this._field('hvVkPercent', 'Short-circuit voltage vk (%)', r('hvVkPercent', 8)),
+            this._field('hvTrafoSnMva', 'POC transformer rating (MVA)', r('hvTrafoSnMva')),
+            this._field('hvVkPercent', 'Short-circuit voltage vk (%)', r('hvVkPercent')),
             this._field('tapMin', 'Tap min', v('tapMin', -5), 'number', '1'),
             this._field('tapMax', 'Tap max', v('tapMax', 5), 'number', '1'),
             this._field('tapStepPercent', 'Tap step (%)', v('tapStepPercent', 1.25)),
@@ -217,7 +243,7 @@ export class BessPreliminaryDesignDialog extends Dialog {
             this._field('cableLength_km', 'Cable length per string (km)', v('cableLength_km', 0.3)),
             this._field('cableR_ohmPerKm', 'R (ohm/km)', v('cableR_ohmPerKm', 0.08)),
             this._field('cableX_ohmPerKm', 'X (ohm/km)', v('cableX_ohmPerKm', 0.12)),
-            this._field('cableMaxIKa', 'Thermal rating (kA)', pickCable(saved, s.cableMaxIKa, topoDefault)),
+            this._field('cableMaxIKa', 'Thermal rating (kA)', r('cableMaxIKa')),
             this._section('MV/LV transformers'),
             this._field('stringTopology', 'String transformer type', v('stringTopology', topoDefault), 'select', null, {
                 options: [
@@ -232,8 +258,8 @@ export class BessPreliminaryDesignDialog extends Dialog {
                     { value: '4', label: '4 inverters per winding' },
                 ],
             }),
-            this._field('stringTrafoSnMva', 'String transformer rating (MVA)', pickStringTrafo(saved, s.stringTrafoSnMva, topoDefault)),
-            this._field('stringVkPercent', 'String vk (%)', r('stringVkPercent', 6)),
+            this._field('stringTrafoSnMva', 'String transformer rating (MVA)', r('stringTrafoSnMva')),
+            this._field('stringVkPercent', 'String vk (%)', r('stringVkPercent')),
             this._section('Auxiliary load'),
             this._field('auxP_MW', 'Auxiliary P (MW)', v('auxP_MW', 0.5)),
             this._field('auxQ_Mvar', 'Auxiliary Q (Mvar)', v('auxQ_Mvar', 0.1)),
@@ -275,11 +301,13 @@ export class BessPreliminaryDesignDialog extends Dialog {
             vmax_allow_pu: num('vmax_allow_pu', 1.1),
             frequency: num('frequency', 50),
             numUnits: int('numUnits', 4),
-            storageSnMva: num('storageSnMva', 22),
-            pMaxDischarge_MW: num('pMaxDischarge_MW', 15),
-            pMaxCharge_MW: num('pMaxCharge_MW', 15),
-            hvTrafoSnMva: num('hvTrafoSnMva', 75),
-            hvVkPercent: num('hvVkPercent', 8),
+            // Ratings left blank are filled from computeSuggestedRatings, not from
+            // a fixed catalog value that would only suit one plant size.
+            storageSnMva: num('storageSnMva', 0),
+            pMaxDischarge_MW: num('pMaxDischarge_MW', 0),
+            pMaxCharge_MW: num('pMaxCharge_MW', 0),
+            hvTrafoSnMva: num('hvTrafoSnMva', 0),
+            hvVkPercent: num('hvVkPercent', 0),
             tapMin: int('tapMin', -5),
             tapMax: int('tapMax', 5),
             tapStepPercent: num('tapStepPercent', 1.25),
@@ -288,12 +316,12 @@ export class BessPreliminaryDesignDialog extends Dialog {
             cableLength_km: num('cableLength_km', 0.3),
             cableR_ohmPerKm: num('cableR_ohmPerKm', 0.08),
             cableX_ohmPerKm: num('cableX_ohmPerKm', 0.12),
-            cableMaxIKa: num('cableMaxIKa', 0.6),
-            stringTrafoSnMva: num('stringTrafoSnMva', 22),
-            stringVkPercent: num('stringVkPercent', 6),
+            cableMaxIKa: num('cableMaxIKa', 0),
+            stringTrafoSnMva: num('stringTrafoSnMva', 0),
+            stringVkPercent: num('stringVkPercent', 0),
             auxP_MW: num('auxP_MW', 0.5),
             auxQ_Mvar: num('auxQ_Mvar', 0.1),
-            batteryPmax_MW: num('batteryPmax_MW', num('pMaxDischarge_MW', 15)),
+            batteryPmax_MW: num('batteryPmax_MW', num('pMaxDischarge_MW', 0)),
             stringTopology: raw.stringTopology === 'three_winding' ? 'three_winding' : 'two_winding',
             pcsPerWinding: int('pcsPerWinding', 2) === 4 ? 4 : 2,
             specifyQDirectly: raw.specifyQDirectly === true || raw.specifyQDirectly === 'true',
@@ -414,6 +442,8 @@ export class BessPreliminaryDesignDialog extends Dialog {
             if (field.step) input.step = field.step;
             this._styleNumberInput(input);
         }
+        input.addEventListener('input', () => this._markEdited(field.id));
+        input.addEventListener('change', () => this._markEdited(field.id));
         this.inputs.set(field.id, input);
         group.appendChild(label);
         group.appendChild(input);
@@ -432,6 +462,9 @@ export class BessPreliminaryDesignDialog extends Dialog {
         this.graph = this.graph || this.ui?.editor?.graph;
         this.inputs = new Map();
         const saved = loadWizardDraft(this.graph);
+        this._editedRatings = new Set(
+            Array.isArray(saved?.[DRAFT_EDITED_KEY]) ? saved[DRAFT_EDITED_KEY] : []
+        );
 
         const container = document.createElement('div');
         Object.assign(container.style, {
@@ -493,18 +526,39 @@ export class BessPreliminaryDesignDialog extends Dialog {
                 qInp.value = String(Math.round(qFromPPf(pInp.value, pfInp.value) * 1000) / 1000);
             }
         };
-        form.addEventListener('input', () => { syncQFromPf(); });
+        const ratingNote = document.createElement('div');
+        ratingNote.style.cssText = 'display:none;margin-top:10px;padding:8px 10px;border-radius:6px;'
+            + 'border:1px solid #fcd34d;background:#fffbeb;color:#92400e;font-size:12px;line-height:1.45;';
+        const refreshRatingNote = () => {
+            const low = this._undersizedRatings();
+            if (!low.length) {
+                ratingNote.style.display = 'none';
+                return;
+            }
+            const list = low
+                .map((r) => `${r.label} ${r.entered} < ${r.target} ${r.unit}`)
+                .join('; ');
+            ratingNote.innerHTML = `Ratings entered below the size this POC needs: <strong>${list}</strong>. `
+                + 'They are used exactly as entered, so the study will report the plant as non-compliant. '
+                + 'Use “Reset ratings to auto-size” to size them from Pn, PF, and the unit count.';
+            ratingNote.style.display = 'block';
+        };
+
+        form.addEventListener('input', () => { syncQFromPf(); refreshRatingNote(); });
         form.addEventListener('change', (e) => {
             syncQFromPf();
             const id = e.target && e.target.id;
             if (RATING_DRIVERS.has(id)) {
                 this._writeSuggestedRatings(computeSuggestedRatings(this.parseNumericValues(this.getFormValues())));
             }
+            refreshRatingNote();
         });
         syncQFromPf();
 
+        form.appendChild(ratingNote);
         contentArea.appendChild(form);
         container.appendChild(contentArea);
+        refreshRatingNote();
 
         const btnRow = document.createElement('div');
         Object.assign(btnRow.style, {
@@ -518,47 +572,43 @@ export class BessPreliminaryDesignDialog extends Dialog {
         });
 
         const cancelBtn = this.createButton('Cancel', '#6c757d', '#5a6268');
+        const autoBtn = this.createButton('Reset ratings to auto-size', '#f59e0b', '#d97706');
         const genBtn = this.createButton('Generate / Update SLD', '#10b981', '#059669');
         const runBtn = this.createButton('Run Study', '#007bff', '#0056b3');
 
         cancelBtn.onclick = (e) => { e.preventDefault(); this.closeDialog(); };
 
+        autoBtn.onclick = (e) => {
+            e.preventDefault();
+            this._resetRatingsToAuto();
+            refreshRatingNote();
+        };
+
+        // Ratings are taken from the form exactly as shown. Only a blank or
+        // non-positive field falls back to the suggested value.
         const preparePlantParams = () => {
             const params = this.parseNumericValues(this.getFormValues());
-            const s = computeSuggestedRatings(params);
-            params.stringTrafoSnMva = resolvedStringTrafoSnMva(params, s);
-            params.cableMaxIKa = resolvedCableMaxIKa(params, s);
-            params.hvTrafoSnMva = resolvedHvTrafoSnMva(params, s);
-            const sn = resolvedStorageSnMva(params, s);
-            params.storageSnMva = sn.storageSnMva;
-            const pmax = resolvedUnitPmaxMw(params, s);
-            params.pMaxDischarge_MW = pmax.pMaxDischarge_MW;
-            params.pMaxCharge_MW = pmax.pMaxCharge_MW;
-            params.batteryPmax_MW = pmax.batteryPmax_MW;
-            const vk = resolvedPlantVk(params);
-            params.hvVkPercent = vk.hvVkPercent;
-            params.stringVkPercent = vk.stringVkPercent;
-            const setInp = (id, val) => {
+            const suggested = suggestedRatingValues(computeSuggestedRatings(params));
+            RATING_FIELDS.forEach((id) => {
+                if (Number(params[id]) > 0) return;
+                params[id] = suggested[id];
                 const inp = this.inputs.get(id);
-                if (inp) inp.value = String(val);
-            };
-            setInp('stringTrafoSnMva', params.stringTrafoSnMva);
-            setInp('cableMaxIKa', params.cableMaxIKa);
-            setInp('hvTrafoSnMva', params.hvTrafoSnMva);
-            setInp('storageSnMva', params.storageSnMva);
-            setInp('pMaxDischarge_MW', params.pMaxDischarge_MW);
-            setInp('pMaxCharge_MW', params.pMaxCharge_MW);
-            setInp('batteryPmax_MW', params.batteryPmax_MW);
-            setInp('hvVkPercent', params.hvVkPercent);
-            setInp('stringVkPercent', params.stringVkPercent);
+                if (inp) inp.value = String(suggested[id]);
+            });
             return params;
         };
+
+        const draftValues = (params) => ({
+            ...this.getFormValues(),
+            ...params,
+            [DRAFT_EDITED_KEY]: [...(this._editedRatings || [])],
+        });
 
         genBtn.onclick = (e) => {
             e.preventDefault();
             try {
                 const params = preparePlantParams();
-                saveWizardDraft(this.graph, { ...this.getFormValues(), ...params });
+                saveWizardDraft(this.graph, draftValues(params));
                 const result = buildOrUpdateBessPlant(this.graph, params);
                 this.parkStudyModal(result.created
                     ? 'SLD created — back to BESS Preliminary Design'
@@ -596,9 +646,9 @@ export class BessPreliminaryDesignDialog extends Dialog {
                 // destroy() clears this.callback, so capture it before closing.
                 const onRun = this.callback;
                 const params = preparePlantParams();
-                saveWizardDraft(this.graph, { ...this.getFormValues(), ...params });
+                saveWizardDraft(this.graph, draftValues(params));
                 buildOrUpdateBessPlant(this.graph, params);
-                const values = { ...this.getFormValues(), ...params, action: 'run' };
+                const values = { ...draftValues(params), action: 'run' };
                 this.closeDialog();
                 if (typeof onRun === 'function') {
                     onRun(values);
@@ -616,6 +666,7 @@ export class BessPreliminaryDesignDialog extends Dialog {
         };
 
         btnRow.appendChild(cancelBtn);
+        btnRow.appendChild(autoBtn);
         btnRow.appendChild(genBtn);
         btnRow.appendChild(runBtn);
         container.appendChild(btnRow);

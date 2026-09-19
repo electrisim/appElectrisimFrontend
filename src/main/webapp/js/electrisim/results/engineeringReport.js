@@ -1491,7 +1491,7 @@
         if (uq && typeof uq.compliant === 'boolean') {
             yCursor += 7;
             doc.text(
-                `U–Q at rated P: ${uq.compliant ? 'COMPLIANT' : 'NON-COMPLIANT'}` +
+                `U–Q at full P: ${uq.compliant ? 'COMPLIANT' : 'NON-COMPLIANT'}` +
                 (uq.q_over_pn != null ? `  (|Q|/Pn = ${fmt(uq.q_over_pn, 3)})` : ''),
                 PAGE.margin, yCursor);
         }

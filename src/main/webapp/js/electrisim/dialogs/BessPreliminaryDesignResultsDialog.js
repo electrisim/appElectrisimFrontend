@@ -78,11 +78,34 @@ function exportRatedIndex(pts) {
     return best;
 }
 
+function importRatedIndex(pts) {
+    let best = 0;
+    (pts || []).forEach((p, i) => {
+        if (Number(p) < Number(pts[best])) best = i;
+    });
+    return best;
+}
+
 function qAtRatedP(curve) {
     const pts = (curve?.p_mw || []).map(Number);
     if (!pts.length) return null;
     const i = exportRatedIndex(pts);
     if (!(pts[i] > 1e-6)) return null;
+    const qmax = Number(curve.q_max_mvar?.[i]);
+    const qmin = Number(curve.q_min_mvar?.[i]);
+    return {
+        p_rated_mw: pts[i],
+        q_max_mvar: Number.isFinite(qmax) ? qmax : null,
+        q_min_mvar: Number.isFinite(qmin) ? qmin : null,
+    };
+}
+
+/** Same check at full charge (P = −Pn); a BESS must hold the Q band both ways. */
+function qAtRatedCharge(curve) {
+    const pts = (curve?.p_mw || []).map(Number);
+    if (!pts.length) return null;
+    const i = importRatedIndex(pts);
+    if (!(pts[i] < -1e-6)) return null;
     const qmax = Number(curve.q_max_mvar?.[i]);
     const qmin = Number(curve.q_min_mvar?.[i]);
     return {
@@ -144,12 +167,16 @@ function voltageColorForCase(name) {
     return '#334155';
 }
 
-/** Umin / Unom / Umax named cases share almost the same POC P/Q, so fan them out. */
-function voltageMarkerOffset(name) {
+/**
+ * Umin / Unom / Umax named cases land on almost the same POC P/Q. Draw them
+ * concentric at different sizes — moving a marker off its P/Q would misplace
+ * it against the ±Pn requirement lines.
+ */
+function voltageMarkerScale(name) {
     const n = String(name || '');
-    if (n.startsWith('Umin')) return { dx: -8, dy: 8 };
-    if (n.startsWith('Umax')) return { dx: 8, dy: -8 };
-    return { dx: 0, dy: 0 };
+    if (n.startsWith('Unom')) return 1.45;
+    if (n.startsWith('Umax')) return 1.9;
+    return 1;
 }
 
 function countEnvelopeNodes(pq) {
@@ -235,7 +262,7 @@ function defaultChartPrefs() {
         pqYMax: '',
         pqPu: false,
         pqGridCodeAxes: false,
-        uqTitle: 'U–Q at rated P',
+        uqTitle: 'U–Q at full P (±Pn)',
         uqXLabel: 'Q / Pn',
         uqYLabel: 'U / Uc  [pu]',
         uqXMin: '',
@@ -275,13 +302,28 @@ function existingCaseName(results, want) {
     return fuzzy?.name || null;
 }
 
+function markerRadius(hit) {
+    if (!hit) return 0;
+    if (hit.kind === 'rated') return 5.5 * (hit.scale || 1);
+    if (hit.kind === 'corner' || hit.kind === 'named') return 4.2 * (hit.scale || 1);
+    if (hit.kind === 'uq_charge') return 6.5;
+    if (hit.kind === 'uq_discharge') return 5;
+    return 3.2;
+}
+
+/**
+ * Concentric markers (same P/Q, three voltages) are picked by which ring the
+ * click is closest to, so the outer voltages stay reachable.
+ */
 function nearestHit(hits, x, y, maxDist) {
     let best = null;
-    let bestD = maxDist;
+    let bestScore = Infinity;
     (hits || []).forEach((h) => {
         const d = Math.hypot(h.x - x, h.y - y);
-        if (d < bestD) {
-            bestD = d;
+        if (d > maxDist) return;
+        const score = Math.abs(d - markerRadius(h));
+        if (score < bestScore) {
+            bestScore = score;
             best = h;
         }
     });
@@ -289,7 +331,9 @@ function nearestHit(hits, x, y, maxDist) {
 }
 
 function drawHitMarkers(ctx, hits, selectedName) {
-    (hits || []).forEach((h) => {
+    // Largest first so the smaller voltages stay visible on top.
+    const ordered = [...(hits || [])].sort((a, b) => markerRadius(b) - markerRadius(a));
+    ordered.forEach((h) => {
         const sel = (h.caseName && h.caseName === selectedName)
             || (h.id && h.id === selectedName);
         if (h.kind === 'envelope') {
@@ -306,7 +350,7 @@ function drawHitMarkers(ctx, hits, selectedName) {
         const col = h.color || '#334155';
         ctx.save();
         if (h.kind === 'rated') {
-            const s = sel ? 7 : 5.5;
+            const s = markerRadius(h) + (sel ? 1.5 : 0);
             ctx.beginPath();
             ctx.moveTo(h.x, h.y - s);
             ctx.lineTo(h.x + s, h.y);
@@ -319,13 +363,31 @@ function drawHitMarkers(ctx, hits, selectedName) {
             ctx.lineWidth = sel ? 2.5 : 1.75;
             ctx.stroke();
         } else if (h.kind === 'corner' || h.kind === 'named') {
-            const s = sel ? 5.5 : 4.2;
+            const s = markerRadius(h) + (sel ? 1.3 : 0);
             ctx.beginPath();
             ctx.rect(h.x - s, h.y - s, s * 2, s * 2);
             ctx.fillStyle = col;
             ctx.fill();
             ctx.strokeStyle = sel ? '#1d4ed8' : 'rgba(15,23,42,0.85)';
             ctx.lineWidth = sel ? 2.5 : 1.25;
+            ctx.stroke();
+        } else if (h.kind === 'uq_charge') {
+            const r = markerRadius(h) + (sel ? 1.2 : 0);
+            ctx.beginPath();
+            ctx.arc(h.x, h.y, r, 0, Math.PI * 2);
+            ctx.fillStyle = '#fff';
+            ctx.fill();
+            ctx.strokeStyle = sel ? '#1d4ed8' : (h.failed ? '#dc2626' : col);
+            ctx.lineWidth = sel ? 3 : 2.75;
+            ctx.stroke();
+        } else if (h.kind === 'uq_discharge') {
+            const r = markerRadius(h) + (sel ? 1.2 : 0);
+            ctx.beginPath();
+            ctx.arc(h.x, h.y, r, 0, Math.PI * 2);
+            ctx.fillStyle = col;
+            ctx.fill();
+            ctx.strokeStyle = sel ? '#1d4ed8' : (h.failed ? '#dc2626' : 'rgba(15,23,42,0.55)');
+            ctx.lineWidth = sel ? 2.5 : (h.failed ? 2 : 1);
             ctx.stroke();
         } else {
             ctx.beginPath();
@@ -356,11 +418,18 @@ function assessUqAtRatedP(pq, wizardParams, results) {
         if (!Number.isFinite(u) || !curve) return;
         const inBand = u >= uInnerMin - 1e-4 && u <= uInnerMax + 1e-4;
         const rated = qAtRatedP(curve) || {};
-        const qmaxPu = rated.q_max_mvar != null ? rated.q_max_mvar / pn : null;
-        const qminPu = rated.q_min_mvar != null ? rated.q_min_mvar / pn : null;
-        const covers = qmaxPu != null && qminPu != null
+        const charge = qAtRatedCharge(curve) || {};
+        const pu = (q) => (q != null ? q / pn : null);
+        const coversBand = (qmaxPu, qminPu) => qmaxPu != null && qminPu != null
             && qmaxPu + tolPu >= qPn
             && qminPu - tolPu <= -qPn;
+        const qmaxPu = pu(rated.q_max_mvar);
+        const qminPu = pu(rated.q_min_mvar);
+        const qmaxChgPu = pu(charge.q_max_mvar);
+        const qminChgPu = pu(charge.q_min_mvar);
+        const covers = coversBand(qmaxPu, qminPu);
+        const hasCharge = qmaxChgPu != null && qminChgPu != null;
+        const coversCharge = hasCharge ? coversBand(qmaxChgPu, qminChgPu) : null;
         points.push({
             u_pu: u,
             in_inner_band: inBand,
@@ -370,13 +439,24 @@ function assessUqAtRatedP(pq, wizardParams, results) {
             q_max_over_pn: qmaxPu,
             q_min_over_pn: qminPu,
             covers,
+            p_charge_mw: charge.p_rated_mw,
+            q_max_charge_mvar: charge.q_max_mvar,
+            q_min_charge_mvar: charge.q_min_mvar,
+            q_max_charge_over_pn: qmaxChgPu,
+            q_min_charge_over_pn: qminChgPu,
+            covers_charge: coversCharge,
         });
     });
     const inBand = points.filter((p) => p.in_inner_band);
     if (!inBand.length) return null;
     points.sort((a, b) => a.u_pu - b.u_pu);
+    const chargePoints = inBand.filter((p) => p.covers_charge != null);
     return {
-        compliant: inBand.every((p) => p.covers),
+        // Full active power both ways: rated discharge and rated charge.
+        compliant: inBand.every((p) => p.covers) && chargePoints.every((p) => p.covers_charge),
+        compliant_discharge: inBand.every((p) => p.covers),
+        compliant_charge: chargePoints.length ? chargePoints.every((p) => p.covers_charge) : null,
+        has_charge: chargePoints.length > 0,
         q_req_mvar: qPn * pn,
         q_over_pn: qPn,
         pn_mw: pn,
@@ -691,7 +771,7 @@ export class BessPreliminaryDesignResultsDialog {
     openChartLightbox(kind) {
         if (!this._overlay || (kind !== 'pq' && kind !== 'uq')) return;
         this.closeChartLightbox();
-        const title = kind === 'pq' ? 'P/Q capability envelope at POC' : 'U–Q at rated P';
+        const title = kind === 'pq' ? 'P/Q capability envelope at POC' : 'U–Q at full P (±Pn)';
         const box = document.createElement('div');
         box.style.cssText =
             'position:absolute;inset:0;z-index:5;background:#fff;display:flex;flex-direction:column;';
@@ -837,7 +917,7 @@ export class BessPreliminaryDesignResultsDialog {
         }
         const uqKpi = assessUqAtRatedP(r.pq_envelope, this.wizardParams, r);
         if (uqKpi) {
-            html += this.kpi('U–Q at rated P',
+            html += this.kpi('U–Q at full P',
                 uqKpi.compliant ? 'Compliant' : 'Non-compliant',
                 uqKpi.compliant ? '#16a34a' : '#dc2626');
         }
@@ -857,7 +937,7 @@ export class BessPreliminaryDesignResultsDialog {
         html += `<p style="font-size:11px;color:#64748b;margin:0 0 8px;">SLD result boxes show the selected load-flow case (default <b>Unom_Export_Capacitive</b>, POC P/Q export-positive). Click a case row to paint that load-flow on the diagram. Click a limiter or bus name to select that element.</p>`;
         html += `<h3>Named load-flow cases</h3>`;
         const band = plantVoltageBand(this.wizardParams, r);
-        html += `<p style="font-size:12px;color:#64748b;margin:4px 0 8px;">18 screening load-flows, separate from the P/Q envelope sweep: 12 requested POC corners (export/import × capacitive/inductive at Pn and the entered PF) plus 6 Rated Discharge/Charge at unity PF (PCS Q = 0; POC Q is leftover plant vars). |P| at the POC is capped at the Pn you entered (charge is scaled so auxiliaries and losses do not import more than Pn). Rated Discharge therefore often shows |P| slightly below Pn because of losses; Rated Charge is held at −Pn. OLTC tap is the position after that case’s load-flow. Named-case voltage pass/fail uses the plant allowance <b>${band.vmin.toFixed(2)}–${band.vmax.toFixed(2)} pu</b> (wizard plant voltage min/max), not the POC Umin/Umax study voltages.</p>`;
+        html += `<p style="font-size:12px;color:#64748b;margin:4px 0 8px;">18 screening load-flows, separate from the P/Q envelope sweep: 12 requested POC corners (export/import × capacitive/inductive at Pn and the entered PF) plus 6 Rated Discharge/Charge at unity PF (PCS Q = 0; POC Q is leftover plant vars). |P| at the POC is capped at the Pn you entered (charge is scaled so auxiliaries and losses do not import more than Pn). Rated Discharge therefore often shows |P| slightly below Pn because of losses; Rated Charge is held at −Pn. OLTC tap is the position after that case’s load-flow. <b>Pass/Fail is thermal and voltage limits only</b> — it does not mean the case reached Pn, so a Rated Discharge at 22.9 MW against a 23.5 MW Pn still passes if nothing is overloaded. Delivery of the requested POC P/Q is the separate <b>POC target met</b> KPI, which covers the 12 target cases. Named-case voltage pass/fail uses the plant allowance <b>${band.vmin.toFixed(2)}–${band.vmax.toFixed(2)} pu</b> (wizard plant voltage min/max), not the POC Umin/Umax study voltages.</p>`;
         html += `<table style="width:100%;border-collapse:collapse;margin-bottom:16px;font-size:12px;">`;
         html += `<tr style="background:#f1f5f9;"><th style="text-align:left;padding:6px;">Case</th><th>P POC</th><th>Q POC</th><th>Losses</th><th>Tap</th><th>Status</th><th>Limiting element</th></tr>`;
         (r.named_cases || []).forEach((c) => {
@@ -907,7 +987,7 @@ export class BessPreliminaryDesignResultsDialog {
             html += this.chartOptionsHtml('pq');
             html += `<div data-chart-wrap="pq" style="width:100%;"><canvas id="bess-prelim-pq-canvas" width="900" height="420" style="display:block;width:100%;height:420px;border:1px solid #e2e8f0;border-radius:6px;background:#fafafa;"></canvas></div>`;
             html += `<p style="font-size:12px;color:#334155;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px;margin:8px 0 0;">The larger gap between the three voltage traces on the <b>inductive</b> (dashed) side is from the load-flow, not from axis scaling. Absorbing Q lowers plant voltages, so available Qmin changes more with the POC voltage setpoint. Injecting Q (capacitive) raises voltages toward the OLTC / voltage limits, so the three Qmax curves stay closer together.</p>`;
-            html += this.chartHeadingHtml('U–Q at rated P', 'uq', true);
+            html += this.chartHeadingHtml('U–Q at full P (±Pn)', 'uq', true);
             html += this.buildUqCompliance();
             html += this.chartOptionsHtml('uq');
             html += `<div data-chart-wrap="uq" style="width:100%;"><canvas id="bess-prelim-uq-canvas" width="880" height="400" style="display:block;width:100%;height:400px;border:1px solid #e2e8f0;border-radius:6px;background:#fafafa;"></canvas></div>`;
@@ -1044,40 +1124,50 @@ export class BessPreliminaryDesignResultsDialog {
         const umax = uq?.u_inner_max ?? (Number(this.wizardParams?.umax_pu) || 1.05);
         const outer = plantVoltageBand(this.wizardParams, this.results);
         let html = `<p style="font-size:12px;color:#64748b;margin:4px 0 8px;">` +
-            `Inner band ${umin.toFixed(2)}–${umax.toFixed(2)} pu is the required operating area at rated export (P = +Pn). ` +
-            `Hatched ${outer.vmin.toFixed(2)}–${outer.vmax.toFixed(2)} pu is the reduced-P / plant voltage-allowance region. Markers are plant Qmax / Qmin at +Pn. ` +
-            `Compliant when those points cover the required |Q|/Pn from the grid-code power factor. ` +
-            `<b>Click a marker</b> to show the rated-export capacitive or inductive load-flow at that voltage on the SLD.` +
+            `Inner band ${umin.toFixed(2)}–${umax.toFixed(2)} pu is the required operating area at <b>full active power</b>. ` +
+            `Filled markers are plant Qmax / Qmin at rated discharge (P = +Pn); hollow markers are the same at rated charge (P = −Pn). ` +
+            `Hatched ${outer.vmin.toFixed(2)}–${outer.vmax.toFixed(2)} pu is the reduced-P / plant voltage-allowance region. ` +
+            `Compliant when both dispatch directions cover the required |Q|/Pn from the grid-code power factor. ` +
+            `<b>Click a marker</b> to show that capacitive or inductive load-flow at that voltage on the SLD.` +
             `</p>`;
         if (!uq) return html;
         const ok = uq.compliant;
+        const uTxt = (pts) => pts.map((p) => `U=${Number(p.u_pu).toFixed(2)} pu`).join(', ');
         const fails = (uq.points || []).filter((p) => p.in_inner_band && !p.covers);
-        const failTxt = fails.length
-            ? ` Shortfall at ${fails.map((p) => `U=${Number(p.u_pu).toFixed(2)} pu`).join(', ')}.`
-            : '';
+        const chargeFails = (uq.points || []).filter((p) => p.in_inner_band && p.covers_charge === false);
+        let failTxt = fails.length ? ` Discharge shortfall at ${uTxt(fails)}.` : '';
+        if (chargeFails.length) failTxt += ` Charge shortfall at ${uTxt(chargeFails)}.`;
         html += `<p style="font-size:13px;font-weight:700;margin:0 0 8px;padding:8px 10px;border-radius:6px;` +
             `border:1px solid ${ok ? '#bbf7d0' : '#fecaca'};background:${ok ? '#f0fdf4' : '#fef2f2'};` +
             `color:${ok ? '#15803d' : '#b91c1c'};">` +
             (ok
-                ? `COMPLIANT — plant Q at rated export covers the required |Q|/Pn = ${fmt(uq.q_over_pn, 3)} from ${umin.toFixed(2)} to ${umax.toFixed(2)} pu.`
-                : `NON-COMPLIANT — plant Q at rated export does not cover the required |Q|/Pn = ${fmt(uq.q_over_pn, 3)} over ${umin.toFixed(2)}–${umax.toFixed(2)} pu.${failTxt}`) +
+                ? `COMPLIANT — plant Q at full discharge and full charge covers the required |Q|/Pn = ${fmt(uq.q_over_pn, 3)} from ${umin.toFixed(2)} to ${umax.toFixed(2)} pu.`
+                : `NON-COMPLIANT — plant Q at full active power does not cover the required |Q|/Pn = ${fmt(uq.q_over_pn, 3)} over ${umin.toFixed(2)}–${umax.toFixed(2)} pu.${failTxt}`) +
             `</p>`;
         if ((uq.points || []).length) {
+            const cell = (v) => `<td style="text-align:center">${fmt(v, 3)}</td>`;
+            const verdict = (inBand, covers) => {
+                if (!inBand) return '<span style="color:#64748b">n/a (reduced P)</span>';
+                if (covers == null) return '<span style="color:#64748b">—</span>';
+                return covers
+                    ? '<span style="color:#16a34a;font-weight:600;">Pass</span>'
+                    : '<span style="color:#dc2626;font-weight:600;">Fail</span>';
+            };
             html += `<table style="width:100%;border-collapse:collapse;margin:0 0 8px;font-size:12px;">`;
-            html += `<tr style="background:#f1f5f9;"><th style="text-align:left;padding:6px;">U [pu]</th>` +
-                `<th>Required band</th><th>Qmax / Pn</th><th>Qmin / Pn</th><th>Result</th></tr>`;
+            html += `<tr style="background:#f1f5f9;"><th style="text-align:left;padding:6px;" rowspan="2">U [pu]</th>` +
+                `<th rowspan="2">Required band</th>` +
+                `<th colspan="3">Rated discharge (P = +Pn)</th>` +
+                `<th colspan="3">Rated charge (P = −Pn)</th></tr>`;
+            html += `<tr style="background:#f1f5f9;"><th>Qmax / Pn</th><th>Qmin / Pn</th><th>Result</th>` +
+                `<th>Qmax / Pn</th><th>Qmin / Pn</th><th>Result</th></tr>`;
             uq.points.forEach((p) => {
-                const status = !p.in_inner_band
-                    ? '<span style="color:#64748b">n/a (reduced P)</span>'
-                    : p.covers
-                        ? '<span style="color:#16a34a;font-weight:600;">Pass</span>'
-                        : '<span style="color:#dc2626;font-weight:600;">Fail</span>';
                 html += `<tr style="border-bottom:1px solid #e2e8f0;">` +
                     `<td style="padding:6px;">${fmt(p.u_pu, 4)}</td>` +
                     `<td style="text-align:center">${p.in_inner_band ? 'Yes' : 'No'}</td>` +
-                    `<td style="text-align:center">${fmt(p.q_max_over_pn, 3)}</td>` +
-                    `<td style="text-align:center">${fmt(p.q_min_over_pn, 3)}</td>` +
-                    `<td style="text-align:center">${status}</td></tr>`;
+                    cell(p.q_max_over_pn) + cell(p.q_min_over_pn) +
+                    `<td style="text-align:center">${verdict(p.in_inner_band, p.covers)}</td>` +
+                    cell(p.q_max_charge_over_pn) + cell(p.q_min_charge_over_pn) +
+                    `<td style="text-align:center">${verdict(p.in_inner_band, p.covers_charge)}</td></tr>`;
             });
             html += `</table>`;
         }
@@ -1623,13 +1713,13 @@ export class BessPreliminaryDesignResultsDialog {
             const pd = Number(c.p_poc_mw) / denomP;
             const qd = Number(c.q_poc_mvar) / denomQ;
             if (!Number.isFinite(pd) || !Number.isFinite(qd)) return;
-            const off = voltageMarkerOffset(c.name);
             hits.push({
-                x: xScale(toX(pd, qd)) + off.dx,
-                y: yScale(toY(pd, qd)) + off.dy,
+                x: xScale(toX(pd, qd)),
+                y: yScale(toY(pd, qd)),
                 caseName: c.name,
                 color: voltageColorForCase(c.name),
                 kind: namedCaseKind(c.name),
+                scale: voltageMarkerScale(c.name),
                 label: `${c.name}  P=${fmt(c.p_poc_mw, 3)} MW  Q=${fmt(c.q_poc_mvar, 3)} Mvar`,
             });
         });
@@ -1661,17 +1751,19 @@ export class BessPreliminaryDesignResultsDialog {
         const failU = new Set(
             (uq?.points || []).filter((p) => p.in_inner_band && !p.covers).map((p) => Number(p.u_pu).toFixed(4))
         );
+        const failChargeU = new Set(
+            (uq?.points || [])
+                .filter((p) => p.in_inner_band && p.covers_charge === false)
+                .map((p) => Number(p.u_pu).toFixed(4))
+        );
         const qDenom = gridPn > 0 ? gridPn : 1e-9;
         const markerQ = [];
         Object.values(curves).forEach((curve) => {
-            const pts = curve.p_mw || [];
-            if (!pts.length) return;
-            const best = exportRatedIndex(pts);
-            if (!(Number(pts[best]) > 0)) return;
-            const qmax = Number(curve.q_max_mvar?.[best]);
-            const qmin = Number(curve.q_min_mvar?.[best]);
-            if (Number.isFinite(qmax)) markerQ.push(qmax / qDenom);
-            if (Number.isFinite(qmin)) markerQ.push(qmin / qDenom);
+            [qAtRatedP(curve), qAtRatedCharge(curve)].forEach((r) => {
+                if (!r) return;
+                if (r.q_max_mvar != null) markerQ.push(r.q_max_mvar / qDenom);
+                if (r.q_min_mvar != null) markerQ.push(r.q_min_mvar / qDenom);
+            });
         });
         const qSpan = Math.max(0.45, qPn * 1.25, ...markerQ.map((q) => Math.abs(q)), 0);
         let xMin = optNum(prefs.uqXMin) ?? -qSpan;
@@ -1722,42 +1814,59 @@ export class BessPreliminaryDesignResultsDialog {
         const colors = ['#2563eb', '#16a34a', '#dc2626'];
         const hits = [];
         Object.entries(curves).forEach(([vk, curve], i) => {
-            const pts = curve.p_mw || [];
-            if (!pts.length) return;
-            const best = exportRatedIndex(pts);
-            if (!(Number(pts[best]) > 0)) return;
             const u = Number(vk);
-            const qmax = Number(curve.q_max_mvar?.[best]);
-            const qmin = Number(curve.q_min_mvar?.[best]);
-            const failed = failU.has(u.toFixed(4));
             const col = colors[i % colors.length];
             const uLabel = voltageBandLabel(u, this.wizardParams, this.results);
-            ctx.fillStyle = col;
-            const dot = (q, caseName) => {
-                const x = xScale(q / qDenom);
-                const y = yScale(u);
-                ctx.beginPath();
-                ctx.arc(x, y, 5, 0, Math.PI * 2);
-                ctx.fill();
-                if (failed) {
-                    ctx.strokeStyle = '#dc2626';
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
-                }
-                hits.push({ x, y, caseName, color: col });
+            // Filled = rated discharge (P = +Pn); open ring = rated charge (P = −Pn).
+            // Hits are drawn only in drawHitMarkers so the hollow ring is not painted over.
+            const add = (q, caseName, charge) => {
+                if (q == null || !Number.isFinite(Number(q))) return;
+                hits.push({
+                    x: xScale(Number(q) / qDenom),
+                    y: yScale(u),
+                    caseName,
+                    color: col,
+                    kind: charge ? 'uq_charge' : 'uq_discharge',
+                    failed: (charge ? failChargeU : failU).has(u.toFixed(4)),
+                });
             };
-            if (Number.isFinite(qmax)) {
-                dot(qmax, existingCaseName(this.results, `${uLabel}_Export_Capacitive`));
+            const rated = qAtRatedP(curve);
+            if (rated) {
+                add(rated.q_max_mvar, existingCaseName(this.results, `${uLabel}_Export_Capacitive`), false);
+                add(rated.q_min_mvar, existingCaseName(this.results, `${uLabel}_Export_Inductive`), false);
             }
-            if (Number.isFinite(qmin)) {
-                dot(qmin, existingCaseName(this.results, `${uLabel}_Export_Inductive`));
+            const charge = qAtRatedCharge(curve);
+            if (charge) {
+                add(charge.q_max_mvar, existingCaseName(this.results, `${uLabel}_Import_Capacitive`), true);
+                add(charge.q_min_mvar, existingCaseName(this.results, `${uLabel}_Import_Inductive`), true);
             }
+            ctx.fillStyle = col;
             ctx.font = '11px Arial';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'top';
             ctx.fillText(`U=${Number(vk).toFixed(4)}`, W - padR + 8, padT + 4 + i * 16);
         });
         drawHitMarkers(ctx, hits, this._paintedCase);
+        const uqLegendY = padT + 4 + Object.keys(curves).length * 16 + 10;
+        const lx = W - padR + 14;
+        ctx.beginPath();
+        ctx.arc(lx, uqLegendY + 5, 5, 0, Math.PI * 2);
+        ctx.fillStyle = '#334155';
+        ctx.fill();
+        ctx.fillStyle = '#475569';
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Filled: rated discharge', lx + 10, uqLegendY + 5);
+        ctx.beginPath();
+        ctx.arc(lx, uqLegendY + 20, 6.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 2.75;
+        ctx.stroke();
+        ctx.fillStyle = '#475569';
+        ctx.fillText('Open: rated charge', lx + 10, uqLegendY + 20);
 
         ctx.fillStyle = '#0f172a';
         ctx.font = '10px Arial';
@@ -1769,7 +1878,7 @@ export class BessPreliminaryDesignResultsDialog {
         ctx.textBaseline = 'top';
         ctx.fillText('Q export', xScale(Math.max(qPn * 0.55, xMax * 0.35)), H - padB + 22);
         ctx.fillText('Q import', xScale(Math.min(-qPn * 0.55, xMin * 0.35)), H - padB + 22);
-        ctx.fillText(`|Q|/Pn = ${qPn.toFixed(3)}  ·  required ${umin.toFixed(2)}–${umax.toFixed(2)} pu at rated export`,
+        ctx.fillText(`|Q|/Pn = ${qPn.toFixed(3)}  ·  required ${umin.toFixed(2)}–${umax.toFixed(2)} pu at full P (discharge and charge)`,
             padL + (W - padL - padR) / 2, padT - 2);
         canvas._bessHits = hits;
         this.bindChartHitCanvas(canvas);
