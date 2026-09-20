@@ -156,13 +156,15 @@ export class BessPreliminaryDesignDialog extends Dialog {
     }
 
     /**
-     * Entered ratings are used as they stand, so a value below the auto-sized one
-     * caps the plant and the study reports it as non-compliant. Name those fields.
+     * Auto-sizing carries margin for losses and Umin, so a rating a little under
+     * the suggested value usually still complies. Report how far under each one
+     * is, and flag a PCS whose MVA cannot carry its own Pmax — that one is not a
+     * margin question but an impossible nameplate.
      */
     _undersizedRatings() {
         const params = this.parseNumericValues(this.getFormValues());
         const suggested = suggestedRatingValues(computeSuggestedRatings(params));
-        return CAPACITY_FIELDS
+        const low = CAPACITY_FIELDS
             .filter(([id]) => {
                 const entered = Number(params[id]);
                 const target = Number(suggested[id]);
@@ -173,7 +175,12 @@ export class BessPreliminaryDesignDialog extends Dialog {
                 unit,
                 entered: Number(params[id]),
                 target: Number(suggested[id]),
+                shortfallPct: (1 - Number(params[id]) / Number(suggested[id])) * 100,
             }));
+        const sn = Number(params.storageSnMva);
+        const pUnit = Math.max(Number(params.pMaxDischarge_MW) || 0, Number(params.pMaxCharge_MW) || 0);
+        const snBelowP = sn > 0 && pUnit > sn * 1.001;
+        return { low, snBelowP, sn, pUnit };
     }
 
     buildFieldList(saved) {
@@ -530,17 +537,26 @@ export class BessPreliminaryDesignDialog extends Dialog {
         ratingNote.style.cssText = 'display:none;margin-top:10px;padding:8px 10px;border-radius:6px;'
             + 'border:1px solid #fcd34d;background:#fffbeb;color:#92400e;font-size:12px;line-height:1.45;';
         const refreshRatingNote = () => {
-            const low = this._undersizedRatings();
-            if (!low.length) {
+            const { low, snBelowP, sn, pUnit } = this._undersizedRatings();
+            if (!low.length && !snBelowP) {
                 ratingNote.style.display = 'none';
                 return;
             }
-            const list = low
-                .map((r) => `${r.label} ${r.entered} < ${r.target} ${r.unit}`)
-                .join('; ');
-            ratingNote.innerHTML = `Ratings entered below the size this POC needs: <strong>${list}</strong>. `
-                + 'They are used exactly as entered, so the study will report the plant as non-compliant. '
-                + 'Use “Reset ratings to auto-size” to size them from Pn, PF, and the unit count.';
+            const parts = [];
+            if (snBelowP) {
+                parts.push(`<strong>PCS rating per unit ${sn} MVA is below its own ${pUnit} MW Pmax</strong>, `
+                    + 'so P is clipped to the MVA rating. Raise the MVA or lower Pmax.');
+            }
+            if (low.length) {
+                const list = low
+                    .map((r) => `${r.label} ${r.entered} ${r.unit} vs ${r.target} (−${r.shortfallPct.toFixed(0)}%)`)
+                    .join('; ');
+                parts.push(`Below the auto-sized value: <strong>${list}</strong>. `
+                    + 'Auto-sizing is deliberately conservative (margin for losses and for Q at Umin), '
+                    + 'so a plant slightly under it can still be compliant — the run shows the verdict. '
+                    + 'Ratings are used exactly as entered; “Reset ratings to auto-size” restores the suggested set.');
+            }
+            ratingNote.innerHTML = parts.join('<br>');
             ratingNote.style.display = 'block';
         };
 

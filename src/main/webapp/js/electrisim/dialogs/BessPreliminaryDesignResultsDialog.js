@@ -70,27 +70,30 @@ function requirementPnQ(pq, wizardParams) {
     return { pn, qPn, qReq: qPn * pn };
 }
 
-function exportRatedIndex(pts) {
-    let best = 0;
+/**
+ * Index of the sweep point at full P on one side. The sweep runs past ±Pn to
+ * close the envelope at the PCS P limit, so with Pn known the nearest point to
+ * ±Pn wins; without it, the extreme point is used.
+ */
+function ratedIndex(pts, sign, pn) {
+    const side = [];
     (pts || []).forEach((p, i) => {
-        if (Number(p) > Number(pts[best])) best = i;
+        if (Number(p) * sign > 1e-6) side.push(i);
     });
-    return best;
+    if (!side.length) return -1;
+    if (Number(pn) > 0) {
+        return side.reduce((best, i) => (
+            Math.abs(Math.abs(Number(pts[i])) - pn) < Math.abs(Math.abs(Number(pts[best])) - pn) ? i : best
+        ), side[0]);
+    }
+    return side.reduce((best, i) => (Number(pts[i]) * sign > Number(pts[best]) * sign ? i : best), side[0]);
 }
 
-function importRatedIndex(pts) {
-    let best = 0;
-    (pts || []).forEach((p, i) => {
-        if (Number(p) < Number(pts[best])) best = i;
-    });
-    return best;
-}
-
-function qAtRatedP(curve) {
+function qAtFullP(curve, sign, pn) {
     const pts = (curve?.p_mw || []).map(Number);
     if (!pts.length) return null;
-    const i = exportRatedIndex(pts);
-    if (!(pts[i] > 1e-6)) return null;
+    const i = ratedIndex(pts, sign, pn);
+    if (i < 0) return null;
     const qmax = Number(curve.q_max_mvar?.[i]);
     const qmin = Number(curve.q_min_mvar?.[i]);
     return {
@@ -98,21 +101,15 @@ function qAtRatedP(curve) {
         q_max_mvar: Number.isFinite(qmax) ? qmax : null,
         q_min_mvar: Number.isFinite(qmin) ? qmin : null,
     };
+}
+
+function qAtRatedP(curve, pn) {
+    return qAtFullP(curve, 1, pn);
 }
 
 /** Same check at full charge (P = −Pn); a BESS must hold the Q band both ways. */
-function qAtRatedCharge(curve) {
-    const pts = (curve?.p_mw || []).map(Number);
-    if (!pts.length) return null;
-    const i = importRatedIndex(pts);
-    if (!(pts[i] < -1e-6)) return null;
-    const qmax = Number(curve.q_max_mvar?.[i]);
-    const qmin = Number(curve.q_min_mvar?.[i]);
-    return {
-        p_rated_mw: pts[i],
-        q_max_mvar: Number.isFinite(qmax) ? qmax : null,
-        q_min_mvar: Number.isFinite(qmin) ? qmin : null,
-    };
+function qAtRatedCharge(curve, pn) {
+    return qAtFullP(curve, -1, pn);
 }
 
 function plantVoltageBand(wizardParams, results) {
@@ -417,8 +414,8 @@ function assessUqAtRatedP(pq, wizardParams, results) {
         const u = Number(vk);
         if (!Number.isFinite(u) || !curve) return;
         const inBand = u >= uInnerMin - 1e-4 && u <= uInnerMax + 1e-4;
-        const rated = qAtRatedP(curve) || {};
-        const charge = qAtRatedCharge(curve) || {};
+        const rated = qAtRatedP(curve, pn) || {};
+        const charge = qAtRatedCharge(curve, pn) || {};
         const pu = (q) => (q != null ? q / pn : null);
         const coversBand = (qmaxPu, qminPu) => qmaxPu != null && qminPu != null
             && qmaxPu + tolPu >= qPn
@@ -1496,6 +1493,43 @@ export class BessPreliminaryDesignResultsDialog {
             ctx.restore();
         };
 
+        /**
+         * Join Qmin to Qmax at the highest and lowest P of the sweep. The plant
+         * is at its converter P limit there, so this edge is where the MVA
+         * circle is truncated by Pmax — it only shrinks to a point when a unit's
+         * Pmax reaches its MVA. Drawn dashed so it reads as a limit, not as a
+         * swept Qmax / Qmin branch.
+         */
+        const envelopeEnds = (curve) => {
+            const pts = curve.p_mw || [];
+            const usable = [];
+            pts.forEach((p, j) => {
+                const qMax = curve.q_max_mvar?.[j];
+                const qMin = curve.q_min_mvar?.[j];
+                if (qMax == null || qMin == null || !Number.isFinite(Number(p))) return;
+                usable.push({ p: Number(p), qMax: Number(qMax), qMin: Number(qMin) });
+            });
+            if (usable.length < 2) return [];
+            return [
+                usable.reduce((a, b) => (b.p > a.p ? b : a)),
+                usable.reduce((a, b) => (b.p < a.p ? b : a)),
+            ];
+        };
+
+        const closeEnvelopeEnds = (curve, xScale, yScale) => {
+            ctx.save();
+            ctx.lineWidth = 1.25;
+            ctx.setLineDash([3, 3]);
+            envelopeEnds(curve).forEach((e) => {
+                const pd = e.p / denomP;
+                ctx.beginPath();
+                ctx.moveTo(xScale(toX(pd, e.qMin / denomQ)), yScale(toY(pd, e.qMin / denomQ)));
+                ctx.lineTo(xScale(toX(pd, e.qMax / denomQ)), yScale(toY(pd, e.qMax / denomQ)));
+                ctx.stroke();
+            });
+            ctx.restore();
+        };
+
         let allP = [];
         let allQ = [];
         Object.values(curves).forEach((c) => {
@@ -1603,11 +1637,46 @@ export class BessPreliminaryDesignResultsDialog {
             ctx.lineWidth = 2.25;
             strokePoly(pts, curve.q_max_mvar, null, xScale, yScale);
             strokePoly(pts, curve.q_min_mvar, [6, 4], xScale, yScale);
+            // Cap the Qmax and Qmin branches at the highest |P| the plant holds,
+            // so the capability area reads as one closed region.
+            closeEnvelopeEnds(curve, xScale, yScale);
             ctx.fillStyle = col;
             ctx.font = '11px Arial';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'top';
             ctx.fillText(`U=${Number(vk).toFixed(4)} pu`, W - padR + 8, padT + 4 + i * 16);
+        });
+
+        // One caption per end, on the widest cap, instead of one per voltage.
+        const capEnds = [];
+        Object.values(curves).forEach((curve) => {
+            envelopeEnds(curve).forEach((e) => capEnds.push(e));
+        });
+        let labelledCap = false;
+        [1, -1].forEach((sign) => {
+            const side = capEnds.filter((e) => e.p * sign > 0);
+            if (!side.length) return;
+            const e = side.reduce((a, b) => ((b.qMax - b.qMin) > (a.qMax - a.qMin) ? b : a));
+            if (Math.abs(e.p) <= pn * 1.02 || e.qMax - e.qMin <= 0) return;
+            const pd = e.p / denomP;
+            const qMid = (e.qMax + e.qMin) / 2 / denomQ;
+            const x = xScale(toX(pd, qMid));
+            const y = yScale(toY(pd, qMid));
+            ctx.save();
+            ctx.fillStyle = '#475569';
+            ctx.font = '10px Arial';
+            if (swap) {
+                // Cap runs horizontally; caption sits just outside it.
+                ctx.textAlign = 'center';
+                ctx.textBaseline = sign > 0 ? 'bottom' : 'top';
+                ctx.fillText('PCS P limit', x, y + (sign > 0 ? -5 : 5));
+            } else {
+                ctx.textAlign = sign > 0 ? 'left' : 'right';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('PCS P limit', x + (sign > 0 ? 6 : -6), y);
+            }
+            ctx.restore();
+            labelledCap = true;
         });
 
         ctx.fillStyle = '#475569';
@@ -1619,6 +1688,9 @@ export class BessPreliminaryDesignResultsDialog {
         ctx.fillText('Grey box: |Q| at ±Pn', W - padR + 8, legendY + 26);
         ctx.fillText('Square: PF corner × 3 U', W - padR + 8, legendY + 39);
         ctx.fillText('Diamond: rated P, PF=1', W - padR + 8, legendY + 52);
+        if (labelledCap) {
+            ctx.fillText('Dotted end: P limit edge', W - padR + 8, legendY + 65);
+        }
 
         ctx.fillStyle = '#64748b';
         ctx.font = '10px Arial';
@@ -1759,7 +1831,7 @@ export class BessPreliminaryDesignResultsDialog {
         const qDenom = gridPn > 0 ? gridPn : 1e-9;
         const markerQ = [];
         Object.values(curves).forEach((curve) => {
-            [qAtRatedP(curve), qAtRatedCharge(curve)].forEach((r) => {
+            [qAtRatedP(curve, gridPn), qAtRatedCharge(curve, gridPn)].forEach((r) => {
                 if (!r) return;
                 if (r.q_max_mvar != null) markerQ.push(r.q_max_mvar / qDenom);
                 if (r.q_min_mvar != null) markerQ.push(r.q_min_mvar / qDenom);
@@ -1830,12 +1902,12 @@ export class BessPreliminaryDesignResultsDialog {
                     failed: (charge ? failChargeU : failU).has(u.toFixed(4)),
                 });
             };
-            const rated = qAtRatedP(curve);
+            const rated = qAtRatedP(curve, gridPn);
             if (rated) {
                 add(rated.q_max_mvar, existingCaseName(this.results, `${uLabel}_Export_Capacitive`), false);
                 add(rated.q_min_mvar, existingCaseName(this.results, `${uLabel}_Export_Inductive`), false);
             }
-            const charge = qAtRatedCharge(curve);
+            const charge = qAtRatedCharge(curve, gridPn);
             if (charge) {
                 add(charge.q_max_mvar, existingCaseName(this.results, `${uLabel}_Import_Capacitive`), true);
                 add(charge.q_min_mvar, existingCaseName(this.results, `${uLabel}_Import_Inductive`), true);

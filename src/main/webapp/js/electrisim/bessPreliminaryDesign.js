@@ -4,16 +4,31 @@ import { BessPreliminaryDesignResultsDialog } from './dialogs/BessPreliminaryDes
 import { prepareNetworkData } from './utils/networkDataPreparation.js';
 import { findBessPlantElements } from './bessPlantBuilder.js';
 import { applyBessPreliminaryResultsToSld } from './utils/bessPreliminarySldResults.js';
+import { getBackendUrlCandidates } from './config/environment.js';
 import {
     startSimulationProgress,
     settleSimulationProgress,
     readNdjsonStream,
+    isNetworkStreamError,
+    isAbortError,
 } from './utils/simulationProgressOverlay.js';
 
-const getBackendUrl = () => {
-    if (window.ENV?.backendUrl) return window.ENV.backendUrl + '/';
-    return 'http://localhost:5000/';
-};
+const LOCAL_BACKEND = 'http://127.0.0.1:5000/';
+
+function withSlash(url) {
+    const s = String(url || '');
+    return s.endsWith('/') ? s : `${s}/`;
+}
+
+function getBackendUrls() {
+    const fromEnv = (typeof getBackendUrlCandidates === 'function' ? getBackendUrlCandidates() : [])
+        .map(withSlash);
+    const urls = fromEnv.length ? fromEnv : [withSlash(window.ENV?.backendUrl || LOCAL_BACKEND)];
+    if (!urls.includes(LOCAL_BACKEND) && String(window.location.protocol).toLowerCase() !== 'https:') {
+        urls.push(LOCAL_BACKEND);
+    }
+    return urls;
+}
 
 function getUserEmail() {
     try {
@@ -80,16 +95,26 @@ function buildStudyPayload(graph, wizardParams) {
     return in_data;
 }
 
-async function fetchStudy(in_data, overlay, signal) {
-    const backendUrl = getBackendUrl();
-    in_data.bess_preliminary_params.rpc_stream = true;
+function describeFetchError(error, urls) {
+    const msg = String(error?.message || error);
+    if (!/failed to fetch|network error/i.test(msg)) return msg;
+    return (
+        `Failed to reach the simulation backend (${urls.join(', ')}). ` +
+        'Open the app at http://127.0.0.1:5501 and keep python app.py running on port 5000. ' +
+        'If localStorage.electrisimBackend is set to "tunnel", remove it or add ?backend=local to the URL.'
+    );
+}
+
+async function fetchStudyOnce(backendUrl, in_data, overlay, signal, useStream) {
+    in_data.bess_preliminary_params.rpc_stream = !!useStream;
 
     const response = await fetch(backendUrl, {
         mode: 'cors',
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            Accept: 'application/x-ndjson, application/json',
+            Accept: useStream ? 'application/x-ndjson, application/json' : 'application/json',
+            'Accept-Encoding': 'identity',
         },
         body: JSON.stringify(in_data),
         signal,
@@ -101,12 +126,43 @@ async function fetchStudy(in_data, overlay, signal) {
     }
 
     const ct = (response.headers.get('Content-Type') || '').toLowerCase();
-    if (ct.includes('ndjson') && response.body?.getReader) {
+    if (useStream && ct.includes('ndjson') && response.body?.getReader) {
         return readNdjsonStream(response, {
             onProgress: (msg) => overlay?.append(msg),
         });
     }
     return JSON.parse(await response.text());
+}
+
+async function fetchStudy(in_data, overlay, signal) {
+    const urls = getBackendUrls();
+    overlay?.append(`Using backend ${urls[0]}`, { time: true });
+    let lastErr = null;
+
+    for (let i = 0; i < urls.length; i++) {
+        const backendUrl = urls[i];
+        try {
+            return await fetchStudyOnce(backendUrl, in_data, overlay, signal, true);
+        } catch (firstError) {
+            lastErr = firstError;
+            if (isAbortError(firstError) || signal?.aborted) throw firstError;
+            if (isNetworkStreamError(firstError)) {
+                overlay?.append(`Streaming unavailable at ${backendUrl} — retrying…`, { time: true });
+                try {
+                    return await fetchStudyOnce(backendUrl, in_data, overlay, signal, false);
+                } catch (secondError) {
+                    lastErr = secondError;
+                    if (isAbortError(secondError) || signal?.aborted) throw secondError;
+                }
+            } else {
+                throw firstError;
+            }
+            if (i + 1 < urls.length) {
+                overlay?.append(`Retrying at ${urls[i + 1]}…`, { time: true });
+            }
+        }
+    }
+    throw new Error(describeFetchError(lastErr, urls));
 }
 
 function bessPreliminaryDesign(a, b, c) {
