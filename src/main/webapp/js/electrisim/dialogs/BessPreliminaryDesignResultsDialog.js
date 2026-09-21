@@ -71,6 +71,71 @@ function requirementPnQ(pq, wizardParams) {
 }
 
 /**
+ * Tightest per-unit P the fleet can hold, and which nameplate is binding.
+ * Battery DC Pmax is applied as an AC Storage P cap, so matching PCS MW to MVA
+ * does not extend the envelope if the battery field is still lower.
+ */
+function fleetPLimits(wizardParams, results) {
+    const p = wizardParams || results?.params || {};
+    const names = p.storageNames || results?.params?.storageNames || [];
+    const n = Math.max(1, parseInt(p.numUnits, 10) || names.length || 1);
+    const sn = Math.abs(Number(p.storageSnMva) || 0);
+    const pDis = Math.abs(Number(p.pMaxDischarge_MW) || 0);
+    const batt = Math.abs(Number(p.batteryPmax_MW) || 0);
+    const named = [
+        sn > 0 ? { name: 'PCS MVA', mw: sn } : null,
+        pDis > 0 ? { name: 'PCS Pmax', mw: pDis } : null,
+        batt > 0 ? { name: 'Battery DC Pmax', mw: batt } : null,
+    ].filter(Boolean).sort((a, b) => a.mw - b.mw);
+    const lim = named[0] || { name: 'PCS', mw: 0 };
+    const plantP = Number(results?.pq_envelope?.plant_p_discharge_mw) > 0
+        ? Number(results.pq_envelope.plant_p_discharge_mw)
+        : n * lim.mw;
+    return { n, sn, pDis, batt, unitP: lim.mw, plantP, limiter: lim.name };
+}
+
+function maxPocExportMw(pq) {
+    let m = 0;
+    Object.values(pq?.curves || {}).forEach((c) => {
+        (c.p_mw || []).forEach((p) => {
+            const n = Number(p);
+            if (Number.isFinite(n) && n > m) m = n;
+        });
+    });
+    return m;
+}
+
+function envelopePocNoteHtml(pq, wizardParams, results) {
+    const fleet = fleetPLimits(wizardParams, results);
+    if (!(fleet.plantP > 0)) return '';
+    const poc = maxPocExportMw(pq);
+    const drop = fleet.plantP - poc;
+    const leftover = fleet.sn > fleet.unitP + 0.005
+        ? fleet.n * Math.sqrt(Math.max(fleet.sn * fleet.sn - fleet.unitP * fleet.unitP, 0))
+        : 0;
+    const bits = [];
+    bits.push(`The P axis is <b>net P at the POC</b>, not the sum of PCS terminals. `
+        + `${fleet.n} × ${fmt(fleet.unitP, 3)} MW = <b>${fmt(fleet.plantP, 2)} MW</b> at the converters`
+        + ` (limited by <b>${escapeHtml(fleet.limiter)}</b>)`);
+    if (poc > 0) {
+        bits.push(`the export tip on the chart is <b>${fmt(poc, 2)} MW</b> at the POC`);
+        if (drop > 0.05) {
+            bits.push(`the ${fmt(drop, 2)} MW difference is auxiliary load plus transformer and cable losses, `
+                + `not Q “using up” active power on the MVA circle`);
+        }
+    }
+    if (leftover > 0.2) {
+        bits.push(`leftover Q ≈ ${fmt(leftover, 1)} Mvar at that P is `
+            + `<code>√(Sn² − Pmax²)</code> per unit because ${escapeHtml(fleet.limiter)} `
+            + `(${fmt(fleet.unitP, 3)} MW) is below the ${fmt(fleet.sn, 3)} MVA rating. `
+            + `Setting Q = 0 there only trims I²R (a few hundred kW), it does not recover the PCS–POC gap. `
+            + `To close the circle at Q = 0, raise Battery DC Pmax and PCS Pmax up to the MVA`);
+    }
+    return `<p style="font-size:12px;color:#334155;background:#fffbeb;border:1px solid #fde68a;`
+        + `border-radius:6px;padding:8px 10px;margin:8px 0 0;">${bits.join('. ')}.</p>`;
+}
+
+/**
  * Index of the sweep point at full P on one side. The sweep runs past ±Pn to
  * close the envelope at the PCS P limit, so with Pn known the nearest point to
  * ±Pn wins; without it, the extreme point is used.
@@ -110,6 +175,25 @@ function qAtRatedP(curve, pn) {
 /** Same check at full charge (P = −Pn); a BESS must hold the Q band both ways. */
 function qAtRatedCharge(curve, pn) {
     return qAtFullP(curve, -1, pn);
+}
+
+/**
+ * Which per-unit rating caps plant P, for the envelope end-cap caption. A PCS
+ * cannot pass more MW than its MVA, and Battery DC Pmax overrides PCS Pmax when
+ * it is smaller, so the binding one is the smallest of the three.
+ */
+function plantPLimit(wizardParams, results) {
+    const w = wizardParams || {};
+    const units = (results?.rating_table || []).filter((e) => e.type === 'storage').length
+        || Number(w.numUnits) || 0;
+    const options = [
+        { value: Number(w.storageSnMva), label: 'PCS MVA' },
+        { value: Math.max(Number(w.pMaxDischarge_MW) || 0, Number(w.pMaxCharge_MW) || 0), label: 'PCS Pmax' },
+        { value: Number(w.batteryPmax_MW), label: 'battery DC Pmax' },
+    ].filter((o) => Number.isFinite(o.value) && o.value > 0);
+    if (!options.length || !(units > 0)) return null;
+    const binding = options.reduce((a, b) => (b.value < a.value ? b : a));
+    return { label: binding.label, perUnit: binding.value, total: binding.value * units, units };
 }
 
 function plantVoltageBand(wizardParams, results) {
@@ -267,6 +351,19 @@ function defaultChartPrefs() {
         uqYMin: '',
         uqYMax: '',
     };
+}
+
+const CHART_ZOOM_IN = 1 / 1.25;
+const CHART_ZOOM_OUT = 1.25;
+
+function invertPlotX(plot, cssX) {
+    const w = (plot.W - plot.padL - plot.padR) || 1;
+    return plot.xMin + ((cssX - plot.padL) / w) * (plot.xMax - plot.xMin);
+}
+
+function invertPlotY(plot, cssY) {
+    const h = (plot.H - plot.padT - plot.padB) || 1;
+    return plot.yMin + ((plot.H - plot.padB - cssY) / h) * (plot.yMax - plot.yMin);
 }
 
 function voltageBandLabel(u, wizardParams, results) {
@@ -580,6 +677,9 @@ export class BessPreliminaryDesignResultsDialog {
         this._onKey = null;
         this._paintedCase = pickBessSldCase(this.results)?.name || null;
         this._chartPrefs = defaultChartPrefs();
+        this._chartView = { pq: null, uq: null };
+        this._chartPan = null;
+        this._skipChartClick = false;
     }
 
     panelCss(maximized) {
@@ -590,6 +690,139 @@ export class BessPreliminaryDesignResultsDialog {
 
     headerBtnCss() {
         return 'padding:6px 12px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;color:#334155;cursor:pointer;font-weight:600;';
+    }
+
+    resolvedChartView(kind, auto) {
+        const p = this._chartPrefs || {};
+        const v = this._chartView?.[kind];
+        let xMin = v?.xMin ?? optNum(p[`${kind}XMin`]) ?? auto.xMin;
+        let xMax = v?.xMax ?? optNum(p[`${kind}XMax`]) ?? auto.xMax;
+        let yMin = v?.yMin ?? optNum(p[`${kind}YMin`]) ?? auto.yMin;
+        let yMax = v?.yMax ?? optNum(p[`${kind}YMax`]) ?? auto.yMax;
+        if (!(xMax > xMin)) xMax = xMin + (kind === 'uq' ? 0.2 : 1);
+        if (!(yMax > yMin)) yMax = yMin + (kind === 'uq' ? 0.1 : 1);
+        return { xMin, xMax, yMin, yMax };
+    }
+
+    rememberPlot(canvas, kind, plot) {
+        if (!canvas) return;
+        canvas.dataset.chartKind = kind;
+        canvas._plot = plot;
+        canvas._autoView = plot.auto || canvas._autoView;
+    }
+
+    findChartCanvas(kind) {
+        if (this._chartMaxKind === kind) {
+            const c = this._chartLightbox?.querySelector('canvas');
+            if (c) return c;
+        }
+        const id = kind === 'pq' ? '#bess-prelim-pq-canvas' : '#bess-prelim-uq-canvas';
+        return this._body?.querySelector(id) || this._overlay?.querySelector(id) || null;
+    }
+
+    setChartView(kind, view) {
+        if (kind !== 'pq' && kind !== 'uq') return;
+        this._chartView[kind] = view;
+        const p = this._chartPrefs;
+        const num = (n) => {
+            const a = Math.abs(n);
+            const d = a >= 100 ? 1 : a >= 10 ? 2 : 4;
+            return String(Math.round(n * 10 ** d) / 10 ** d);
+        };
+        p[`${kind}XMin`] = num(view.xMin);
+        p[`${kind}XMax`] = num(view.xMax);
+        p[`${kind}YMin`] = num(view.yMin);
+        p[`${kind}YMax`] = num(view.yMax);
+        this.syncChartPrefInputs();
+        this.redrawOneChart(kind);
+    }
+
+    resetChartView(kind) {
+        if (kind !== 'pq' && kind !== 'uq') return;
+        this._chartView[kind] = null;
+        const p = this._chartPrefs;
+        p[`${kind}XMin`] = '';
+        p[`${kind}XMax`] = '';
+        p[`${kind}YMin`] = '';
+        p[`${kind}YMax`] = '';
+        this.syncChartPrefInputs();
+        this.redrawOneChart(kind);
+    }
+
+    redrawOneChart(kind) {
+        const id = kind === 'pq' ? '#bess-prelim-pq-canvas' : '#bess-prelim-uq-canvas';
+        const bodyCanvas = this._body?.querySelector(id);
+        const live = this._chartLightbox?.querySelector('canvas');
+        if (this._chartMaxKind === kind && live) {
+            if (kind === 'pq') this._drawPqChart(live);
+            else this._drawUqChart(live);
+        }
+        if (bodyCanvas && bodyCanvas !== live) {
+            if (kind === 'pq') this._drawPqChart(bodyCanvas);
+            else this._drawUqChart(bodyCanvas);
+        }
+    }
+
+    zoomChart(kind, factor, anchor) {
+        const canvas = this.findChartCanvas(kind);
+        const plot = canvas?._plot;
+        if (!plot) return;
+        const auto = canvas._autoView || plot;
+        let cx = (plot.xMin + plot.xMax) / 2;
+        let cy = (plot.yMin + plot.yMax) / 2;
+        if (anchor && Number.isFinite(anchor.x) && Number.isFinite(anchor.y)) {
+            const rect = canvas.getBoundingClientRect();
+            const cssX = (anchor.x - rect.left) * (plot.W / (rect.width || 1));
+            const cssY = (anchor.y - rect.top) * (plot.H / (rect.height || 1));
+            if (cssX >= plot.padL && cssX <= plot.W - plot.padR
+                && cssY >= plot.padT && cssY <= plot.H - plot.padB) {
+                cx = invertPlotX(plot, cssX);
+                cy = invertPlotY(plot, cssY);
+            }
+        }
+        const xSpan0 = plot.xMax - plot.xMin;
+        const ySpan0 = plot.yMax - plot.yMin;
+        const autoX = Math.max(auto.xMax - auto.xMin, 1e-9);
+        const autoY = Math.max(auto.yMax - auto.yMin, 1e-9);
+        let xSpan = xSpan0 * factor;
+        let ySpan = ySpan0 * factor;
+        xSpan = Math.min(Math.max(xSpan, autoX / 25), autoX * 3);
+        ySpan = Math.min(Math.max(ySpan, autoY / 25), autoY * 3);
+        const fx = xSpan0 > 0 ? (cx - plot.xMin) / xSpan0 : 0.5;
+        const fy = ySpan0 > 0 ? (cy - plot.yMin) / ySpan0 : 0.5;
+        this.setChartView(kind, {
+            xMin: cx - fx * xSpan,
+            xMax: cx + (1 - fx) * xSpan,
+            yMin: cy - fy * ySpan,
+            yMax: cy + (1 - fy) * ySpan,
+        });
+    }
+
+    panChart(kind, dxCss, dyCss) {
+        const canvas = this.findChartCanvas(kind);
+        const plot = canvas?._plot;
+        if (!plot) return;
+        const w = (plot.W - plot.padL - plot.padR) || 1;
+        const h = (plot.H - plot.padT - plot.padB) || 1;
+        const dx = -(dxCss * (plot.W / (canvas.getBoundingClientRect().width || plot.W))) / w * (plot.xMax - plot.xMin);
+        const dy = (dyCss * (plot.H / (canvas.getBoundingClientRect().height || plot.H))) / h * (plot.yMax - plot.yMin);
+        this.setChartView(kind, {
+            xMin: plot.xMin + dx,
+            xMax: plot.xMax + dx,
+            yMin: plot.yMin + dy,
+            yMax: plot.yMax + dy,
+        });
+    }
+
+    syncChartPrefInputs() {
+        const host = this._body;
+        if (!host) return;
+        const p = this._chartPrefs;
+        host.querySelectorAll('[data-chart-pref]').forEach((el) => {
+            const key = el.getAttribute('data-chart-pref');
+            if (!key || el.type === 'checkbox') return;
+            if (Object.prototype.hasOwnProperty.call(p, key)) el.value = p[key] ?? '';
+        });
     }
 
     show() {
@@ -703,6 +936,25 @@ export class BessPreliminaryDesignResultsDialog {
         };
         window.addEventListener('resize', this._onResize);
         document.addEventListener('keydown', this._onKey);
+        this._onPanMove = (ev) => {
+            const pan = this._chartPan;
+            if (!pan) return;
+            const dx = ev.clientX - pan.x;
+            const dy = ev.clientY - pan.y;
+            if (Math.abs(dx) > 2 || Math.abs(dy) > 2 || pan.moved) {
+                pan.moved = true;
+                this._skipChartClick = true;
+                this.panChart(pan.kind, dx, dy);
+                pan.x = ev.clientX;
+                pan.y = ev.clientY;
+            }
+        };
+        this._onPanUp = () => {
+            if (this._chartPan?.moved) this._skipChartClick = true;
+            this._chartPan = null;
+        };
+        window.addEventListener('mousemove', this._onPanMove);
+        window.addEventListener('mouseup', this._onPanUp);
     }
 
     parkForCanvas(elementName) {
@@ -722,8 +974,12 @@ export class BessPreliminaryDesignResultsDialog {
         this.closeChartLightbox();
         if (this._onResize) window.removeEventListener('resize', this._onResize);
         if (this._onKey) document.removeEventListener('keydown', this._onKey);
+        if (this._onPanMove) window.removeEventListener('mousemove', this._onPanMove);
+        if (this._onPanUp) window.removeEventListener('mouseup', this._onPanUp);
         this._onResize = null;
         this._onKey = null;
+        this._onPanMove = null;
+        this._onPanUp = null;
         this._parkHandle?.dismiss?.();
         this._parkHandle = null;
         if (this._overlay?.parentNode) this._overlay.parentNode.removeChild(this._overlay);
@@ -776,6 +1032,24 @@ export class BessPreliminaryDesignResultsDialog {
         head.style.cssText =
             'display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #e2e8f0;gap:8px;flex-shrink:0;';
         head.innerHTML = `<h2 style="margin:0;font-size:16px;color:#1d4ed8;flex:1;">${escapeHtml(title)}</h2>`;
+        const btnCss = this.headerBtnCss();
+        [
+            ['in', '+', 'Zoom in (mouse wheel also zooms)'],
+            ['out', '−', 'Zoom out'],
+            ['reset', 'Reset view', 'Reset to the full characteristic'],
+        ].forEach(([dir, label, tip]) => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.textContent = label;
+            b.title = tip;
+            b.style.cssText = btnCss;
+            b.onclick = (ev) => {
+                ev.preventDefault();
+                if (dir === 'reset') this.resetChartView(kind);
+                else this.zoomChart(kind, dir === 'in' ? CHART_ZOOM_IN : CHART_ZOOM_OUT);
+            };
+            head.appendChild(b);
+        });
         const restore = document.createElement('button');
         restore.type = 'button';
         restore.textContent = 'Restore';
@@ -984,6 +1258,7 @@ export class BessPreliminaryDesignResultsDialog {
             html += this.chartOptionsHtml('pq');
             html += `<div data-chart-wrap="pq" style="width:100%;"><canvas id="bess-prelim-pq-canvas" width="900" height="420" style="display:block;width:100%;height:420px;border:1px solid #e2e8f0;border-radius:6px;background:#fafafa;"></canvas></div>`;
             html += `<p style="font-size:12px;color:#334155;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px;margin:8px 0 0;">The larger gap between the three voltage traces on the <b>inductive</b> (dashed) side is from the load-flow, not from axis scaling. Absorbing Q lowers plant voltages, so available Qmin changes more with the POC voltage setpoint. Injecting Q (capacitive) raises voltages toward the OLTC / voltage limits, so the three Qmax curves stay closer together.</p>`;
+            html += envelopePocNoteHtml(r.pq_envelope, this.wizardParams, r);
             html += this.chartHeadingHtml('U–Q at full P (±Pn)', 'uq', true);
             html += this.buildUqCompliance();
             html += this.chartOptionsHtml('uq');
@@ -1213,12 +1488,19 @@ export class BessPreliminaryDesignResultsDialog {
     }
 
     chartHeadingHtml(title, kind, spaced) {
+        const btn = this.headerBtnCss();
         return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;` +
             `margin:${spaced ? '16px 0 8px' : '0 0 8px'};">` +
             `<h3 style="margin:0;">${escapeHtml(title)}</h3>` +
+            `<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">` +
+            `<button type="button" data-chart-zoom="in" data-chart-kind="${escapeHtml(kind)}" ` +
+            `title="Zoom in (mouse wheel on the chart also zooms)" style="${btn}">+</button>` +
+            `<button type="button" data-chart-zoom="out" data-chart-kind="${escapeHtml(kind)}" ` +
+            `title="Zoom out" style="${btn}">−</button>` +
+            `<button type="button" data-chart-zoom="reset" data-chart-kind="${escapeHtml(kind)}" ` +
+            `title="Reset to the full characteristic" style="${btn}">Reset view</button>` +
             `<button type="button" data-chart-max="${escapeHtml(kind)}" ` +
-            `title="Show this chart full screen" ` +
-            `style="${this.headerBtnCss()}">Maximize</button></div>`;
+            `title="Show this chart full screen" style="${btn}">Maximize</button></div></div>`;
     }
 
     chartOptionsHtml(kind) {
@@ -1243,6 +1525,7 @@ export class BessPreliminaryDesignResultsDialog {
         const yPh = kind === 'pq' ? (swap ? pLab : qLab) : (kind === 'uq' ? 'U / Uc  [pu]' : '');
         return `<details style="margin:8px 0 10px;font-size:12px;color:#334155;">` +
             `<summary style="cursor:pointer;font-weight:600;">Chart options — title, axis labels, scaling</summary>` +
+            `<p style="margin:8px 0 0;color:#64748b;">Use <b>+</b> / <b>−</b> or the mouse wheel to zoom, drag to pan, and Reset view to show the full characteristic.</p>` +
             `<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px;` +
             `padding:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;">` +
             `<label>Title<br>${inp(`${kind}Title`)}</label>` +
@@ -1271,7 +1554,18 @@ export class BessPreliminaryDesignResultsDialog {
         body.querySelectorAll('[data-chart-pref="pqPu"], [data-chart-pref="pqGridCodeAxes"]').forEach((el) => {
             el.addEventListener('change', () => {
                 this.readChartPrefs(body);
-                this.redrawCharts(body);
+                this.resetChartView('pq');
+            });
+        });
+        body.querySelectorAll('[data-chart-zoom]').forEach((btn) => {
+            btn.addEventListener('click', (ev) => {
+                ev.preventDefault();
+                ev.stopPropagation();
+                const kind = btn.getAttribute('data-chart-kind');
+                const dir = btn.getAttribute('data-chart-zoom');
+                if (dir === 'reset') this.resetChartView(kind);
+                else if (dir === 'in') this.zoomChart(kind, CHART_ZOOM_IN);
+                else if (dir === 'out') this.zoomChart(kind, CHART_ZOOM_OUT);
             });
         });
     }
@@ -1283,12 +1577,35 @@ export class BessPreliminaryDesignResultsDialog {
         canvas.addEventListener('click', (ev) => this.handleChartClick(canvas, ev));
         canvas.addEventListener('mousemove', (ev) => this.handleChartMove(canvas, ev));
         canvas.addEventListener('mouseleave', () => {
-            canvas.style.cursor = 'crosshair';
+            if (!this._chartPan) canvas.style.cursor = 'crosshair';
             canvas.removeAttribute('title');
+        });
+        canvas.addEventListener('wheel', (ev) => {
+            const kind = canvas.dataset.chartKind;
+            if (!kind) return;
+            ev.preventDefault();
+            ev.stopPropagation();
+            this.zoomChart(kind, ev.deltaY > 0 ? CHART_ZOOM_OUT : CHART_ZOOM_IN, {
+                x: ev.clientX,
+                y: ev.clientY,
+            });
+        }, { passive: false });
+        canvas.addEventListener('mousedown', (ev) => {
+            if (ev.button !== 0 || !canvas._plot || !canvas.dataset.chartKind) return;
+            this._chartPan = {
+                kind: canvas.dataset.chartKind,
+                x: ev.clientX,
+                y: ev.clientY,
+                moved: false,
+            };
         });
     }
 
     handleChartMove(canvas, ev) {
+        if (this._chartPan) {
+            canvas.style.cursor = 'grabbing';
+            return;
+        }
         const hit = nearestHit(canvas._bessHits, ev.offsetX, ev.offsetY, 22);
         canvas.style.cursor = hit ? 'pointer' : 'crosshair';
         if (hit?.caseName) canvas.title = `Show ${hit.caseName} on the SLD`;
@@ -1298,6 +1615,10 @@ export class BessPreliminaryDesignResultsDialog {
     }
 
     handleChartClick(canvas, ev) {
+        if (this._skipChartClick) {
+            this._skipChartClick = false;
+            return;
+        }
         const hit = nearestHit(canvas._bessHits, ev.offsetX, ev.offsetY, 28);
         if (!hit) return;
         ev.preventDefault();
@@ -1320,6 +1641,17 @@ export class BessPreliminaryDesignResultsDialog {
             if (!key) return;
             if (el.type === 'checkbox') p[key] = !!el.checked;
             else p[key] = el.value;
+        });
+        ['pq', 'uq'].forEach((kind) => {
+            const xMin = optNum(p[`${kind}XMin`]);
+            const xMax = optNum(p[`${kind}XMax`]);
+            const yMin = optNum(p[`${kind}YMin`]);
+            const yMax = optNum(p[`${kind}YMax`]);
+            if (xMin != null && xMax != null && yMin != null && yMax != null && xMax > xMin && yMax > yMin) {
+                this._chartView[kind] = { xMin, xMax, yMin, yMax };
+            } else if (!p[`${kind}XMin`] && !p[`${kind}XMax`] && !p[`${kind}YMin`] && !p[`${kind}YMax`]) {
+                this._chartView[kind] = null;
+            }
         });
     }
 
@@ -1571,10 +1903,8 @@ export class BessPreliminaryDesignResultsDialog {
             yMin = -(qAbs + padQ);
             yMax = qAbs + padQ;
         }
-        xMin = optNum(prefs.pqXMin) ?? xMin;
-        xMax = optNum(prefs.pqXMax) ?? xMax;
-        yMin = optNum(prefs.pqYMin) ?? yMin;
-        yMax = optNum(prefs.pqYMax) ?? yMax;
+        const auto = { xMin, xMax, yMin, yMax };
+        ({ xMin, xMax, yMin, yMax } = this.resolvedChartView('pq', auto));
         if (xMax <= xMin) xMax = xMin + 1;
         if (yMax <= yMin) yMax = yMin + 1;
 
@@ -1597,6 +1927,9 @@ export class BessPreliminaryDesignResultsDialog {
             title: prefs.pqTitle,
             xLabel,
             yLabel,
+        });
+        this.rememberPlot(canvas, 'pq', {
+            padL, padR, padT, padB, W, H, xMin, xMax, yMin, yMax, auto,
         });
         const pqComp = assessPqEnvelopeCoverage(pq, this.wizardParams, this.results);
         if (pqComp) {
@@ -1648,6 +1981,12 @@ export class BessPreliminaryDesignResultsDialog {
         });
 
         // One caption per end, on the widest cap, instead of one per voltage.
+        // It names the rating that caps P and the dispatch total, so the gap to
+        // the plotted POC P reads as losses plus auxiliaries, not as a Q effect.
+        const pLimit = plantPLimit(this.wizardParams, this.results);
+        const capText = pLimit
+            ? `P limit: ${pLimit.label} ${pLimit.units} × ${fmt(pLimit.perUnit, 3)} = ${fmt(pLimit.total, 1)} MW`
+            : 'PCS P limit';
         const capEnds = [];
         Object.values(curves).forEach((curve) => {
             envelopeEnds(curve).forEach((e) => capEnds.push(e));
@@ -1669,11 +2008,11 @@ export class BessPreliminaryDesignResultsDialog {
                 // Cap runs horizontally; caption sits just outside it.
                 ctx.textAlign = 'center';
                 ctx.textBaseline = sign > 0 ? 'bottom' : 'top';
-                ctx.fillText('PCS P limit', x, y + (sign > 0 ? -5 : 5));
+                ctx.fillText(capText, x, y + (sign > 0 ? -5 : 5));
             } else {
                 ctx.textAlign = sign > 0 ? 'left' : 'right';
                 ctx.textBaseline = 'middle';
-                ctx.fillText('PCS P limit', x + (sign > 0 ? 6 : -6), y);
+                ctx.fillText(capText, x + (sign > 0 ? 6 : -6), y);
             }
             ctx.restore();
             labelledCap = true;
@@ -1764,6 +2103,10 @@ export class BessPreliminaryDesignResultsDialog {
                     ctx.lineWidth = 1;
                     ctx.stroke();
                     const pDisp = Number(curve.p_dispatch_mw?.[j]);
+                    const loss = Number.isFinite(pDisp) ? pDisp - p : null;
+                    const lossTxt = loss != null && Math.abs(loss) > 0.02
+                        ? `  dispatch=${fmt(pDisp, 2)} MW  (POC ${fmt(Math.abs(loss), 2)} MW ${loss > 0 ? 'below' : 'above'} dispatch)`
+                        : (Number.isFinite(pDisp) ? `  dispatch=${fmt(pDisp, 2)} MW` : '');
                     hits.push({
                         x, y, color: col, kind: 'envelope',
                         id: envelopePointId(u, sideKey, p),
@@ -1772,7 +2115,7 @@ export class BessPreliminaryDesignResultsDialog {
                         pMw: p,
                         pDisp: Number.isFinite(pDisp) ? pDisp : null,
                         qMvar: qn,
-                        label: `Envelope ${sideLabel}  U=${u.toFixed(4)} pu  P=${fmt(p, 2)} MW  Q=${fmt(qn, 2)} Mvar`,
+                        label: `Envelope ${sideLabel}  U=${u.toFixed(4)} pu  P_POC=${fmt(p, 2)} MW  Q=${fmt(qn, 2)} Mvar${lossTxt}`,
                     });
                 };
                 add(curve.q_max_mvar?.[j], 'Qmax', 'q_max');
@@ -1838,10 +2181,13 @@ export class BessPreliminaryDesignResultsDialog {
             });
         });
         const qSpan = Math.max(0.45, qPn * 1.25, ...markerQ.map((q) => Math.abs(q)), 0);
-        let xMin = optNum(prefs.uqXMin) ?? -qSpan;
-        let xMax = optNum(prefs.uqXMax) ?? qSpan;
-        let yMin = optNum(prefs.uqYMin) ?? Math.min(0.85, uOuterMin - 0.02);
-        let yMax = optNum(prefs.uqYMax) ?? Math.max(1.12, uOuterMax + 0.02);
+        const auto = {
+            xMin: -qSpan,
+            xMax: qSpan,
+            yMin: Math.min(0.85, uOuterMin - 0.02),
+            yMax: Math.max(1.12, uOuterMax + 0.02),
+        };
+        let { xMin, xMax, yMin, yMax } = this.resolvedChartView('uq', auto);
         if (xMax <= xMin) xMax = xMin + 0.2;
         if (yMax <= yMin) yMax = yMin + 0.1;
 
@@ -1854,6 +2200,9 @@ export class BessPreliminaryDesignResultsDialog {
             title: prefs.uqTitle,
             xLabel: prefs.uqXLabel || 'Q / Pn',
             yLabel: prefs.uqYLabel || 'U / Uc  [pu]',
+        });
+        this.rememberPlot(canvas, 'uq', {
+            padL, padR, padT, padB, W, H, xMin, xMax, yMin, yMax, auto,
         });
 
         const rx = xScale(-qPn);

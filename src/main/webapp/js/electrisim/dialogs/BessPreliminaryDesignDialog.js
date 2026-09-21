@@ -230,7 +230,7 @@ export class BessPreliminaryDesignDialog extends Dialog {
             this._field('pMaxDischarge_MW', 'Max discharge per unit (MW)', r('pMaxDischarge_MW')),
             this._field('pMaxCharge_MW', 'Max charge per unit (MW)', r('pMaxCharge_MW')),
             this._field('batteryPmax_MW', 'Battery DC Pmax per rack (MW)', r('batteryPmax_MW'), 'number', 'any', {
-                hint: 'Tighter of PCS Pmax and this value is applied as the Storage P limit and checked in the rating table. Generate SLD places a PCS inverter, DC bus, and battery rack per string. Those DC elements are shown on the diagram; the AC load-flow does not solve a coupled DC network.',
+                hint: 'Tighter of PCS Pmax and this value is applied as the AC Storage P limit. Matching PCS MW to the MVA rating does not close the P/Q circle if this battery field is still lower — raise it to the same MW as well. Generate SLD places a PCS inverter, DC bus, and battery rack per string. Those DC elements are shown on the diagram; the AC load-flow does not solve a coupled DC network.',
             }),
             this._field('lvVoltage_kV', 'LV / PCS voltage (kV)', v('lvVoltage_kV', 0.69)),
             this._field('useQCurve', 'Use PCS P–Q capability curve', v('useQCurve', false), 'checkbox'),
