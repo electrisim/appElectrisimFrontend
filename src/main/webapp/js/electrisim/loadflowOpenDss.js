@@ -9,7 +9,12 @@ import { LoadFlowDialog } from './dialogs/LoadFlowDialog.js';
 import { HarmonicAnalysisDialog } from './dialogs/HarmonicAnalysisDialog.js';
 import { showHarmonicAnalysisResultsDialog } from './dialogs/HarmonicAnalysisResultsDialog.js';
 import { MonteCarloResultsDialog } from './dialogs/MonteCarloResultsDialog.js';
-import { formatResultNameHeader, createDialogNameResolver } from './utils/attributeUtils.js';
+import {
+    formatResultNameHeader,
+    createDialogNameResolver,
+    buildGraphCellLookupMap,
+    resolveGraphCellForResult
+} from './utils/attributeUtils.js';
 import { highlightCalculationErrorElements, calculationErrorHighlightSuffix } from './utils/calculationErrorHighlight.js';
 import ENV from './config/environment.js';
 import { getConnectedBusId, getLineBusEndpointsForPayload, getThreeWindingConnections, confirmTransformerVoltageMismatches } from './loadFlow.js';
@@ -30,6 +35,12 @@ import {
 const formatBusId = (busId) => {
     if (!busId) return null;
     return String(busId).replace(/#/g, '_');
+};
+
+/** Keep 0 (e.g. rx_max=0, s_sc_max_mva=500); only default when missing/NaN. */
+const finiteOr = (value, fallback) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : fallback;
 };
 
 /**
@@ -502,6 +513,11 @@ const downloadOpenDSSShortCircuitResults = (dataJson, graph) => {
             });
             resultsText += '\n';
         }
+
+        resultsText += '--- LINES / TRANSFORMERS / EXTERNAL GRID / WIND TURBINES ---\n';
+        resultsText += 'OpenDSS FaultStudy reports bus Isc/Zsc only. It does not provide\n';
+        resultsText += 'line, transformer, external-grid, or wind-turbine short-circuit currents.\n';
+        resultsText += 'Use the Pandapower IEC 60909 or ANSI/IEEE C37 study for those quantities.\n\n';
 
         resultsText += '========================================\n';
         resultsText += '          End of Results\n';
@@ -1963,8 +1979,181 @@ function harmonicAnalysisOpenDss(editorUi, graph) {
     }
 }
 
+function resolveMxGraph(app, graph) {
+    if (graph && typeof graph.getModel === 'function' && graph.getModel()) return graph;
+    if (app && typeof app.getModel === 'function' && app.getModel()) return app;
+    if (app?.editor?.graph) return app.editor.graph;
+    if (typeof window !== 'undefined' && window.App?.editor?.graph) return window.App.editor.graph;
+    return graph;
+}
+
+function isOpenDssResultPlaceholderCell(graph, cell) {
+    if (!cell || !graph?.getModel) return false;
+    const st = graph.getModel().getStyle(cell) || '';
+    return st.includes('shapeELXXX=Result');
+}
+
+function openDssElxxxShape(style) {
+    const m = String(style || '').match(/shapeELXXX=([^;]+)/);
+    return m ? m[1].trim() : '';
+}
+
+function classifyOpenDssScEquipment(shape) {
+    if (shape === 'Line' || shape === 'Line 1ph') return 'line';
+    if (shape === 'Transformer' || shape === 'Transformer 1ph' || shape === 'Three Winding Transformer') {
+        return 'trafo';
+    }
+    if (shape === 'External Grid' || shape === 'Source 1ph') return 'extgrid';
+    if (shape === 'Wind Turbine') return 'wind';
+    if (shape === 'Static Generator' || shape === 'Generator' || shape === 'Generator 1ph') return 'sgen';
+    return null;
+}
+
+function applyOpenDssUnavailableEquipmentBoxes(graph) {
+    if (!graph?.getModel) return 0;
+    const model = graph.getModel();
+    const updateSingleFn = typeof window !== 'undefined' && window.updateOrCreateSinglePlaceholder;
+    const findCompFn = typeof window !== 'undefined' && window.findResultPlaceholderForComponent;
+    const findFn = typeof window !== 'undefined' && window.findResultPlaceholder;
+    const insertFn = typeof window !== 'undefined' && window.insertResultBox;
+    const fallbackStyle = (typeof window !== 'undefined' && window.RESULT_BOX_STYLE) ||
+        'shapeELXXX=Result;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;overflow=hidden;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3';
+
+    const messages = {
+        line: 'OpenDSS does not provide\nresults for lines',
+        trafo: 'OpenDSS does not provide\nresults for transformers',
+        extgrid: 'OpenDSS does not provide\nresults for the external grid',
+        wind: 'OpenDSS does not provide\nshort-circuit results',
+        sgen: 'OpenDSS does not provide\nshort-circuit results',
+    };
+    const typeLabels = {
+        line: 'Line', trafo: 'Trafo', extgrid: 'External Grid',
+        wind: 'Wind Turbine', sgen: 'Static Generator',
+    };
+    const boxOpts = {
+        line: { width: 110, height: 52, positionX: 0.5, positionY: 0, isLine: true },
+        trafo: { width: 110, height: 52, positionX: -0.3, positionY: 1.0 },
+        extgrid: { width: 110, height: 52, positionX: -0.3, positionY: 1.0 },
+        wind: { width: 110, height: 48, positionX: -0.3, positionY: 1.0 },
+        sgen: { width: 110, height: 48, positionX: -0.3, positionY: 1.0 },
+    };
+
+    const buckets = { line: [], trafo: [], extgrid: [], wind: [], sgen: [] };
+    const cells = model.cells || {};
+    for (const key in cells) {
+        const cell = cells[key];
+        if (!cell) continue;
+        const style = (model.getStyle && model.getStyle(cell)) || cell.style || '';
+        if (style.includes('shapeELXXX=Result')) continue;
+        const kind = classifyOpenDssScEquipment(openDssElxxxShape(style));
+        if (kind) buckets[kind].push(cell);
+    }
+
+    const writeBox = (componentCell, kind) => {
+        const label = formatResultNameHeader(componentCell, '', typeLabels[kind]);
+        const resultString = `${label}\n${messages[kind]}`;
+        const opts = boxOpts[kind];
+        if (updateSingleFn) {
+            return updateSingleFn(graph, componentCell, resultString, componentCell, opts);
+        }
+        let existing = findCompFn ? findCompFn(graph, componentCell) : null;
+        if (!existing && findFn) existing = findFn(graph, componentCell);
+        if (existing) {
+            model.setValue(existing, resultString);
+            return existing;
+        }
+        const edges = (graph.getEdges && graph.getEdges(componentCell)) || componentCell.edges || [];
+        const parent = kind === 'line' ? componentCell : (edges[0] || componentCell);
+        if (insertFn) return insertFn(graph, parent, resultString, opts);
+        return graph.insertVertex(parent, null, resultString, opts.positionX || 0, opts.positionY || 0,
+            opts.width, opts.height, fallbackStyle, true);
+    };
+
+    let updated = 0;
+    // Lines first; machines last so a turbine box on a connecting edge is not
+    // left with a generic line message.
+    ['line', 'trafo', 'extgrid', 'sgen', 'wind'].forEach((kind) => {
+        buckets[kind].forEach((cell) => {
+            try {
+                if (writeBox(cell, kind)) updated += 1;
+            } catch (e) {
+                dssWarn('OpenDSS short circuit: could not mark unavailable box for', kind, cell?.id, e);
+            }
+        });
+    });
+    dssLog(`OpenDSS short circuit: marked ${updated} non-bus equipment boxes as unavailable`);
+    return updated;
+}
+
+function applyOpenDssShortCircuitResultBoxes(graph, dataJson, formatNumber, replaceUnderscores) {
+    if (!graph?.getModel || !dataJson) {
+        return 0;
+    }
+    const busbars = Array.isArray(dataJson.busbars) ? dataJson.busbars : [];
+    const model = graph.getModel();
+    let lookupMap = new Map();
+    try {
+        lookupMap = buildGraphCellLookupMap(graph);
+    } catch (e) {
+        dssWarn('OpenDSS short circuit: graph lookup map failed', e);
+    }
+    const updateSingleFn = typeof window !== 'undefined' && window.updateOrCreateSinglePlaceholder;
+    const findCompFn = typeof window !== 'undefined' && window.findResultPlaceholderForComponent;
+    const findFn = typeof window !== 'undefined' && window.findResultPlaceholder;
+    const insertFn = typeof window !== 'undefined' && window.insertResultBox;
+    const fallbackStyle = (typeof window !== 'undefined' && window.RESULT_BOX_STYLE) ||
+        'shapeELXXX=Result;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;overflow=hidden;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3';
+
+    const accept = (cell) => (cell && !isOpenDssResultPlaceholderCell(graph, cell) ? cell : null);
+
+    let updated = 0;
+    model.beginUpdate();
+    try {
+        busbars.forEach((row) => {
+            const resultCell = accept(resolveGraphCellForResult(lookupMap, row, graph));
+            if (!resultCell) {
+                dssWarn('OpenDSS short circuit: could not find busbar cell for id=', row.id, 'name=', row.name);
+                return;
+            }
+            const busLabel = formatResultNameHeader(resultCell, replaceUnderscores(String(row.name || '')), 'Bus');
+            const resultString = `${busLabel}
+                ikss[kA]: ${formatNumber(row.ikss_ka)}
+                ip[kA]: ${formatNumber(row.ip_ka)}
+                ith[kA]: ${formatNumber(row.ith_ka)}
+                rk[ohm]: ${formatNumber(row.rk_ohm)}
+                xk[ohm]: ${formatNumber(row.xk_ohm)}`;
+            let keep = null;
+            if (updateSingleFn) {
+                keep = updateSingleFn(graph, resultCell, resultString, resultCell, {
+                    width: 45, height: 70, positionX: 0, positionY: 1.0
+                });
+            } else {
+                const existing = (findCompFn && findCompFn(graph, resultCell))
+                    || (findFn && findFn(graph, resultCell))
+                    || null;
+                if (existing) {
+                    model.setValue(existing, resultString);
+                    keep = existing;
+                } else {
+                    keep = insertFn
+                        ? insertFn(graph, resultCell, resultString, { width: 45, height: 70, positionX: 0, positionY: 1.0 })
+                        : graph.insertVertex(resultCell, null, resultString, 0, 1.0, 45, 70, fallbackStyle, true);
+                }
+            }
+            if (keep) updated += 1;
+        });
+        applyOpenDssUnavailableEquipmentBoxes(graph);
+    } finally {
+        model.endUpdate();
+        if (graph.getView && graph.getView().refresh) graph.getView().refresh();
+    }
+    dssLog(`OpenDSS short circuit: updated ${updated}/${busbars.length} bus result boxes`);
+    return updated;
+}
+
 // Execute OpenDSS short circuit calculation
 function executeOpenDSSShortCircuit(parameters, app, graph) {
+    graph = resolveMxGraph(app, graph);
     function getUserEmail() {
         try {
             const userStr = localStorage.getItem('user');
@@ -1979,11 +2168,17 @@ function executeOpenDSSShortCircuit(parameters, app, graph) {
     }
 
     const userEmail = getUserEmail();
+    const scCoerceBool = (v) =>
+        v === true ||
+        v === 1 ||
+        (typeof v === 'string' && ['true', '1', 'yes', 'on'].includes(String(v).toLowerCase()));
     const scParams = {
         typ: "ShortCircuitOpenDss Parameters",
         frequency: parseInt(parameters.frequency || '50', 10),
         fault: parameters.fault || '3ph',
-        exportOpenDSSResults: parameters.exportOpenDSSResults || false,
+        exportCommands: scCoerceBool(parameters.exportCommands),
+        exportOpenDSSResults: scCoerceBool(parameters.exportOpenDSSResults),
+        exportPdfReport: scCoerceBool(parameters.exportPdfReport),
         user_email: userEmail
     };
 
@@ -2029,7 +2224,10 @@ function executeOpenDSSShortCircuit(parameters, app, graph) {
 
             if (response.status !== 200) throw new Error("server");
 
-            const dataJson = await response.json();
+            let dataJson = await response.json();
+            if (typeof dataJson === 'string') {
+                try { dataJson = JSON.parse(dataJson); } catch (e) { /* keep string */ }
+            }
             overlay.append(`Response ${response.status} in ${formatDurationMs(performance.now() - requestStart)}`, { time: true });
             overlay.append('Processing results…', { time: true });
             dssLog('OpenDSS short circuit response:', dataJson);
@@ -2042,71 +2240,46 @@ function executeOpenDSSShortCircuit(parameters, app, graph) {
             if (parameters.exportOpenDSSResults) {
                 downloadOpenDSSShortCircuitResults(dataJson, graph);
             }
-
-            if (dataJson.busbars && Array.isArray(dataJson.busbars)) {
-                const findFn = typeof window !== 'undefined' && window.findResultPlaceholder;
-                const insertFn = typeof window !== 'undefined' && window.insertResultBox;
-                const fallbackStyle = (typeof window !== 'undefined' && window.RESULT_BOX_STYLE) || 'shapeELXXX=Result;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;overflow=hidden;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3';
-
-                // Build cellIdMap - supports graph cell id and mxObjectId (with #/_ variants)
-                const cellIdMap = new Map();
-                const model = graph.getModel();
-                const cells = model.cells;
-                if (cells && typeof cells === 'object') {
-                    Object.keys(cells).forEach(cellKey => {
-                        const c = cells[cellKey];
-                        if (c && c.id != null) {
-                            cellIdMap.set(String(c.id), c);
-                            if (c.mxObjectId) {
-                                cellIdMap.set(String(c.mxObjectId), c);
-                                cellIdMap.set(String(c.mxObjectId).replace('#', '_'), c);
-                                cellIdMap.set(String(c.mxObjectId).replace('_', '#'), c);
-                            }
-                        }
-                    });
-                }
-
-                const resolveCell = (cell) => {
-                    const id = cell.id;
-                    const name = cell.name;
-                    const nameUnderscore = (name || '').replace('#', '_');
-                    const nameHash = (name || '').replace('_', '#');
-                    return cellIdMap.get(id) || cellIdMap.get(nameUnderscore) || cellIdMap.get(nameHash)
-                        || model.getCell(id) || model.getCell(nameUnderscore) || model.getCell(nameHash)
-                        || null;
-                };
-
-                model.beginUpdate();
-                try {
-                    dataJson.busbars.forEach(cell => {
-                        const resultCell = resolveCell(cell);
-                        if (!resultCell) {
-                            dssWarn('OpenDSS short circuit: could not find busbar cell for id=', cell.id, 'name=', cell.name);
-                            return;
-                        }
-                        cell.name = replaceUnderscores(cell.name);
-                        const busLabel = formatResultNameHeader(resultCell, cell.name, 'Bus');
-                        const resultString = `${busLabel}
-                ikss[kA]: ${formatNumber(cell.ikss_ka)}
-                ip[kA]: ${formatNumber(cell.ip_ka)}
-                ith[kA]: ${formatNumber(cell.ith_ka)}
-                rk[ohm]: ${formatNumber(cell.rk_ohm)}
-                xk[ohm]: ${formatNumber(cell.xk_ohm)}`;
-                        const parent = resultCell;
-                        const existing = findFn ? findFn(graph, parent) : null;
-                        if (existing) {
-                            model.setValue(existing, resultString);
-                        } else {
-                            const labelka = insertFn
-                                ? insertFn(graph, parent, resultString, { width: 45, height: 70, positionX: 0, positionY: 1.0 })
-                                : graph.insertVertex(parent, null, resultString, 0, 1.0, 45, 70, fallbackStyle, true);
-                        }
-                    });
-                } finally {
-                    model.endUpdate();
-                    if (graph.getView && graph.getView().refresh) graph.getView().refresh();
+            if (scParams.exportCommands) {
+                if (dataJson.opendss_commands) {
+                    downloadOpenDSSCommands(dataJson.opendss_commands);
+                } else {
+                    console.warn('OpenDSS short circuit: exportCommands requested but opendss_commands missing from response');
+                    alert(
+                        'Export OpenDSS Commands was requested, but the server did not return a command script.\n\nEnsure the backend is updated and retry the run.'
+                    );
                 }
             }
+
+            if (typeof window !== 'undefined') {
+                window.__electrisimLastShortCircuitResultJson = dataJson;
+            }
+
+            const boxesUpdated = applyOpenDssShortCircuitResultBoxes(
+                graph, dataJson, formatNumber, replaceUnderscores
+            );
+            if (boxesUpdated === 0 && Array.isArray(dataJson.busbars) && dataJson.busbars.length > 0) {
+                dssWarn('OpenDSS short circuit: backend returned busbars but no canvas result boxes were updated');
+            }
+
+            try {
+                if (typeof window !== 'undefined' && typeof window.showNetworkHealthDashboard === 'function') {
+                    window.showNetworkHealthDashboard(dataJson, graph, { study: 'shortcircuit' });
+                }
+            } catch (dashErr) {
+                console.warn('OpenDSS short-circuit dashboard render skipped:', dashErr);
+            }
+
+            try {
+                if (parameters.exportPdfReport &&
+                    typeof window !== 'undefined' && typeof window.exportEngineeringReport === 'function') {
+                    Promise.resolve(window.exportEngineeringReport(dataJson, graph, { study: 'shortcircuit' }))
+                        .catch((err) => console.warn('OpenDSS short-circuit Engineering Report export failed:', err));
+                }
+            } catch (rptErr) {
+                console.warn('OpenDSS short-circuit Engineering Report export skipped:', rptErr);
+            }
+
             overlay.append('Done.', { time: true });
             await settleSimulationProgress(overlay, null, simProgress.abortController);
         } catch (err) {
@@ -3182,17 +3355,16 @@ function collectNetworkDataStructured(graph) {
                         id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
                         bus: getConnectedBusId(cell),
                         // Use extracted parameters or defaults for critical values
-                        vm_pu: extGridParams.vm_pu || 1.0,      // Default voltage
-                        va_degree: extGridParams.va_degree || 0.0, // Default angle
-                        // Other parameters
-                        s_sc_max_mva: extGridParams.s_sc_max_mva || 1000.0,
-                        s_sc_min_mva: extGridParams.s_sc_min_mva || 1000.0,
-                        rx_max: extGridParams.rx_max || 0.1,
-                        rx_min: extGridParams.rx_min || 0.1,
-                        r0x0_max: extGridParams.r0x0_max || 0.1,
-                        x0x_max: extGridParams.x0x_max || 1.0,
-                        r0x0_min: extGridParams.r0x0_min || extGridParams.r0x0_max || 0.1,
-                        x0x_min: extGridParams.x0x_min || extGridParams.x0x_max || 1.0,
+                        vm_pu: finiteOr(extGridParams.vm_pu, 1.0),
+                        va_degree: finiteOr(extGridParams.va_degree, 0.0),
+                        s_sc_max_mva: finiteOr(extGridParams.s_sc_max_mva, 1000.0),
+                        s_sc_min_mva: finiteOr(extGridParams.s_sc_min_mva, 0.0),
+                        rx_max: finiteOr(extGridParams.rx_max, 0.1),
+                        rx_min: finiteOr(extGridParams.rx_min, 0.1),
+                        r0x0_max: finiteOr(extGridParams.r0x0_max, 0.1),
+                        x0x_max: finiteOr(extGridParams.x0x_max, 1.0),
+                        r0x0_min: finiteOr(extGridParams.r0x0_min, finiteOr(extGridParams.r0x0_max, 0.1)),
+                        x0x_min: finiteOr(extGridParams.x0x_min, finiteOr(extGridParams.x0x_max, 1.0)),
                         in_service: extGridInService,
                         spectrum: extGridParams.spectrum || 'defaultvsource',
                         spectrum_csv: extGridParams.spectrum_csv || ''
@@ -3223,9 +3395,9 @@ function collectNetworkDataStructured(graph) {
                         name: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id).replace('#', '_') : `mxCell_${cellId}`,
                         id: (cell.mxObjectId || cell.id) ? (cell.mxObjectId || cell.id) : `mxCell_${cellId}`,
                         bus: getConnectedBusId(cell),
-                        vm_pu: src1Params.vm_pu || 1.0,
-                        va_degree: src1Params.va_degree || 0.0,
-                        s_sc_max_mva: src1Params.s_sc_max_mva || 1000.0,
+                        vm_pu: finiteOr(src1Params.vm_pu, 1.0),
+                        va_degree: finiteOr(src1Params.va_degree, 0.0),
+                        s_sc_max_mva: finiteOr(src1Params.s_sc_max_mva, 1000.0),
                         phase: parseInt(src1Params.phase, 10) || 1,
                         conn: (src1Params.conn || 'wye').toLowerCase(),
                         in_service: src1InService

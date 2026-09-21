@@ -222,4 +222,54 @@ assert(Math.abs(m10.totalLoad - 3.3) < 1e-6, 'loads + shunt P summed');
 assert(Math.abs(m10.totalLosses - 15.087) < 0.01,
     'system losses from balance (~15.1 MW), not branch pl_mw only (7.68 MW)');
 
+// --- Test 11: IEC short-circuit metrics ----------------------------------
+console.log('\nTest 11: IEC short-circuit metrics');
+if (typeof win.computeShortCircuitMetrics !== 'function') {
+    console.error('FAIL: computeShortCircuitMetrics not exposed');
+    process.exit(1);
+}
+const scIec = {
+    study: 'shortcircuit',
+    busbars: [
+        { id: 'b1', name: 'b1', ikss_ka: 12.5, ip_ka: 31, ith_ka: 12.5, rk_ohm: 0.01, xk_ohm: 0.05 },
+        { id: 'b2', name: 'b2', ikss_ka: 4.2, ip_ka: 10, ith_ka: 4.2, rk_ohm: 0.02, xk_ohm: 0.08 },
+    ],
+    lines_sc: [{ id: 'l1', name: 'l1', ikss_ka: 8.0 }],
+};
+const m11 = win.computeShortCircuitMetrics(scIec);
+assert(m11.studyMode === 'shortcircuit', 'SC studyMode set');
+assert(m11.converged === true, 'SC IEC converged');
+assert(Math.abs(m11.maxIk - 12.5) < 1e-6, 'SC max Ikss');
+assert(m11.top5.length >= 2, 'SC top5 populated');
+assert(m11.healthScore > 0, 'SC health score > 0');
+
+// --- Test 12: ANSI short-circuit metrics ---------------------------------
+console.log('\nTest 12: ANSI short-circuit metrics');
+const scAnsi = {
+    standard: 'ANSI/IEEE C37',
+    busbars: [
+        { id: 'b1', name: 'b1', i_first_sym_ka: 9.0, i_first_peak_ka: 22, i_interrupting_ka: 8.5, i_steady_ka: 7.0, xr_first: 15 },
+    ],
+    device_duties: [
+        { id: 'sw1', name: 'CB1', interrupting_pass: true, momentary_pass: false, interrupting_rating_ka: 10 },
+    ],
+};
+const m12 = win.computeShortCircuitMetrics(scAnsi);
+assert(m12.isAnsi === true, 'ANSI mode detected');
+assert(m12.dutyFail === 1, 'ANSI duty fail counted');
+
+// --- Test 13: OpenDSS SC all-zero Ikss is not "converged" -----------------
+console.log('\nTest 13: all-zero Ikss is not converged');
+const scZero = {
+    study: 'shortcircuit',
+    engine: 'opendss',
+    busbars: [
+        { id: 'b1', name: 'Busbar PoC', ikss_ka: 0, ip_ka: 0, ith_ka: 0 },
+        { id: 'b2', name: 'Busbar', ikss_ka: 0, ip_ka: 0, ith_ka: 0 },
+    ],
+};
+const m13 = win.computeShortCircuitMetrics(scZero);
+assert(m13.converged === false, 'all-zero Ikss is not converged');
+assert(m13.maxIk === null, 'max Ikss null when all zeros');
+
 console.log('\nAll dashboard smoke tests passed.');

@@ -147,6 +147,22 @@ const m1 = win.computeNetworkHealthMetrics(healthy);
 const k1 = I.buildKpiCells(m1);
 assert(Array.isArray(k1) && k1.length === 6, '6 KPI cards produced');
 assert(k1[0].label === 'Total Generation' && parseFloat(k1[0].value) === 12, 'gen card carries 12 MW');
+
+// ---------- Test SC: short-circuit KPI cells ------------------------------
+console.log('\nTest SC: buildScKpiCells');
+if (typeof win.computeShortCircuitMetrics !== 'function') {
+    console.error('FAIL: computeShortCircuitMetrics not exposed');
+    process.exit(1);
+}
+const scPayload = {
+    study: 'shortcircuit',
+    busbars: [{ id: 'b1', name: 'b1', ikss_ka: 5.5, ip_ka: 14, ith_ka: 5.5, rk_ohm: 0.01, xk_ohm: 0.04 }],
+};
+const mSc = win.computeShortCircuitMetrics(scPayload);
+const kSc = I.buildKpiCells(mSc);
+assert(kSc[0].label === 'Max Ikss' && parseFloat(kSc[0].value) === 5.5, 'SC max Ikss KPI');
+const scBus = I.buildScBusRows(scPayload, () => '');
+assert(Array.isArray(scBus) && scBus.length === 1, 'SC bus rows');
 assert(k1[1].label === 'Total Load',                                     'load card present');
 assert(k1[2].label === 'System Losses',                                  'losses card present');
 assert(k1[3].label === 'Voltage Range' && k1[3].cls === 'good',         'voltage card good');
@@ -215,6 +231,7 @@ assert(dssSections.find(s => s.title === 'Transformers (3W)'),
 // ---------- Test 8: scoreStatus mapping ---------------------------------
 console.log('\nTest 8: scoreStatus thresholds');
 assert(I.scoreStatus(0,   false).text === 'Did not converge', 'non-converged labelled');
+assert(I.scoreStatus(0,   false, 'shortcircuit').text === 'No fault currents', 'SC zeros labelled');
 assert(I.scoreStatus(95,  true).text  === 'Excellent',         '95 = Excellent');
 assert(I.scoreStatus(80,  true).text  === 'Healthy',           '80 = Healthy');
 assert(I.scoreStatus(65,  true).text  === 'Acceptable',        '65 = Acceptable');

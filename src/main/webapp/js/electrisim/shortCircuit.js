@@ -100,6 +100,28 @@ window.shortCircuitPandaPower = function(a, b, c) {
     };
     const replaceUnderscores = name => String(name || '').replace('_', '#');
 
+    const downloadPandapowerShortCircuitPython = (pythonCode) => {
+        try {
+            if (!pythonCode || pythonCode.length === 0) {
+                alert('Cannot download: Python code is empty');
+                return;
+            }
+            const blob = new Blob([pythonCode], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+            link.download = `Pandapower_SC_Model_${timestamp}.py`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Error downloading Pandapower SC Python code:', error);
+            alert('Failed to download Pandapower short-circuit Python file.');
+        }
+    };
+
     const createTableRow = (columns, widths) => {
         return columns.map((col, i) => {
             const str = String(col);
@@ -769,6 +791,21 @@ I int[kA]: ${formatNumber(row.i_interrupting_ka)}`;
             if (param0 && param0.exportAnsiResults && isAnsi) {
                 downloadAnsiShortCircuitResults(dataJson, b);
             }
+            const wantPythonExport = param0 && (
+                param0.exportPython === true ||
+                param0.exportPython === 1 ||
+                param0.exportPython === 'true'
+            );
+            if (dataJson.pandapower_python) {
+                downloadPandapowerShortCircuitPython(dataJson.pandapower_python);
+            } else if (wantPythonExport && !isAnsi) {
+                const errMsg = dataJson.pandapower_python_error || '';
+                console.warn('Short circuit: export Python requested but backend returned no pandapower_python.', errMsg);
+                alert(
+                    'Export Pandapower Python Code was requested, but the server did not return a script.' +
+                    (errMsg ? `\n\nDetails: ${errMsg}` : '\n\nEnsure the backend is updated and retry the run.')
+                );
+            }
 
             // Build cellIdMap for reliable lookups (id, mxObjectId, mxObjectId with _/# variants)
             const cellIdMap = new Map();
@@ -832,6 +869,36 @@ I int[kA]: ${formatNumber(row.i_interrupting_ka)}`;
             const processingTime = performance.now() - processingStart;
             console.log(`Processed short circuit results in ${processingTime.toFixed(0)}ms`);
             console.log(`Total round-trip time: ${(requestTime + processingTime).toFixed(0)}ms`);
+
+            if (typeof window !== 'undefined') {
+                window.__electrisimLastShortCircuitResultJson = dataJson;
+            }
+
+            try {
+                if (typeof window !== 'undefined' && typeof window.showNetworkHealthDashboard === 'function') {
+                    window.showNetworkHealthDashboard(dataJson, b, { study: 'shortcircuit' });
+                }
+            } catch (dashErr) {
+                console.warn('Short-circuit dashboard render skipped:', dashErr);
+            }
+
+            try {
+                if (param0 && param0.exportPdfReport &&
+                    typeof window !== 'undefined' && typeof window.exportEngineeringReport === 'function') {
+                    let reportGraph = b;
+                    if (!reportGraph || typeof reportGraph.getGraphBounds !== 'function') {
+                        const ui = (window.App && (window.App._editorUi || window.App._instance)) ||
+                                   window.editorUi || window.ui || null;
+                        if (ui && ui.editor && ui.editor.graph) {
+                            reportGraph = ui.editor.graph;
+                        }
+                    }
+                    Promise.resolve(window.exportEngineeringReport(dataJson, reportGraph, { study: 'shortcircuit' }))
+                        .catch((err) => console.warn('Short-circuit Engineering Report export failed:', err));
+                }
+            } catch (rptErr) {
+                console.warn('Short-circuit Engineering Report export skipped:', rptErr);
+            }
 
             overlay?.append('Done.', { time: true });
             await settleSimulationProgress(overlay, null, simProgress?.abortController);
@@ -1129,7 +1196,7 @@ I int[kA]: ${formatNumber(row.i_interrupting_ka)}`;
         // OpenDSS engine: delegate to loadflowOpenDss
         if (values && values.engine === 'opendss') {
             const { executeOpenDSSShortCircuit } = await import('./loadflowOpenDss.js');
-            executeOpenDSSShortCircuit(values, apka, grafka);
+            executeOpenDSSShortCircuit(values, apka, b || grafka);
             return;
         }
 
@@ -1175,6 +1242,11 @@ I int[kA]: ${formatNumber(row.i_interrupting_ka)}`;
             return 'unknown@user.com';
         }
 
+        const coerceBool = (v) =>
+            v === true ||
+            v === 1 ||
+            (typeof v === 'string' && ['true', '1', 'yes', 'on'].includes(String(v).toLowerCase()));
+
         const simulationParameters = isAnsi ? {
             typ: "ShortCircuitAnsi Parameters",
             fault_type: a.fault || '3ph',
@@ -1183,7 +1255,8 @@ I int[kA]: ${formatNumber(row.i_interrupting_ka)}`;
             contact_parting_cycles: parseFloat(a.contact_parting_cycles || '3'),
             r_fault_ohm: a.r_fault_ohm || '0',
             x_fault_ohm: a.x_fault_ohm || '0',
-            exportAnsiResults: a.exportAnsiResults === true,
+            exportAnsiResults: coerceBool(a.exportAnsiResults),
+            exportPdfReport: coerceBool(a.exportPdfReport),
             user_email: getUserEmail()
         } : {
             typ: "ShortCircuitPandaPower Parameters",
@@ -1195,7 +1268,9 @@ I int[kA]: ${formatNumber(row.i_interrupting_ka)}`;
             r_fault_ohm: a.r_fault_ohm || '0',
             x_fault_ohm: a.x_fault_ohm || '0',
             inverse_y: a.inverse_y || 'True',
-            exportPandapowerResults: a.exportPandapowerResults === true,
+            exportPython: coerceBool(a.exportPython),
+            exportPandapowerResults: coerceBool(a.exportPandapowerResults),
+            exportPdfReport: coerceBool(a.exportPdfReport),
             user_email: getUserEmail()
         };
 

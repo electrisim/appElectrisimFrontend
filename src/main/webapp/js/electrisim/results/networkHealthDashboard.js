@@ -410,6 +410,189 @@
         };
     }
 
+    function isShortCircuitPayload(dataJson, opts) {
+        if (opts && opts.study === 'shortcircuit') return true;
+        const d = dataJson || {};
+        if (d.study === 'shortcircuit') return true;
+        const buses = Array.isArray(d.busbars) ? d.busbars : [];
+        if (!buses.length) return false;
+        const first = buses[0] || {};
+        const hasSc = num(first.ikss_ka) !== null || num(first.i_first_sym_ka) !== null;
+        const hasLf = num(first.vm_pu) !== null;
+        return hasSc && !hasLf;
+    }
+
+    function computeShortCircuitMetrics(dataJson, graph) {
+        const d = dataJson || {};
+        const nameOf = makeDisplayNameResolver(graph);
+        const buses = Array.isArray(d.busbars) ? d.busbars : [];
+        const isAnsi = d.standard === 'ANSI/IEEE C37' ||
+            (buses.length > 0 && num(buses[0].i_first_sym_ka) !== null);
+
+        const busRows = [];
+        for (const b of buses) {
+            const ik = isAnsi ? num(b.i_first_sym_ka) : num(b.ikss_ka);
+            const ip = isAnsi ? num(b.i_first_peak_ka) : num(b.ip_ka);
+            const ith = isAnsi ? num(b.i_interrupting_ka) : num(b.ith_ka);
+            const rk = num(b.rk_ohm);
+            const xk = num(b.xk_ohm);
+            const xr = (rk !== null && xk !== null && rk !== 0) ? Math.abs(xk / rk) : num(b.xr_first);
+            busRows.push({
+                id: b.id, name: b.name, dialogName: nameOf(b),
+                ikss_ka: ik, ip_ka: ip, ith_ka: ith, rk_ohm: rk, xk_ohm: xk, xr,
+            });
+        }
+
+        const validIk = busRows.map(r => r.ikss_ka).filter(v => v !== null && v > 0);
+        const maxIk = validIk.length ? Math.max(...validIk) : null;
+        const minIk = validIk.length ? Math.min(...validIk) : null;
+        const maxIp = busRows.reduce((m, r) => (r.ip_ka !== null ? Math.max(m, r.ip_ka) : m), -Infinity);
+        const maxIth = busRows.reduce((m, r) => (r.ith_ka !== null ? Math.max(m, r.ith_ka) : m), -Infinity);
+        const maxXr = busRows.reduce((m, r) => (r.xr !== null ? Math.max(m, r.xr) : m), -Infinity);
+
+        let maxBus = null;
+        if (maxIk !== null) {
+            maxBus = busRows.find(r => r.ikss_ka === maxIk) || null;
+        }
+
+        const linesSc = Array.isArray(d.lines_sc) ? d.lines_sc : [];
+        const trafosSc = Array.isArray(d.trafos_sc) ? d.trafos_sc : [];
+        const branchEntities = [];
+        for (const row of linesSc) {
+            const ik = num(row.ikss_ka) ?? num(row.i_from_ka) ?? num(row.i_to_ka);
+            if (ik === null) continue;
+            branchEntities.push({
+                kind: 'Line', id: row.id, name: row.name, dialogName: nameOf(row), ikss_ka: ik,
+            });
+        }
+        for (const row of trafosSc) {
+            const ik = num(row.ikss_hv_ka) ?? num(row.ikss_lv_ka) ?? num(row.i_hv_ka) ?? num(row.i_lv_ka);
+            if (ik === null) continue;
+            branchEntities.push({
+                kind: 'Trafo', id: row.id, name: row.name, dialogName: nameOf(row), ikss_ka: ik,
+            });
+        }
+
+        const topCandidates = [
+            ...busRows.filter(r => r.ikss_ka !== null).map(r => ({ kind: 'Bus', ...r })),
+            ...branchEntities,
+        ].sort((a, b) => (b.ikss_ka || 0) - (a.ikss_ka || 0));
+
+        const top5 = topCandidates.slice(0, 5).map(e => {
+            const barMax = maxIk || 1;
+            const pct = Math.min(100, ((e.ikss_ka || 0) / barMax) * 100);
+            return {
+                ...e,
+                loading_percent: pct,
+                displayValue: `${fmt(e.ikss_ka, 2)} kA`,
+            };
+        });
+
+        const issues = [];
+        for (const r of busRows) {
+            if (r.ikss_ka === null || r.ikss_ka <= 0) {
+                issues.push({
+                    severity: 'warn',
+                    title: `Missing Ikss — ${r.dialogName || r.name || r.id}`,
+                    detail: 'No valid short-circuit current at this bus.',
+                    cellId: r.id, cellName: r.name,
+                });
+            }
+        }
+        if (maxIk !== null && validIk.length >= 3) {
+            const sorted = [...validIk].sort((a, b) => a - b);
+            const median = sorted[Math.floor(sorted.length / 2)];
+            for (const r of busRows) {
+                if (r.ikss_ka !== null && r.ikss_ka > median * 5) {
+                    issues.push({
+                        severity: 'danger',
+                        title: `High fault level — ${r.dialogName || r.name || r.id}`,
+                        detail: `Ikss ${fmt(r.ikss_ka, 2)} kA is well above the study median (${fmt(median, 2)} kA).`,
+                        cellId: r.id, cellName: r.name,
+                    });
+                }
+            }
+        }
+
+        const duties = Array.isArray(d.device_duties) ? d.device_duties : [];
+        let dutyFail = 0;
+        let dutyRated = 0;
+        for (const duty of duties) {
+            if (duty.interrupting_pass === false || duty.momentary_pass === false) {
+                dutyFail++;
+                issues.push({
+                    severity: 'danger',
+                    title: `Device duty fail — ${duty.name || duty.id}`,
+                    detail: `Interrupting ${duty.interrupting_pass === false ? 'FAIL' : 'OK'} · Momentary ${duty.momentary_pass === false ? 'FAIL' : 'OK'}`,
+                    cellId: duty.id, cellName: duty.name,
+                });
+            }
+            if (duty.interrupting_rating_ka != null || duty.momentary_rating_ka != null) dutyRated++;
+        }
+
+        const histMin = 0;
+        const histMax = maxIk ? maxIk * 1.05 : 1;
+        const bins = 8;
+        const histogram = new Array(bins).fill(0);
+        const histLabels = [];
+        for (let i = 0; i < bins; i++) {
+            const lo = histMin + (histMax - histMin) * (i / bins);
+            histLabels.push(lo.toFixed(2));
+        }
+        for (const v of validIk) {
+            const idx = Math.min(bins - 1, Math.max(0,
+                Math.floor(((v - histMin) / (histMax - histMin || 1)) * bins)));
+            histogram[idx]++;
+        }
+
+        const converged = !d.error && busRows.length > 0 && validIk.length > 0;
+        let healthScore = 0;
+        if (converged) {
+            const coverage = validIk.length / Math.max(1, busRows.length);
+            healthScore += Math.round(40 * coverage);
+            healthScore += Math.max(0, 30 - issues.filter(i => i.severity === 'danger').length * 8);
+            if (dutyRated > 0) {
+                const passRate = 1 - dutyFail / dutyRated;
+                healthScore += Math.round(30 * passRate);
+            } else {
+                healthScore += 30;
+            }
+        }
+        healthScore = Math.max(0, Math.min(100, healthScore));
+
+        return {
+            studyMode: 'shortcircuit',
+            isAnsi,
+            converged,
+            healthScore,
+            maxIk, minIk,
+            maxIp: maxIp >= 0 ? maxIp : null,
+            maxIth: maxIth >= 0 ? maxIth : null,
+            maxXr: maxXr >= 0 ? maxXr : null,
+            maxBus,
+            top5,
+            issues,
+            histogram, histLabels, histMin, histMax,
+            dutyFail, dutyRated,
+            studyParams: d.study_params || {},
+            engine: d.engine || d.standard || 'Short circuit',
+            counts: {
+                buses: busRows.length,
+                lines: linesSc.length,
+                transformers: trafosSc.length,
+            },
+            // LF-shaped placeholders for shared builders
+            totalGen: null, totalLoad: null, totalLosses: null, lossPct: null,
+            breakdownGen: [], breakdownLoad: [],
+            minV: null, maxV: null, minBus: null, maxBus: maxBus,
+            busBuckets: { good: validIk.length, warn: 0, danger: 0, total: busRows.length },
+            maxL: null, maxLEntity: null,
+            loadingGood: 0, loadingWarn: 0, loadingDanger: 0,
+            loadingHeadroomPct: 0,
+            equipmentBuckets: { good: 0, warn: 0, danger: 0, total: 0 },
+        };
+    }
+
     /* ---------------------------------------------------------------------
      *  Style injection (one-time)
      * ------------------------------------------------------------------- */
@@ -746,7 +929,10 @@
             const color = cls === 'good' ? COLOR_GOOD : cls === 'warn' ? COLOR_WARN : COLOR_DANGER;
             const w = Math.min(100, pct).toFixed(0);
             const label = e.dialogName || e.name || e.id || `${e.kind}`;
-            const tooltip = `${e.kind}: ${label} — ${pct.toFixed(1)}% loading`;
+            const valueText = e.displayValue != null ? e.displayValue : `${pct.toFixed(0)}%`;
+            const tooltip = e.displayValue != null
+                ? `${e.kind}: ${label} — ${e.displayValue}`
+                : `${e.kind}: ${label} — ${pct.toFixed(1)}% loading`;
             const idx = targets.length;
             targets.push({ id: e.id, name: e.name });
             return `
@@ -755,7 +941,7 @@
                     <span class="ehd-bar-track">
                         <span class="ehd-bar-fill" style="width:0%; background:${color};" data-target="${w}"></span>
                     </span>
-                    <span class="ehd-bar-value" style="color:${color};">${pct.toFixed(0)}%</span>
+                    <span class="ehd-bar-value" style="color:${color};">${valueText}</span>
                 </div>
             `;
         }).join('');
@@ -806,7 +992,59 @@
     /* ---------------------------------------------------------------------
      *  KPI cards
      * ------------------------------------------------------------------- */
+    function buildScKpis(m) {
+        const ikCls = m.maxIk != null && m.maxIk > 0 ? 'info' : 'warn';
+        const cards = [
+            { label: 'Max Ikss', cls: ikCls, value: fmt(m.maxIk, 2), unit: 'kA', sub: m.maxBus ? (m.maxBus.dialogName || m.maxBus.name || m.maxBus.id) : '—' },
+            { label: 'Min Ikss', cls: 'info', value: fmt(m.minIk, 2), unit: 'kA', sub: `${m.busBuckets.good}/${m.busBuckets.total} buses with data` },
+            { label: 'Max Ip', cls: 'info', value: fmt(m.maxIp, 2), unit: 'kA', sub: 'Peak current' },
+            { label: 'Max Ith', cls: 'info', value: fmt(m.maxIth, 2), unit: 'kA', sub: 'Thermal / interrupting basis' },
+            { label: 'Max X/R', cls: 'info', value: fmt(m.maxXr, 1), unit: '', sub: 'Fault-point asymmetry' },
+            {
+                label: 'Duty checks', cls: m.dutyFail > 0 ? 'danger' : 'good',
+                value: m.dutyRated > 0 ? String(m.dutyRated - m.dutyFail) + '/' + m.dutyRated : '—',
+                unit: '', sub: m.dutyRated > 0 ? `${m.dutyFail} failing` : 'No switch ratings entered',
+            },
+        ];
+        return cards.map(c => `
+            <div class="ehd-kpi ${c.cls}">
+                <div class="ehd-kpi-label">${c.label}</div>
+                <div class="ehd-kpi-value">${c.value}<span class="ehd-kpi-unit">${c.unit}</span></div>
+                <div class="ehd-kpi-sub">${c.sub}</div>
+            </div>
+        `).join('');
+    }
+
+    function buildScHistogram(metrics) {
+        const { histogram, histMin, histMax } = metrics;
+        const w = 348, h = 70, padL = 22, padR = 6, padT = 8, padB = 18;
+        const innerW = w - padL - padR;
+        const innerH = h - padT - padB;
+        const bars = histogram.length;
+        const barW = innerW / bars;
+        const maxCount = Math.max(1, ...histogram);
+        let svg = `<svg class="ehd-hist" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">`;
+        for (let i = 0; i < bars; i++) {
+            const count = histogram[i];
+            if (!count) continue;
+            const bh = (count / maxCount) * innerH;
+            const x = padL + i * barW + 2;
+            const y = padT + innerH - bh;
+            const lo = histMin + (histMax - histMin) * (i / bars);
+            const hi = histMin + (histMax - histMin) * ((i + 1) / bars);
+            svg += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(barW - 4).toFixed(1)}" height="${bh.toFixed(1)}"
+                          fill="${COLOR_INFO}" rx="2" ry="2" opacity="0.85">
+                        <title>${count} bus(es) in [${lo.toFixed(2)}, ${hi.toFixed(2)}] kA</title>
+                    </rect>`;
+        }
+        svg += `<text x="${w - 36}" y="${h - 4}" font-size="9" fill="${COLOR_MUTED}"
+                      font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Arial, sans-serif">Ikss [kA]</text>`;
+        svg += `</svg>`;
+        return svg;
+    }
+
     function buildKpis(m) {
+        if (m.studyMode === 'shortcircuit') return buildScKpis(m);
         const lossPct  = m.totalGen ? (m.totalLosses / m.totalGen) * 100 : 0;
         const lossCls  = lossPct > 8 ? 'danger' : lossPct > 4 ? 'warn' : 'good';
         const vMinCls  = m.minV !== null ? classifyVoltage(m.minV) : 'unknown';
@@ -872,8 +1110,13 @@
     /* ---------------------------------------------------------------------
      *  Score interpretation
      * ------------------------------------------------------------------- */
-    function scoreStatus(score, converged) {
-        if (!converged)   return { text: 'Did not converge',   color: COLOR_DANGER };
+    function scoreStatus(score, converged, studyMode) {
+        if (!converged) {
+            if (studyMode === 'shortcircuit') {
+                return { text: 'No fault currents', color: COLOR_DANGER };
+            }
+            return { text: 'Did not converge',   color: COLOR_DANGER };
+        }
         if (score >= 90)  return { text: 'Excellent',          color: COLOR_GOOD };
         if (score >= 75)  return { text: 'Healthy',            color: COLOR_GOOD };
         if (score >= 60)  return { text: 'Acceptable',         color: COLOR_WARN };
@@ -1002,11 +1245,23 @@
     /* ---------------------------------------------------------------------
      *  Main: render the dashboard
      * ------------------------------------------------------------------- */
-    function show(dataJson, graph) {
+    function show(dataJson, graph, opts) {
         try {
             ensureStyle();
-            const metrics = computeMetrics(dataJson, graph);
-            const status  = scoreStatus(metrics.healthScore, metrics.converged);
+            const isSc = isShortCircuitPayload(dataJson, opts);
+            const metrics = isSc
+                ? computeShortCircuitMetrics(dataJson, graph)
+                : computeMetrics(dataJson, graph);
+            const status  = scoreStatus(metrics.healthScore, metrics.converged, metrics.studyMode);
+            const dashTitle = isSc ? 'Short-Circuit Dashboard' : 'Network Health Dashboard';
+            const top5Title = isSc ? 'Top 5 Fault Levels (Ikss)' : 'Top 5 Loaded Equipment';
+            const histTitle = isSc ? 'Ikss Distribution' : 'Voltage Profile';
+            const histBlock = isSc ? buildScHistogram(metrics) : buildHistogram(metrics);
+            const scoreLabel = isSc ? 'Study status' : 'System status';
+            const scoreDetail = isSc
+                ? `${metrics.counts.buses} buses · ${metrics.engine}${metrics.studyParams.fault_type ? ' · ' + metrics.studyParams.fault_type : ''}`
+                : `${metrics.counts.buses} buses · ${metrics.counts.lines} lines · ${metrics.counts.transformers} transformers`;
+            const hideLfOnly = isSc ? 'display:none;' : '';
 
             // Console breakdown so users can audit the totals when something
             // looks off (e.g., a missing category or unexpected sign convention).
@@ -1038,7 +1293,7 @@
                 <div class="ehd-header">
                     <h3>
                         <span class="ehd-pulse" style="background:${status.color};"></span>
-                        Network Health Dashboard
+                        ${dashTitle}
                     </h3>
                     <div class="ehd-actions">
                         <button class="ehd-icon-btn ehd-collapse" title="Collapse / expand" aria-label="Collapse">−</button>
@@ -1049,11 +1304,10 @@
                     <div class="ehd-score-row">
                         ${buildGauge(metrics.healthScore)}
                         <div class="ehd-score-info">
-                            <div class="ehd-score-label">System status</div>
+                            <div class="ehd-score-label">${scoreLabel}</div>
                             <div class="ehd-score-status" style="color:${status.color};">${status.text}</div>
                             <div class="ehd-score-detail">
-                                ${metrics.counts.buses} buses · ${metrics.counts.lines} lines ·
-                                ${metrics.counts.transformers} transformers
+                                ${scoreDetail}
                             </div>
                         </div>
                     </div>
@@ -1062,7 +1316,7 @@
 
                     <div class="ehd-section">
                         <div class="ehd-section-title">
-                            <span>Top 5 Loaded Equipment</span>
+                            <span>${top5Title}</span>
                             <span class="ehd-count">click → focus on diagram</span>
                         </div>
                         <div class="ehd-top5">${buildTop5(metrics, targets)}</div>
@@ -1070,10 +1324,10 @@
 
                     <div class="ehd-section">
                         <div class="ehd-section-title">
-                            <span>Voltage Profile</span>
+                            <span>${histTitle}</span>
                             <span class="ehd-count">${metrics.busBuckets.total} buses</span>
                         </div>
-                        ${buildHistogram(metrics)}
+                        ${histBlock}
                     </div>
 
                     <div class="ehd-section">
@@ -1086,12 +1340,12 @@
 
                     <div class="ehd-cta-row">
                         <button class="ehd-btn primary ehd-flash-btn">Highlight Hot Spots</button>
-                        <button class="ehd-btn ehd-line-i-btn"
+                        <button class="ehd-btn ehd-line-i-btn" style="${hideLfOnly}"
                                 title="Select one or more series Line edges first, then open this chart (|I| vs km from pandapower i_from / i_to)">Line current vs km…</button>
                         <button class="ehd-btn ehd-report-btn" title="Generate a multi-page PDF engineering report from this run">Export Report</button>
                         <button class="ehd-btn ehd-copy-btn">Copy Summary</button>
                     </div>
-                    <div class="ehd-cta-row ehd-compare-row">
+                    <div class="ehd-cta-row ehd-compare-row" style="${hideLfOnly}">
                         <button class="ehd-btn ehd-baseline-btn"
                                 title="Pin this run as the Baseline so future runs can be compared against it">Save as Baseline</button>
                         <button class="ehd-btn primary ehd-compare-btn"
@@ -1176,7 +1430,8 @@
                     const original = reportBtn.innerHTML;
                     reportBtn.setAttribute('disabled', 'true');
                     reportBtn.innerHTML = '<span class="ehd-spinner"></span> Building…';
-                    Promise.resolve(window.exportEngineeringReport(dataJson, liveGraph))
+                    const reportOpts = isSc ? { study: 'shortcircuit' } : undefined;
+                    Promise.resolve(window.exportEngineeringReport(dataJson, liveGraph, reportOpts))
                         .catch((err) => console.error('[NetworkHealthDashboard] report failed:', err))
                         .finally(() => {
                             reportBtn.removeAttribute('disabled');
@@ -1187,8 +1442,13 @@
 
             // Copy summary
             panel.querySelector('.ehd-copy-btn').addEventListener('click', () => {
-                const summary =
-`Electrisim — Network Health Summary
+                const summary = isSc
+                    ? `Electrisim — Short-Circuit Summary
+Status: ${status.text} (Score ${metrics.healthScore}/100)
+Max Ikss: ${fmt(metrics.maxIk, 2)} kA | Min Ikss: ${fmt(metrics.minIk, 2)} kA
+Max Ip: ${fmt(metrics.maxIp, 2)} kA | Max Ith: ${fmt(metrics.maxIth, 2)} kA
+Buses: ${metrics.counts.buses} | Issues: ${metrics.issues.length}`
+                    : `Electrisim — Network Health Summary
 Status: ${status.text} (Score ${metrics.healthScore}/100)
 Generation:  ${fmt(metrics.totalGen, 2)} MW
 Load:        ${fmt(metrics.totalLoad, 2)} MW
@@ -1311,4 +1571,5 @@ Violations:  ${metrics.issues.length}`;
     window.showNetworkHealthDashboard = show;
     window.hideNetworkHealthDashboard = hide;
     window.computeNetworkHealthMetrics = computeMetrics; // exposed for testing / future use
+    window.computeShortCircuitMetrics = computeShortCircuitMetrics;
 })();

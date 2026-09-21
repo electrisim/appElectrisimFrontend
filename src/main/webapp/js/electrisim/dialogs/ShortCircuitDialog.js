@@ -62,8 +62,20 @@ export class ShortCircuitDialog extends Dialog {
                 ]
             },
             {
+                id: 'exportPython',
+                label: 'Export Pandapower Python Code (download .py file)',
+                type: 'checkbox',
+                value: false
+            },
+            {
                 id: 'exportPandapowerResults',
                 label: 'Export Pandapower Results (download .txt file)',
+                type: 'checkbox',
+                value: false
+            },
+            {
+                id: 'exportPdfReport',
+                label: 'Export PDF Engineering Report (multi-page, client-ready)',
                 type: 'checkbox',
                 value: false
             }
@@ -116,6 +128,12 @@ export class ShortCircuitDialog extends Dialog {
                 label: 'Export ANSI Results (download .txt file)',
                 type: 'checkbox',
                 value: false
+            },
+            {
+                id: 'exportPdfReport',
+                label: 'Export PDF Engineering Report (multi-page, client-ready)',
+                type: 'checkbox',
+                value: false
             }
         ];
 
@@ -140,8 +158,20 @@ export class ShortCircuitDialog extends Dialog {
                 ]
             },
             {
+                id: 'exportCommands',
+                label: 'Export OpenDSS Commands (download .txt file)',
+                type: 'checkbox',
+                value: false
+            },
+            {
                 id: 'exportOpenDSSResults',
                 label: 'Export OpenDSS Results (download .txt file)',
+                type: 'checkbox',
+                value: false
+            },
+            {
+                id: 'exportPdfReport',
+                label: 'Export PDF Engineering Report (multi-page, client-ready)',
                 type: 'checkbox',
                 value: false
             }
@@ -519,6 +549,29 @@ export class ShortCircuitDialog extends Dialog {
             ? 'opendss'
             : (this.pandapowerStandard === 'ansi' ? 'ansi' : 'pandapower');
         values.standard = this.currentTab === 'opendss' ? 'opendss' : this.pandapowerStandard;
+
+        // Sync export checkboxes from this dialog's DOM (avoids stale inputs Map / duplicate ids elsewhere).
+        if (this.container) {
+            const syncCheckbox = (id) => {
+                const el = this.container.querySelector(`input[type="checkbox"][id="${id}"]`);
+                if (el) {
+                    values[id] = el.checked;
+                }
+            };
+            if (this.currentTab === 'pandapower' && this.pandapowerStandard !== 'ansi') {
+                syncCheckbox('exportPython');
+                syncCheckbox('exportPandapowerResults');
+                syncCheckbox('exportPdfReport');
+            } else if (this.currentTab === 'pandapower' && this.pandapowerStandard === 'ansi') {
+                syncCheckbox('exportAnsiResults');
+                syncCheckbox('exportPdfReport');
+            } else if (this.currentTab === 'opendss') {
+                syncCheckbox('exportCommands');
+                syncCheckbox('exportOpenDSSResults');
+                syncCheckbox('exportPdfReport');
+            }
+        }
+
         return values;
     }
 

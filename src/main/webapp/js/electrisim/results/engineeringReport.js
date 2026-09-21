@@ -1026,8 +1026,13 @@
     /* ---------------------------------------------------------------------
      *  Status / verdict text from health score
      * ------------------------------------------------------------------- */
-    function scoreStatus(score, converged) {
-        if (!converged)   return { text: 'Did not converge',  color: COLOR.DANGER };
+    function scoreStatus(score, converged, studyMode) {
+        if (!converged) {
+            if (studyMode === 'shortcircuit') {
+                return { text: 'No fault currents', color: COLOR.DANGER };
+            }
+            return { text: 'Did not converge',  color: COLOR.DANGER };
+        }
         if (score >= 90)  return { text: 'Excellent',         color: COLOR.GOOD };
         if (score >= 75)  return { text: 'Healthy',           color: COLOR.GOOD };
         if (score >= 60)  return { text: 'Acceptable',        color: COLOR.WARN };
@@ -1190,7 +1195,141 @@
     /* ---------------------------------------------------------------------
      *  Section builders — pure data, exposed for unit tests.
      * ------------------------------------------------------------------- */
+    function isShortCircuitReport(dataJson, opts) {
+        if (opts && opts.study === 'shortcircuit') return true;
+        const d = dataJson || {};
+        if (d.study === 'shortcircuit') return true;
+        const buses = Array.isArray(d.busbars) ? d.busbars : [];
+        if (!buses.length) return false;
+        const first = buses[0] || {};
+        const hasSc = num(first.ikss_ka) !== null || num(first.i_first_sym_ka) !== null;
+        const hasLf = num(first.vm_pu) !== null;
+        return hasSc && !hasLf;
+    }
+
+    function buildScKpiCells(metrics) {
+        const ikCls = metrics.maxIk != null && metrics.maxIk > 0 ? 'info' : 'warn';
+        return [
+            { label: 'Max Ikss', value: fmt(metrics.maxIk, 2), unit: 'kA', sub: metrics.maxBus ? (metrics.maxBus.dialogName || metrics.maxBus.name || metrics.maxBus.id) : '—', cls: ikCls },
+            { label: 'Min Ikss', value: fmt(metrics.minIk, 2), unit: 'kA', sub: `${metrics.busBuckets?.good || 0}/${metrics.busBuckets?.total || 0} buses`, cls: 'info' },
+            { label: 'Max Ip', value: fmt(metrics.maxIp, 2), unit: 'kA', sub: 'Peak current', cls: 'info' },
+            { label: 'Max Ith', value: fmt(metrics.maxIth, 2), unit: 'kA', sub: 'Thermal / interrupting', cls: 'info' },
+            { label: 'Max X/R', value: fmt(metrics.maxXr, 1), unit: '', sub: 'Fault-point asymmetry', cls: 'info' },
+            {
+                label: 'Duty checks',
+                value: metrics.dutyRated > 0 ? `${metrics.dutyRated - metrics.dutyFail}/${metrics.dutyRated}` : '—',
+                unit: '',
+                sub: metrics.dutyRated > 0 ? `${metrics.dutyFail} failing` : 'No switch ratings',
+                cls: metrics.dutyFail > 0 ? 'danger' : 'good',
+            },
+        ];
+    }
+
+    function buildScBusRows(dataJson, dialogNameFor) {
+        const buses = Array.isArray(dataJson?.busbars) ? dataJson.busbars : [];
+        const isAnsi = dataJson?.standard === 'ANSI/IEEE C37' ||
+            (buses.length > 0 && num(buses[0].i_first_sym_ka) !== null);
+        const nameOf = (row, fallback) => {
+            const n = row?.name;
+            if (n && !/^mxCell[#_]\d+$/i.test(String(n))) return String(n).replace(/_/g, '#');
+            return row?.id != null ? String(row.id) : fallback;
+        };
+        if (isAnsi) {
+            return buses.map(b => [
+                nameOf(b, 'Bus'),
+                dialogNameFor ? (dialogNameFor(b) || '—') : '—',
+                fmt(num(b.i_first_sym_ka), 3),
+                fmt(num(b.i_first_peak_ka), 3),
+                fmt(num(b.i_interrupting_ka), 3),
+                fmt(num(b.i_steady_ka), 3),
+                fmt(num(b.xr_first), 1),
+            ]).sort((a, b) => (parseFloat(b[2]) || 0) - (parseFloat(a[2]) || 0));
+        }
+        return buses.map(b => [
+            nameOf(b, 'Bus'),
+            dialogNameFor ? (dialogNameFor(b) || '—') : '—',
+            fmt(num(b.ikss_ka), 3),
+            fmt(num(b.ip_ka), 3),
+            fmt(num(b.ith_ka), 3),
+            fmt(num(b.rk_ohm), 4),
+            fmt(num(b.xk_ohm), 4),
+        ]).sort((a, b) => (parseFloat(b[2]) || 0) - (parseFloat(a[2]) || 0));
+    }
+
+    function buildScBranchRows(dataJson, dialogNameFor) {
+        const lines = Array.isArray(dataJson?.lines_sc) ? dataJson.lines_sc : [];
+        const trafos = Array.isArray(dataJson?.trafos_sc) ? dataJson.trafos_sc : [];
+        const rows = [];
+        const nameOf = (row, kind) => {
+            const n = row?.name;
+            if (n && !/^mxCell[#_]\d+$/i.test(String(n))) return String(n).replace(/_/g, '#');
+            return row?.id != null ? String(row.id) : kind;
+        };
+        for (const l of lines) {
+            rows.push([
+                'Line',
+                nameOf(l, 'Line'),
+                dialogNameFor ? (dialogNameFor(l) || '—') : '—',
+                fmt(num(l.ikss_ka) ?? num(l.i_from_ka), 3),
+                fmt(num(l.i_to_ka), 3),
+            ]);
+        }
+        for (const t of trafos) {
+            rows.push([
+                'Trafo',
+                nameOf(t, 'Trafo'),
+                dialogNameFor ? (dialogNameFor(t) || '—') : '—',
+                fmt(num(t.ikss_hv_ka) ?? num(t.i_hv_ka), 3),
+                fmt(num(t.ikss_lv_ka) ?? num(t.i_lv_ka), 3),
+            ]);
+        }
+        return rows.sort((a, b) => (parseFloat(b[3]) || 0) - (parseFloat(a[3]) || 0));
+    }
+
+    function buildScDutyRows(dataJson) {
+        const duties = Array.isArray(dataJson?.device_duties) ? dataJson.device_duties : [];
+        return duties.map(d => [
+            d.name || d.id || '—',
+            fmt(num(d.duty_interrupting_ka), 3),
+            d.interrupting_rating_ka != null ? fmt(num(d.interrupting_rating_ka), 3) : '—',
+            d.interrupting_pass === false ? 'FAIL' : (d.interrupting_pass === true ? 'OK' : '—'),
+            fmt(num(d.duty_momentary_ka), 3),
+            d.momentary_rating_ka != null ? fmt(num(d.momentary_rating_ka), 3) : '—',
+            d.momentary_pass === false ? 'FAIL' : (d.momentary_pass === true ? 'OK' : '—'),
+        ]);
+    }
+
+    function buildScDetailedSections(dataJson, graph) {
+        const dn = (typeof window !== 'undefined' && typeof window.createDialogNameResolver === 'function')
+            ? window.createDialogNameResolver(graph)
+            : (() => '');
+        const isAnsi = dataJson?.standard === 'ANSI/IEEE C37';
+        const sections = [];
+        const busHead = isAnsi
+            ? ['Object id', 'Dialog name', 'I½ sym [kA]', 'I½ peak [kA]', 'Iint [kA]', 'I30 [kA]', 'X/R']
+            : ['Object id', 'Dialog name', 'Ikss [kA]', 'Ip [kA]', 'Ith [kA]', 'Rk [Ω]', 'Xk [Ω]'];
+        sections.push({ title: 'Buses — short circuit', head: busHead, rows: buildScBusRows(dataJson, dn) });
+        const branchRows = buildScBranchRows(dataJson, dn);
+        if (branchRows.length) {
+            sections.push({
+                title: 'Branches — short circuit',
+                head: ['Type', 'Object id', 'Dialog name', 'I end A [kA]', 'I end B [kA]'],
+                rows: branchRows,
+            });
+        }
+        const dutyRows = buildScDutyRows(dataJson);
+        if (dutyRows.length) {
+            sections.push({
+                title: 'Device duties (ANSI)',
+                head: ['Device', 'Duty int [kA]', 'Rating int [kA]', 'Int', 'Duty mom [kA]', 'Rating mom [kA]', 'Mom'],
+                rows: dutyRows,
+            });
+        }
+        return sections;
+    }
+
     function buildKpiCells(metrics) {
+        if (metrics.studyMode === 'shortcircuit') return buildScKpiCells(metrics);
         const lossPct  = metrics.totalGen ? (metrics.totalLosses / metrics.totalGen) * 100 : 0;
         const lossCls  = lossPct > 8 ? 'danger' : lossPct > 4 ? 'warn' : 'good';
         const vMin     = metrics.minV;
@@ -1640,7 +1779,8 @@
         return doc;
     }
 
-    async function generatePdf(dataJson, graph, meta) {
+    async function generatePdf(dataJson, graph, meta, opts) {
+        opts = opts || {};
         const jspdfNs = await ensurePdfLibs();
         const JsPDFCtor = (jspdfNs && jspdfNs.jsPDF) || jspdfNs;
         if (!JsPDFCtor) throw new Error('jsPDF unavailable');
@@ -1651,12 +1791,16 @@
 
         const doc = new JsPDFCtor({ unit: 'mm', format: 'a4', compress: true });
 
-        const metrics = (typeof window !== 'undefined' && typeof window.computeNetworkHealthMetrics === 'function')
-            ? window.computeNetworkHealthMetrics(dataJson, graph)
-            : null;
+        const isSc = isShortCircuitReport(dataJson, opts);
+        const metricsFn = isSc
+            ? (typeof window !== 'undefined' && typeof window.computeShortCircuitMetrics === 'function'
+                ? window.computeShortCircuitMetrics : null)
+            : (typeof window !== 'undefined' && typeof window.computeNetworkHealthMetrics === 'function'
+                ? window.computeNetworkHealthMetrics : null);
+        const metrics = metricsFn ? metricsFn(dataJson, graph) : null;
         if (!metrics) throw new Error('Network Health metrics not available; ensure networkHealthDashboard.js is loaded.');
 
-        const status = scoreStatus(metrics.healthScore, metrics.converged);
+        const status = scoreStatus(metrics.healthScore, metrics.converged, metrics.studyMode);
         const dialogNameFor = (typeof window !== 'undefined' && typeof window.createDialogNameResolver === 'function')
             ? window.createDialogNameResolver(graph)
             : (() => '');
@@ -1746,9 +1890,23 @@
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(13);
         setText('#cbd5e1');
-        doc.text('Load Flow study', PAGE.margin, 66);
+        doc.text(isSc ? 'Short-circuit study' : 'Load Flow study', PAGE.margin, 66);
         doc.setFontSize(11);
         doc.text(`Engine: ${engine}`, PAGE.margin, 74);
+        if (isSc && dataJson.study_params) {
+            const sp = dataJson.study_params;
+            const spLine = [
+                sp.standard || sp.fault_type,
+                sp.fault_type,
+                sp.fault_location,
+                sp.tk_s != null ? `tk_s=${sp.tk_s}s` : null,
+            ].filter(Boolean).join(' · ');
+            if (spLine) {
+                doc.setFontSize(9);
+                setText('#cbd5e1');
+                doc.text(spLine, PAGE.margin, 80);
+            }
+        }
 
         // Project block
         setText(COLOR.TEXT);
@@ -1795,7 +1953,11 @@
         setText(COLOR.MUTED);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(9);
-        doc.text('Generated automatically by Electrisim from the load flow result JSON.', PAGE.margin, PAGE.h - 18);
+        doc.text(
+            isSc
+                ? 'Generated automatically by Electrisim from the short-circuit result JSON.'
+                : 'Generated automatically by Electrisim from the load flow result JSON.',
+            PAGE.margin, PAGE.h - 18);
         doc.text('Open-source power system analysis · electrisim.com', PAGE.margin, PAGE.h - 12);
 
         // ============= PAGE 2: EXECUTIVE SUMMARY =============
@@ -1842,12 +2004,12 @@
         setText(status.color);
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(11);
-        doc.text(`System Status: ${status.text} (Score ${metrics.healthScore}/100)`, PAGE.margin + 4, verdictY + 9);
+        doc.text(`${isSc ? 'Study' : 'System'} Status: ${status.text} (Score ${metrics.healthScore}/100)`, PAGE.margin + 4, verdictY + 9);
 
-        // Generation / Load breakdown tables
+        // Generation / Load breakdown tables (load flow only)
         const startTablesY = verdictY + 22;
         const halfW = (CONTENT_W - 6) / 2;
-        if (window.jspdf && window.jspdf.autoTable || doc.autoTable) {
+        if (!isSc && (window.jspdf && window.jspdf.autoTable || doc.autoTable)) {
             const at = doc.autoTable.bind(doc);
             at({
                 startY: startTablesY,
@@ -2010,63 +2172,123 @@
             }
         }
 
-        // ============= PAGE 4: VOLTAGE PROFILE (back to portrait) =============
+        // ============= PAGE 4: VOLTAGE / FAULT LEVELS =============
         doc.addPage('a4', 'portrait');
-        drawHeaderBand('Voltage Profile', `${metrics.busBuckets.total} buses · band ±5% (warn) / ±10% (critical)`);
-        const histo = renderHistogramCanvas(metrics);
-        if (histo) {
-            const fit = fitImage(histo, CONTENT_W, 75);
-            if (fit) doc.addImage(histo.dataUrl, 'PNG', PAGE.margin, 28, fit.w, fit.h);
-        }
-        if (doc.autoTable) {
-            const busRows = buildBusRows(dataJson, dialogNameFor);
-            doc.autoTable({
-                startY: 110,
-                margin: { left: PAGE.margin, right: PAGE.margin },
-                head: [['Object id', 'Dialog name', 'U [pu]', 'U [deg]', 'Band']],
-                body: busRows,
-                theme: 'striped',
-                styles: { font: 'helvetica', fontSize: 8.5, cellPadding: 1.2 },
-                headStyles: { fillColor: hexToRgb(COLOR.BRAND), textColor: [255,255,255] },
-                columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'center', cellWidth: 22 } },
-                didParseCell: (d) => {
-                    if (d.section !== 'body') return;
-                    if (d.column.index === 4) {
-                        const v = String(d.cell.raw || '');
-                        if (v === 'CRITICAL') { d.cell.styles.fillColor = [253, 226, 226]; d.cell.styles.textColor = hexToRgb(COLOR.DANGER); d.cell.styles.fontStyle = 'bold'; }
-                        else if (v === 'WARN') { d.cell.styles.fillColor = [254, 240, 199]; d.cell.styles.textColor = hexToRgb(COLOR.WARN);   d.cell.styles.fontStyle = 'bold'; }
-                        else                    { d.cell.styles.textColor = hexToRgb(COLOR.GOOD); }
-                    }
-                },
-            });
+        if (isSc) {
+            const isAnsi = dataJson?.standard === 'ANSI/IEEE C37';
+            drawHeaderBand('Bus Fault Levels', `${metrics.busBuckets.total} buses · short-circuit study`);
+            if (doc.autoTable) {
+                doc.autoTable({
+                    startY: 30,
+                    margin: { left: PAGE.margin, right: PAGE.margin },
+                    head: [isAnsi
+                        ? ['Object id', 'Dialog name', 'I½ sym [kA]', 'I½ peak [kA]', 'Iint [kA]', 'I30 [kA]', 'X/R']
+                        : ['Object id', 'Dialog name', 'Ikss [kA]', 'Ip [kA]', 'Ith [kA]', 'Rk [Ω]', 'Xk [Ω]']],
+                    body: buildScBusRows(dataJson, dialogNameFor),
+                    theme: 'striped',
+                    styles: { font: 'helvetica', fontSize: 8.5, cellPadding: 1.2 },
+                    headStyles: { fillColor: hexToRgb(COLOR.BRAND), textColor: [255,255,255] },
+                    columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' } },
+                });
+            }
+        } else {
+            drawHeaderBand('Voltage Profile', `${metrics.busBuckets.total} buses · band ±5% (warn) / ±10% (critical)`);
+            const histo = renderHistogramCanvas(metrics);
+            if (histo) {
+                const fit = fitImage(histo, CONTENT_W, 75);
+                if (fit) doc.addImage(histo.dataUrl, 'PNG', PAGE.margin, 28, fit.w, fit.h);
+            }
+            if (doc.autoTable) {
+                const busRows = buildBusRows(dataJson, dialogNameFor);
+                doc.autoTable({
+                    startY: 110,
+                    margin: { left: PAGE.margin, right: PAGE.margin },
+                    head: [['Object id', 'Dialog name', 'U [pu]', 'U [deg]', 'Band']],
+                    body: busRows,
+                    theme: 'striped',
+                    styles: { font: 'helvetica', fontSize: 8.5, cellPadding: 1.2 },
+                    headStyles: { fillColor: hexToRgb(COLOR.BRAND), textColor: [255,255,255] },
+                    columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'center', cellWidth: 22 } },
+                    didParseCell: (d) => {
+                        if (d.section !== 'body') return;
+                        if (d.column.index === 4) {
+                            const v = String(d.cell.raw || '');
+                            if (v === 'CRITICAL') { d.cell.styles.fillColor = [253, 226, 226]; d.cell.styles.textColor = hexToRgb(COLOR.DANGER); d.cell.styles.fontStyle = 'bold'; }
+                            else if (v === 'WARN') { d.cell.styles.fillColor = [254, 240, 199]; d.cell.styles.textColor = hexToRgb(COLOR.WARN);   d.cell.styles.fontStyle = 'bold'; }
+                            else                    { d.cell.styles.textColor = hexToRgb(COLOR.GOOD); }
+                        }
+                    },
+                });
+            }
         }
 
-        // ============= PAGE 5: TOP LOADED EQUIPMENT =============
+        // ============= PAGE 5: LOADING / BRANCH SC =============
         doc.addPage('a4', 'portrait');
-        drawHeaderBand('Top Loaded Equipment', `${metrics.equipmentBuckets.total} branches monitored`);
-        const top = renderTopLoadingCanvas(metrics);
-        if (top) {
-            const fit = fitImage(top, CONTENT_W, 75);
-            if (fit) doc.addImage(top.dataUrl, 'PNG', PAGE.margin, 28, fit.w, fit.h);
-        }
-        if (doc.autoTable) {
-            doc.autoTable({
-                startY: 110,
-                margin: { left: PAGE.margin, right: PAGE.margin },
-                head: [['Type', 'Object id', 'Dialog name', 'Loading [%]', 'Status']],
-                body: buildLoadingRows(dataJson, dialogNameFor),
-                theme: 'striped',
-                styles: { font: 'helvetica', fontSize: 8.5, cellPadding: 1.2 },
-                headStyles: { fillColor: hexToRgb(COLOR.BRAND), textColor: [255,255,255] },
-                columnStyles: { 3: { halign: 'right' }, 4: { halign: 'center', cellWidth: 22 } },
-                didParseCell: (d) => {
-                    if (d.section !== 'body' || d.column.index !== 4) return;
-                    const v = String(d.cell.raw || '');
-                    if (v === 'CRITICAL') { d.cell.styles.fillColor = [253, 226, 226]; d.cell.styles.textColor = hexToRgb(COLOR.DANGER); d.cell.styles.fontStyle = 'bold'; }
-                    else if (v === 'WARN'){ d.cell.styles.fillColor = [254, 240, 199]; d.cell.styles.textColor = hexToRgb(COLOR.WARN);   d.cell.styles.fontStyle = 'bold'; }
-                    else                   { d.cell.styles.textColor = hexToRgb(COLOR.GOOD); }
-                },
-            });
+        if (isSc) {
+            drawHeaderBand('Branch Fault Currents', `${(dataJson.lines_sc || []).length} lines · ${(dataJson.trafos_sc || []).length} transformers`);
+            if (doc.autoTable) {
+                doc.autoTable({
+                    startY: 30,
+                    margin: { left: PAGE.margin, right: PAGE.margin },
+                    head: [['Type', 'Object id', 'Dialog name', 'I end A [kA]', 'I end B [kA]']],
+                    body: buildScBranchRows(dataJson, dialogNameFor),
+                    theme: 'striped',
+                    styles: { font: 'helvetica', fontSize: 8.5, cellPadding: 1.2 },
+                    headStyles: { fillColor: hexToRgb(COLOR.BRAND), textColor: [255,255,255] },
+                    columnStyles: { 3: { halign: 'right' }, 4: { halign: 'right' } },
+                });
+            }
+            const dutyRows = buildScDutyRows(dataJson);
+            if (dutyRows.length && doc.autoTable) {
+                doc.addPage('a4', 'portrait');
+                drawHeaderBand('Device Duties (ANSI)', `${dutyRows.length} devices checked`);
+                doc.autoTable({
+                    startY: 30,
+                    margin: { left: PAGE.margin, right: PAGE.margin },
+                    head: [['Device', 'Duty int [kA]', 'Rating int [kA]', 'Int', 'Duty mom [kA]', 'Rating mom [kA]', 'Mom']],
+                    body: dutyRows,
+                    theme: 'striped',
+                    styles: { font: 'helvetica', fontSize: 8, cellPadding: 1.2 },
+                    headStyles: { fillColor: hexToRgb(COLOR.BRAND), textColor: [255,255,255] },
+                    didParseCell: (d) => {
+                        if (d.section !== 'body') return;
+                        if (d.column.index === 3 || d.column.index === 6) {
+                            const v = String(d.cell.raw || '');
+                            if (v === 'FAIL') {
+                                d.cell.styles.fillColor = [253, 226, 226];
+                                d.cell.styles.textColor = hexToRgb(COLOR.DANGER);
+                                d.cell.styles.fontStyle = 'bold';
+                            }
+                        }
+                    },
+                });
+            }
+        } else {
+            drawHeaderBand('Top Loaded Equipment', `${metrics.equipmentBuckets.total} branches monitored`);
+            const top = renderTopLoadingCanvas(metrics);
+            if (top) {
+                const fit = fitImage(top, CONTENT_W, 75);
+                if (fit) doc.addImage(top.dataUrl, 'PNG', PAGE.margin, 28, fit.w, fit.h);
+            }
+            if (doc.autoTable) {
+                doc.autoTable({
+                    startY: 110,
+                    margin: { left: PAGE.margin, right: PAGE.margin },
+                    head: [['Type', 'Object id', 'Dialog name', 'Loading [%]', 'Status']],
+                    body: buildLoadingRows(dataJson, dialogNameFor),
+                    theme: 'striped',
+                    styles: { font: 'helvetica', fontSize: 8.5, cellPadding: 1.2 },
+                    headStyles: { fillColor: hexToRgb(COLOR.BRAND), textColor: [255,255,255] },
+                    columnStyles: { 3: { halign: 'right' }, 4: { halign: 'center', cellWidth: 22 } },
+                    didParseCell: (d) => {
+                        if (d.section !== 'body' || d.column.index !== 4) return;
+                        const v = String(d.cell.raw || '');
+                        if (v === 'CRITICAL') { d.cell.styles.fillColor = [253, 226, 226]; d.cell.styles.textColor = hexToRgb(COLOR.DANGER); d.cell.styles.fontStyle = 'bold'; }
+                        else if (v === 'WARN'){ d.cell.styles.fillColor = [254, 240, 199]; d.cell.styles.textColor = hexToRgb(COLOR.WARN);   d.cell.styles.fontStyle = 'bold'; }
+                        else                   { d.cell.styles.textColor = hexToRgb(COLOR.GOOD); }
+                    },
+                });
+            }
         }
 
         // ============= PAGE 6: CRITICAL ISSUES =============
@@ -2104,18 +2326,20 @@
         // Appended only when a baseline snapshot is pinned and the compare
         // helper is available. Reuses the exact same delta engine the
         // Compare panel uses, so the numbers always agree with the UI.
-        try {
-            await renderComparisonPage(doc, dataJson, graph, meta, {
-                drawHeaderBand,
-                setFill, setText, setStroke,
-                hexToRgb,
-            });
-        } catch (cmpErr) {
-            console.warn('[Report] Comparison page skipped:', cmpErr);
+        if (!isSc) {
+            try {
+                await renderComparisonPage(doc, dataJson, graph, meta, {
+                    drawHeaderBand,
+                    setFill, setText, setStroke,
+                    hexToRgb,
+                });
+            } catch (cmpErr) {
+                console.warn('[Report] Comparison page skipped:', cmpErr);
+            }
         }
 
         // ============= PAGES 7+: DETAILED RESULTS =============
-        const sections = buildDetailedSections(dataJson, graph);
+        const sections = isSc ? buildScDetailedSections(dataJson, graph) : buildDetailedSections(dataJson, graph);
         if (sections.length && doc.autoTable) {
             doc.addPage('a4', 'portrait');
             drawHeaderBand('Detailed Results', 'Element-by-element load flow output');
@@ -2159,7 +2383,7 @@
         const metrics = (typeof window !== 'undefined' && typeof window.computeNetworkHealthMetrics === 'function')
             ? window.computeNetworkHealthMetrics(dataJson, graph) : null;
         if (!metrics) return null;
-        const status = scoreStatus(metrics.healthScore, metrics.converged);
+        const status = scoreStatus(metrics.healthScore, metrics.converged, metrics.studyMode);
         const escapeHtml = (s) => String(s == null ? '' : s)
             .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         const kpiHtml = buildKpiCells(metrics).map(k => `
@@ -2215,7 +2439,7 @@
         }
         return new Promise((resolve, reject) => {
             const proceed = (meta) => {
-                generatePdf(dataJson, graph, meta)
+                generatePdf(dataJson, graph, meta, opts)
                     .then(resolve)
                     .catch((err) => {
                         console.error('[Report] PDF generation failed, falling back to HTML:', err);
@@ -2258,11 +2482,17 @@
     // Internal helpers exposed for tests
     window._engineeringReportInternals = {
         buildKpiCells,
+        buildScKpiCells,
+        buildScBusRows,
+        buildScBranchRows,
+        buildScDutyRows,
+        buildScDetailedSections,
         buildBreakdownRows,
         buildIssueRows,
         buildBusRows,
         buildLoadingRows,
         buildDetailedSections,
+        isShortCircuitReport,
         scoreStatus,
         slug,
     };
