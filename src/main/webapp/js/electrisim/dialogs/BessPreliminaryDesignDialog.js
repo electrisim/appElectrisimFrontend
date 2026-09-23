@@ -21,7 +21,7 @@ function qFromPPf(p, pf) {
 /** Equipment ratings auto-sized from the POC inputs until the user edits them. */
 const RATING_FIELDS = [
     'storageSnMva', 'pMaxDischarge_MW', 'pMaxCharge_MW', 'batteryPmax_MW',
-    'hvTrafoSnMva', 'hvVkPercent', 'stringTrafoSnMva', 'stringVkPercent', 'cableMaxIKa',
+    'hvTrafoSnMva', 'hvVkPercent', 'stringTrafoSnMva', 'stringVkPercent', 'cableMaxIKa', 'hvCableMaxIKa',
 ];
 
 /** Editing one of these re-sizes the rating fields the user has not typed into. */
@@ -41,6 +41,7 @@ const CAPACITY_FIELDS = [
     ['hvTrafoSnMva', 'POC transformer', 'MVA'],
     ['stringTrafoSnMva', 'String transformer', 'MVA'],
     ['cableMaxIKa', 'Cable thermal rating', 'kA'],
+    ['hvCableMaxIKa', 'HV cable thermal rating', 'kA'],
 ];
 
 /** computeSuggestedRatings covers MVA/MW/kA; vk is a fixed low-impedance default. */
@@ -55,6 +56,7 @@ function suggestedRatingValues(suggested) {
         stringTrafoSnMva: suggested.stringTrafoSnMva,
         stringVkPercent: 6,
         cableMaxIKa: suggested.cableMaxIKa,
+        hvCableMaxIKa: suggested.hvCableMaxIKa,
     };
 }
 
@@ -234,6 +236,14 @@ export class BessPreliminaryDesignDialog extends Dialog {
             }),
             this._field('lvVoltage_kV', 'LV / PCS voltage (kV)', v('lvVoltage_kV', 0.69)),
             this._field('useQCurve', 'Use PCS P–Q capability curve', v('useQCurve', false), 'checkbox'),
+            this._section('HV cable to BESS site (optional)'),
+            this._field('hvCableEnabled', 'HV cable between grid POC and plant substation', v('hvCableEnabled', false), 'checkbox', null, {
+                description: 'When the contractual POC is at the DSO substation and the BESS HV/MV transformer is at the customer site, enable this to insert an HV line and a BESS_HV bus between POC_HV and the plant transformer. Grid-code P/Q and envelope cases stay at POC_HV.',
+            }),
+            this._field('hvCableLength_km', 'HV cable length (km)', v('hvCableLength_km', 5)),
+            this._field('hvCableR_ohmPerKm', 'HV cable R (ohm/km)', v('hvCableR_ohmPerKm', 0.05)),
+            this._field('hvCableX_ohmPerKm', 'HV cable X (ohm/km)', v('hvCableX_ohmPerKm', 0.12)),
+            this._field('hvCableMaxIKa', 'HV cable thermal rating (kA)', r('hvCableMaxIKa')),
             this._section('HV/MV transformer (OLTC)'),
             this._field('mvVoltage_kV', 'MV collection voltage (kV)', v('mvVoltage_kV', 33)),
             this._field('hvTrafoSnMva', 'POC transformer rating (MVA)', r('hvTrafoSnMva')),
@@ -324,6 +334,13 @@ export class BessPreliminaryDesignDialog extends Dialog {
             cableR_ohmPerKm: num('cableR_ohmPerKm', 0.08),
             cableX_ohmPerKm: num('cableX_ohmPerKm', 0.12),
             cableMaxIKa: num('cableMaxIKa', 0),
+            hvCableEnabled: raw.hvCableEnabled === true || raw.hvCableEnabled === 'true',
+            hvCableLength_km: num('hvCableLength_km', 5),
+            hvCableR_ohmPerKm: num('hvCableR_ohmPerKm', 0.05),
+            hvCableX_ohmPerKm: num('hvCableX_ohmPerKm', 0.12),
+            hvCableMaxIKa: num('hvCableMaxIKa', 0),
+            bessHvBusName: 'BESS_HV',
+            hvCableName: 'HV_Cable',
             stringTrafoSnMva: num('stringTrafoSnMva', 0),
             stringVkPercent: num('stringVkPercent', 0),
             auxP_MW: num('auxP_MW', 0.5),

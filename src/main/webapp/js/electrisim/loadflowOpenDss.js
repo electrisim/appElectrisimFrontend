@@ -15,6 +15,12 @@ import {
     buildGraphCellLookupMap,
     resolveGraphCellForResult
 } from './utils/attributeUtils.js';
+import {
+    formatScFaultLocationLine,
+    isUserSelectionFaultMode,
+    markBusesWithoutAppliedFault
+} from './utils/scFaultBuses.js';
+import { clearFaultLocationMarkers, placeFaultMarkersForScRows } from './utils/faultLocationMarkers.js';
 import { highlightCalculationErrorElements, calculationErrorHighlightSuffix } from './utils/calculationErrorHighlight.js';
 import ENV from './config/environment.js';
 import { getConnectedBusId, getLineBusEndpointsForPayload, getThreeWindingConnections, confirmTransformerVoltageMismatches } from './loadFlow.js';
@@ -491,7 +497,9 @@ const downloadOpenDSSShortCircuitResults = (dataJson, graph) => {
         let resultsText = '========================================\n';
         resultsText += '   OpenDSS Short Circuit Results\n';
         resultsText += '========================================\n\n';
-        resultsText += `Generated: ${new Date().toISOString()}\n\n`;
+        resultsText += `Generated: ${new Date().toISOString()}\n`;
+        resultsText += formatScFaultLocationLine(dataJson);
+        resultsText += '\n';
 
         if (dataJson.busbars && dataJson.busbars.length > 0) {
             resultsText += '--- BUSES ---\n';
@@ -1485,7 +1493,10 @@ function _opendssProgressMeta(obj) {
 async function processNetworkData(url, obj, b, grafka, app, exportCommands = false) {
     let harmonicResultsData = null;
     let monteCarloResultsData = null;
-    const simProgress = startSimulationProgress(_opendssProgressMeta(obj));
+    const simProgress = startSimulationProgress({
+        ..._opendssProgressMeta(obj),
+        graph: (b && typeof b.getModel === 'function') ? b : grafka
+    });
     const overlay = simProgress.overlay;
     try {
         // Initialize styles once
@@ -2045,6 +2056,7 @@ function applyOpenDssUnavailableEquipmentBoxes(graph) {
         if (!cell) continue;
         const style = (model.getStyle && model.getStyle(cell)) || cell.style || '';
         if (style.includes('shapeELXXX=Result')) continue;
+        if (style.includes('shapeELXXX=FaultMarker')) continue;
         const kind = classifyOpenDssScEquipment(openDssElxxxShape(style));
         if (kind) buckets[kind].push(cell);
     }
@@ -2143,6 +2155,13 @@ function applyOpenDssShortCircuitResultBoxes(graph, dataJson, formatNumber, repl
             if (keep) updated += 1;
         });
         applyOpenDssUnavailableEquipmentBoxes(graph);
+        const scParams = dataJson.study_params || {};
+        if (isUserSelectionFaultMode(scParams.fault_bus_mode)) {
+            markBusesWithoutAppliedFault(graph, scParams.fault_bus_ids, scParams.fault_bus_names);
+        }
+        placeFaultMarkersForScRows(graph, busbars, (row) =>
+            accept(resolveGraphCellForResult(lookupMap, row, graph))
+        );
     } finally {
         model.endUpdate();
         if (graph.getView && graph.getView().refresh) graph.getView().refresh();
@@ -2176,6 +2195,9 @@ function executeOpenDSSShortCircuit(parameters, app, graph) {
         typ: "ShortCircuitOpenDss Parameters",
         frequency: parseInt(parameters.frequency || '50', 10),
         fault: parameters.fault || '3ph',
+        fault_bus_mode: parameters.fault_bus_mode || 'all',
+        fault_bus_ids: parameters.fault_bus_ids || [],
+        fault_bus_names: parameters.fault_bus_names || [],
         exportCommands: scCoerceBool(parameters.exportCommands),
         exportOpenDSSResults: scCoerceBool(parameters.exportOpenDSSResults),
         exportPdfReport: scCoerceBool(parameters.exportPdfReport),
@@ -2205,7 +2227,8 @@ function executeOpenDSSShortCircuit(parameters, app, graph) {
         const simProgress = startSimulationProgress({
             title: 'Short circuit progress',
             statusText: 'Running OpenDSS short circuit…',
-            filePrefix: 'shortcircuit-opendss'
+            filePrefix: 'shortcircuit-opendss',
+            graph
         });
         const overlay = simProgress.overlay;
         try {
@@ -2295,6 +2318,9 @@ function executeOpenDSSShortCircuit(parameters, app, graph) {
 
 // Function to collect network data from the graph using the new structured approach
 function collectNetworkDataStructured(graph) {
+    try {
+        clearFaultLocationMarkers(graph);
+    } catch (e) { /* markers must not block data collection */ }
     // Global simulation counter for performance tracking
     if (!globalThis.openDssRunCount) {
         globalThis.openDssRunCount = 0;
@@ -2408,6 +2434,9 @@ function collectNetworkDataStructured(graph) {
         
         // Check if this is a bus element by looking at the cell style
         const style = cell.getStyle();
+        if (style && String(style).includes('shapeELXXX=FaultMarker')) {
+            continue;
+        }
         if (style) {
             const styleObj = parseCellStyle(style);
             if (styleObj && styleObj.shapeELXXX === 'Bus') {

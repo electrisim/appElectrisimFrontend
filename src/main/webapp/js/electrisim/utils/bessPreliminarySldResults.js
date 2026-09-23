@@ -85,6 +85,7 @@ function roleNameKeys(cell) {
     m = role.match(/^dcBus_(\d+)$/);
     if (m) push(`DC_Bus_${Number(m[1]) + 1}`);
     if (role === 'poc') push('POC_HV');
+    if (role === 'bessHv') push('BESS_HV');
     if (role === 'mvBus') push('MV_Bus');
     return keys;
 }
@@ -123,7 +124,7 @@ function placeholderLooksEmpty(ph) {
 
 function isBusOwner(owner) {
     const sh = shapeOf(owner);
-    return sh === 'Bus' || sh === 'DC Bus' || /^lvBus|^stringBus|^dcBus|^mvBus$|^poc$/.test(cellRole(owner));
+    return sh === 'Bus' || sh === 'DC Bus' || /^lvBus|^stringBus|^dcBus|^mvBus$|^poc$|^bessHv$/.test(cellRole(owner));
 }
 
 function isResultStyle(st) {

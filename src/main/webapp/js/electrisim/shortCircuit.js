@@ -13,6 +13,12 @@ import { AnsiShortCircuitResultsDialog } from './dialogs/AnsiShortCircuitResults
 import ENV from './config/environment.js';
 import { prepareNetworkData } from './utils/networkDataPreparation.js';
 import {
+    formatScFaultLocationLine,
+    isUserSelectionFaultMode,
+    markBusesWithoutAppliedFault
+} from './utils/scFaultBuses.js';
+import { placeFaultMarkersForScRows } from './utils/faultLocationMarkers.js';
+import {
     startSimulationProgress,
     settleSimulationProgress,
     formatDurationMs
@@ -147,6 +153,7 @@ window.shortCircuitPandaPower = function(a, b, c) {
             resultsText += `Generated: ${new Date().toISOString()}\n`;
             resultsText += `Standard: ${dataJson.standard || 'ANSI/IEEE C37'} (beta)\n`;
             resultsText += `Fault: ${dataJson.fault_type || '3ph'}\n`;
+            resultsText += formatScFaultLocationLine(dataJson);
             resultsText += `Frequency: ${dataJson.frequency_hz || 60} Hz\n\n`;
 
             if (dataJson.busbars && dataJson.busbars.length > 0) {
@@ -242,7 +249,9 @@ window.shortCircuitPandaPower = function(a, b, c) {
             let resultsText = '========================================\n';
             resultsText += '   Pandapower Short Circuit Results\n';
             resultsText += '========================================\n\n';
-            resultsText += `Generated: ${new Date().toISOString()}\n\n`;
+            resultsText += `Generated: ${new Date().toISOString()}\n`;
+            resultsText += formatScFaultLocationLine(dataJson);
+            resultsText += '\n';
 
             if (dataJson.busbars && dataJson.busbars.length > 0) {
                 resultsText += '--- BUSES ---\n';
@@ -431,7 +440,12 @@ window.shortCircuitPandaPower = function(a, b, c) {
 
     const resolveRowCell = (row, graph, cellIdMap, lookupMap) => {
         if (!row) return null;
-        const accept = (cell) => (cell && !isResultPlaceholderCell(graph, cell) ? cell : null);
+        const accept = (cell) => {
+            if (!cell || isResultPlaceholderCell(graph, cell)) return null;
+            const st = (graph.getModel && graph.getModel().getStyle(cell)) || cell.style || '';
+            if (String(st).includes('shapeELXXX=FaultMarker')) return null;
+            return cell;
+        };
         let found = accept(resolveCell(row, graph, cellIdMap));
         if (found) return found;
         const keys = [
@@ -851,6 +865,17 @@ I int[kA]: ${formatNumber(row.i_interrupting_ka)}`;
                         }
                     });
                 }
+                const scParams = dataJson.study_params || param0 || {};
+                if (isUserSelectionFaultMode(scParams.fault_bus_mode || param0?.fault_bus_mode)) {
+                    markBusesWithoutAppliedFault(
+                        graph,
+                        scParams.fault_bus_ids || param0?.fault_bus_ids,
+                        scParams.fault_bus_names || param0?.fault_bus_names
+                    );
+                }
+                placeFaultMarkersForScRows(graph, dataJson.busbars, (row) =>
+                    resolveRowCell(row, graph, cellIdMap, lookupMap)
+                );
             } finally {
                 model.endUpdate();
                 if (graph.getView && graph.getView().refresh) graph.getView().refresh();
@@ -1210,7 +1235,8 @@ I int[kA]: ${formatNumber(row.i_interrupting_ka)}`;
         simProgress = startSimulationProgress({
             title: isAnsi ? 'ANSI short circuit progress' : 'Short circuit progress',
             statusText: isAnsi ? 'Running ANSI/IEEE C37 short circuit…' : 'Running short circuit…',
-            filePrefix: isAnsi ? 'shortcircuit-ansi' : 'shortcircuit'
+            filePrefix: isAnsi ? 'shortcircuit-ansi' : 'shortcircuit',
+            graph: b || grafka
         });
         simProgress.overlay.append('Preparing network data…', { time: true });
 
@@ -1250,6 +1276,9 @@ I int[kA]: ${formatNumber(row.i_interrupting_ka)}`;
         const simulationParameters = isAnsi ? {
             typ: "ShortCircuitAnsi Parameters",
             fault_type: a.fault || '3ph',
+            fault_bus_mode: a.fault_bus_mode || 'all',
+            fault_bus_ids: a.fault_bus_ids || [],
+            fault_bus_names: a.fault_bus_names || [],
             frequency_hz: parseFloat(a.frequency_hz || '60'),
             prefault_v_pu: parseFloat(a.prefault_v_pu || '1.0'),
             contact_parting_cycles: parseFloat(a.contact_parting_cycles || '3'),
@@ -1262,6 +1291,9 @@ I int[kA]: ${formatNumber(row.i_interrupting_ka)}`;
             typ: "ShortCircuitPandaPower Parameters",
             fault_type: a.fault || a[0] || '3ph',
             fault_location: a.case || a[1] || 'max',
+            fault_bus_mode: a.fault_bus_mode || 'all',
+            fault_bus_ids: a.fault_bus_ids || [],
+            fault_bus_names: a.fault_bus_names || [],
             fault_impedance: a.lv_tol_percent || a[2] || '6',
             topology: a.topology || 'auto',
             tk_s: a.tk_s || '1',

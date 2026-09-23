@@ -427,6 +427,17 @@ export function createSimulationProgressOverlay(options = {}) {
  * Create overlay + AbortController wired to Stop.
  */
 export function startSimulationProgress(options = {}) {
+    try {
+        if (typeof window !== 'undefined' && typeof window.clearFaultLocationMarkers === 'function') {
+            const app = window.App;
+            const graph = options.graph
+                || app?._editorUi?.editor?.graph
+                || app?.editor?.graph
+                || app?.main?.editor?.graph
+                || null;
+            window.clearFaultLocationMarkers(graph);
+        }
+    } catch (e) { /* overlay must still open */ }
     const abortController = new AbortController();
     let overlay;
     overlay = createSimulationProgressOverlay({

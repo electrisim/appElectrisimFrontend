@@ -1,6 +1,6 @@
 /**
  * Build or update a utility-scale HV-connected BESS plant on the canvas.
- * Topology: External Grid → POC (HV) → HV/MV OLTC transformer → MV bus
+ * Topology: External Grid → POC (HV) → [optional HV cable → BESS_HV bus] → HV/MV OLTC transformer → MV bus
  *   → aux load + N× (MV cable → MV/LV 2W or 3W skid → LV bus(es) → PCS inverter
  *     → DC bus → Battery rack). PCS is the Storage element (AC load-flow).
  *     Battery DC Pmax is a tighter AC Storage P limit; the DC island is shown
@@ -69,6 +69,8 @@ function batteryStyle() {
 const BOX = {
     extGrid: { x: -0.55, y: 0, ox: 22, oy: -28 },
     pocBus: { x: 1, y: 0.5, ox: 18, oy: -40 },
+    hvCable: { x: 0, y: 0, ox: 108, oy: -8 },
+    bessHv: { x: 1, y: 0.5, ox: 18, oy: -40 },
     hvTrafo: { x: -0.52, y: 0, ox: 44, oy: -8 },
     mvBus: { x: 1, y: 0.5, ox: 22, oy: -8 },
     aux: { x: -0.45, y: 0, ox: 24, oy: 12 },
@@ -142,6 +144,12 @@ function removePlantCells(graph, cells) {
     } finally {
         graph.getModel().endUpdate();
     }
+}
+
+function removeEdgesBetween(graph, a, b) {
+    if (!a || !b) return;
+    const edges = graph.getEdgesBetween?.(a, b, true) || [];
+    if (edges.length) graph.removeCells(edges, true);
 }
 
 function symWh(symbolKey, fw = 56, fh = 56) {
@@ -430,16 +438,18 @@ function parkEdgeResult(graph, keepEdge, dropEdges, spec) {
 export function parkPlantResultBoxes(graph) {
     const cells = findPlantCells(graph);
     ensureBusPlaceholder(graph, cells.poc, BOX.pocBus);
+    ensureBusPlaceholder(graph, cells.bessHv, BOX.bessHv);
     ensureBusPlaceholder(graph, cells.mvBus, BOX.mvBus);
     if (cells.extGrid && cells.poc) {
         const extEdges = graph.getEdgesBetween?.(cells.extGrid, cells.poc, false) || [];
         extEdges.forEach((e) => nudgeResultChild(graph, e, BOX.extGrid));
     }
+    if (cells.hvCable) nudgeResultChild(graph, cells.hvCable, BOX.hvCable);
     if (cells.hvTrafo) {
         parkEdgeResult(
             graph,
             edgesWhosePeerRole(cells.hvTrafo, (r) => r === 'mvBus')[0],
-            edgesWhosePeerRole(cells.hvTrafo, (r) => r === 'poc'),
+            edgesWhosePeerRole(cells.hvTrafo, (r) => r === 'poc' || r === 'bessHv'),
             BOX.hvTrafo
         );
     }
@@ -774,6 +784,7 @@ export function computeSuggestedRatings(params) {
         storageSnMva: Math.ceil(unitSn * 10) / 10,
         storagePMaxMw: Math.ceil(unitP * 100) / 100,
         cableMaxIKa: Math.ceil((stringTrafoSn / (Math.sqrt(3) * (Number(params.mvVoltage_kV) || 33))) * 100) / 100,
+        hvCableMaxIKa: Math.ceil((plantMva / (Math.sqrt(3) * (Number(params.hvVoltage_kV) || 132))) * 100) / 100,
         pcsPerSkid,
     };
 }
@@ -805,7 +816,9 @@ export function buildOrUpdateBessPlant(graph, params) {
     params.hvTrafoSnMva = ratingOr(params.hvTrafoSnMva, suggested.hvTrafoSnMva);
     params.stringTrafoSnMva = ratingOr(params.stringTrafoSnMva, suggested.stringTrafoSnMva);
     params.cableMaxIKa = ratingOr(params.cableMaxIKa, suggested.cableMaxIKa);
+    params.hvCableMaxIKa = ratingOr(params.hvCableMaxIKa, suggested.hvCableMaxIKa);
     params.hvVkPercent = ratingOr(params.hvVkPercent, 8);
+    const hvCableEnabled = params.hvCableEnabled === true;
     params.stringVkPercent = ratingOr(params.stringVkPercent, 6);
 
     const hvKv = Number(params.hvVoltage_kV) || 132;
@@ -872,7 +885,8 @@ export function buildOrUpdateBessPlant(graph, params) {
         const mvWidth = totalSpan + skidW + AUX_OVERHANG + SIDE_OVERHANG;
         const extY = y;
         const pocY = extY + eh + 72;
-        const hvTrafoY = pocY + BUS_H + 28;
+        const bessHvY = pocY + BUS_H + 72;
+        const hvTrafoY = hvCableEnabled ? bessHvY + BUS_H + 28 : pocY + BUS_H + 28;
         const mvY = hvTrafoY + trH + 36;
         const stringY = mvY + BUS_H + 168;
         const stringTrafoY = stringY + BUS_H + 64;
@@ -889,6 +903,25 @@ export function buildOrUpdateBessPlant(graph, params) {
             replaceRelativeLabels(graph, pocBus, pocName);
         }
         ensureBusPlaceholder(graph, pocBus, BOX.pocBus);
+
+        const bessHvName = params.bessHvBusName || 'BESS_HV';
+        let bessHvBus = existing.bessHv;
+        if (!hvCableEnabled) {
+            removeEdgesBetween(graph, pocBus, existing.hvTrafo);
+            if (existing.hvCable) removePlantCells(graph, [existing.hvCable]);
+            if (bessHvBus) removePlantCells(graph, [bessHvBus]);
+            bessHvBus = null;
+        } else if (!bessHvBus) {
+            bessHvBus = insertBus(
+                graph, parent, centerX - POC_BUS_W / 2, bessHvY, bessHvName, hvKv, 'bessHv', POC_BUS_W, BUSBAR_STYLE_POC
+            );
+        } else {
+            configureBusAttributes(graph, bessHvBus, { name: bessHvName, vn_kv: String(hvKv) });
+            tagRole(graph, bessHvBus, 'bessHv');
+            applyBusbar(graph, bessHvBus, centerX - POC_BUS_W / 2, bessHvY, POC_BUS_W, BUSBAR_STYLE_POC);
+            replaceRelativeLabels(graph, bessHvBus, bessHvName);
+        }
+        if (bessHvBus) ensureBusPlaceholder(graph, bessHvBus, BOX.bessHv);
 
         let extGrid = existing.extGrid;
         const extX = centerX - ew / 2;
@@ -975,8 +1008,42 @@ export function buildOrUpdateBessPlant(graph, params) {
         ensureBusPlaceholder(graph, mvBus, BOX.mvBus);
 
         const hvMvEdge = ensureEdge(graph, parent, hvTrafo, mvBus, edgeStyleTrafoToBus(hvTrafo, mvBus, 'lv'));
-        const hvPocEdge = ensureEdge(graph, parent, hvTrafo, pocBus, edgeStyleTrafoToBus(hvTrafo, pocBus, 'hv'));
-        parkEdgeResult(graph, hvMvEdge, [hvPocEdge], BOX.hvTrafo);
+        const hvFeedBus = hvCableEnabled ? bessHvBus : pocBus;
+        removeEdgesBetween(graph, pocBus, hvTrafo);
+        if (bessHvBus) removeEdgesBetween(graph, bessHvBus, hvTrafo);
+        const hvUpstreamEdge = ensureEdge(
+            graph, parent, hvTrafo, hvFeedBus, edgeStyleTrafoToBus(hvTrafo, hvFeedBus, 'hv')
+        );
+        if (hvCableEnabled && bessHvBus) {
+            const hvCableOpts = {
+                name: params.hvCableName || 'HV_Cable',
+                length_km: params.hvCableLength_km ?? 5,
+                r_ohm_per_km: params.hvCableR_ohmPerKm ?? 0.05,
+                x_ohm_per_km: params.hvCableX_ohmPerKm ?? 0.12,
+                max_i_ka: params.hvCableMaxIKa,
+            };
+            let hvCable = existing.hvCable;
+            if (!hvCable) {
+                hvCable = insertCable(graph, parent, pocBus, bessHvBus, hvCableOpts, 'hvCable', centerX);
+            } else {
+                const style = edgeStyleVertical(pocBus, bessHvBus, centerX, 'Line');
+                hvCable = ensureEdge(graph, parent, pocBus, bessHvBus, style);
+                configureLineAttributes(graph, hvCable, {
+                    name: hvCableOpts.name,
+                    length_km: String(hvCableOpts.length_km),
+                    r_ohm_per_km: String(hvCableOpts.r_ohm_per_km),
+                    x_ohm_per_km: String(hvCableOpts.x_ohm_per_km),
+                    c_nf_per_km: '0',
+                    max_i_ka: String(hvCableOpts.max_i_ka),
+                    max_loading_percent: '100',
+                });
+                tagRole(graph, hvCable, 'hvCable');
+                nudgeResultChild(graph, hvCable, BOX.hvCable);
+            }
+        } else if (existing.hvCable) {
+            removePlantCells(graph, [existing.hvCable]);
+        }
+        parkEdgeResult(graph, hvMvEdge, [hvUpstreamEdge], BOX.hvTrafo);
 
         const auxX = mvLeft + mvWidth - AUX_OVERHANG / 2 - lw / 2;
         const auxY = mvY + BUS_H + 44;
@@ -1210,6 +1277,8 @@ export function findBessPlantElements(graph) {
         .map((k) => cells[k]);
     return {
         pocBus: cells.poc || null,
+        bessHvBus: cells.bessHv || null,
+        hvCable: cells.hvCable || null,
         extGrid: cells.extGrid || null,
         hvTrafo: cells.hvTrafo || null,
         mvBus: cells.mvBus || null,

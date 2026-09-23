@@ -652,13 +652,19 @@ function updateClonedBusPlaceholder(graph, clonedBusCell) {
         // Find all result placeholder children (ResultBus, Result, etc.)
         var childCount = graph.model.getChildCount(clonedBusCell);
         var placeholderChildren = [];
+        var faultMarkers = [];
         
         for (var i = 0; i < childCount; i++) {
             var child = graph.model.getChildAt(clonedBusCell, i);
             var childStyle = child.style || '';
             if (isResultPlaceholderStyle(childStyle)) {
                 placeholderChildren.push(child);
+            } else if (childStyle.indexOf('shapeELXXX=FaultMarker') >= 0) {
+                faultMarkers.push(child);
             }
+        }
+        for (var fm = 0; fm < faultMarkers.length; fm++) {
+            graph.model.remove(faultMarkers[fm]);
         }
 
         if (placeholderChildren.length > 0) {

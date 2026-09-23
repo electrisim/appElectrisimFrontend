@@ -2,6 +2,31 @@
 import { Dialog } from '../Dialog.js';
 import { ensureSubscriptionFunctions } from '../ensureSubscriptionFunctions.js';
 import { getDrawioStudyDialogHeight, SIMULATION_FORM_SCROLL_STYLE, SIMULATION_INFO_BANNER_STYLE, preventAccidentalFormSubmit } from '../utils/dialogStyles.js';
+import {
+    getSelectedDiagramBusbars,
+    isUserSelectionFaultMode,
+    listDiagramBusbars
+} from '../utils/scFaultBuses.js';
+
+function makeFaultLocationParams() {
+    return [
+        {
+            id: 'fault_bus_mode',
+            label: 'Fault location',
+            type: 'radio',
+            options: [
+                { value: 'all', label: 'All busbars', default: true },
+                { value: 'selection', label: 'User Selection' }
+            ]
+        },
+        {
+            id: 'fault_bus_ids',
+            label: 'Selected busbars',
+            type: 'bus-multiselect',
+            showWhen: 'selection'
+        }
+    ];
+}
 
 export class ShortCircuitDialog extends Dialog {
     constructor(editorUi) {
@@ -21,6 +46,7 @@ export class ShortCircuitDialog extends Dialog {
                     { value: '1ph', label: 'Single Phase' }
                 ]
             },
+            ...makeFaultLocationParams(),
             {
                 id: 'case',
                 label: 'Case',
@@ -92,6 +118,7 @@ export class ShortCircuitDialog extends Dialog {
                     { value: '1ph', label: 'Single Phase' }
                 ]
             },
+            ...makeFaultLocationParams(),
             {
                 id: 'frequency_hz',
                 label: 'System frequency',
@@ -157,6 +184,7 @@ export class ShortCircuitDialog extends Dialog {
                     { value: '1ph', label: 'Single Phase' }
                 ]
             },
+            ...makeFaultLocationParams(),
             {
                 id: 'exportCommands',
                 label: 'Export OpenDSS Commands (download .txt file)',
@@ -300,6 +328,9 @@ export class ShortCircuitDialog extends Dialog {
         this.parameters.forEach((param) => {
             const formGroup = document.createElement('div');
             Object.assign(formGroup.style, { marginBottom: '4px' });
+            if (param.showWhen) {
+                formGroup.setAttribute('data-sc-show', param.showWhen);
+            }
 
             const label = document.createElement('label');
             Object.assign(label.style, {
@@ -317,6 +348,8 @@ export class ShortCircuitDialog extends Dialog {
                 input = this.createRadioGroup(param);
             } else if (param.type === 'checkbox') {
                 input = this.createCheckbox(param);
+            } else if (param.type === 'bus-multiselect') {
+                input = this.createBusMultiselect(param);
             } else {
                 input = this.createTextInput(param);
             }
@@ -325,6 +358,8 @@ export class ShortCircuitDialog extends Dialog {
             form.appendChild(formGroup);
         });
 
+        this._bindFaultBusModeRadios();
+        this._updateFaultBusFieldVisibility(form);
         return form;
     }
 
@@ -475,6 +510,106 @@ export class ShortCircuitDialog extends Dialog {
         return radioContainer;
     }
 
+    _getFaultBusMode() {
+        const container = this.inputs.get('fault_bus_mode');
+        const checked = container?.querySelector('input[name="fault_bus_mode"]:checked');
+        if (checked) return checked.value;
+        return 'all';
+    }
+
+    _updateFaultBusFieldVisibility(formEl) {
+        const mode = this._getFaultBusMode();
+        const form = formEl
+            || this.container?.querySelector('[data-form-container="true"] form')
+            || this.container?.querySelector('form');
+        if (!form) return;
+        form.querySelectorAll('[data-sc-show]').forEach((group) => {
+            const show = group.getAttribute('data-sc-show');
+            group.style.display = (show === mode) ? '' : 'none';
+        });
+    }
+
+    _bindFaultBusModeRadios() {
+        const container = this.inputs.get('fault_bus_mode');
+        if (!container) return;
+        container.querySelectorAll('input[type="radio"]').forEach((radio) => {
+            radio.addEventListener('change', () => this._updateFaultBusFieldVisibility());
+        });
+    }
+
+    createBusMultiselect(param) {
+        const wrap = document.createElement('div');
+        Object.assign(wrap.style, {
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '6px'
+        });
+
+        const hint = document.createElement('div');
+        hint.textContent = 'Tick one or more busbars. Busbars already selected on the diagram are pre-ticked.';
+        Object.assign(hint.style, {
+            fontSize: '12px',
+            color: '#6c757d',
+            lineHeight: '1.4'
+        });
+        wrap.appendChild(hint);
+
+        const list = document.createElement('div');
+        list.setAttribute('data-bus-multiselect', param.id);
+        Object.assign(list.style, {
+            maxHeight: '160px',
+            overflowY: 'auto',
+            border: '1px solid #ced4da',
+            borderRadius: '4px',
+            padding: '6px 8px',
+            background: '#fff'
+        });
+
+        const buses = listDiagramBusbars(this.graph);
+        const preselected = new Set(getSelectedDiagramBusbars(this.graph).map((b) => String(b.id)));
+
+        if (!buses.length) {
+            const empty = document.createElement('div');
+            empty.textContent = 'No busbars found on the diagram.';
+            Object.assign(empty.style, { fontSize: '12px', color: '#856404' });
+            list.appendChild(empty);
+        } else {
+            buses.forEach((bus, index) => {
+                const row = document.createElement('label');
+                Object.assign(row.style, {
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: '13px',
+                    color: '#495057',
+                    cursor: 'pointer',
+                    padding: '2px 0'
+                });
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.value = bus.id;
+                cb.dataset.busName = bus.name || '';
+                cb.dataset.busLabel = bus.label || '';
+                cb.id = `${param.id}_${index}`;
+                cb.checked = preselected.has(String(bus.id));
+                Object.assign(cb.style, {
+                    width: '16px',
+                    height: '16px',
+                    accentColor: '#007bff'
+                });
+                const txt = document.createElement('span');
+                txt.textContent = bus.label || bus.name || bus.id;
+                row.appendChild(cb);
+                row.appendChild(txt);
+                list.appendChild(row);
+            });
+        }
+
+        wrap.appendChild(list);
+        this.inputs.set(param.id, wrap);
+        return wrap;
+    }
+
     createCheckbox(param) {
         const checkboxWrapper = document.createElement('div');
         Object.assign(checkboxWrapper.style, {
@@ -539,6 +674,15 @@ export class ShortCircuitDialog extends Dialog {
             } else if (param.type === 'checkbox') {
                 const checkbox = this.inputs.get(param.id);
                 values[param.id] = checkbox ? checkbox.checked : (param.value || false);
+            } else if (param.type === 'bus-multiselect') {
+                const wrap = this.inputs.get(param.id);
+                const checked = wrap
+                    ? [...wrap.querySelectorAll('input[type="checkbox"]:checked')]
+                    : [];
+                values.fault_bus_ids = checked.map((el) => el.value).filter(Boolean);
+                values.fault_bus_names = checked
+                    .map((el) => el.dataset.busName || el.dataset.busLabel || '')
+                    .filter(Boolean);
             } else {
                 const input = this.inputs.get(param.id);
                 values[param.id] = input ? input.value : param.value;
@@ -549,6 +693,11 @@ export class ShortCircuitDialog extends Dialog {
             ? 'opendss'
             : (this.pandapowerStandard === 'ansi' ? 'ansi' : 'pandapower');
         values.standard = this.currentTab === 'opendss' ? 'opendss' : this.pandapowerStandard;
+
+        if (!isUserSelectionFaultMode(values.fault_bus_mode)) {
+            values.fault_bus_ids = [];
+            values.fault_bus_names = [];
+        }
 
         // Sync export checkboxes from this dialog's DOM (avoids stale inputs Map / duplicate ids elsewhere).
         if (this.container) {
@@ -661,6 +810,13 @@ export class ShortCircuitDialog extends Dialog {
             e.preventDefault();
 
             try {
+                const values = this.getFormValues();
+                if (isUserSelectionFaultMode(values.fault_bus_mode)
+                    && (!Array.isArray(values.fault_bus_ids) || values.fault_bus_ids.length === 0)) {
+                    alert('User Selection requires at least one busbar. Tick busbars in the list, or select them on the diagram before opening Short Circuit.');
+                    return;
+                }
+
                 const hasSubscription = await this.checkSubscriptionStatus();
 
                 if (!hasSubscription) {
@@ -672,8 +828,6 @@ export class ShortCircuitDialog extends Dialog {
                     }
                     return;
                 }
-
-                const values = this.getFormValues();
 
                 if (callback) {
                     callback(values);

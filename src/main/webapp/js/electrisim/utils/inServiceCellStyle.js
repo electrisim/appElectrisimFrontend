@@ -34,6 +34,7 @@ export function parseInServiceFromCell(cell) {
 function isElectricalCell(cell, style) {
     if (!cell || !style) return false;
     if (style.indexOf('shapeELXXX=Result') >= 0) return false;
+    if (style.indexOf('shapeELXXX=FaultMarker') >= 0) return false;
     if (style.indexOf('shapeELXXX=NotEditableLine') >= 0) return false;
     return style.indexOf('shapeELXXX=') >= 0;
 }

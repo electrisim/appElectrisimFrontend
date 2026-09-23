@@ -68,6 +68,7 @@ function isEditableElectricalCell(cell) {
     const style = getCellStyleString(cell);
     if (!style || style.indexOf('shapeELXXX=') < 0) return false;
     if (style.indexOf('shapeELXXX=Result') >= 0) return false;
+    if (style.indexOf('shapeELXXX=FaultMarker') >= 0) return false;
     if (style.indexOf('shapeELXXX=FlowArrow') >= 0) return false;
     if (style.indexOf('shapeELXXX=NotEditableLine') >= 0) return false;
     return true;
@@ -127,6 +128,7 @@ function installElectricalCellTooltips() {
         const match = style.match(/shapeELXXX=([^;]+)/);
         if (match) {
             const type = match[1];
+            if (type === 'FaultMarker') return 'Fault location';
             if (type.indexOf('Result') === 0 || type === 'FlowArrow' || type === 'NotEditableLine') {
                 return '';
             }

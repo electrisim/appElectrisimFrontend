@@ -1667,6 +1667,7 @@ import {
     settleSimulationProgress,
     formatDurationMs
 } from './utils/simulationProgressOverlay.js';
+import './utils/faultLocationMarkers.js';
 
 // Advanced payload compression function to reduce data transfer size
 const compressPayload = (obj) => {
@@ -3224,7 +3225,8 @@ Loading[%]: ${formatNumber(cell.loading_percent, 1)}`;
         simProgress = startSimulationProgress({
             title: 'Load flow progress',
             statusText: 'Running load flow…',
-            filePrefix: 'loadflow'
+            filePrefix: 'loadflow',
+            graph: b || grafka
         });
         simProgress.overlay.append('Preparing network data…', { time: true });
 

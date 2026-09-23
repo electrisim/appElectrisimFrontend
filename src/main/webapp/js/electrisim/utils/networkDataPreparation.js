@@ -30,6 +30,7 @@ import {
     applyWindTurbineControllerPrefs
 } from './windTurbineControllerApply.js';
 import { collectParkControllers } from './parkControllerCollect.js';
+import { clearFaultLocationMarkers } from './faultLocationMarkers.js';
 
 /**
  * Check if the model has load and/or generation elements (for Economic Analysis profile options).
@@ -254,6 +255,9 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
     } = options;
 
     const model = graph.getModel();
+    try {
+        clearFaultLocationMarkers(graph);
+    } catch (e) { /* markers must not block data collection */ }
     const cacheKey = _computeGraphContentFingerprint(model) + '_' + JSON.stringify(simulationParameters) + '_' + removeResultCells;
     let cache = _networkDataCache.get(graph);
     if (cache && cache.key === cacheKey) {
@@ -429,6 +433,7 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
     const cellProcessingStart = performance.now();
     const validCells = [];
     const resultCellsToRemove = [];
+    const faultMarkersToRemove = [];
     let resultCellsRemoved = 0;
     
     const styleCache = new Map();
@@ -438,6 +443,11 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
         
         // Skip initial placeholders
         if (value && typeof value === 'string' && value.includes('Click Simulate')) {
+            return;
+        }
+
+        if (cellStyle?.includes('shapeELXXX=FaultMarker')) {
+            faultMarkersToRemove.push(cell);
             return;
         }
         
@@ -462,11 +472,14 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
         }
     });
     
-    // Batch remove result cells if requested
-    if (removeResultCells && resultCellsToRemove.length > 0) {
+    const cellsToStrip = [
+        ...faultMarkersToRemove,
+        ...(removeResultCells ? resultCellsToRemove : [])
+    ];
+    if (cellsToStrip.length > 0) {
         try {
             model.beginUpdate();
-            resultCellsToRemove.forEach(cell => {
+            cellsToStrip.forEach(cell => {
                 const cellToRemove = model.getCell(cell.id);
                 if (cellToRemove) {
                     model.remove(cellToRemove);
