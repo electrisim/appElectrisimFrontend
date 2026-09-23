@@ -5,9 +5,9 @@ import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/ec
 export const defaultSSCData = {
     name: "SSC(STATCOM)",
     r_ohm: 0.0,
-    x_ohm: 0.0,
-    set_vm_pu: 0.0,
-    vm_internal_pu: 0.0,
+    x_ohm: 1.0,
+    set_vm_pu: 1.0,
+    vm_internal_pu: 1.0,
     va_internal_degree: 0.0,
     controllable: true,
     in_service: true,

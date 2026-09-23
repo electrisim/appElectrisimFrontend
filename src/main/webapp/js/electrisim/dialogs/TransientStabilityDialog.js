@@ -21,10 +21,11 @@ function getCellAttr(cell, attrName) {
     return null;
 }
 
-function collectBusesAndLines(graph) {
+function collectBusesGeneratorsLines(graph) {
     const buses = [{ value: '', label: '(none)' }];
     const lines = [{ value: '', label: '(none)' }];
-    if (!graph?.getModel) return { buses, lines };
+    const generators = [{ value: '', label: '(none — no trip)' }];
+    if (!graph?.getModel) return { buses, lines, generators };
     const cells = graph.getModel().getChildCells(graph.getDefaultParent(), true, true) || [];
     for (const cell of cells) {
         const styleStr = cell.getStyle?.() || '';
@@ -37,9 +38,11 @@ function collectBusesAndLines(graph) {
             buses.push({ value: technicalName, label });
         } else if (componentType === 'Line' || styleStr.includes('shapeELXXX=Line')) {
             lines.push({ value: technicalName, label });
+        } else if (componentType === 'Generator' || styleStr.includes('shapeELXXX=Generator')) {
+            generators.push({ value: technicalName, label });
         }
     }
-    return { buses, lines };
+    return { buses, lines, generators };
 }
 
 export class TransientStabilityDialog extends Dialog {
@@ -51,7 +54,7 @@ export class TransientStabilityDialog extends Dialog {
         this.studyModalBoxWidth = 720;
         this.ui = editorUi || window.App?.main?.editor?.editorUi;
         this.graph = this.ui?.editor?.graph;
-        const { buses, lines } = collectBusesAndLines(this.graph);
+        const { buses, lines, generators } = collectBusesGeneratorsLines(this.graph);
 
         this.parameters = [
             {
@@ -129,12 +132,40 @@ export class TransientStabilityDialog extends Dialog {
                 value: '2.0',
                 min: '0',
                 step: '0.01'
+            },
+            {
+                id: 'toggle_gen',
+                label: 'Generator trip (optional)',
+                type: 'select',
+                options: generators.map((g, i) => ({
+                    value: g.value,
+                    label: g.label,
+                    default: i === 0
+                }))
+            },
+            {
+                id: 'toggle_gen_t',
+                label: 'Generator trip time (s)',
+                type: 'number',
+                value: '2.0',
+                min: '0',
+                step: '0.01'
+            },
+            {
+                id: 'poi_bus',
+                label: 'POI bus (voltage / ride-through check)',
+                type: 'select',
+                options: buses.map((b, i) => ({
+                    value: b.value,
+                    label: b.label,
+                    default: i === 1
+                }))
             }
         ];
     }
 
     getDescription() {
-        return 'Time-domain transient stability using ANDES. Requires at least one synchronous Generator or Static Generator with an IBR, Wind, PVD1, or ESD1 dynamic plant; External Grid alone is insufficient.';
+        return 'Time-domain transient stability using ANDES (RMS). Optional generator trip and POI voltage ride-through check when Computational load is enabled on a Load. Not EMT — sub-cycle sag requires future ParaEMT/dpsim integration.';
     }
 }
 

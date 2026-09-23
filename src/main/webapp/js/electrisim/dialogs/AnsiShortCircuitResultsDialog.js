@@ -81,12 +81,31 @@ export class AnsiShortCircuitResultsDialog {
         exportTxt.style.cssText = 'padding:6px 14px;border:1px solid #ced4da;border-radius:4px;background:#fff;cursor:pointer;font-size:13px;';
         exportTxt.onclick = () => this._exportTxt();
         toolbar.appendChild(exportTxt);
+        if (r.pre_post_comparison && (r.bus_comparison || []).length) {
+            const exportCsv = document.createElement('button');
+            exportCsv.type = 'button';
+            exportCsv.textContent = 'Export pre/post CSV';
+            exportCsv.style.cssText = exportTxt.style.cssText;
+            exportCsv.onclick = () => this._exportPrePostCsv();
+            toolbar.appendChild(exportCsv);
+        }
         shell.appendChild(toolbar);
 
         const body = document.createElement('div');
         body.style.cssText = 'overflow: auto; padding: 0 24px 24px; flex: 1;';
 
-        body.appendChild(this._sectionTitle('Bus fault currents'));
+        if (r.pre_post_comparison && (r.bus_comparison || []).length) {
+            body.appendChild(this._sectionTitle('Pre vs post project (interconnection package)'));
+            if (r.fault_type === '1ph') {
+                const note = document.createElement('p');
+                note.style.cssText = 'font-size:12px;color:#495057;margin:0 0 10px;';
+                note.textContent = 'Single-line-to-ground (1ph): use I½ sym at the POI for NGR / grounding studies.';
+                body.appendChild(note);
+            }
+            body.appendChild(this._busComparisonTable());
+        }
+
+        body.appendChild(this._sectionTitle('Bus fault currents (post-project)'));
         body.appendChild(this._busTable());
 
         const lines = r.lines_sc || [];
@@ -118,6 +137,99 @@ export class AnsiShortCircuitResultsDialog {
         h.textContent = text;
         h.style.cssText = 'margin: 20px 0 10px; font-size: 15px; font-weight: 600;';
         return h;
+    }
+
+    _busComparisonTable() {
+        const rows = this.results.bus_comparison || [];
+        const table = document.createElement('table');
+        table.style.cssText = 'width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px;';
+        const headers = ['Bus', 'kV', 'Fault', 'I½ sym pre [kA]', 'I½ sym post [kA]', 'Δ sym [kA]', 'I int pre [kA]', 'I int post [kA]', 'I peak pre [kA]', 'I peak post [kA]'];
+        const thead = document.createElement('thead');
+        const hr = document.createElement('tr');
+        headers.forEach(h => {
+            const th = document.createElement('th');
+            th.textContent = h;
+            th.style.cssText = 'border:1px solid #dee2e6;padding:8px;background:#f1f3f5;text-align:left;';
+            hr.appendChild(th);
+        });
+        thead.appendChild(hr);
+        table.appendChild(thead);
+        const tbody = document.createElement('tbody');
+        rows.forEach(row => {
+            const tr = document.createElement('tr');
+            const preSym = Number(row.i_first_sym_pre_ka);
+            const postSym = Number(row.i_first_sym_post_ka);
+            const delta = Number.isFinite(preSym) && Number.isFinite(postSym) ? postSym - preSym : null;
+            const cells = [
+                row.name || row.id || '—',
+                fmt(row.vn_kv, 2),
+                row.fault_type || this.results.fault_type || '—',
+                fmt(row.i_first_sym_pre_ka),
+                fmt(row.i_first_sym_post_ka),
+                fmt(delta),
+                fmt(row.i_interrupting_pre_ka),
+                fmt(row.i_interrupting_post_ka),
+                fmt(row.i_first_peak_pre_ka),
+                fmt(row.i_first_peak_post_ka)
+            ];
+            cells.forEach((c, i) => {
+                const td = document.createElement('td');
+                td.textContent = c;
+                td.style.cssText = `border:1px solid #dee2e6;padding:6px;text-align:${i > 0 ? 'right' : 'left'};`;
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        return table;
+    }
+
+    _exportPrePostCsv() {
+        const rows = this.results.bus_comparison || [];
+        const duties = this.results.device_duties || [];
+        const lines = [];
+        lines.push(['bus', 'vn_kv', 'fault_type', 'i_first_sym_pre_ka', 'i_first_sym_post_ka', 'i_first_peak_pre_ka', 'i_first_peak_post_ka', 'i_interrupting_pre_ka', 'i_interrupting_post_ka', 'slg_note'].join(','));
+        rows.forEach(row => {
+            lines.push([
+                JSON.stringify(row.name || row.id || ''),
+                row.vn_kv ?? '',
+                row.fault_type || this.results.fault_type || '',
+                row.i_first_sym_pre_ka ?? '',
+                row.i_first_sym_post_ka ?? '',
+                row.i_first_peak_pre_ka ?? '',
+                row.i_first_peak_post_ka ?? '',
+                row.i_interrupting_pre_ka ?? '',
+                row.i_interrupting_post_ka ?? '',
+                JSON.stringify(row.slg_note || '')
+            ].join(','));
+        });
+        if (duties.length) {
+            lines.push('');
+            lines.push(['device', 'duty_int_post_ka', 'duty_int_pre_ka', 'rating_ka', 'interrupting_pass', 'momentary_pass', 'margin_int_ka'].join(','));
+            duties.forEach(d => {
+                const post = Number(d.duty_interrupting_ka);
+                const rating = Number(d.interrupting_rating_ka);
+                const margin = Number.isFinite(post) && Number.isFinite(rating) ? rating - post : '';
+                lines.push([
+                    JSON.stringify(displayName(d)),
+                    d.duty_interrupting_ka ?? '',
+                    d.pre_duty_interrupting_ka ?? '',
+                    d.interrupting_rating_ka ?? '',
+                    d.interrupting_pass ?? '',
+                    d.momentary_pass ?? '',
+                    margin
+                ].join(','));
+            });
+        }
+        const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `ANSI_pre_post_${new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
     }
 
     _busTable() {

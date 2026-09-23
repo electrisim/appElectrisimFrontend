@@ -620,6 +620,13 @@ export function configureLoadAttributes(grafka, vertex, options = {}) {
     g.setAttribute("Economic_parameters", "");
     g.setAttribute("cost_per_unit_by_currency", options.cost_per_unit_by_currency || "{}");
 
+    // Data-center computational load (ANDES ride-through; not CMLD/PERC1)
+    g.setAttribute("Computational_load_parameters", "");
+    g.setAttribute("dc_computational_enabled", String(options.dc_computational_enabled ?? false));
+    g.setAttribute("dc_it_share_percent", String(options.dc_it_share_percent ?? "85"));
+    g.setAttribute("dc_ups_hold_s", String(options.dc_ups_hold_s ?? "0"));
+    g.setAttribute("dc_ride_through_csv", options.dc_ride_through_csv || "0,0.9\n10,0.9\n20,0.9");
+
     grafka.getModel().setValue(vertex, g)
     
     // Top-center pin; value must be empty — a visible label here is drawn at the port and would cover the tie line

@@ -1039,6 +1039,10 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         opf_marginal_cost_eur_per_mwh: { name: 'opf_marginal_cost_eur_per_mwh', optional: true },
                         opf_cp2_eur_per_mw2: { name: 'opf_cp2_eur_per_mw2', optional: true },
                         opf_cost_currency: { name: 'opf_cost_currency', optional: true },
+                        dc_computational_enabled: { name: 'dc_computational_enabled', optional: true },
+                        dc_it_share_percent: { name: 'dc_it_share_percent', optional: true },
+                        dc_ups_hold_s: { name: 'dc_ups_hold_s', optional: true },
+                        dc_ride_through_csv: { name: 'dc_ride_through_csv', optional: true },
                     })
                 };
                 componentArrays.load.push(load);

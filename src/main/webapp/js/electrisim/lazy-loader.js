@@ -88,6 +88,7 @@
             'transientStability',
             'eigenvalueAnalysis',
             'contingencyAnalysis',
+            'dataCenterSiteScreening',
             'timeSeriesSimulation'
         ],
         

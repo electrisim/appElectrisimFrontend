@@ -80,6 +80,13 @@
                     this.results.warnings.map((w) => `<li>${w}</li>`).join('') + '</ul>';
                 body.appendChild(warn);
             }
+            const rt = this.results.ride_through;
+            if (rt?.enabled && rt.pass === false) {
+                const fail = document.createElement('div');
+                fail.style.cssText = 'margin-top:10px;padding:10px;background:#f8d7da;border-radius:4px;font-size:12px;color:#842029;';
+                fail.innerHTML = `<strong>Computational load ride-through failed</strong> at t=${rt.fail_time_s ?? '—'} s, V=${rt.fail_voltage_pu ?? '—'} pu (POI RMS trace vs curve).`;
+                body.appendChild(fail);
+            }
             dialog.appendChild(body);
 
             const buttonRow = document.createElement('div');
@@ -123,6 +130,17 @@
                 ['Buses', r.n_buses],
                 ['f base (Hz)', r.frequency_base_hz]
             ];
+            const poi = r.poi_metrics || {};
+            if (poi.poi_bus) {
+                items.push(['POI bus', poi.poi_bus]);
+                items.push(['POI V min (pu)', poi.v_min_pu]);
+                items.push(['f nadir (Hz)', poi.frequency_nadir_hz]);
+                items.push(['f final (Hz)', poi.frequency_final_hz]);
+            }
+            const rt = r.ride_through || {};
+            if (rt.enabled) {
+                items.push(['Ride-through', rt.pass === true ? 'PASS' : rt.pass === false ? 'FAIL' : '—']);
+            }
             items.forEach(([k, v]) => {
                 const chip = document.createElement('div');
                 chip.style.cssText = 'background:#f1f3f5;padding:6px 10px;border-radius:4px;';
@@ -213,11 +231,31 @@
                 cols.push(`v_${s.name}`);
                 series.push(s.values);
             });
+            if (this.results.frequency_hz) {
+                cols.push('frequency_hz');
+                series.push(this.results.frequency_hz);
+            }
+            const rt = this.results.ride_through;
+            if (rt?.enabled) {
+                cols.push('ride_through_pass');
+                series.push(t.map(() => (rt.pass === true ? 1 : rt.pass === false ? 0 : '')));
+            }
             const lines = [cols.join(',')];
             for (let i = 0; i < t.length; i++) {
                 const row = [t[i]];
                 series.forEach((vals) => row.push(vals[i] ?? ''));
                 lines.push(row.join(','));
+            }
+            const poi = this.results.poi_metrics;
+            if (poi) {
+                lines.push('');
+                lines.push(`poi_bus,${poi.poi_bus ?? ''}`);
+                lines.push(`poi_v_min_pu,${poi.v_min_pu ?? ''}`);
+                lines.push(`frequency_nadir_hz,${poi.frequency_nadir_hz ?? ''}`);
+                lines.push(`frequency_final_hz,${poi.frequency_final_hz ?? ''}`);
+                if (rt?.enabled) {
+                    lines.push(`ride_through_pass,${rt.pass ?? ''}`);
+                }
             }
             const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
             const a = document.createElement('a');
