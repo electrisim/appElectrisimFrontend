@@ -41,7 +41,8 @@ function getUserEmail() {
 
 function buildStudyPayload(graph, wizardParams) {
     const plant = findBessPlantElements(graph);
-    const pocName = plant.pocBus?.value?.getAttribute?.('name') || wizardParams.pocBusName || 'POC_HV';
+    const pocCell = plant.pocBus || plant.mvBus;
+    const pocName = pocCell?.value?.getAttribute?.('name') || wizardParams.pocBusName || 'POC_HV';
     const extName = plant.extGrid?.value?.getAttribute?.('name') || wizardParams.extGridName || 'Grid';
     const storageNames = plant.storages.map((c) => c.value?.getAttribute?.('name')).filter(Boolean);
 
@@ -68,10 +69,10 @@ function buildStudyPayload(graph, wizardParams) {
         algorithm: 'nr',
         user_email: getUserEmail(),
         rpc_stream: true,
-        oltcEnabled: wizardParams.oltcEnabled !== false,
+        oltcEnabled: wizardParams.hvTrafoEnabled !== false && wizardParams.oltcEnabled !== false,
         oltcVmLower: wizardParams.oltcVmLower,
         oltcVmUpper: wizardParams.oltcVmUpper,
-        tapSweep: wizardParams.tapSweep === true,
+        tapSweep: wizardParams.hvTrafoEnabled !== false && wizardParams.tapSweep === true,
         tapQCapability: true,
         storageSnMva: wizardParams.storageSnMva,
         useQCurve: wizardParams.useQCurve === true,

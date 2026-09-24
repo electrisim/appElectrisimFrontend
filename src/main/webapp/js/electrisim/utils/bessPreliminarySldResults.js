@@ -169,7 +169,11 @@ function isExtGridCell(cell) {
 function isPocBus(cell, plant) {
     if (!cell) return false;
     if (plant?.pocBus && cell === plant.pocBus) return true;
-    return cellRole(cell) === 'poc' || cellName(cell) === 'POC_HV';
+    try {
+        if (cell.value?.getAttribute?.('bessPlantPoc') === '1') return true;
+    } catch { /* ignore */ }
+    const name = cellName(cell);
+    return cellRole(cell) === 'poc' || name === 'POC_HV' || name === 'POC_MV';
 }
 
 function tintPlaceholder(graph, ph, kind) {

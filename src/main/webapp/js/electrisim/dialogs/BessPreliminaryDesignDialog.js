@@ -166,8 +166,10 @@ export class BessPreliminaryDesignDialog extends Dialog {
     _undersizedRatings() {
         const params = this.parseNumericValues(this.getFormValues());
         const suggested = suggestedRatingValues(computeSuggestedRatings(params));
-        const low = CAPACITY_FIELDS
+            const low = CAPACITY_FIELDS
             .filter(([id]) => {
+                if (id === 'hvTrafoSnMva' && params.hvTrafoEnabled === false) return false;
+                if (id === 'hvCableMaxIKa' && !params.hvCableEnabled) return false;
                 const entered = Number(params[id]);
                 const target = Number(suggested[id]);
                 return entered > 0 && target > 0 && entered < target * 0.995;
@@ -245,7 +247,12 @@ export class BessPreliminaryDesignDialog extends Dialog {
             this._field('hvCableX_ohmPerKm', 'HV cable X (ohm/km)', v('hvCableX_ohmPerKm', 0.12)),
             this._field('hvCableMaxIKa', 'HV cable thermal rating (kA)', r('hvCableMaxIKa')),
             this._section('HV/MV transformer (OLTC)'),
-            this._field('mvVoltage_kV', 'MV collection voltage (kV)', v('mvVoltage_kV', 33)),
+            this._field('hvTrafoEnabled', 'Include HV/MV transformer', v('hvTrafoEnabled', true), 'checkbox', null, {
+                description: 'Untick when the POC is already at MV (about 11–33 kV). The external grid then connects directly to the collection bus (POC_MV). The HV transformer, OLTC, tap sweep, and HV cable are left off the diagram.',
+            }),
+            this._field('mvVoltage_kV', 'MV collection voltage (kV)', v('mvVoltage_kV', 33), 'number', 'any', {
+                hint: 'With the HV/MV transformer unticked, this is the POC voltage.',
+            }),
             this._field('hvTrafoSnMva', 'POC transformer rating (MVA)', r('hvTrafoSnMva')),
             this._field('hvVkPercent', 'Short-circuit voltage vk (%)', r('hvVkPercent')),
             this._field('tapMin', 'Tap min', v('tapMin', -5), 'number', '1'),
@@ -351,11 +358,20 @@ export class BessPreliminaryDesignDialog extends Dialog {
             specifyQDirectly: raw.specifyQDirectly === true || raw.specifyQDirectly === 'true',
             useQCurve: raw.useQCurve === true || raw.useQCurve === 'true',
             tapSweep: raw.tapSweep === true || raw.tapSweep === 'true',
+            hvTrafoEnabled: !(raw.hvTrafoEnabled === false || raw.hvTrafoEnabled === 'false'),
             oltcEnabled: true,
             pocBusName: 'POC_HV',
+            mvBusName: 'MV_Collection',
             extGridName: 'Grid',
             hvTrafoName: 'POC_Transformer',
         };
+        if (!out.hvTrafoEnabled) {
+            out.hvCableEnabled = false;
+            out.oltcEnabled = false;
+            out.tapSweep = false;
+            out.pocBusName = 'POC_MV';
+            out.mvBusName = 'POC_MV';
+        }
         if (!out.specifyQDirectly) {
             out.pocQ_Mvar = qFromPPf(out.pocP_MW, out.powerFactor);
         }
