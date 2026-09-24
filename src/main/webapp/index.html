@@ -6,7 +6,7 @@
     <link rel="preconnect" href="https://js.stripe.com" crossorigin>
     <link rel="preconnect" href="https://unpkg.com" crossorigin>
     <link rel="dns-prefetch" href="https://web-sdk.smartlook.com">
-    <link rel="preload" href="js/app.min.js" as="script">
+    <link rel="preload" href="js/app.min.js?v=ieee118-fit2" as="script">
     <link rel="preload" href="https://unpkg.com/ag-grid-community@31.3.2/dist/ag-grid-community.min.js" as="script">
 
     <!-- Module preload hints for analysis engines: makes browser fetch them earlier (HTTP/2 prioritized)
@@ -352,7 +352,7 @@
         // Define application scripts (ES modules)
         const appScripts = [
             { src: 'js/electrisim/auth-globals.js' },
-            { src: 'js/app.min.js' },
+            { src: 'js/app.min.js?v=ieee118-fit2' },
            // { src: 'js/extensions.min.js' },
            // { src: 'js/shapes.min.js' },
             { src: 'js/electrisim/dialogs/EditDataDialog.js', type: 'module', async: true },
@@ -655,7 +655,7 @@
 							
 							// Use async loading for app.min.js to prevent blocking
 							var appScript = document.createElement('script');
-							appScript.src = 'js/app.min.js';
+							appScript.src = 'js/app.min.js?v=ieee118-fit2';
 							appScript.async = false; // Maintain execution order but don't block parsing
 							appScript.defer = true;
 							appScript.onload = function() {

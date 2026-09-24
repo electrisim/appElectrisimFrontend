@@ -2509,6 +2509,61 @@
 	 * @param {number} dx X-coordinate of the translation.
 	 * @param {number} dy Y-coordinate of the translation.
 	 */
+	/**
+	 * Zooms out to the model if it is larger than the visible canvas, so that
+	 * large templates such as the IEEE 118 bus case do not open on empty space.
+	 */
+	EditorUi.prototype.fitLargeDiagramIntoView = function()
+	{
+		var graph = this.editor.graph;
+
+		if (graph == null || graph.container == null || !graph.isEnabled())
+		{
+			return;
+		}
+
+		window.setTimeout(mxUtils.bind(this, function()
+		{
+			try
+			{
+				var bounds = graph.getGraphBounds();
+
+				if (bounds.width == 0 || bounds.height == 0)
+				{
+					return;
+				}
+
+				var scale = graph.view.scale;
+				var t = graph.view.translate;
+				var model = new mxRectangle(bounds.x / scale - t.x, bounds.y / scale - t.y,
+					bounds.width / scale, bounds.height / scale);
+				var w = graph.container.clientWidth - 40;
+				var h = graph.container.clientHeight - 40;
+
+				if (model.width > w || model.height > h)
+				{
+					// Below ~12% the symbols disappear and fitWindow can round the
+					// scale down to 0, which leaves the view on the empty page corner.
+					var fit = Math.min(w / model.width, h / model.height);
+					var next = Math.max(0.12, Math.min(1, Math.round(fit * 20) / 20));
+					graph.zoomTo(next);
+					if (mxUtils.hasScrollbars(graph.container))
+					{
+						var tr = graph.view.translate;
+						graph.container.scrollLeft = (model.x + model.width / 2 + tr.x) * next -
+							graph.container.clientWidth / 2;
+						graph.container.scrollTop = (model.y + model.height / 2 + tr.y) * next -
+							graph.container.clientHeight / 2;
+					}
+				}
+			}
+			catch (e)
+			{
+				// Keeps the default view if the bounds cannot be computed
+			}
+		}), 0);
+	};
+
 	EditorUi.prototype.fileLoaded = function(file, noDialogs)
 	{
 		var oldFile = this.getCurrentFile();
@@ -2637,6 +2692,7 @@
 				}
 				
 				this.editor.fireEvent(new mxEventObject('fileLoaded'));
+				this.fitLargeDiagramIntoView();
 				result = true;
 
 				if (!this.isOffline() && file.getMode() != null)

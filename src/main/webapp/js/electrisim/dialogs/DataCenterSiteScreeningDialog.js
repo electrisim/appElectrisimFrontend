@@ -65,6 +65,7 @@ export class DataCenterSiteScreeningDialog extends Dialog {
     constructor(editorUi) {
         super('Data Center Site Screening', 'Analyze');
         this.useStudyModalShell = true;
+        this.studyModalParkable = true;
         this.studyModalBoxWidth = 760;
         this.ui = editorUi || window.App?.main?.editor?.editorUi;
         this.graph = this.ui?.editor?.graph;
@@ -256,7 +257,7 @@ export class DataCenterSiteScreeningDialog extends Dialog {
             const showBtn = document.createElement('button');
             showBtn.type = 'button';
             showBtn.textContent = 'Show';
-            showBtn.title = 'Select this load on the diagram';
+            showBtn.title = 'Hide this dialog and show the load on the diagram';
             Object.assign(showBtn.style, {
                 border: 'none',
                 background: 'transparent',
@@ -268,7 +269,7 @@ export class DataCenterSiteScreeningDialog extends Dialog {
             });
             showBtn.addEventListener('click', (e) => {
                 e.preventDefault();
-                this._focusLoad(load.cell);
+                this._focusLoad(load.cell, load.label);
             });
             cb.addEventListener('change', sync);
             row.appendChild(label);
@@ -304,13 +305,15 @@ export class DataCenterSiteScreeningDialog extends Dialog {
         return wrap;
     }
 
-    _focusLoad(cell) {
+    _focusLoad(cell, label) {
         const graph = this.graph;
         if (!graph || !cell) return;
         graph.setSelectionCell(cell);
         if (typeof graph.scrollCellToVisible === 'function') {
             graph.scrollCellToVisible(cell, true);
         }
+        const name = label ? ` — ${label}` : '';
+        this.parkStudyModal(`Back to site screening${name}`);
     }
 
     getFormValues() {
