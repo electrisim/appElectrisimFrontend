@@ -36,9 +36,9 @@ pp.set_user_pf_options(
     calculate_voltage_angles=True,
 )
 
-# --- Buses ---
-b_util = pp.create_bus(net, vn_kv=138.0, name="Utility_138", geodata=(0.0, 0.0))
-b_poi = pp.create_bus(net, vn_kv=138.0, name="POI_138", geodata=(4.0, 0.0))
+# --- Buses (geo x rightward, geo y upward — campus sits under the POI on the canvas) ---
+b_util = pp.create_bus(net, vn_kv=138.0, name="Utility_138", geodata=(0.0, 4.0))
+b_poi = pp.create_bus(net, vn_kv=138.0, name="POI_138", geodata=(8.0, 4.0))
 b_campus = pp.create_bus(net, vn_kv=34.5, name="Campus_34.5", geodata=(8.0, 0.0))
 
 # --- Utility equivalent ---
@@ -88,12 +88,19 @@ pp.create_gen(
     rdss_pu=0.01,
 )
 
-# --- POI step-down ---
-pp.create_transformer(
+# --- POI step-down (parameters, not a library std_type — 138/34.5 kV is not in pandapower) ---
+pp.create_transformer_from_parameters(
     net,
     hv_bus=b_poi,
     lv_bus=b_campus,
-    std_type="250 MVA 138/34.5 kV",
+    sn_mva=250.0,
+    vn_hv_kv=138.0,
+    vn_lv_kv=34.5,
+    vk_percent=12.0,
+    vkr_percent=0.4,
+    pfe_kw=80.0,
+    i0_percent=0.1,
+    shift_degree=30.0,
     name="POI_Transformer",
 )
 

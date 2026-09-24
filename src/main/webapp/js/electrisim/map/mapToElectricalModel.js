@@ -54,7 +54,7 @@ const TRANSFORMER_STYLE    = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOL
 const TRANSFORMER_V_STYLE  = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-transformer-v'].url + ';shapeELXXX=Transformer';
 const TRANSFORMER_3W_STYLE = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-3w-transformer'].url + ';shapeELXXX=Three Winding Transformer';
 
-const SHUNT_REACTOR_STYLE = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-shunt'].url + ';shapeELXXX=Shunt Reactor';
+const SHUNT_REACTOR_STYLE = 'pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;shape=mxgraph.electrical.inductors.choke;shapeELXXX=Shunt Reactor';
 const CAPACITOR_STYLE     = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-capacitor'].url + ';shapeELXXX=Capacitor';
 const GROUND_STYLE        = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym-load'].url + ';shapeELXXX=Ground';
 
@@ -542,7 +542,7 @@ export function mapToElectricalModel(graph, mapData, point = { x: 100, y: 100 })
 
                 // ── Compensation (below bus) ──
                 case NODE_TYPES.SHUNT_REACTOR:
-                    insertComp(SHUNT_REACTOR_STYLE, ...symWh('sym-shunt'), configureShuntReactorAttributes, { q_mvar: String(node.q_mvar || 0), vn_kv: vn });
+                    insertComp(SHUNT_REACTOR_STYLE, 28, 56, configureShuntReactorAttributes, { q_mvar: String(node.q_mvar || 0), vn_kv: vn });
                     break;
                 case NODE_TYPES.CAPACITOR:
                     insertComp(CAPACITOR_STYLE, ...symWh('sym-capacitor'), configureCapacitorAttributes, { q_mvar: String(node.q_mvar || 0), vn_kv: vn });

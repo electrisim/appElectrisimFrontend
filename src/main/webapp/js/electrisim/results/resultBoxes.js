@@ -40,6 +40,7 @@ function createBusResultPlaceholder(graph, busCell) {
         console.warn('ELXXX: Cannot create Bus result placeholder - missing graph or busCell');
         return;
     }
+    if (graph._elxxxSkipPlaceholders) return;
     runUpgradeOnce(graph);
     // Check if placeholder already exists
     var existingId = null;
@@ -1051,6 +1052,7 @@ if (typeof window !== 'undefined') {
 
 // Helper to create a professional placeholder box
 function createResultPlaceholder(graph, parentEdge, componentCell, opts) {
+    if (graph && graph._elxxxSkipPlaceholders) return;
     runUpgradeOnce(graph);
     var externalId = componentCell.id;
 

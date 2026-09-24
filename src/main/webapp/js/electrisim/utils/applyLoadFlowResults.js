@@ -206,6 +206,28 @@ function removeExtraPlaceholders(graph, keep, resultCell) {
     }
 }
 
+function repositionResultBox(graph, cell, opts) {
+    if (!opts?.reposition || !cell || typeof mxPoint === 'undefined') return;
+    const model = graph.getModel();
+    const geo = model.getGeometry(cell);
+    if (!geo) return;
+    const ng = geo.clone();
+    const w = opts.width || geo.width || 70;
+    const h = opts.height || geo.height || 50;
+    const px = typeof opts.positionX === 'number' ? opts.positionX : geo.x;
+    const py = typeof opts.positionY === 'number' ? opts.positionY : (geo.y || 0);
+    const isLine = !!opts.isLine || px === 0.5 || px === 0.2;
+    const ox = opts.offsetXDelta || 0;
+    const oy = opts.offsetYDelta || 0;
+    ng.x = px;
+    ng.y = py;
+    ng.width = w;
+    ng.height = h;
+    ng.relative = true;
+    ng.offset = new mxPoint(-w / 2 + ox, (isLine ? -h / 2 - 10 : -h / 2 - 5) + oy);
+    model.setGeometry(cell, ng);
+}
+
 function updateOrCreatePlaceholder(graph, parent, text, opts) {
     const existing = findPlaceholder(graph, parent);
     if (existing) {
@@ -214,6 +236,7 @@ function updateOrCreatePlaceholder(graph, parent, text, opts) {
         } else {
             graph.getModel().setValue(existing, text);
         }
+        repositionResultBox(graph, existing, opts);
         return existing;
     }
     return insertBox(graph, parent, text, opts);
@@ -244,6 +267,7 @@ function updateSingleComponentResult(graph, resultCell, text, opts = {}) {
 
     if (keep) {
         model.setValue(keep, text);
+        repositionResultBox(graph, keep, opts);
         removeExtraPlaceholders(graph, keep, resultCell);
         return keep;
     }
@@ -260,6 +284,71 @@ function updateSingleComponentResult(graph, resultCell, text, opts = {}) {
 /** Edge-attached injectors (External Grid, Generator, …): placeholder lives on the edge, not the vertex. */
 function updateEdgeAttachedPlaceholder(graph, resultCell, text, opts) {
     return updateSingleComponentResult(graph, resultCell, text, opts);
+}
+
+function resultBoxesOverlap(a, b, pad) {
+    return a.x < b.x + b.w + pad && a.x + a.w + pad > b.x
+        && a.y < b.y + b.h + pad && a.y + a.h + pad > b.y;
+}
+
+/** Nudge result labels apart on large diagrams so they do not sit on the same spot. */
+function spreadOverlappingResultBoxes(graph) {
+    if (!graph?.getView || typeof mxPoint === 'undefined') return;
+    const model = graph.getModel();
+    const view = graph.getView();
+    if (typeof view.validate === 'function') view.validate();
+    const boxes = [];
+    const visit = (cell) => {
+        if (!cell) return;
+        const style = model.getStyle(cell) || '';
+        if (style.indexOf('shapeELXXX=Result') >= 0) {
+            const state = view.getState(cell);
+            if (state && state.width > 0 && state.height > 0) boxes.push(cell);
+        }
+        const n = model.getChildCount(cell);
+        for (let i = 0; i < n; i++) visit(model.getChildAt(cell, i));
+    };
+    visit(graph.getDefaultParent());
+    if (boxes.length < 25) return;
+    boxes.sort((a, b) => {
+        const sa = view.getState(a);
+        const sb = view.getState(b);
+        return (sa.y - sb.y) || (sa.x - sb.x);
+    });
+    const placed = [];
+    model.beginUpdate();
+    try {
+        boxes.forEach((cell) => {
+            const state = view.getState(cell);
+            if (!state) return;
+            let dx = 0;
+            let dy = 0;
+            for (let step = 0; step < 10; step++) {
+                const rect = { x: state.x + dx, y: state.y + dy, w: state.width, h: state.height };
+                if (!placed.some((other) => resultBoxesOverlap(rect, other, 8))) break;
+                if (step % 2 === 0) dy += state.height + 12;
+                else dx += 36;
+            }
+            if (dx !== 0 || dy !== 0) {
+                const geo = model.getGeometry(cell);
+                if (geo) {
+                    const next = geo.clone();
+                    const ox = geo.offset ? geo.offset.x : 0;
+                    const oy = geo.offset ? geo.offset.y : 0;
+                    next.offset = new mxPoint(ox + dx, oy + dy);
+                    model.setGeometry(cell, next);
+                }
+            }
+            placed.push({
+                x: state.x + dx,
+                y: state.y + dy,
+                w: state.width,
+                h: state.height
+            });
+        });
+    } finally {
+        model.endUpdate();
+    }
 }
 
 /**
@@ -280,6 +369,7 @@ export function applyLoadFlowResultsToGraph(graph, dataJson) {
     }
 
     const model = graph.getModel();
+    const largeDiagram = (dataJson.busbars || []).length > 40;
     model.beginUpdate();
     try {
         (dataJson.busbars || []).forEach((cell) => {
@@ -298,13 +388,13 @@ P[MW]: ${formatNumber(d.p)}
 ${qLine}
 PF: ${formatNumber(d.pf)}
 Q/P: ${formatNumber(d.qp)}`;
-            updateOrCreatePlaceholder(graph, resultCell, text, {
-                width: 80, height: 76, positionX: 0, positionY: 1.0, offsetXDelta: 40, offsetYDelta: 35
-            });
+            updateOrCreatePlaceholder(graph, resultCell, text, largeDiagram
+                ? { width: 80, height: 76, positionX: 0, positionY: 0, offsetXDelta: -96, offsetYDelta: -6, reposition: true }
+                : { width: 80, height: 76, positionX: 0, positionY: 1.0, offsetXDelta: 40, offsetYDelta: 35 });
             processVoltageColor(graph, resultCell, cell.vm_pu);
         });
 
-        (dataJson.lines || []).forEach((cell) => {
+        (dataJson.lines || []).forEach((cell, lineIdx) => {
             const resultCell = resolveCell(cell);
             if (!resultCell) return;
             const label = formatResultNameHeader(resultCell, replaceUnderscores(cell.name), 'Line');
@@ -318,7 +408,17 @@ Q/P: ${formatNumber(d.qp)}`;
             i_to[kA]: ${formatNumber(cell.i_to_ka)}`;
             const edge = (graph.getEdges && graph.getEdges(resultCell))?.[0];
             const parent = edge || resultCell;
-            updateOrCreatePlaceholder(graph, parent, text, { width: 70, height: 70, positionX: 0.5, positionY: 0, isLine: true });
+            const lineLane = lineIdx % 5;
+            updateOrCreatePlaceholder(graph, parent, text, largeDiagram
+                ? {
+                    width: 70, height: 70,
+                    positionX: 0.18 + lineLane * 0.14,
+                    positionY: 0,
+                    isLine: true,
+                    offsetYDelta: (lineLane % 2 === 0 ? -1 : 1) * (28 + lineLane * 22),
+                    reposition: true
+                }
+                : { width: 70, height: 70, positionX: 0.5, positionY: 0, isLine: true });
             processLoadingColor(graph, resultCell, cell.loading_percent);
         });
 
@@ -395,7 +495,9 @@ Q/P: ${formatNumber(d.qp)}`;
             Q[MVar]: ${formatNumber(cell.q_mvar)}
             U[degree]: ${formatNumber(cell.va_degree)}
             Um[pu]: ${formatNumber(cell.vm_pu)}`;
-            updateEdgeAttachedPlaceholder(graph, resultCell, text, { width: 60, height: 40, positionX: -0.3 });
+            updateEdgeAttachedPlaceholder(graph, resultCell, text, largeDiagram
+                ? { width: 60, height: 40, positionX: 0, offsetXDelta: -82, offsetYDelta: -28, reposition: true }
+                : { width: 60, height: 40, positionX: -0.3 });
         });
 
         (dataJson.shunts || []).forEach((cell) => {
@@ -432,7 +534,9 @@ Q/P: ${formatNumber(d.qp)}`;
             const text = `${label}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}`;
-            updateEdgeAttachedPlaceholder(graph, resultCell, text, { width: 60, height: 40, positionX: -0.3 });
+            updateEdgeAttachedPlaceholder(graph, resultCell, text, largeDiagram
+                ? { width: 60, height: 40, positionX: 0, offsetXDelta: 78, offsetYDelta: 6, reposition: true }
+                : { width: 60, height: 40, positionX: -0.3 });
         });
 
         (dataJson.storages || []).forEach((cell) => {
@@ -468,6 +572,7 @@ Loading[%]: ${formatNumber(cell.loading_percent, 1)}`;
     } finally {
         model.endUpdate();
         if (graph.getView?.().refresh) graph.getView().refresh();
+        if (largeDiagram) spreadOverlappingResultBoxes(graph);
     }
 
     try {

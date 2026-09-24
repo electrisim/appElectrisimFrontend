@@ -6,7 +6,9 @@ Public **138 kV utility pocket** with a scalable data-center load block for Phas
 
 1. **File → Import from → Device…**
 2. Select [`data_center_interconnection_pocket.py`](data_center_interconnection_pocket.py)
-3. Choose **vertical SLD** layout when prompted.
+3. Choose **Vertical** layout when prompted.
+
+The canvas places `Utility_138` and `POI_138` on the upper row (two parallel lines between them), `Remote_Gen` on the POI, and `Campus_34.5` directly below the POI through `POI_Transformer`, with the data-center load, backup generator, and BESS on the campus bus.
 
 ## Network summary
 

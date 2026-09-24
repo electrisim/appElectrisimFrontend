@@ -582,7 +582,7 @@ export function configureCapacitorAttributes(grafka, vertex, options = {}) {
 export function configureLoadAttributes(grafka, vertex, options = {}) {
 
     var g = mxUtils.createXmlDocument().createElement("object");
-    g.setAttribute("name", "Load");
+    g.setAttribute("name", options.name || "Load");
 
     //OPTIONAL
     g.setAttribute("Load_flow_parameters", "");

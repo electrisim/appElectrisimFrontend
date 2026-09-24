@@ -264,6 +264,8 @@ export class Dialog {
                         input.selectedIndex = 0;
                     }
                     this.inputs.set(param.id, input);
+                } else if (param.type === 'custom' && typeof this.createCustomParameter === 'function') {
+                    input = this.createCustomParameter(param);
                 } else {
                     input = document.createElement('input');
                     input.type = param.type;

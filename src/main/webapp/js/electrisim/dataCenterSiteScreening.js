@@ -5,7 +5,9 @@ import { prepareNetworkData } from './utils/networkDataPreparation.js';
 import {
     startSimulationProgress,
     settleSimulationProgress,
-    formatDurationMs
+    formatDurationMs,
+    readNdjsonStream,
+    isAbortError
 } from './utils/simulationProgressOverlay.js';
 
 function getUserEmail() {
@@ -43,25 +45,47 @@ function dataCenterSiteScreeningPandaPower(a, b, c) {
                 min_vm_pu: values.min_vm_pu || '0.95',
                 max_vm_pu: values.max_vm_pu || '1.05',
                 max_loading_percent: values.max_loading_percent || '100',
-                user_email: getUserEmail()
+                user_email: getUserEmail(),
+                rpc_stream: true
             };
 
+            simProgress.overlay.setStatus('Preparing diagram data…');
+            simProgress.overlay.append('Preparing diagram data…', { time: true });
             const obj = prepareNetworkData(graph, simulationParameters, { removeResultCells: false });
+            simProgress.overlay.setStatus('Sending request…');
             simProgress.overlay.append('Sending request…', { time: true });
             const t0 = performance.now();
             const response = await fetch(ENV.backendUrl + '/', {
                 mode: 'cors',
                 method: 'post',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/x-ndjson, application/json',
+                    'Accept-Encoding': 'identity'
+                },
                 body: JSON.stringify(obj),
                 signal: simProgress.signal
             });
             if (response.status !== 200) {
                 throw new Error(await response.text() || response.statusText);
             }
-            let text = await response.text();
-            text = text.replace(/:\s*-Infinity/g, ': null').replace(/:\s*Infinity/g, ': null').replace(/:\s*NaN/g, ': null');
-            const dataJson = JSON.parse(text);
+            const contentType = (response.headers.get('Content-Type') || '').toLowerCase();
+            let dataJson;
+            if (contentType.includes('ndjson') && response.body?.getReader) {
+                dataJson = await readNdjsonStream(response, {
+                    onProgress: (msg) => {
+                        simProgress.overlay.append(msg, { time: true });
+                        simProgress.overlay.setStatus(msg);
+                    }
+                });
+            } else {
+                let text = await response.text();
+                text = text.replace(/:\s*-Infinity/g, ': null').replace(/:\s*Infinity/g, ': null').replace(/:\s*NaN/g, ': null');
+                dataJson = JSON.parse(text);
+            }
+            if (!dataJson) {
+                throw new Error('Site screening returned no result.');
+            }
             simProgress.overlay.append(`Response in ${formatDurationMs(performance.now() - t0)}`, { time: true });
 
             if (dataJson.error) {
@@ -74,8 +98,9 @@ function dataCenterSiteScreeningPandaPower(a, b, c) {
             simProgress.overlay.append('Done.', { time: true });
             await settleSimulationProgress(simProgress.overlay, null, simProgress.abortController);
         } catch (err) {
+            const aborted = isAbortError(err) || simProgress.abortController?.signal?.aborted;
             await settleSimulationProgress(simProgress.overlay, err, simProgress.abortController);
-            alert('Site screening failed: ' + (err.message || err));
+            if (!aborted) alert('Site screening failed: ' + (err.message || err));
         }
     });
 }

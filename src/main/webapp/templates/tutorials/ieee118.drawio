@@ -1,0 +1,13 @@
+<mxfile host="app.diagrams.net" modified="2026-09-23T00:00:00.000Z" agent="Electrisim" version="22.1.0" type="device">
+  <diagram id="ieee118-guide" name="Page-1">
+    <mxGraphModel dx="900" dy="600" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="2" value="IEEE 118-bus transmission benchmark&#xa;&#xa;1. File → Import from → Device…&#xa;2. Select templates/tutorials/ieee118.py&#xa;3. Choose Vertical layout — pan/zoom the network (118 buses)&#xa;&#xa;Not an MMWG/WECC/ERCOT/ISO case. For utility planning models, import your own .py or .dss.&#xa;&#xa;Guide: templates/tutorials/ieee118.md" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f5e9;strokeColor=#81c784;align=left;spacingLeft=12;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="40" width="760" height="180" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
