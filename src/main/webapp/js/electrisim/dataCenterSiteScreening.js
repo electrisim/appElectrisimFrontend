@@ -94,7 +94,7 @@ function dataCenterSiteScreeningPandaPower(a, b, c) {
                 return;
             }
 
-            new DataCenterSiteScreeningResultsDialog(dataJson).show();
+            new DataCenterSiteScreeningResultsDialog(dataJson, graph).show();
             simProgress.overlay.append('Done.', { time: true });
             await settleSimulationProgress(simProgress.overlay, null, simProgress.abortController);
         } catch (err) {

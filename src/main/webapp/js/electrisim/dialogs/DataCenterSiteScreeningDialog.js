@@ -63,7 +63,7 @@ function collectLoads(graph) {
 
 export class DataCenterSiteScreeningDialog extends Dialog {
     constructor(editorUi) {
-        super('Data Center Site Screening', 'Analyze');
+        super('Data Center Site Screening (Beta)', 'Analyze');
         this.useStudyModalShell = true;
         this.studyModalParkable = true;
         this.studyModalBoxWidth = 760;
@@ -339,9 +339,7 @@ export class DataCenterSiteScreeningDialog extends Dialog {
 
     getDescription() {
         return (
-            '<strong>Phase 1 site screening</strong> — headroom MW and N-1 / N-1-1 at each candidate load size. ' +
-            'Import a utility case (<code>.py</code> / <code>.dss</code>) or use the ' +
-            '<code>data_center_interconnection_pocket.py</code> tutorial. ' +
+            '<strong>Phase 1 site screening (Beta)</strong> — headroom MW and N-1 / N-1-1 at each candidate load size. ' +
             '<a href="https://electrisim.com/documentation.html#data-center-site-screening" target="_blank" rel="noopener">Documentation</a>'
         );
     }
