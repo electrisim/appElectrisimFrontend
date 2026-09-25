@@ -758,6 +758,8 @@
     }
 
     function applyActivePowerArrow(graph, branchCell, directionInfo, arrowOpts) {
+        if (typeof window.readSavedAnimatePowerFlow === 'function' && window.readSavedAnimatePowerFlow()) return;
+        if (document.getElementById('electrisim-loadflow-animation-overlay')) return;
         if (!graph || !branchCell || !directionInfo || !directionInfo.hasFlow) return;
         if (!isLineBranchCell(branchCell)) return;
 

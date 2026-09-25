@@ -364,6 +364,9 @@ export function applyLoadFlowResultsToGraph(graph, dataJson) {
     const lookup = buildGraphCellLookupMap(graph);
     const resolveCell = (row) => resolveGraphCellForResult(lookup, row, graph);
 
+    if (typeof window !== 'undefined' && typeof window.stopLoadFlowPowerAnimation === 'function') {
+        window.stopLoadFlowPowerAnimation();
+    }
     if (typeof window !== 'undefined' && typeof window.clearFlowArrows === 'function') {
         window.clearFlowArrows(graph);
     }
@@ -578,6 +581,19 @@ Loading[%]: ${formatNumber(cell.loading_percent, 1)}`;
     try {
         window.__electrisimLastLoadFlowResultJson = dataJson;
     } catch (_) { /* non-browser */ }
+
+    try {
+        const wantAnim = typeof window.readSavedAnimatePowerFlow === 'function'
+            ? window.readSavedAnimatePowerFlow()
+            : false;
+        if (wantAnim && typeof window.startLoadFlowPowerAnimation === 'function') {
+            window.startLoadFlowPowerAnimation(graph, dataJson);
+        } else if (typeof window.stopLoadFlowPowerAnimation === 'function') {
+            window.stopLoadFlowPowerAnimation();
+        }
+    } catch (e) {
+        console.warn('Load flow animation skipped:', e);
+    }
 }
 
 if (typeof window !== 'undefined') {

@@ -613,7 +613,7 @@
                 box-shadow: 0 20px 50px -10px rgba(15,23,42,0.25), 0 4px 12px rgba(15,23,42,0.08);
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
                 color: ${COLOR_TEXT};
-                z-index: 999;
+                z-index: 10020;
                 display: flex;
                 flex-direction: column;
                 overflow: hidden;
