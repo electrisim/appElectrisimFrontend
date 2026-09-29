@@ -49,11 +49,30 @@
 <template url="renewables/reactive_power_onshore_WF_33MW.drawio" title="onshore wind farm 33MW" libs="general;uml"/>
 <template url="renewables/offshore wind 1GW 100km rev6.drawio" title="offshore wind farm 1 GW" libs="general;uml"/>
 <template url="renewables/PV 100MW.drawio" title="PV solar farm" libs="general;uml"/>
-<template url="transmission/IEEE_4bus.drawio" title="IEEE 4 bus" libs="general;uml"/>
-<template url="transmission/IEEE_5bus.drawio" title="IEEE 5 bus" libs="general;uml"/>
-<template url="transmission/IEEE_6bus.drawio" title="IEEE 6 bus" libs="general;uml"/>
+<template url="transmission/case4gs.drawio" title="IEEE 4 bus" libs="general;uml"/>
+<template url="transmission/case5.drawio" title="IEEE 5 bus" libs="general;uml"/>
+<template url="transmission/case6.drawio" title="IEEE 6 bus" libs="general;uml"/>
+<template url="transmission/case9.drawio" title="IEEE 9 bus" libs="general;uml"/>
+<template url="transmission/case14.drawio" title="IEEE 14 bus" libs="general;uml"/>
+<template url="transmission/case24_ieee_rts.drawio" title="IEEE RTS 24 bus" libs="general;uml"/>
+<template url="transmission/case30.drawio" title="IEEE 30 bus" libs="general;uml"/>
+<template url="transmission/IEEE_30.drawio" title="IEEE 30 bus (Illinois)" libs="general;uml"/>
+<template url="transmission/case39.drawio" title="IEEE 39 bus" libs="general;uml"/>
+<template url="transmission/case57.drawio" title="IEEE 57 bus" libs="general;uml"/>
+<template url="transmission/case89pegase.drawio" title="PEGASE 89 bus" libs="general;uml"/>
 <template url="transmission/IEEE_118bus.drawio" title="IEEE 118 bus" libs="general;uml"/>
+<template url="transmission/case145.drawio" title="145 bus" libs="general;uml"/>
+<template url="transmission/illinois_200.drawio" title="Illinois 200 bus" libs="general;uml"/>
+<template url="transmission/case300.drawio" title="IEEE 300 bus" libs="general;uml"/>
 <template url="transmission/10-bus Italian grid.drawio" title="10-bus Italian grid" libs="general;uml"/>
+<template url="transmission/GB reduced network.drawio" title="GB reduced network" libs="general;uml"/>
+<template url="transmission/iceland.drawio" title="Iceland" libs="general;uml"/>
+<template url="transmission/case1354pegase.drawio" title="PEGASE 1354 bus" libs="general;uml"/>
+<template url="transmission/case1888rte.drawio" title="RTE 1888 bus" libs="general;uml"/>
+<template url="transmission/GB network.drawio" title="GB network" libs="general;uml"/>
+<template url="transmission/case2848rte.drawio" title="RTE 2848 bus" libs="general;uml"/>
+<template url="transmission/case2869pegase.drawio" title="PEGASE 2869 bus" libs="general;uml"/>
+<template url="transmission/case3120sp.drawio" title="Polish 3120 bus" libs="general;uml"/>
 
 <template url="distribution/multivoltage example.drawio" title="multivoltage example" libs="general;uml"/>
 <template url="distribution/CIGRE_MVnetwork_allDER.drawio" title="Cigre MV network" libs="general;uml"/>

@@ -71,6 +71,31 @@ export function getEconomicProfileRelevance(graph) {
 
 const GEN_STUB_SWITCH_ET = 'gen_stub';
 
+function reconcileLineSwitchEnds(lines, switches) {
+    const by = new Map();
+    (lines || []).forEach((line) => {
+        ['name', 'id', 'userFriendlyName'].forEach((key) => {
+            if (line && line[key] != null && line[key] !== '') by.set(String(line[key]), line);
+        });
+    });
+    (switches || []).forEach((sw) => {
+        const et = String(sw.et || '').toLowerCase();
+        if (et !== 'l' && et !== 'line') return;
+        const line = by.get(String(sw.element || ''));
+        if (!line) return;
+        const a = line.busFrom ? String(line.busFrom) : '';
+        const b = line.busTo ? String(line.busTo) : '';
+        const bus = sw.bus ? String(sw.bus) : '';
+        if (a && b && a !== b && (bus === a || bus === b)) return;
+        if ((!b || a === b) && bus && bus !== a) {
+            if (a) line.busTo = bus;
+            else line.busFrom = bus;
+            return;
+        }
+        if (a && bus !== a && bus !== b) sw.bus = a;
+    });
+}
+
 /**
  * Bus–Switch–injecting element (generator, load, shunt, storage, …): pandapower has no switch type
  * that points at these elements; use ``et='b'``, ``z_ohm=0`` between the diagram bus and a synthetic
@@ -845,6 +870,8 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         vkr0_percent: { name: 'vkr0_percent', optional: true },
                         mag0_percent: { name: 'mag0_percent', optional: true },
                         si0_hv_partial: { name: 'si0_hv_partial', optional: true },
+                        rn_ohm: { name: 'rn_ohm', optional: true },
+                        xn_ohm: { name: 'xn_ohm', optional: true },
                         parallel: { name: 'parallel', optional: true },
                         shift_degree: { name: 'shift_degree', optional: true },
                         tap_side: { name: 'tap_side', optional: true },
@@ -1285,7 +1312,10 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         wattpf_yarray: { name: 'wattpf_yarray', optional: true },
                         wattvar_xarray: { name: 'wattvar_xarray', optional: true },
                         wattvar_yarray: { name: 'wattvar_yarray', optional: true },
-                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
+                        cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true },
+                        max_ik_ka: { name: 'max_ik_ka', optional: true },
+                        rx: { name: 'rx', optional: true },
+                        current_source: { name: 'current_source', optional: true }
                     })
                 };
                 const storInv = String(storage.inv_control_mode || 'NONE').toUpperCase();
@@ -1663,6 +1693,7 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
         componentArrays.threeWindingTransformer = updateThreeWindingTransformerConnections(componentArrays.threeWindingTransformer, componentArrays.busbar, graph);
     }
 
+    reconcileLineSwitchEnds(componentArrays.line, componentArrays.switch);
     expandGenStubSwitches(componentArrays, counters);
 
     // Build final array

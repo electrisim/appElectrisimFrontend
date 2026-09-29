@@ -1,0 +1,44 @@
+getTransformerConnections=(e,t=!1)=>{const isBus=e=>!(!e||!e.style)&&(e.style.includes("shape=mxgraph.electrical.transmission.busbar")||e.style.includes("Bus")||e.value&&e.value.nodeName&&e.value.nodeName.includes("Bus")),otherEnd=(e,t)=>{if(!e||!t)return null;const n=t.mxObjectId;return e.target&&e.target.mxObjectId!==n?e.target:e.source&&e.source.mxObjectId!==n?e.source:null},resolveBusVia=t=>{const n=otherEnd(t,e);if(!n)return null;if(isBus(n))return n;if((e=>{if(!e?.style||e.edge)return!1;const t=e.style.match(/shapeELXXX=([^;]+)/);return t&&("Switch"===t[1]||"switch"===t[1])})(n)&&Array.isArray(n.edges))for(const e of n.edges){if(e===t)continue;const o=otherEnd(e,n);if(o&&isBus(o))return o}return null},getBusVnKv=e=>{if(!e?.value?.attributes)return Number.NaN;const t=e.value.attributes;for(let e=0;e<t.length;e++)if("vn_kv"===t[e].nodeName){const n=parseFloat(t[e].nodeValue);return Number.isFinite(n)?n:Number.NaN}return Number.NaN},n=e.edges||[],o=[];for(let e=0;e<n.length;e++){const t=resolveBusVia(n[e]);t&&o.push({bus:t,idx:e})}const r=[],a=new Set;for(const e of o){const t=e.bus.mxObjectId;t&&!a.has(t)&&(a.add(t),r.push(e))}let s,l;if(r.length>=2){const e=r[0],t=r[1],n=getBusVnKv(e.bus),o=getBusVnKv(t.bus);Number.isFinite(n)&&Number.isFinite(o)&&n!==o?(s=n>=o?e:t,l=n>=o?t:e):(s=e,l=t)}else{const fallbackBus=t=>{const n=otherEnd(t,e);return n&&n.mxObjectId?n:null};s={bus:fallbackBus(n[0]),idx:0},l={bus:fallbackBus(n[1]),idx:1}}return t&&(s?.bus&&isBus(s.bus)||console.warn(`Transformer "${e.id}" HV side could not be resolved to a Bus.`),l?.bus&&isBus(l.bus)||console.warn(`Transformer "${e.id}" LV side could not be resolved to a Bus.`)),{hv_bus:s?.bus?.mxObjectId?.replace("#","_"),lv_bus:l?.bus?.mxObjectId?.replace("#","_"),hv_cell:s?.bus||null,lv_cell:l?.bus||null}};function _cellAttrValue(e,t){if(!e?.value?.attributes)return"";const n=e.value.attributes;for(let e=0;e<n.length;e++)if(n[e].nodeName===t)return n[e].nodeValue;return""}function _voltageRatingMismatch(e,t){const n=parseFloat(e),o=parseFloat(t);if(!Number.isFinite(n)||!Number.isFinite(o)||n<=0||o<=0)return!1;const r=Math.max(.5,.02*Math.max(n,o));return Math.abs(n-o)>r}function collectTransformerVoltageMismatches(e){const t=[],n=e?.getModel?.()?.cells;if(!n)return t;const shapeOf=e=>{const t=String(e?.style||"").match(/shapeELXXX=([^;]+)/);return t?t[1]:""};for(const e in n){const o=n[e],r=shapeOf(o);if("Transformer"!==r&&"Three Winding Transformer"!==r)continue;const a=_cellAttrValue(o,"name")||o.id||"Transformer",pushRow=(e,n,o)=>{const r=_cellAttrValue(o,"vn_kv");_voltageRatingMismatch(n,r)&&t.push({transformer:a,side:e,windingKv:parseFloat(n),bus:_cellAttrValue(o,"name")||o?.id||"",busKv:parseFloat(r)})};try{if("Transformer"===r){const e=getTransformerConnections(o);pushRow("HV",_cellAttrValue(o,"vn_hv_kv"),e.hv_cell),pushRow("LV / POC",_cellAttrValue(o,"vn_lv_kv"),e.lv_cell)}else{const e=getThreeWindingConnections(o),findBus=e=>{if(!e)return null;for(const t in n){const o=n[t];if((o?.mxObjectId?String(o.mxObjectId).replace("#","_"):"")===e)return o}return null};pushRow("HV",_cellAttrValue(o,"vn_hv_kv"),findBus(e.hv_bus)),pushRow("MV",_cellAttrValue(o,"vn_mv_kv"),findBus(e.mv_bus)),pushRow("LV / POC",_cellAttrValue(o,"vn_lv_kv"),findBus(e.lv_bus))}}catch(e){}}return t}async function confirmTransformerVoltageMismatches(e){const t=collectTransformerVoltageMismatches(e);return!t.length||n({title:"Voltage rating mismatch",variant:"warning",message:"A transformer winding does not match the connected bus nominal voltage (for example LV winding vs POC). Per-unit voltages can be wrong.",items:t.map(e=>`Transformer "${e.transformer}": ${e.side} winding ${e.windingKv} kV, connected bus "${e.bus}" is ${e.busKv} kV`),footerHint:"Correct the bus or transformer kV values, or continue to run anyway.",confirmLabel:"Run anyway",cancelLabel:"Cancel"})}const updateTransformerBusConnections=(transformers,busbars,graph)=>{
+let alerted=false;
+const keyOf=v=>v==null?"":String(v);
+const findBus=(key,cellRef)=>{
+const k=keyOf(key);
+if(k&&k!=="undefined"){
+const hit=busbars.find(b=>keyOf(b.name)===k||keyOf(b.id)===k||keyOf(b.userFriendlyName)===k);
+if(hit)return hit;
+}
+if(!cellRef)return null;
+const oid=cellRef.mxObjectId?String(cellRef.mxObjectId).replace(/#/g,"_"):"";
+return busbars.find(b=>b.id!=null&&b.id===cellRef.id||(oid&&b.name===oid))||null;
+};
+return transformers.map(transformer=>{
+const label=transformer.userFriendlyName||transformer.name||transformer.id;
+try{
+const cell=graph.getModel().getCell(transformer.id);
+if(!cell)throw new Error("the transformer cell is not on the diagram");
+try{
+const style=graph.getModel().getStyle(cell);
+if(style&&typeof mxUtils!=="undefined"&&typeof mxConstants!=="undefined"){
+const next=mxUtils.setStyle(style,mxConstants.STYLE_STROKECOLOR,"black");
+if(next)graph.setCellStyle(next,[cell]);
+}
+}catch(styleErr){console.warn("Could not restyle transformer "+label,styleErr)}
+let hv=findBus(transformer.hv_bus,null),lv=findBus(transformer.lv_bus,null);
+if((!hv||!lv)&&typeof getTransformerConnections==="function"){
+const conn=getTransformerConnections(cell,true);
+if(!hv)hv=findBus(conn&&conn.hv_bus,conn&&conn.hv_cell);
+if(!lv)lv=findBus(conn&&conn.lv_bus,conn&&conn.lv_cell);
+}
+if(!hv||!lv)throw new Error("not connected to two busbars (HV \""+(transformer.hv_bus||"—")+"\", LV \""+(transformer.lv_bus||"—")+"\")");
+const hvKv=parseFloat(hv.vn_kv),lvKv=parseFloat(lv.vn_kv);
+const swap=Number.isFinite(hvKv)&&Number.isFinite(lvKv)&&lvKv>hvKv;
+const high=swap?lv:hv,low=swap?hv:lv;
+return {...transformer,hv_bus:high.name,lv_bus:low.name};
+}catch(err){
+const msg=err&&err.message?err.message:String(err);
+console.error("Error processing transformer "+label+":",err);
+if(!alerted){alerted=true;alert("Error processing transformer "+label+": "+msg)}
+return transformer;
+}
+})
+},updateThreeWindingTransformerConnections=(e,t,n)=>{const updateTransformerStyle=(e,t)=>{const o=n.getModel().getStyle(e),r=mxUtils.setStyle(o,mxConstants.STYLE_STROKECOLOR,t);n.setCellStyle(r,[e])};return e.map(e=>(e=>{const o=(e=>{const t=n.getModel().getCell(e);if(!t)throw new Error(`Invalid three-winding transformer cell: ${e}`);return t})(e.id);try{const n=((e,n,o)=>{const r=t.find(t=>t.name===e),a=t.find(e=>e.name===n),s=t.find(e=>e.name===o);if(!r||!a||!s)throw new Error("Three-winding transformer is not connected to valid busbars.");return[r,a,s]})(e.hv_bus,e.mv_bus,e.lv_bus);updateTransformerStyle(o,"black");const{highVoltage:r,mediumVoltage:a,lowVoltage:s}=(e=>{if(3!==e.length)throw new Error("Three-winding transformer requires exactly three busbars.");const t=e.map((e,t)=>({bus:e,orig:t,vn:parseFloat(e.vn_kv)}));return t.sort((e,t)=>{const n=t.vn-e.vn;return Math.abs(n)>1e-9?n:e.orig-t.orig}),{highVoltage:t[0].bus.name,mediumVoltage:t[1].bus.name,lowVoltage:t[2].bus.name}})(n);return{...e,hv_bus:r,mv_bus:a,lv_bus:s}}catch(t){return console.log(`Error processing three-winding transformer ${e.id}:`,t.message),updateTransformerStyle(o,"red"),alert("The three-winding transformer is not connected to the bus. Please check the three-winding transformer highlighted in red and connect it to the appropriate bus."),e}})(e))},

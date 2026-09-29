@@ -403,6 +403,8 @@ export function configureTransformerAttributes(grafka, vertex, options = {}) {
     g.setAttribute("vkr0_percent", options.vkr0_percent || "0");
     g.setAttribute("mag0_percent", options.mag0_percent || "0");
     g.setAttribute("si0_hv_partial", options.si0_hv_partial || "0");
+    g.setAttribute("rn_ohm", options.rn_ohm !== undefined ? String(options.rn_ohm) : "0");
+    g.setAttribute("xn_ohm", options.xn_ohm !== undefined ? String(options.xn_ohm) : "0");
 
     //Optional
     //g.setAttribute("in_service", true); //in_service nie działa
@@ -821,6 +823,11 @@ export function configureStorageAttributes(grafka, vertex, options = {}) {
     g.setAttribute("charge_trigger", String(options.charge_trigger ?? 0));
     g.setAttribute("time_charge_trig", String(options.time_charge_trig ?? 2.0));
     g.setAttribute("spectrum", options.spectrum || "default");
+
+    g.setAttribute("Short_circuit_parameters", "");
+    g.setAttribute("max_ik_ka", options.max_ik_ka !== undefined ? String(options.max_ik_ka) : "0");
+    g.setAttribute("rx", options.rx !== undefined ? String(options.rx) : "0.1");
+    g.setAttribute("current_source", options.current_source !== undefined ? String(options.current_source) : "false");
 
     // Inverter control (OpenDSS InvControl)
     g.setAttribute("Inverter_control_parameters", "");

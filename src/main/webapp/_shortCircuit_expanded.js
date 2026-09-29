@@ -1,0 +1,851 @@
+import{
+COMPONENT_TYPES as e
+}
+from"./utils/componentTypes.js";
+import{
+getAttributesAsObject as t,formatResultNameHeader as n,createDialogNameResolver as o,enrichResultJsonWithDialogNames as r,buildGraphCellLookupMap as i,resolveGraphCellForResult as s
+}
+from"./utils/attributeUtils.js";
+import{
+ShortCircuitDialog as a
+}
+from"./dialogs/ShortCircuitDialog.js";
+import{
+AnsiShortCircuitResultsDialog as l
+}
+from"./dialogs/AnsiShortCircuitResultsDialog.js";
+import d from"./config/environment.js";
+import{
+prepareNetworkData as c
+}
+from"./utils/networkDataPreparation.js";
+import{
+formatScFaultLocationLine as u,isUserSelectionFaultMode as f,markBusesWithoutAppliedFault as p
+}
+from"./utils/scFaultBuses.js";
+import{
+placeFaultMarkersForScRows as _
+}
+from"./utils/faultLocationMarkers.js";
+import{
+startSimulationProgress as h,settleSimulationProgress as g,formatDurationMs as m
+}
+from"./utils/simulationProgressOverlay.js";
+window.shortCircuitPandaPower=function(e,t,w){
+let k=e,y=t,S=null;
+const b={
+label:{
+[mxConstants.STYLE_FONTSIZE]:"6",[mxConstants.STYLE_ALIGN]:"ALIGN_LEFT"
+}
+,line:{
+[mxConstants.STYLE_FONTSIZE]:"6",[mxConstants.STYLE_STROKE_OPACITY]:"0",[mxConstants.STYLE_STROKECOLOR]:"white",[mxConstants.STYLE_STROKEWIDTH]:"0",[mxConstants.STYLE_OVERFLOW]:"hidden"
+}
+
+}
+,formatNumber=(e,t=3)=>null==e||"NaN"===e||"number"==typeof e&&isNaN(e)?"N/A":parseFloat(e).toFixed(t),replaceUnderscores=e=>String(e||"").replace("_","#"),createTableRow=(e,t)=>e.map((e,n)=>String(e).padEnd(t[n]," ")).join(" | "),createTableSeparator=e=>e.map(e=>"-".repeat(e)).join("-+-"),resolveCell=(e,t,n)=>{
+const o=t.getModel(),r=e.id,i=e.name,s=(i||"").replace("#","_"),a=(i||"").replace("_","#");
+return n&&(n.get(r)||n.get(String(r))||n.get(s)||n.get(a))||o.getCell(r)||o.getCell(s)||o.getCell(a)||null
+}
+,isResultPlaceholderCell=(e,t)=>!(!t||!e?.getModel)&&(e.getModel().getStyle(t)||"").includes("shapeELXXX=Result"),resolveRowCell=(e,t,n,o)=>{
+if(!e)return null;
+const accept=e=>{
+if(!e||isResultPlaceholderCell(t,e))return null;
+const n=t.getModel&&t.getModel().getStyle(e)||e.style||"";
+return String(n).includes("shapeELXXX=FaultMarker")?null:e
+}
+;
+let r=accept(resolveCell(e,t,n));
+if(r)return r;
+const a=[e.id,e.name,e.dialogName,e.name&&String(e.name).replace("#","_"),e.name&&String(e.name).replace("_","#")];
+for(const e of a)if(null!=e&&""!==e&&(r=accept(n&&(n.get(e)||n.get(String(e)))),r))return r;
+if(o&&(r=accept(s(o,e,t)),r))return r;
+try{
+if(r=accept(s(i(t),e,t)),r)return r
+}
+catch(e){
+
+}
+const l=t.getModel()?.cells;
+if(!l)return null;
+const d=null!=e.id?String(e.id):"",c=String(e.name||"").replace(/#/g,"_");
+for(const t in l){
+const n=l[t];
+if(!accept(n))continue;
+if(d&&String(n.id)===d)return n;
+const o=n.mxObjectId?String(n.mxObjectId).replace(/#/g,"_"):"";
+if(c&&(o===c||String(n.mxObjectId)===e.name))return n
+}
+return null
+}
+,E="shapeELXXX=Result;
+shape=rounded;
+rounded=1;
+arcSize=6;
+fillColor=#F8F9FA;
+strokeColor=#6C757D;
+strokeWidth=1.5;
+dashed=1;
+dashPattern=5 5;
+opacity=70;
+whiteSpace=wrap;
+html=1;
+overflow=hidden;
+align=center;
+verticalAlign=middle;
+fontSize=7;
+fontColor=#6C757D;
+fontStyle=0;
+spacing=3",writeLineResultBox=(e,t,n)=>{
+const o="undefined"!=typeof window&&window.updateOrCreateSinglePlaceholder,r="undefined"!=typeof window&&window.findResultPlaceholder,i="undefined"!=typeof window&&window.insertResultBox,s="undefined"!=typeof window&&window.RESULT_BOX_STYLE||E,a={
+width:95,height:70,positionX:.5,positionY:0,isLine:!0
+}
+;
+let l;
+if(o)l=o(e,t,n,t,a);
+else{
+const o=r?r(e,t):null;
+o?(e.getModel().setValue(o,n),l=o):l=i?i(e,t,n,a):e.insertVertex(t,null,n,.5,0,95,70,s,!0)
+}
+return l&&e.orderCells&&e.orderCells(!0,[l]),l
+}
+,writeTrafoResultBox=(e,t,n)=>{
+const o="undefined"!=typeof window&&window.findResultPlaceholderForComponent,r="undefined"!=typeof window&&window.findResultPlaceholder,i="undefined"!=typeof window&&window.insertResultBox,s="undefined"!=typeof window&&window.RESULT_BOX_STYLE||E;
+let a=o?o(e,t):null;
+if(!a){
+const n=e.getEdges&&e.getEdges(t)||t.edges||[];
+a=r?r(e,n[0]||t):null
+}
+if(a)return e.getModel().setValue(a,n),a;
+const l=(e.getEdges&&e.getEdges(t))?.[0]||t;
+return i?i(e,l,n,{
+width:95,height:58,positionX:-.3
+}
+):e.insertVertex(l,null,n,-.15,1.1,95,58,s,!0)
+}
+,writeResultBox=(e,t,n,o)=>{
+const r="undefined"!=typeof window&&window.updateOrCreateSinglePlaceholder;
+if(r)return r(e,t,n,t,o||{
+
+}
+);
+const i="undefined"!=typeof window&&window.findResultPlaceholder,s="undefined"!=typeof window&&window.insertResultBox,a="undefined"!=typeof window&&window.RESULT_BOX_STYLE||"shapeELXXX=Result;
+shape=rounded;
+rounded=1;
+arcSize=6;
+fillColor=#F8F9FA;
+strokeColor=#6C757D;
+strokeWidth=1.5;
+dashed=1;
+dashPattern=5 5;
+opacity=70;
+whiteSpace=wrap;
+html=1;
+overflow=hidden;
+align=center;
+verticalAlign=middle;
+fontSize=7;
+fontColor=#6C757D;
+fontStyle=0;
+spacing=3",l=i?i(e,t):null;
+return l?(e.getModel().setValue(l,n),l):s?s(e,t,n,o||{
+width:48,height:78,positionX:0,positionY:1
+}
+):e.insertVertex(t,null,n,0,1,o&&o.width||48,o&&o.height||78,a,!0)
+}
+,A={
+busbars:(e,t,o,r,i)=>{
+e.forEach(e=>{
+const o=resolveRowCell(e,t,r,i);
+if(!o)return void console.warn("Short circuit: could not find busbar cell for id=",e.id,"name=",e.name);
+const s=`${
+n(o,replaceUnderscores(String(e.name||"")),"Bus")
+}
+\n                ikss[kA]: ${
+formatNumber(e.ikss_ka)
+}
+\n                ip[kA]: ${
+formatNumber(e.ip_ka)
+}
+\n                ith[kA]: ${
+formatNumber(e.ith_ka)
+}
+\n                rk[ohm]: ${
+formatNumber(e.rk_ohm)
+}
+\n                xk[ohm]: ${
+formatNumber(e.xk_ohm)
+}
+`;
+writeResultBox(t,o,s,{
+width:45,height:70,positionX:0,positionY:1
+}
+)
+}
+)
+}
+,lines_sc:(e,t,o,r)=>{
+e.forEach(e=>{
+const o=resolveCell(e,t,r);
+if(!o)return;
+const i=`${
+n(o,e.name,"Line")
+}
+\n                ikss[kA]: ${
+formatNumber(e.ikss_ka)
+}
+\n                ip[kA]: ${
+formatNumber(e.ip_ka)
+}
+\n                ith[kA]: ${
+formatNumber(e.ith_ka)
+}
+`;
+writeLineResultBox(t,o,i)
+}
+)
+}
+,trafos_sc:(e,t,o,r)=>{
+e.forEach(e=>{
+const o=resolveCell(e,t,r);
+if(!o)return void console.warn("Short circuit: could not find transformer cell for id=",e.id,"name=",e.name);
+const i=`${
+n(o,e.name,"Trafo")
+}
+\n                ikss_hv[kA]: ${
+formatNumber(e.ikss_hv_ka)
+}
+\n                ikss_lv[kA]: ${
+formatNumber(e.ikss_lv_ka)
+}
+`;
+writeTrafoResultBox(t,o,i)
+}
+)
+}
+,trafos3w_sc:(e,t,o,r)=>{
+const i="undefined"!=typeof window&&window.findResultPlaceholderForComponent,s="undefined"!=typeof window&&window.findResultPlaceholder,a="undefined"!=typeof window&&window.insertResultBox,l="undefined"!=typeof window&&window.RESULT_BOX_STYLE||"shapeELXXX=Result;
+shape=rounded;
+rounded=1;
+arcSize=6;
+fillColor=#F8F9FA;
+strokeColor=#6C757D;
+strokeWidth=1.5;
+dashed=1;
+dashPattern=5 5;
+opacity=70;
+whiteSpace=wrap;
+html=1;
+overflow=hidden;
+align=center;
+verticalAlign=middle;
+fontSize=7;
+fontColor=#6C757D;
+fontStyle=0;
+spacing=3";
+e.forEach(e=>{
+const o=resolveCell(e,t,r);
+if(!o)return void console.warn("Short circuit: could not find 3w-transformer cell for id=",e.id,"name=",e.name);
+const d=`${
+n(o,e.name,"Trafo3w")
+}
+\n                ikss_hv[kA]: ${
+formatNumber(e.ikss_hv_ka??e.ikss_hv)
+}
+\n                ikss_mv[kA]: ${
+formatNumber(e.ikss_mv_ka??e.ikss_mv)
+}
+\n                ikss_lv[kA]: ${
+formatNumber(e.ikss_lv_ka??e.ikss_lv)
+}
+`;
+let c=i?i(t,o):null;
+if(!c){
+const e=(t.getEdges&&t.getEdges(o)||o.edges||[])[0]||o;
+c=s?s(t,e):null
+}
+const u=c?t.getModel().getParent(c):(t.getEdges&&t.getEdges(o))?.[0]||o;
+c?t.getModel().setValue(c,d):a?a(t,u,d,{
+width:95,height:70,positionX:-.3
+}
+):t.insertVertex(u,null,d,-.15,1.1,95,70,l,!0)
+}
+)
+}
+,ext_grid_sc:(e,t,o,r)=>{
+const i="undefined"!=typeof window&&window.findResultPlaceholderForComponent,s="undefined"!=typeof window&&window.findResultPlaceholder,a="undefined"!=typeof window&&window.insertResultBox,l="undefined"!=typeof window&&window.RESULT_BOX_STYLE||"shapeELXXX=Result;
+shape=rounded;
+rounded=1;
+arcSize=6;
+fillColor=#F8F9FA;
+strokeColor=#6C757D;
+strokeWidth=1.5;
+dashed=1;
+dashPattern=5 5;
+opacity=70;
+whiteSpace=wrap;
+html=1;
+overflow=hidden;
+align=center;
+verticalAlign=middle;
+fontSize=7;
+fontColor=#6C757D;
+fontStyle=0;
+spacing=3";
+e.forEach(e=>{
+const o=resolveCell(e,t,r);
+if(!o)return void console.warn("Short circuit: could not find external grid cell for id=",e.id,"name=",e.name);
+e.name=replaceUnderscores(e.name);
+const d=`${
+n(o,e.name,"External Grid")
+}
+\n                ikss[kA]: ${
+formatNumber(e.ikss_ka)
+}
+\n                ip[kA]: ${
+formatNumber(e.ip_ka)
+}
+\n                ith[kA]: ${
+formatNumber(e.ith_ka)
+}
+\n                rk[ohm]: ${
+formatNumber(e.rk_ohm)
+}
+\n                xk[ohm]: ${
+formatNumber(e.xk_ohm)
+}
+`;
+let c=i?i(t,o):null;
+if(!c){
+const e=(t.getEdges&&t.getEdges(o)||o.edges||[])[0]||o;
+c=s?s(t,e):null
+}
+const u=c?t.getModel().getParent(c):(t.getEdges&&t.getEdges(o))?.[0]||o;
+c?t.getModel().setValue(c,d):a?a(t,u,d,{
+width:95,height:58,positionX:-.3
+}
+):t.insertVertex(u,null,d,-.15,1.1,95,58,l,!0)
+}
+)
+}
+
+}
+;
+t.isEnabled()&&!t.isCellLocked(t.getDefaultParent())&&new a(e).show(async function(e){
+if(e&&"opendss"===e.engine){
+const{
+executeOpenDSSShortCircuit:n
+}
+=await import("./loadflowOpenDss.js");
+return void n(e,k,t||y)
+}
+const s=e&&"ansi"===e.engine,a=e&&"object"==typeof e&&!Array.isArray(e)?e:Array.isArray(e)?{
+fault:e[0],case:e[1],lv_tol_percent:e[2],topology:"auto",tk_s:"1",r_fault_ohm:"0",x_fault_ohm:"0",inverse_y:"True"
+}
+:{
+
+}
+;
+if(S=h({
+title:s?"ANSI short circuit progress":"Short circuit progress",statusText:s?"Running ANSI/IEEE C37 short circuit…":"Running short circuit…",filePrefix:s?"shortcircuit-ansi":"shortcircuit",graph:t||y
+}
+),S.overlay.append("Preparing network data…",{
+time:!0
+}
+),!(Array.isArray(a)?a.length>0:a&&"object"==typeof a&&("fault"in a||"engine"in a)))return S.overlay.remove(),void(S=null);
+function getUserEmail(){
+try{
+const e=localStorage.getItem("user");
+if(e){
+const t=JSON.parse(e);
+if(t?.email)return t.email
+}
+if("function"==typeof getCurrentUser){
+const e=getCurrentUser();
+if(e?.email)return e.email
+}
+if(window.getCurrentUser?.()?.email)return window.getCurrentUser().email;
+if(window.authHandler?.getCurrentUser?.()?.email)return window.authHandler.getCurrentUser().email
+}
+catch(e){
+console.warn("Error getting user email:",e)
+}
+return"unknown@user.com"
+}
+const coerceBool=e=>!0===e||1===e||"string"==typeof e&&["true","1","yes","on"].includes(String(e).toLowerCase()),w=s?{
+typ:"ShortCircuitAnsi Parameters",fault_type:a.fault||"3ph",fault_bus_mode:a.fault_bus_mode||"all",fault_bus_ids:a.fault_bus_ids||[],fault_bus_names:a.fault_bus_names||[],frequency_hz:parseFloat(a.frequency_hz||"60"),prefault_v_pu:parseFloat(a.prefault_v_pu||"1.0"),contact_parting_cycles:parseFloat(a.contact_parting_cycles||"3"),r_fault_ohm:a.r_fault_ohm||"0",x_fault_ohm:a.x_fault_ohm||"0",exportAnsiResults:coerceBool(a.exportAnsiResults),exportPdfReport:coerceBool(a.exportPdfReport),compare_pre_post:coerceBool(a.compare_pre_post)?"true":"false",project_element_ids:a.project_element_ids||"",user_email:getUserEmail()
+}
+:{
+typ:"ShortCircuitPandaPower Parameters",fault_type:a.fault||a[0]||"3ph",fault_location:a.case||a[1]||"max",fault_bus_mode:a.fault_bus_mode||"all",fault_bus_ids:a.fault_bus_ids||[],fault_bus_names:a.fault_bus_names||[],fault_impedance:a.lv_tol_percent||a[2]||"6",topology:a.topology||"auto",tk_s:a.tk_s||"1",r_fault_ohm:a.r_fault_ohm||"0",x_fault_ohm:a.x_fault_ohm||"0",inverse_y:a.inverse_y||"True",exportPython:coerceBool(a.exportPython),exportPandapowerResults:coerceBool(a.exportPandapowerResults),exportPdfReport:coerceBool(a.exportPdfReport),user_email:getUserEmail()
+}
+;
+try{
+const e=c(t,w,{
+removeResultCells:!1
+}
+);
+console.log("Short Circuit data prepared:",JSON.stringify(e)),console.log("Using backend URL:",d.backendUrl),async function processNetworkData(e,t,s,a,d={
+
+}
+){
+try{
+s.getStylesheet().putCellStyle("labelstyle",b.label),s.getStylesheet().putCellStyle("lineStyle",b.line);
+const c=performance.now(),h=S?.overlay;
+h?.append("Sending request…",{
+time:!0
+}
+);
+const w=await fetch(e,{
+mode:"cors",method:"post",headers:{
+"Content-Type":"application/json","Accept-Encoding":"gzip"
+}
+,body:JSON.stringify(t),signal:S?.signal
+}
+);
+if(200!==w.status)throw new Error("server");
+let k=await w.json();
+if("string"==typeof k)try{
+k=JSON.parse(k)
+}
+catch(e){
+
+}
+const y=performance.now()-c;
+if(h?.append(`Response ${
+w.status
+}
+ in ${
+m(y)
+}
+`,{
+time:!0
+}
+),h?.append("Processing results…",{
+time:!0
+}
+),console.log(`Short circuit backend response received in ${
+y.toFixed(0)
+}
+ms`),console.log("dataJson"),console.log(k),function handleNetworkErrors(e){
+if(e.error&&e.diagnostic)return console.log("Short Circuit failed with diagnostic information:",e),window.DiagnosticReportDialog?new window.DiagnosticReportDialog(e.diagnostic,{
+message:e.message,exception:e.exception
+}
+).show():alert(`Short Circuit calculation failed: ${
+e.message
+}
+\n\nException: ${
+e.exception
+}
+`),!0;
+const t={
+line:"Line",bus:"Bus",ext_grid:"External Grid",trafo3w:"Three-winding transformer: nominal voltage does not match",overload:"One of the element is overloaded. The load flow did not converge. Contact electrisim@electrisim.com"
+}
+;
+if(!e[0])return!1;
+const n=Array.isArray(e[0])?e[0][0]:e[0];
+if("trafo3w"===n||"overload"===n)return alert(t[n]),!0;
+if(t[n]){
+for(let o=1;
+o<e.length;
+o++)alert(`${
+t[n]
+}
+${
+e[o][0]
+}
+ ${
+e[o][1]
+}
+ = ${
+e[o][2]
+}
+ (restriction: ${
+e[o][3]
+}
+)\nPower Flow did not converge`);
+return!0
+}
+return!1
+}
+(k))return void(S&&(S.overlay.remove(),S=null));
+const E=t&&(t[0]??t[0]),v=!0===d.isAnsi;
+v&&((e,t)=>{
+r(e,t)
+}
+)(k,s),E&&E.exportPandapowerResults&&!v&&((e,t)=>{
+try{
+const n=o(t);
+let r="========================================\n";
+if(r+="   Pandapower Short Circuit Results\n",r+="========================================\n\n",r+=`Generated: ${
+(new Date).toISOString()
+}
+\n`,r+=u(e),r+="\n",e.busbars&&e.busbars.length>0){
+r+="--- BUSES ---\n";
+const t=[18,18,12,12,12,12,12];
+r+=createTableRow(["Object id","Dialog name","ikss [kA]","ip [kA]","ith [kA]","rk [ohm]","xk [ohm]"],t)+"\n",r+=createTableSeparator(t)+"\n",e.busbars.forEach(e=>{
+const o=[e.name||"N/A",n(e)||"—",formatNumber(e.ikss_ka),formatNumber(e.ip_ka),formatNumber(e.ith_ka),formatNumber(e.rk_ohm),formatNumber(e.xk_ohm)];
+r+=createTableRow(o,t)+"\n"
+}
+),r+="\n"
+}
+if(e.lines_sc&&e.lines_sc.length>0){
+r+="--- LINES ---\n";
+const t=[18,18,12,12,12];
+r+=createTableRow(["Object id","Dialog name","ikss [kA]","ip [kA]","ith [kA]"],t)+"\n",r+=createTableSeparator(t)+"\n",e.lines_sc.forEach(e=>{
+const o=[e.name||"N/A",n(e)||"—",formatNumber(e.ikss_ka),formatNumber(e.ip_ka),formatNumber(e.ith_ka)];
+r+=createTableRow(o,t)+"\n"
+}
+),r+="\n"
+}
+if(e.trafos_sc&&e.trafos_sc.length>0){
+r+="--- TRANSFORMERS (2W) ---\n";
+const t=[18,18,14,14];
+r+=createTableRow(["Object id","Dialog name","ikss_hv [kA]","ikss_lv [kA]"],t)+"\n",r+=createTableSeparator(t)+"\n",e.trafos_sc.forEach(e=>{
+const o=[e.name||"N/A",n(e)||"—",formatNumber(e.ikss_hv_ka),formatNumber(e.ikss_lv_ka)];
+r+=createTableRow(o,t)+"\n"
+}
+),r+="\n"
+}
+if(e.trafos3w_sc&&e.trafos3w_sc.length>0){
+r+="--- TRANSFORMERS (3W) ---\n";
+const t=[16,16,14,14,14];
+r+=createTableRow(["Object id","Dialog name","ikss_hv [kA]","ikss_mv [kA]","ikss_lv [kA]"],t)+"\n",r+=createTableSeparator(t)+"\n",e.trafos3w_sc.forEach(e=>{
+const o=[e.name||"N/A",n(e)||"—",formatNumber(e.ikss_hv_ka??e.ikss_hv),formatNumber(e.ikss_mv_ka??e.ikss_mv),formatNumber(e.ikss_lv_ka??e.ikss_lv)];
+r+=createTableRow(o,t)+"\n"
+}
+),r+="\n"
+}
+if(e.ext_grid_sc&&e.ext_grid_sc.length>0){
+r+="--- EXTERNAL GRIDS ---\n";
+const t=[18,18,12,12,12,12,12];
+r+=createTableRow(["Object id","Dialog name","ikss [kA]","ip [kA]","ith [kA]","rk [ohm]","xk [ohm]"],t)+"\n",r+=createTableSeparator(t)+"\n",e.ext_grid_sc.forEach(e=>{
+const o=[e.name||"N/A",n(e)||"—",formatNumber(e.ikss_ka),formatNumber(e.ip_ka),formatNumber(e.ith_ka),formatNumber(e.rk_ohm),formatNumber(e.xk_ohm)];
+r+=createTableRow(o,t)+"\n"
+}
+),r+="\n"
+}
+r+="========================================\n",r+="          End of Results\n",r+="========================================\n";
+const i=new Blob([r],{
+type:"text/plain;
+charset=utf-8"
+}
+),s=URL.createObjectURL(i),a=document.createElement("a");
+a.href=s;
+const l=(new Date).toISOString().replace(/[:.]/g,"-").slice(0,-5);
+a.download=`Pandapower_ShortCircuit_Results_${
+l
+}
+.txt`,document.body.appendChild(a),a.click(),document.body.removeChild(a),URL.revokeObjectURL(s)
+}
+catch(e){
+console.error("Error downloading Pandapower short circuit results:",e),alert("Failed to download Pandapower short circuit results. "+e.message)
+}
+
+}
+)(k,s),E&&E.exportAnsiResults&&v&&((e,t)=>{
+try{
+const n=o(t);
+let r="========================================\n";
+if(r+="   ANSI/IEEE C37 Short Circuit Results (beta)\n",r+="========================================\n\n",r+=`Generated: ${
+(new Date).toISOString()
+}
+\n`,r+=`Standard: ${
+e.standard||"ANSI/IEEE C37"
+}
+ (beta)\n`,r+=`Fault: ${
+e.fault_type||"3ph"
+}
+\n`,r+=u(e),r+=`Frequency: ${
+e.frequency_hz||60
+}
+ Hz\n\n`,e.busbars&&e.busbars.length>0){
+r+="--- BUSES ---\n";
+const t=[18,18,8,12,12,12,12,8];
+r+=createTableRow(["Object id","Dialog name","kV","I1/2 sym","I1/2 peak","I int","I30","X/R"],t)+"\n",r+=createTableSeparator(t)+"\n",e.busbars.forEach(e=>{
+const o=[e.name||"N/A",n(e)||"—",formatNumber(e.vn_kv,2),formatNumber(e.i_first_sym_ka),formatNumber(e.i_first_peak_ka),formatNumber(e.i_interrupting_ka),formatNumber(e.i_steady_ka),formatNumber(e.xr_first,1)];
+r+=createTableRow(o,t)+"\n"
+}
+),r+="\n"
+}
+const appendBranchSection=(e,t,o,i)=>{
+if(!e||0===e.length)return;
+r+=`--- ${
+t
+}
+ ---\n`;
+const s=[18,18,12,12,12,12,12],a=["Object id","Dialog name",...o,"I1/2 sym","I1/2 peak","I int"];
+r+=createTableRow(a,s)+"\n",r+=createTableSeparator(s)+"\n",e.forEach(e=>{
+r+=createTableRow([e.name||"N/A",n(e)||"—",formatNumber(e[i[0]]),formatNumber(e[i[1]]),formatNumber(e.i_first_sym_ka),formatNumber(e.i_first_peak_ka),formatNumber(e.i_interrupting_ka)],s)+"\n"
+}
+),r+="\n"
+}
+;
+if(appendBranchSection(e.lines_sc,"LINES",["I from","I to"],["i_from_ka","i_to_ka"]),appendBranchSection(e.trafos_sc,"TRANSFORMERS",["I HV","I LV"],["i_hv_ka","i_lv_ka"]),e.device_duties&&e.device_duties.length>0){
+r+="--- DEVICE DUTIES ---\n";
+const t=[18,14,12,12,8,12,12,8];
+r+=createTableRow(["Device","Standard","Duty int","Rating int","Int OK","Duty mom","Rating mom","Mom OK"],t)+"\n",r+=createTableSeparator(t)+"\n",e.device_duties.forEach(e=>{
+const n=[e.name||"N/A",e.standard||"—",formatNumber(e.duty_interrupting_ka),formatNumber(e.interrupting_rating_ka),!0===e.interrupting_pass?"PASS":!1===e.interrupting_pass?"FAIL":"—",formatNumber(e.duty_momentary_ka),formatNumber(e.momentary_rating_ka),!0===e.momentary_pass?"PASS":!1===e.momentary_pass?"FAIL":"—"];
+r+=createTableRow(n,t)+"\n"
+}
+),r+="\n"
+}
+r+="========================================\n";
+const i=new Blob([r],{
+type:"text/plain;
+charset=utf-8"
+}
+),s=URL.createObjectURL(i),a=document.createElement("a");
+a.href=s;
+const l=(new Date).toISOString().replace(/[:.]/g,"-").slice(0,-5);
+a.download=`ANSI_ShortCircuit_Results_${
+l
+}
+.txt`,document.body.appendChild(a),a.click(),document.body.removeChild(a),URL.revokeObjectURL(s)
+}
+catch(e){
+console.error("Error downloading ANSI short circuit results:",e),alert("Failed to download ANSI short circuit results. "+e.message)
+}
+
+}
+)(k,s);
+const x=E&&(!0===E.exportPython||1===E.exportPython||"true"===E.exportPython);
+if(k.pandapower_python)(e=>{
+try{
+if(!e||0===e.length)return void alert("Cannot download: Python code is empty");
+const t=new Blob([e],{
+type:"text/plain"
+}
+),n=URL.createObjectURL(t),o=document.createElement("a");
+o.href=n;
+const r=(new Date).toISOString().replace(/[:.]/g,"-").slice(0,-5);
+o.download=`Pandapower_SC_Model_${
+r
+}
+.py`,document.body.appendChild(o),o.click(),document.body.removeChild(o),URL.revokeObjectURL(n)
+}
+catch(e){
+console.error("Error downloading Pandapower SC Python code:",e),alert("Failed to download Pandapower short-circuit Python file.")
+}
+
+}
+)(k.pandapower_python);
+else if(x&&!v){
+const e=k.pandapower_python_error||"";
+console.warn("Short circuit: export Python requested but backend returned no pandapower_python.",e),alert("Export Pandapower Python Code was requested, but the server did not return a script."+(e?`\n\nDetails: ${
+e
+}
+`:"\n\nEnsure the backend is updated and retry the run."))
+}
+const C=new Map,R=s.getModel().cells;
+if(R&&"object"==typeof R){
+const e=Object.keys(R);
+for(let t=0;
+t<e.length;
+t++){
+const n=R[e[t]];
+n&&null!=n.id&&!isResultPlaceholderCell(s,n)&&(C.set(String(n.id),n),n.mxObjectId&&(C.set(String(n.mxObjectId),n),C.set(String(n.mxObjectId).replace("#","_"),n),C.set(String(n.mxObjectId).replace("_","#"),n)))
+}
+
+}
+let I=C;
+try{
+I=i(s),I.forEach((e,t)=>{
+null==t||""===t||!e||isResultPlaceholderCell(s,e)||C.has(String(t))||C.set(String(t),e)
+}
+)
+}
+catch(e){
+console.warn("ANSI/IEC short circuit: graph lookup map failed",e)
+}
+console.log("Processing short circuit results...");
+const P=performance.now(),$=s.getModel(),L=s&&"function"==typeof s.getModel?s:a;
+$.beginUpdate();
+try{
+v?((e,t,o,r)=>{
+if(!e||!t?.getModel)return 0;
+const i={
+busbars:0,lines:0,trafos:0
+}
+,s=Array.isArray(e.busbars)?e.busbars:[];
+s.forEach(e=>{
+const s=resolveRowCell(e,t,o,r);
+if(!s)return void console.warn("ANSI short circuit: could not find busbar cell for id=",e.id,"name=",e.name);
+const a=`${
+n(s,replaceUnderscores(String(e.name||"")),"Bus")
+}
+\nI½ sym[kA]: ${
+formatNumber(e.i_first_sym_ka)
+}
+\nI½ peak[kA]: ${
+formatNumber(e.i_first_peak_ka)
+}
+\nI int[kA]: ${
+formatNumber(e.i_interrupting_ka)
+}
+\nI30[kA]: ${
+formatNumber(e.i_steady_ka)
+}
+\nX/R: ${
+formatNumber(e.xr_first,1)
+}
+`;
+writeResultBox(t,s,a,{
+width:45,height:70,positionX:0,positionY:1
+}
+)&&(i.busbars+=1)
+}
+);
+const a=Array.isArray(e.lines_sc)?e.lines_sc:[];
+a.forEach(e=>{
+const s=resolveRowCell(e,t,o,r);
+if(!s)return void console.warn("ANSI short circuit: could not find line cell for id=",e.id,"name=",e.name);
+const a=`${
+n(s,replaceUnderscores(String(e.name||"")),"Line")
+}
+\nI½ sym[kA]: ${
+formatNumber(e.i_first_sym_ka)
+}
+\nI½ peak[kA]: ${
+formatNumber(e.i_first_peak_ka)
+}
+\nI int[kA]: ${
+formatNumber(e.i_interrupting_ka)
+}
+\nI30[kA]: ${
+formatNumber(e.i_steady_ka)
+}
+`;
+writeLineResultBox(t,s,a)&&(i.lines+=1)
+}
+);
+const l=Array.isArray(e.trafos_sc)?e.trafos_sc:[];
+if(l.forEach(e=>{
+const s=resolveRowCell(e,t,o,r);
+if(!s)return void console.warn("ANSI short circuit: could not find transformer cell for id=",e.id,"name=",e.name);
+const a=`${
+n(s,replaceUnderscores(String(e.name||"")),"Trafo")
+}
+\nI HV[kA]: ${
+formatNumber(e.i_hv_ka)
+}
+\nI LV[kA]: ${
+formatNumber(e.i_lv_ka)
+}
+\nI½ peak[kA]: ${
+formatNumber(e.i_first_peak_ka)
+}
+\nI int[kA]: ${
+formatNumber(e.i_interrupting_ka)
+}
+`;
+writeTrafoResultBox(t,s,a)&&(i.trafos+=1)
+}
+),console.log("ANSI short circuit: result boxes updated",i,{
+rows:{
+busbars:s.length,lines:a.length,trafos:l.length
+}
+
+}
+),0===i.busbars&&0===i.lines&&s.length+a.length>0){
+const e=t.getModel(),n=[];
+for(const t in e.cells||{
+
+}
+){
+const o=e.cells[t];
+if(!o)continue;
+const r=String(e.getStyle(o)||"");
+(r.includes("shapeELXXX=Bus")||r.includes("shapeELXXX=Line"))&&n.push({
+id:o.id,mxObjectId:o.mxObjectId
+}
+)
+}
+console.warn("ANSI short circuit: nothing matched.",{
+resultRows:[...s,...a].map(e=>({
+id:e.id,name:e.name
+}
+)),graphCells:n
+}
+)
+}
+i.busbars,i.lines,i.trafos
+}
+)(k,L,C,I):Object.entries(A).forEach(([e,t])=>{
+k[e]&&t(k[e],s,a,C,I)
+}
+);
+const e=k.study_params||E||{
+
+}
+;
+f(e.fault_bus_mode||E?.fault_bus_mode)&&p(L,e.fault_bus_ids||E?.fault_bus_ids,e.fault_bus_names||E?.fault_bus_names),_(L,k.busbars,e=>resolveRowCell(e,L,C,I))
+}
+finally{
+$.endUpdate(),L.getView&&L.getView().refresh?L.getView().refresh():s.getView&&s.getView().refresh&&s.getView().refresh()
+}
+if(v&&k.busbars)try{
+new l(k).show()
+}
+catch(e){
+console.warn("Could not open ANSI results dialog:",e)
+}
+const O=performance.now()-P;
+console.log(`Processed short circuit results in ${
+O.toFixed(0)
+}
+ms`),console.log(`Total round-trip time: ${
+(y+O).toFixed(0)
+}
+ms`),"undefined"!=typeof window&&(window.__electrisimLastShortCircuitResultJson=k);
+try{
+"undefined"!=typeof window&&"function"==typeof window.showNetworkHealthDashboard&&window.showNetworkHealthDashboard(k,s,{
+study:"shortcircuit"
+}
+)
+}
+catch(e){
+console.warn("Short-circuit dashboard render skipped:",e)
+}
+try{
+if(E&&E.exportPdfReport&&"undefined"!=typeof window&&"function"==typeof window.exportEngineeringReport){
+let e=s;
+if(!e||"function"!=typeof e.getGraphBounds){
+const t=window.App&&(window.App._editorUi||window.App._instance)||window.editorUi||window.ui||null;
+t&&t.editor&&t.editor.graph&&(e=t.editor.graph)
+}
+Promise.resolve(window.exportEngineeringReport(k,e,{
+study:"shortcircuit"
+}
+)).catch(e=>console.warn("Short-circuit Engineering Report export failed:",e))
+}
+
+}
+catch(e){
+console.warn("Short-circuit Engineering Report export skipped:",e)
+}
+h?.append("Done.",{
+time:!0
+}
+),await g(h,null,S?.abortController),S=null
+}
+catch(e){
+const t=await g(S?.overlay,e,S?.abortController);
+if(S=null,t.aborted)return;
+if("server"===e.message)return;
+alert("Error processing network data."+e+"\n \nCheck input data or contact electrisim@electrisim.com")
+}
+
+}
+(d.backendUrl+"/",e,t,y,{
+isAnsi:s
+}
+)
+}
+catch(e){
+console.error("Short circuit network preparation failed:",e),alert("Short circuit preparation failed: "+(e.message||e)),S&&(S.overlay.remove(),S=null)
+}
+
+}
+)
+}
+;
+export const shortCircuitPandaPower=window.shortCircuitPandaPower;
