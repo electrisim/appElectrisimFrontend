@@ -75,7 +75,22 @@
 <template url="transmission/case3120sp.drawio" title="Polish 3120 bus" libs="general;uml"/>
 
 <template url="distribution/multivoltage example.drawio" title="multivoltage example" libs="general;uml"/>
-<template url="distribution/CIGRE_MVnetwork_allDER.drawio" title="Cigre MV network" libs="general;uml"/>
+<template url="distribution/mv_oberrhein_load.drawio" title="MV Oberrhein load" libs="general;uml"/>
+<template url="distribution/mv_oberrhein_generation.drawio" title="MV Oberrhein generation" libs="general;uml"/>
+<template url="cigre/cigre_hv.drawio" title="CIGRE HV" libs="general;uml"/>
+<template url="cigre/cigre_mv.drawio" title="CIGRE MV" libs="general;uml"/>
+<template url="cigre/cigre_mv_PV_wind.drawio" title="CIGRE MV PV wind" libs="general;uml"/>
+<template url="cigre/cigre_mv_allDER.drawio" title="CIGRE MV all DER" libs="general;uml"/>
+<template url="cigre/cigre_lv.drawio" title="CIGRE LV" libs="general;uml"/>
+<template url="low_voltage/synth_lv_rural_1.drawio" title="Synthetic LV rural" libs="general;uml"/>
+<template url="low_voltage/synth_lv_village_1.drawio" title="Synthetic LV village" libs="general;uml"/>
+<template url="low_voltage/dickert_long_cable_multiple_good.drawio" title="Dickert cable good" libs="general;uml"/>
+<template url="low_voltage/dickert_long_COHL_multiple_average.drawio" title="Dickert COHL average" libs="general;uml"/>
+<template url="low_voltage/kerber_dorfnetz.drawio" title="Kerber Dorfnetz" libs="general;uml"/>
+<template url="low_voltage/dickert_long_cable_multiple_bad.drawio" title="Dickert cable bad" libs="general;uml"/>
+<template url="low_voltage/synth_lv_suburb_1.drawio" title="Synthetic LV suburb" libs="general;uml"/>
+<template url="low_voltage/dickert_long_cable_multiple_average.drawio" title="Dickert cable average" libs="general;uml"/>
+<template url="low_voltage/IEEE_LV_European.drawio" title="IEEE European LV" libs="general;uml"/>
 <template url="tutorials/OPF_basic_final.xml" title="Optimal Power Flow" libs="general;uml"/>
 <template url="tutorials/case9_contingency.drawio" title="Contingency analysis" libs="general;uml"/>
 <template url="tutorials/time_series_basic.drawio" title="Time Series Simulation" libs="general;uml"/>
