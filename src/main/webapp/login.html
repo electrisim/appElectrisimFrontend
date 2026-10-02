@@ -217,18 +217,18 @@
                 
                 const apiUrl = config.apiBaseUrl;
 
-                // Select plan from the URL (?plan=personal|company|university), falling back to
+                // Select plan from the URL (?plan=personal|company|academic), falling back to
                 // a stored selection (set on page load) so it survives OAuth round-trips.
                 let storedPlan = null;
                 try { storedPlan = localStorage.getItem('selectedPlan'); } catch (e) { /* ignore */ }
                 const plan = (new URLSearchParams(window.location.search).get('plan') || storedPlan || 'personal').toLowerCase();
                 const isCompany = plan === 'company';
-                const isUniversity = plan === 'university';
-                const priceId = (isCompany || isUniversity)
-                    ? (isUniversity ? (config.universityPriceId || config.companyPriceId) : config.companyPriceId)
+                const isAcademic = plan === 'academic' || plan === 'university';
+                const priceId = (isCompany || isAcademic)
+                    ? (isAcademic ? (config.academicPriceId || config.companyPriceId) : config.companyPriceId)
                     : config.personalPriceId;
 
-                const checkoutBody = { priceId, plan: isUniversity ? 'university' : (isCompany ? 'company' : 'personal') };
+                const checkoutBody = { priceId, plan: isAcademic ? 'academic' : (isCompany ? 'company' : 'personal') };
                 if (isCompany) {
                     checkoutBody.quantity = 1;
                 }

@@ -82,8 +82,8 @@ async function checkSubscriptionStatus() {
 
 // Function to redirect to Stripe Checkout.
 // Accepts either an explicit Stripe price ID, or a plan name
-// ('personal' | 'company' | 'university').
-// University bills the same Stripe price as Company, locked to quantity 1.
+// ('personal' | 'company' | 'academic').
+// Academic license bills the same Stripe price as Company, locked to quantity 1.
 // For the Company plan, an initial seat quantity can be supplied via options.quantity
 // (the customer can still adjust the seat count on the Stripe Checkout page).
 async function redirectToStripeCheckout(priceIdOrPlan, options = {}) {
@@ -122,9 +122,9 @@ async function redirectToStripeCheckout(priceIdOrPlan, options = {}) {
             priceId = config.companyPriceId;
             planName = 'company';
             isCompany = true;
-        } else if (normalizedPlan === 'university') {
-            priceId = config.universityPriceId || config.companyPriceId;
-            planName = 'university';
+        } else if (normalizedPlan === 'academic' || normalizedPlan === 'university') {
+            priceId = config.academicPriceId || config.companyPriceId;
+            planName = 'academic';
         } else if (priceIdOrPlan === config.companyPriceId) {
             planName = 'company';
             isCompany = true;
@@ -374,9 +374,9 @@ function showSubscriptionModal() {
     Object.assign(companyButton.style, { ...DIALOG_STYLES.button, marginTop: '10px' });
     companyButton.textContent = 'Get Company plan — $40/user/mo';
 
-    const universityButton = document.createElement('button');
-    Object.assign(universityButton.style, { ...DIALOG_STYLES.button, marginTop: '10px' });
-    universityButton.textContent = 'Get University plan — $40/university/mo';
+    const academicButton = document.createElement('button');
+    Object.assign(academicButton.style, { ...DIALOG_STYLES.button, marginTop: '10px' });
+    academicButton.textContent = 'Get Academic license — $40/mo';
     
     // Cancel button
     const cancelButton = document.createElement('button');
@@ -422,20 +422,20 @@ function showSubscriptionModal() {
         }
     });
 
-    universityButton.addEventListener('click', async () => {
+    academicButton.addEventListener('click', async () => {
         try {
-            universityButton.disabled = true;
-            universityButton.textContent = 'Processing...';
-            await redirectToStripeCheckout('university');
+            academicButton.disabled = true;
+            academicButton.textContent = 'Processing...';
+            await redirectToStripeCheckout('academic');
         } catch (error) {
-            console.error('University subscription error:', error);
+            console.error('Academic subscription error:', error);
             const errorMsg = document.createElement('div');
             Object.assign(errorMsg.style, DIALOG_STYLES.error);
             errorMsg.textContent = 'An error occurred. Please try again.';
             modal.appendChild(errorMsg);
         } finally {
-            universityButton.disabled = false;
-            universityButton.textContent = 'Get University plan — $40/university/mo';
+            academicButton.disabled = false;
+            academicButton.textContent = 'Get Academic license — $40/mo';
         }
     });
     
@@ -470,7 +470,7 @@ function showSubscriptionModal() {
     modal.appendChild(featuresList);
     modal.appendChild(subscribeButton);
     modal.appendChild(companyButton);
-    modal.appendChild(universityButton);
+    modal.appendChild(academicButton);
     modal.appendChild(cancelButton);
     
     overlay.appendChild(modal);
@@ -690,9 +690,9 @@ const SubscriptionManager = {
         Object.assign(companyButton.style, { ...DIALOG_STYLES.button, marginTop: '10px' });
         companyButton.textContent = 'Get Company plan — $40/user/mo';
 
-        const universityButton = document.createElement('button');
-        Object.assign(universityButton.style, { ...DIALOG_STYLES.button, marginTop: '10px' });
-        universityButton.textContent = 'Get University plan — $40/university/mo';
+        const academicButton = document.createElement('button');
+        Object.assign(academicButton.style, { ...DIALOG_STYLES.button, marginTop: '10px' });
+        academicButton.textContent = 'Get Academic license — $40/mo';
         
         // Cancel button
         const cancelButton = document.createElement('button');
@@ -738,20 +738,20 @@ const SubscriptionManager = {
             }
         });
 
-        universityButton.addEventListener('click', async () => {
+        academicButton.addEventListener('click', async () => {
             try {
-                universityButton.disabled = true;
-                universityButton.textContent = 'Processing...';
-                await redirectToStripeCheckout('university');
+                academicButton.disabled = true;
+                academicButton.textContent = 'Processing...';
+                await redirectToStripeCheckout('academic');
             } catch (error) {
-                console.error('University subscription error:', error);
+                console.error('Academic subscription error:', error);
                 const errorMsg = document.createElement('div');
                 Object.assign(errorMsg.style, DIALOG_STYLES.error);
                 errorMsg.textContent = 'An error occurred. Please try again.';
                 modal.appendChild(errorMsg);
             } finally {
-                universityButton.disabled = false;
-                universityButton.textContent = 'Get University plan — $40/university/mo';
+                academicButton.disabled = false;
+                academicButton.textContent = 'Get Academic license — $40/mo';
             }
         });
         
@@ -786,7 +786,7 @@ const SubscriptionManager = {
         modal.appendChild(featuresList);
         modal.appendChild(subscribeButton);
         modal.appendChild(companyButton);
-        modal.appendChild(universityButton);
+        modal.appendChild(academicButton);
         modal.appendChild(cancelButton);
         
         overlay.appendChild(modal);

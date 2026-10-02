@@ -71,8 +71,8 @@ const config = {
       // price IDs once the $10 Personal and $40/seat Company prices are created.
       personalPriceId: 'price_1TneZrAd4ULYw2Nb4XH8yZih',
       companyPriceId: 'price_1Tnea9Ad4ULYw2NbUTbZvCAq',
-      // University is $40/university/month and bills the Company Stripe price (qty 1).
-      universityPriceId: 'price_1Tnea9Ad4ULYw2NbUTbZvCAq',
+      // Academic license is $40/month and bills the Company Stripe price (qty 1).
+      academicPriceId: 'price_1Tnea9Ad4ULYw2NbUTbZvCAq',
       isDevelopment: true,
       mailFromTransactional: MAIL_FROM_TRANSACTIONAL
     },
@@ -88,8 +88,8 @@ const config = {
       // price IDs once the $10 Personal and $40/seat Company prices are created.
       personalPriceId: 'price_1TneTZAd4ULYw2NbfzvJtGnY',
       companyPriceId: 'price_1TneVuAd4ULYw2Nbf1u2ll71',
-      // University is $40/university/month and bills the Company Stripe price (qty 1).
-      universityPriceId: 'price_1TneVuAd4ULYw2Nbf1u2ll71',
+      // Academic license is $40/month and bills the Company Stripe price (qty 1).
+      academicPriceId: 'price_1TneVuAd4ULYw2Nbf1u2ll71',
       isDevelopment: false,
       mailFromTransactional: MAIL_FROM_TRANSACTIONAL
     }
