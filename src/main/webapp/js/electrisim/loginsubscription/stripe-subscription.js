@@ -376,7 +376,7 @@ function showSubscriptionModal() {
 
     const academicButton = document.createElement('button');
     Object.assign(academicButton.style, { ...DIALOG_STYLES.button, marginTop: '10px' });
-    academicButton.textContent = 'Get Academic license — $40/mo';
+    academicButton.textContent = 'Get Academic license — $40/institution/mo';
     
     // Cancel button
     const cancelButton = document.createElement('button');
@@ -435,7 +435,7 @@ function showSubscriptionModal() {
             modal.appendChild(errorMsg);
         } finally {
             academicButton.disabled = false;
-            academicButton.textContent = 'Get Academic license — $40/mo';
+            academicButton.textContent = 'Get Academic license — $40/institution/mo';
         }
     });
     
@@ -692,7 +692,7 @@ const SubscriptionManager = {
 
         const academicButton = document.createElement('button');
         Object.assign(academicButton.style, { ...DIALOG_STYLES.button, marginTop: '10px' });
-        academicButton.textContent = 'Get Academic license — $40/mo';
+        academicButton.textContent = 'Get Academic license — $40/institution/mo';
         
         // Cancel button
         const cancelButton = document.createElement('button');
@@ -751,7 +751,7 @@ const SubscriptionManager = {
                 modal.appendChild(errorMsg);
             } finally {
                 academicButton.disabled = false;
-                academicButton.textContent = 'Get Academic license — $40/mo';
+                academicButton.textContent = 'Get Academic license — $40/institution/mo';
             }
         });
         
