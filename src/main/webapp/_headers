@@ -16,11 +16,6 @@
 /*.js
   Content-Type: application/javascript
 
-# Electrisim's own modules are imported without a version query, so a long
-# browser cache keeps serving the pre-deploy build. Revalidate every load.
-/js/electrisim/*
-  Cache-Control: public, max-age=0, must-revalidate
-
 /*.mjs
   Content-Type: application/javascript
 
