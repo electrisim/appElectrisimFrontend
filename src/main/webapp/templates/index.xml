@@ -45,7 +45,6 @@
   <add>Uhttps://jgraph.github.io/drawio-libs/libs/fortinet/Fortinet_VM_Components.xml</add>
 </clibs>
 
-<template url="basic/simple example.drawio" title="Simple Example" libs="general;uml"/>
 <template url="renewables/reactive_power_onshore_WF_33MW.drawio" title="onshore wind farm 33MW" libs="general;uml"/>
 <template url="renewables/offshore wind 1GW 100km rev6.drawio" title="offshore wind farm 1 GW" libs="general;uml"/>
 <template url="renewables/PV 100MW.drawio" title="PV solar farm" libs="general;uml"/>

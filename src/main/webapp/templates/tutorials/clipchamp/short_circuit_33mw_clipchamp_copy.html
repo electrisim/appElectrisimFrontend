@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Copy voice-over — Short circuit 33 MW tutorial</title>
+  <style>
+    body { margin: 0; font-family: Arial, Helvetica, sans-serif; background: #eef0f3; color: #191919; }
+    .bar { background: #163a7a; color: #fff; padding: 18px 24px; }
+    .bar h1 { margin: 0 0 8px; font-size: 18px; font-weight: 700; }
+    .bar p { margin: 0 0 14px; font-size: 14px; line-height: 1.55; color: #cdd6ea; max-width: 820px; }
+    .bar .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .bar button { background: #2563eb; color: #fff; border: 0; padding: 11px 20px; font-size: 15px; font-weight: 700; border-radius: 6px; cursor: pointer; }
+    .bar button.secondary { background: #475569; }
+    .bar button:hover { filter: brightness(1.08); }
+    .bar .ok { color: #86efac; font-size: 14px; }
+    .wrap { max-width: 820px; margin: 0 auto; padding: 24px 20px 72px; }
+    #script {
+      background: #fff;
+      padding: 32px 40px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08);
+      font-size: 17px;
+      line-height: 1.65;
+      white-space: pre-wrap;
+    }
+    .hint { font-size: 13px; color: #64748b; margin-bottom: 16px; line-height: 1.5; }
+    .hint a { color: #2563eb; }
+  </style>
+</head>
+<body>
+  <div class="bar">
+    <h1>Clipchamp — copy voice-over</h1>
+    <p>Paste into Clipchamp <strong>Text to speech</strong>, a teleprompter, or recording notes. Plain script = one flow. Timestamps = section labels for editing.</p>
+    <div class="actions">
+      <button type="button" id="copyPlain">Copy plain script</button>
+      <button type="button" id="copyStamped" class="secondary">Copy with timestamps</button>
+      <span class="ok" id="copyStatus" hidden>Copied.</span>
+    </div>
+  </div>
+  <div class="wrap">
+    <p class="hint">Backup: <a href="../SHORT_CIRCUIT_33MW_CLIPCHAMP.txt">SHORT_CIRCUIT_33MW_CLIPCHAMP.txt</a> · LinkedIn: <a href="short_circuit_33mw_linkedin_newsletter.html">newsletter copy page</a></p>
+    <div id="script"></div>
+  </div>
+  <script>
+    var sections = [
+      { time: '0:00–0:12 · Title', text: 'Today we run short-circuit calculations in Electrisim on the 33 megawatt onshore wind farm. We will use IEC 60909 through pandapower, and a second run with OpenDSS FaultStudy on the same single-line diagram. Along the way we will see why three-phase currents size phase conductors, while earth-fault currents matter for cable screens — and how the transformer vector group steers zero-sequence current.' },
+      { time: '0:12–0:28 · Agenda', text: 'Six steps. Open the template. Walk the network. Run IEC 60909, three-phase maximum, on all busbars. Read ikss, ip, and ith. Then single-phase for earth currents. Change the vector group on the main transformer and repeat. Finally, switch to the OpenDSS engine and compare.' },
+      { time: '0:28–1:45 · Open template & SLD', text: 'Open Electrisim in the browser. Go to File → New, open the renewables templates, and choose onshore wind farm 33MW.\n\nZoom to fit. Ten wind turbines on two 30 kilovolt strings, each with a 3.75 MVA padmount. A 40 MVA 110/30 kilovolt substation transformer, a five-kilometre 110 kilovolt export cable, and Point of connection — 110 kV with the external grid beyond it. A shunt reactor sits on the farm-side 110 kilovolt bus.\n\nFor short circuit, the external grid supplies the fault infeed from the TSO side. The wind turbines are modelled as current sources in IEC 60909 — type-four style machines, not synchronous generators. Before faults, confirm the diagram already load-flows with pandapower if you can — same connectivity you will use for the study.' },
+      { time: '1:45–3:30 · IEC 60909 three-phase', text: 'Simulate → Short Circuit. Stay on the Pandapower tab and tick IEC 60909.\n\nFault: Three Phase. Case: Maximum. Fault location: All busbars. Leave failure clearing time at one second — that drives ith, the thermal equivalent current. Voltage tolerance six percent is fine for this MV farm. Run Calculate.\n\nElectrisim places a fault marker on each bus and writes result boxes. Read the labels: ikss is the initial symmetrical short-circuit current in kiloamperes. ip is the peak current. ith is the thermal current for the clearing time you set — that is what you use for an adiabatic check on the phase conductor, not the peak.\n\nCompare three locations: the 110 kilovolt substation bus, a 30 kilovolt collector bus, and a 0.69 kilovolt turbine bus. Levels and kA values come from your run — do not mix them with OpenDSS numbers yet. Pandapower also fills lines, transformers, and the external grid with branch currents. That helps breaker and cable routing studies on the IEC path.' },
+      { time: '3:30–3:42 · Cables card', text: 'Which current for which part of the cable.' },
+      { time: '3:42–5:00 · Conductors vs screens + 1ph', text: 'In practice, three-phase fault ith drives cross-section of the phase conductors — I squared t against the conductor’s thermal limit, IEC 60949 style. We are not picking a catalogue size here; we are showing which result Electrisim gives you.\n\nMetallic screens and sheaths must carry the earth-return current. That is a single-phase-to-earth problem, and in IEC also two-phase-to-earth. In the dialog, Single Phase is the earth-fault run. Two Phase is phase-to-phase without earth — do not use that button when you mean earth return.\n\nOpen Short Circuit again. Still IEC 60909, Maximum, all busbars — but Fault: Single Phase. Calculate.\n\nCompare ikss on the same buses as before. On a solidly earthed grid, if single-phase exceeds three-phase, the phase conductor must be checked against that earth fault as well. On this farm, the big lesson is often by voltage level: a delta winding blocks zero sequence, so 30 kilovolt and 0.69 kilovolt screens see a different story than 110 kilovolt if the star point is earthed there. For two-phase-to-earth, utilities often use Ik2E from the same IEC study family; Electrisim’s Single Phase button is the earth case we demonstrate live.' },
+      { time: '5:00–6:45 · Vector group', text: 'Double-click the 40 MVA 110/30 kilovolt transformer. On Load Flow, find Vector Group — options like Dyn, Yd, Yy, YNd. The clock number is Angle Shift in degrees — for example 330 degrees for Dyn11.\n\nNote the group already in the template, then change the letters, not only the angle: try YNd versus Dyn — grounded star versus delta on one side changes zero-sequence paths. Apply.\n\nRe-run IEC 60909, Three Phase, Maximum. ikss on the three-phase run should barely move — that fault is dominated by positive-sequence vk and the grid. Now re-run Single Phase. ikss does move — because N in the group and delta windings decide whether zero sequence can circulate.\n\nIf you change only Angle Shift, you mainly rotate current angle in the network; RMS three-phase ikss stays essentially the same. Vector group is about connections and earthing, not a trick to lower three-phase duty. Set the transformer back to the template value before you continue.' },
+      { time: '6:45–8:30 · OpenDSS', text: 'Open Short Circuit again. Switch to the OpenDSS tab. Base frequency 50 hertz. Leave Three Phase and All busbars. Calculate.\n\nYou get the same style labels on buses — ikss, ip, ith — but OpenDSS is not a second IEC 60909 solver. It runs FaultStudy: snapshot voltage, then Isc from the nodal admittance. IEC applies voltage factor c near 1.1 on MV; OpenDSS uses about 1.0 per unit prefault. IEC treats wind turbines as IEC current sources; OpenDSS maps generators with a subtransient reactance model — contributions differ. Peak ip in Electrisim uses a fixed kappa 1.8 on the OpenDSS path, not IEC kappa from R/X. ith is copied from ikss, not the IEC thermal equivalent.\n\nOpenDSS fills bus boxes only. Lines, transformers, and turbines show that branch SC is not provided — plan on pandapower IEC when you need line and transformer duties.\n\nCompare bus ikss with your IEC run at the 110 kV and 30 kV buses. Numbers will differ; that is expected. For grid-code and IEC-rated gear, trust IEC 60909. Use OpenDSS as an independent Y-bus fault check on the same diagram.' },
+      { time: '8:30–8:50 · Outro', text: 'That is short-circuit calculation in Electrisim — IEC 60909 with three-phase and single-phase faults, vector group effects on earth current, and OpenDSS FaultStudy on the 33 megawatt onshore template. The model is File → New → onshore wind farm 33MW. The study is Simulate → Short Circuit. For North American ANSI/IEEE C37 duties, tick that option on the Pandapower tab — beta, typically 60 hertz — on a different project. Build your own network at electrisim.com.' }
+    ];
+
+    var plain = sections.map(function (s) { return s.text; }).join('\n\n');
+    var stamped = sections.map(function (s) { return '[' + s.time + ']\n' + s.text; }).join('\n\n');
+
+    document.getElementById('script').textContent = plain;
+
+    function copyText(text) {
+      var status = document.getElementById('copyStatus');
+      navigator.clipboard.writeText(text).then(function () {
+        status.hidden = false;
+        status.textContent = 'Copied.';
+      }).catch(function () {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        status.hidden = false;
+        status.textContent = 'Copied.';
+      });
+    }
+
+    document.getElementById('copyPlain').addEventListener('click', function () { copyText(plain); });
+    document.getElementById('copyStamped').addEventListener('click', function () { copyText(stamped); });
+  </script>
+</body>
+</html>

@@ -81,7 +81,9 @@ async function checkSubscriptionStatus() {
 }
 
 // Function to redirect to Stripe Checkout.
-// Accepts either an explicit Stripe price ID, or a plan name ('personal' | 'company').
+// Accepts either an explicit Stripe price ID, or a plan name
+// ('personal' | 'company' | 'university').
+// University bills the same Stripe price as Company, locked to quantity 1.
 // For the Company plan, an initial seat quantity can be supplied via options.quantity
 // (the customer can still adjust the seat count on the Stripe Checkout page).
 async function redirectToStripeCheckout(priceIdOrPlan, options = {}) {
@@ -110,17 +112,25 @@ async function redirectToStripeCheckout(priceIdOrPlan, options = {}) {
 
         // Resolve the requested plan to a concrete Stripe price ID.
         let priceId = priceIdOrPlan;
+        let planName = 'personal';
         let isCompany = false;
-        if (!priceIdOrPlan || priceIdOrPlan === 'personal') {
+        const normalizedPlan = String(priceIdOrPlan || 'personal').toLowerCase();
+        if (!priceIdOrPlan || normalizedPlan === 'personal') {
             priceId = config.personalPriceId;
-        } else if (priceIdOrPlan === 'company') {
+            planName = 'personal';
+        } else if (normalizedPlan === 'company') {
             priceId = config.companyPriceId;
+            planName = 'company';
             isCompany = true;
+        } else if (normalizedPlan === 'university') {
+            priceId = config.universityPriceId || config.companyPriceId;
+            planName = 'university';
         } else if (priceIdOrPlan === config.companyPriceId) {
+            planName = 'company';
             isCompany = true;
         }
 
-        const requestBody = { priceId };
+        const requestBody = { priceId, plan: planName };
         if (isCompany) {
             const quantity = parseInt(options.quantity, 10);
             requestBody.quantity = Number.isInteger(quantity) && quantity >= 1 ? quantity : 1;
@@ -363,6 +373,10 @@ function showSubscriptionModal() {
     const companyButton = document.createElement('button');
     Object.assign(companyButton.style, { ...DIALOG_STYLES.button, marginTop: '10px' });
     companyButton.textContent = 'Get Company plan — $40/user/mo';
+
+    const universityButton = document.createElement('button');
+    Object.assign(universityButton.style, { ...DIALOG_STYLES.button, marginTop: '10px' });
+    universityButton.textContent = 'Get University plan — $40/university/mo';
     
     // Cancel button
     const cancelButton = document.createElement('button');
@@ -407,6 +421,23 @@ function showSubscriptionModal() {
             companyButton.textContent = 'Get Company plan — $40/user/mo';
         }
     });
+
+    universityButton.addEventListener('click', async () => {
+        try {
+            universityButton.disabled = true;
+            universityButton.textContent = 'Processing...';
+            await redirectToStripeCheckout('university');
+        } catch (error) {
+            console.error('University subscription error:', error);
+            const errorMsg = document.createElement('div');
+            Object.assign(errorMsg.style, DIALOG_STYLES.error);
+            errorMsg.textContent = 'An error occurred. Please try again.';
+            modal.appendChild(errorMsg);
+        } finally {
+            universityButton.disabled = false;
+            universityButton.textContent = 'Get University plan — $40/university/mo';
+        }
+    });
     
     cancelButton.addEventListener('click', () => {
         document.body.removeChild(overlay);
@@ -439,6 +470,7 @@ function showSubscriptionModal() {
     modal.appendChild(featuresList);
     modal.appendChild(subscribeButton);
     modal.appendChild(companyButton);
+    modal.appendChild(universityButton);
     modal.appendChild(cancelButton);
     
     overlay.appendChild(modal);
@@ -657,6 +689,10 @@ const SubscriptionManager = {
         const companyButton = document.createElement('button');
         Object.assign(companyButton.style, { ...DIALOG_STYLES.button, marginTop: '10px' });
         companyButton.textContent = 'Get Company plan — $40/user/mo';
+
+        const universityButton = document.createElement('button');
+        Object.assign(universityButton.style, { ...DIALOG_STYLES.button, marginTop: '10px' });
+        universityButton.textContent = 'Get University plan — $40/university/mo';
         
         // Cancel button
         const cancelButton = document.createElement('button');
@@ -701,6 +737,23 @@ const SubscriptionManager = {
                 companyButton.textContent = 'Get Company plan — $40/user/mo';
             }
         });
+
+        universityButton.addEventListener('click', async () => {
+            try {
+                universityButton.disabled = true;
+                universityButton.textContent = 'Processing...';
+                await redirectToStripeCheckout('university');
+            } catch (error) {
+                console.error('University subscription error:', error);
+                const errorMsg = document.createElement('div');
+                Object.assign(errorMsg.style, DIALOG_STYLES.error);
+                errorMsg.textContent = 'An error occurred. Please try again.';
+                modal.appendChild(errorMsg);
+            } finally {
+                universityButton.disabled = false;
+                universityButton.textContent = 'Get University plan — $40/university/mo';
+            }
+        });
         
         cancelButton.addEventListener('click', () => {
             document.body.removeChild(overlay);
@@ -733,6 +786,7 @@ const SubscriptionManager = {
         modal.appendChild(featuresList);
         modal.appendChild(subscribeButton);
         modal.appendChild(companyButton);
+        modal.appendChild(universityButton);
         modal.appendChild(cancelButton);
         
         overlay.appendChild(modal);

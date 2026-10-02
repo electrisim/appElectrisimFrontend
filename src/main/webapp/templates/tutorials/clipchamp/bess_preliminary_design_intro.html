@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>BESS Preliminary Design — Electrisim tutorial slides</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --navy: #163a7a;
+      --navy-deep: #0f2d62;
+      --royal: #1d4ed8;
+      --royal-soft: #2563eb;
+      --text: #111827;
+      --muted: #4b5563;
+      --slate: #64748b;
+      --white: #ffffff;
+      --bg-top: #f8fbff;
+      --bg-bot: #d9e6f5;
+      --badge-blue: #dbeafe;
+      --badge-blue-text: #1e40af;
+      --badge-green: #d1fae5;
+      --badge-green-text: #047857;
+      --badge-yellow: #fef3c7;
+      --badge-yellow-text: #92400e;
+      --badge-teal: #ccfbf1;
+      --badge-teal-text: #0f766e;
+      --badge-orange: #ffedd5;
+      --badge-orange-text: #c2410c;
+      --slide-w: 1920px;
+      --slide-h: 1080px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0f172a;
+      font-family: "Inter", "Segoe UI", sans-serif;
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+    .slide {
+      width: var(--slide-w);
+      height: var(--slide-h);
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(180deg, var(--bg-top) 0%, #eef4fb 55%, var(--bg-bot) 100%);
+      page-break-after: always;
+    }
+    .header-pill {
+      position: absolute;
+      top: 36px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--navy);
+      color: var(--white);
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 2.4px;
+      text-transform: uppercase;
+      padding: 14px 36px;
+      border-radius: 999px;
+      z-index: 4;
+    }
+    .footer-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 68px;
+      background: var(--navy);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 4;
+    }
+    .footer-bar span {
+      color: var(--white);
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+    }
+    .content {
+      position: absolute;
+      inset: 110px 72px 90px;
+      z-index: 2;
+    }
+    .badges { display: flex; gap: 14px; flex-wrap: wrap; }
+    .badge {
+      font-size: 18px;
+      font-weight: 700;
+      padding: 10px 18px;
+      border-radius: 12px;
+    }
+    .badge.blue { background: var(--badge-blue); color: var(--badge-blue-text); }
+    .badge.green { background: var(--badge-green); color: var(--badge-green-text); }
+    .badge.yellow { background: var(--badge-yellow); color: var(--badge-yellow-text); }
+    .badge.teal { background: var(--badge-teal); color: var(--badge-teal-text); }
+    .badge.orange { background: var(--badge-orange); color: var(--badge-orange-text); }
+    .section-kicker {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--royal);
+      margin-bottom: 10px;
+    }
+    h2 {
+      font-size: 52px;
+      font-weight: 800;
+      letter-spacing: -1.2px;
+      line-height: 1.08;
+      margin-bottom: 14px;
+    }
+    h2 .hi { color: var(--royal); }
+    .lede {
+      font-size: 24px;
+      color: var(--muted);
+      line-height: 1.45;
+      max-width: 1500px;
+      margin-bottom: 28px;
+    }
+    .agenda-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 16px;
+    }
+    .agenda-card {
+      background: var(--white);
+      border-radius: 16px;
+      padding: 28px 18px 24px;
+      text-align: center;
+      border: 1px solid rgba(22, 58, 122, 0.12);
+      box-shadow: 0 10px 24px rgba(22, 58, 122, 0.06);
+      min-height: 280px;
+    }
+    .agenda-num {
+      font-size: 32px;
+      font-weight: 800;
+      color: var(--royal);
+      margin-bottom: 12px;
+    }
+    .agenda-title {
+      font-size: 22px;
+      font-weight: 800;
+      margin-bottom: 10px;
+    }
+    .agenda-desc {
+      font-size: 16px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+    .slide-title {
+      background: linear-gradient(165deg, #fafcff 0%, #eef4fc 42%, #d4e3f4 100%);
+    }
+    .slide-title .orb {
+      position: absolute;
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    .slide-title .orb-1 {
+      width: 480px; height: 480px; top: -140px; right: -80px;
+      background: radial-gradient(circle, rgba(29, 78, 216, 0.14) 0%, transparent 70%);
+    }
+    .slide-title .orb-2 {
+      width: 360px; height: 360px; bottom: 60px; left: -100px;
+      background: radial-gradient(circle, rgba(220, 53, 69, 0.08) 0%, transparent 70%);
+    }
+    .slide-title .grid-fade {
+      position: absolute; inset: 0;
+      background-image:
+        linear-gradient(rgba(22, 58, 122, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(22, 58, 122, 0.035) 1px, transparent 1px);
+      background-size: 56px 56px;
+      mask-image: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, transparent 55%);
+      pointer-events: none;
+    }
+    .slide-title .logo-corner {
+      position: absolute;
+      top: 34px;
+      right: 56px;
+      height: 64px;
+      z-index: 5;
+    }
+    .slide-title .title-hero {
+      position: absolute;
+      inset: 118px 72px 92px;
+      z-index: 3;
+      display: flex;
+      align-items: center;
+    }
+    .slide-title .title-stack {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      text-align: left;
+    }
+    .slide-title .study-kicker {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 2.4px;
+      text-transform: uppercase;
+      color: var(--royal);
+      margin-bottom: 12px;
+    }
+    .slide-title .compliance-line {
+      font-size: 72px;
+      font-weight: 800;
+      letter-spacing: -2.4px;
+      line-height: 0.95;
+      color: var(--royal);
+      margin-bottom: 14px;
+    }
+    .slide-title .topic-line {
+      font-size: 34px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.2;
+      margin-bottom: 10px;
+    }
+    .slide-title .farm-line {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--muted);
+      margin-bottom: 22px;
+    }
+    .slide-title .oss-line {
+      display: inline-flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--royal);
+      margin-bottom: 22px;
+    }
+    .slide-title .oss-pill {
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: #047857;
+      background: #d1fae5;
+      border: 1px solid rgba(5, 150, 105, 0.35);
+      padding: 8px 16px;
+      border-radius: 999px;
+    }
+    .slide-title .tech-line {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--slate);
+      margin-bottom: 22px;
+      max-width: 1100px;
+    }
+    .slide-title .title-accent {
+      width: 120px;
+      height: 5px;
+      background: linear-gradient(90deg, var(--royal), #dc3545);
+      border-radius: 3px;
+      margin: 0 0 28px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- SLIDE 1: TITLE -->
+  <section class="slide slide-title">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="grid-fade"></div>
+    <img class="logo-corner" src="https://electrisim.com/assets/img/logo_Electrisim_removebg-preview.png" alt="Electrisim" />
+    <div class="header-pill">Tutorial • BESS studies</div>
+
+    <div class="title-hero">
+      <div class="title-stack">
+        <div class="title-accent"></div>
+        <div class="study-kicker">Early design</div>
+        <div class="compliance-line">Preliminary design</div>
+        <div class="topic-line">From POC power to a single-line diagram</div>
+        <div class="farm-line">Auto-sized PCS · transformers · cables · pandapower study</div>
+        <div class="oss-line">
+          <span class="oss-pill">Open source</span>
+          Electrisim · pandapower
+        </div>
+        <div class="tech-line">Simulate → BESS Studies → Generate SLD → Run Study · P/Q envelope</div>
+        <div class="badges">
+          <span class="badge green">POC Pn &amp; PF</span>
+          <span class="badge blue">HV cable · BESS_HV</span>
+          <span class="badge teal">MV POC · no HV trafo</span>
+          <span class="badge yellow">Named cases</span>
+          <span class="badge orange">Rating table</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-bar"><span>Electrisim • electrisim.com</span></div>
+  </section>
+
+  <!-- SLIDE 2: AGENDA -->
+  <section class="slide">
+    <div class="header-pill">Tutorial • BESS studies</div>
+    <div class="content">
+      <div class="section-kicker">Live demo</div>
+      <h2>What we will do <span class="hi">in Electrisim</span></h2>
+      <p class="lede">Enter POC active power and grid-code power factor, generate the utility-scale BESS diagram, model an HV cable or a direct MV POC, run the preliminary study, and see why POC megawatts are not the sum of the PCS.</p>
+      <div class="agenda-grid">
+        <div class="agenda-card">
+          <div class="agenda-num">01</div>
+          <div class="agenda-title">Parameters</div>
+          <div class="agenda-desc">Pn · PF · voltages · auto-sized ratings</div>
+        </div>
+        <div class="agenda-card">
+          <div class="agenda-num">02</div>
+          <div class="agenda-title">Generate SLD</div>
+          <div class="agenda-desc">Grid → POC → HV/MV OLTC → MV strings</div>
+        </div>
+        <div class="agenda-card">
+          <div class="agenda-num">03</div>
+          <div class="agenda-title">HV cable</div>
+          <div class="agenda-desc">POC_HV → HV_Cable → BESS_HV → trafo</div>
+        </div>
+        <div class="agenda-card">
+          <div class="agenda-num">04</div>
+          <div class="agenda-title">MV POC</div>
+          <div class="agenda-desc">No HV/MV transformer · Grid → POC_MV</div>
+        </div>
+        <div class="agenda-card">
+          <div class="agenda-num">05</div>
+          <div class="agenda-title">Run study</div>
+          <div class="agenda-desc">Named cases · ratings · P/Q envelope</div>
+        </div>
+        <div class="agenda-card">
+          <div class="agenda-num">06</div>
+          <div class="agenda-title">Insight</div>
+          <div class="agenda-desc">POC P ≠ sum of PCS · Q from MVA circle</div>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bar"><span>Electrisim • electrisim.com</span></div>
+  </section>
+
+</body>
+</html>

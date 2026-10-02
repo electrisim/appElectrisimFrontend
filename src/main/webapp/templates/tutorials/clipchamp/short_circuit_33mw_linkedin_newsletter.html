@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Copy LinkedIn newsletter — Short circuit 33 MW tutorial</title>
+  <style>
+    body { margin: 0; font-family: Arial, Helvetica, sans-serif; background: #eef0f3; color: #191919; }
+    .bar { background: #0b1f4a; color: #fff; padding: 18px 24px; }
+    .bar h1 { margin: 0 0 8px; font-size: 18px; font-weight: 700; }
+    .bar p { margin: 0 0 14px; font-size: 14px; line-height: 1.55; color: #cdd6ea; max-width: 760px; }
+    .bar button { background: #2f5bea; color: #fff; border: 0; padding: 11px 20px; font-size: 15px; font-weight: 700; border-radius: 6px; cursor: pointer; margin-right: 10px; }
+    .bar button.secondary { background: #475569; }
+    .bar button:hover { filter: brightness(1.08); }
+    .bar .ok { color: #86efac; font-size: 14px; }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 28px 20px 72px; }
+    .title-hint, .announce-hint {
+      background: #fff;
+      border-left: 4px solid #2f5bea;
+      padding: 14px 16px;
+      margin-bottom: 18px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .title-hint span, .announce-hint span {
+      display: block;
+      font-size: 12px;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      color: #6b7280;
+      margin-bottom: 4px;
+    }
+    .title-hint strong, .announce-hint strong { font-size: 16px; display: block; margin-top: 6px; font-weight: 700; }
+    article {
+      background: #fff;
+      padding: 40px 48px 48px;
+      border-radius: 4px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 18px;
+      line-height: 1.7;
+      color: #191919;
+    }
+    article h2 {
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 26px;
+      line-height: 1.25;
+      margin: 36px 0 14px;
+      padding-top: 8px;
+      border-top: 1px solid #e5e7eb;
+    }
+    article h2:first-of-type { border-top: 0; padding-top: 0; }
+    article p { margin: 0 0 16px; }
+    article ul { margin: 0 0 18px; padding-left: 24px; }
+    article li { margin: 0 0 8px; }
+    article a { color: #0a66c2; text-decoration: underline; }
+    article .lead { font-size: 22px; line-height: 1.4; font-weight: 700; font-family: Arial, Helvetica, sans-serif; margin-bottom: 18px; }
+    #announcePlain { display: none; }
+  </style>
+</head>
+<body>
+  <div class="bar">
+    <h1>Copy formatted article — then paste into LinkedIn</h1>
+    <p>Put the <strong>title</strong> in LinkedIn’s title field. Click <strong>Copy article</strong> and paste into the newsletter body. Use <strong>Copy announcement</strong> for the short post LinkedIn asks for when you publish.</p>
+    <button type="button" id="copyBtn">Copy article</button>
+    <button type="button" id="copyAnnounce" class="secondary">Copy announcement</button>
+    <span class="ok" id="copyStatus" hidden>Copied.</span>
+  </div>
+
+  <div class="wrap">
+    <div class="title-hint">
+      <span>LinkedIn title field</span>
+      <strong>Short-circuit studies on a 33 MW wind farm: IEC 60909, OpenDSS, and vector group</strong>
+    </div>
+
+    <article id="article">
+      <p class="lead">Same single-line diagram. Two fault engines. One place to read ikss, ip, and ith.</p>
+
+      <p>Fault levels drive breaker ratings, cable sizing, and protection settings. On renewable connections, the interesting questions are not only “how many kA at the POC?” but which fault type governs the phase conductor versus the cable screen — and whether your transformer vector group lets zero-sequence current through to the collector.</p>
+
+      <p>In Electrisim you run short-circuit studies in the browser on the same diagram you use for load flow. The built-in <strong>33 MW onshore wind farm</strong> template (ten turbines, 30 kV collectors, 40 MVA 110/30 kV transformer, 110 kV export) is a practical place to compare methods without building a model from scratch.</p>
+
+      <h2>IEC 60909 (pandapower)</h2>
+      <p>Open <strong>Simulate → Short Circuit</strong>, choose the <strong>Pandapower</strong> tab, and tick <strong>IEC 60909</strong>. A three-phase maximum study on all busbars gives symmetrical current <strong>ikss</strong>, peak <strong>ip</strong>, and thermal equivalent <strong>ith</strong> for your clearing time — typically one second for conductor checks.</p>
+      <p>IEC fills buses, lines, transformers, and the external grid. That is the path you want for grid-code style studies and IEC-rated equipment.</p>
+
+      <h2>Which current sizes what?</h2>
+      <ul>
+        <li><strong>Phase conductors:</strong> use three-phase <strong>ith</strong> (adiabatic / I²t, IEC 60949).</li>
+        <li><strong>Metallic screens and sheaths:</strong> earth-return duty — run <strong>single-phase</strong> (phase-to-earth). Two-phase-to-earth (Ik2E) is the companion case in IEC practice; the dialog’s “Two phase” option is phase-to-phase without earth.</li>
+        <li>If single-phase ik exceeds three-phase on a solidly earthed bus, check the phase conductor against that earth fault too.</li>
+      </ul>
+
+      <h2>Vector group is not cosmetic</h2>
+      <p>On the main 110/30 kV transformer, change <strong>vector group</strong> (Dyn, YNd, Yy, …) and <strong>angle shift</strong> for the clock. Three-phase ikss barely moves — positive sequence dominates. Single-phase ikss changes because grounded star, delta, and neutral paths control zero sequence. Rotating angle shift alone changes current angle, not a shortcut to lower three-phase duty.</p>
+
+      <h2>OpenDSS FaultStudy on the same diagram</h2>
+      <p>The <strong>OpenDSS</strong> tab runs a native fault study (50 Hz in Europe). Bus results use the same labels, but the method is not IEC 60909: different voltage factor, different wind-turbine contribution, fixed peak factor, and branch currents only on the IEC path. Treat OpenDSS as a useful Y-bus cross-check — not a substitute for IEC submission figures.</p>
+
+      <h2>Try it</h2>
+      <p>In the editor: <strong>File → New → onshore wind farm 33MW</strong>, then <strong>Simulate → Short Circuit</strong>.</p>
+      <p>
+        <a href="https://app.electrisim.com/?utm_source=linkedin&amp;utm_medium=newsletter&amp;utm_campaign=short-circuit-33mw&amp;utm_content=try_editor">Open Electrisim</a>
+        ·
+        <a href="https://electrisim.com/short-circuit-33mw-onshore-wind?utm_source=linkedin&amp;utm_medium=newsletter&amp;utm_campaign=short-circuit-33mw&amp;utm_content=article">Read the full article on electrisim.com</a>
+        ·
+        <a href="https://electrisim.com/pricing?utm_source=linkedin&amp;utm_medium=newsletter&amp;utm_campaign=short-circuit-33mw&amp;utm_content=subscribe">Cloud studies from $10/month</a>
+      </p>
+      <p>North American projects can tick <strong>ANSI/IEEE C37 (beta)</strong> on the Pandapower tab — a separate standard from IEC 60909.</p>
+    </article>
+
+    <div class="announce-hint" style="margin-top: 28px;">
+      <span>Announcement post (when LinkedIn publishes the issue)</span>
+      <strong id="announcePreview">New tutorial walkthrough: short-circuit calculations on our 33 MW onshore wind template — IEC 60909 and OpenDSS on one diagram, plus why vector group changes earth-fault current but not three-phase duty. Try it in the browser: https://app.electrisim.com/</strong>
+    </div>
+  </div>
+
+  <textarea id="announcePlain">New tutorial walkthrough: short-circuit calculations on our 33 MW onshore wind template — IEC 60909 and OpenDSS on one diagram, plus why vector group changes earth-fault current but not three-phase duty.
+
+Try the template: File → New → onshore wind farm 33MW, then Simulate → Short Circuit.
+
+https://app.electrisim.com/?utm_source=linkedin&utm_medium=newsletter&utm_campaign=short-circuit-33mw&utm_content=announce
+
+#PowerSystems #RenewableEnergy #WindPower #ShortCircuit #OpenSource</textarea>
+
+  <script>
+    document.getElementById('copyBtn').addEventListener('click', async function () {
+      var src = document.getElementById('article');
+      var clone = src.cloneNode(true);
+      clone.querySelectorAll('[class]').forEach(function (n) { n.removeAttribute('class'); });
+      var html = clone.innerHTML;
+      var text = src.innerText;
+      var status = document.getElementById('copyStatus');
+      try {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'text/html': new Blob([html], { type: 'text/html' }),
+            'text/plain': new Blob([text], { type: 'text/plain' })
+          })
+        ]);
+        status.hidden = false;
+        status.textContent = 'Article copied. Paste into LinkedIn body.';
+      } catch (err) {
+        var range = document.createRange();
+        range.selectNodeContents(src);
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        document.execCommand('copy');
+        status.hidden = false;
+        status.textContent = 'Article copied. Paste into LinkedIn body.';
+      }
+    });
+
+    document.getElementById('copyAnnounce').addEventListener('click', function () {
+      var text = document.getElementById('announcePlain').value;
+      var status = document.getElementById('copyStatus');
+      navigator.clipboard.writeText(text).then(function () {
+        status.hidden = false;
+        status.textContent = 'Announcement copied.';
+      });
+    });
+  </script>
+</body>
+</html>

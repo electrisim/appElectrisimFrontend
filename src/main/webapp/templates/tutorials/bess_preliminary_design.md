@@ -2,6 +2,8 @@
 
 This tutorial walks through the **Simulate → BESS Studies → BESS Preliminary Design** workflow.
 
+**Video script and Clipchamp slides (1920×1080 title + agenda):** [`BESS_PRELIMINARY_DESIGN_VIDEO_SCRIPT.md`](BESS_PRELIMINARY_DESIGN_VIDEO_SCRIPT.md) — includes optional **HV cable** (POC_HV → BESS_HV) and **direct MV POC** (no HV/MV transformer).
+
 ## Steps
 
 1. Open a blank diagram.
@@ -12,7 +14,8 @@ This tutorial walks through the **Simulate → BESS Studies → BESS Preliminary
    - Optional: three-winding MV skid (2 or 4 inverters per 690 V winding)
    - POC transformer OLTC range, MV cables, auxiliary load
 3. Click **Generate / Update SLD**. The wizard hides so you can inspect:
-   `Grid → POC (HV) → HV/MV transformer → MV bus → N× (cable → MV/LV trafo → PCS inverter → DC bus → Battery)`
+   `Grid → POC (HV) → [optional HV cable → BESS_HV] → HV/MV transformer → MV bus → N× (cable → MV/LV trafo → PCS inverter → DC bus → Battery)`  
+   Or untick **Include HV/MV transformer** for **Grid → POC_MV** at 11–33 kV.
 4. Click **Run Study** (progress log while it runs).
 5. In results:
    - Click a **case name** to fill SLD result boxes (default Unom_Export_Capacitive)
