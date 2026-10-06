@@ -184,19 +184,22 @@
     }
     .slide-title .title-hero {
       position: absolute;
-      inset: 118px 72px 92px;
+      inset: 100px 56px 88px;
       z-index: 3;
       display: flex;
       align-items: center;
+      justify-content: center;
     }
     .slide-title .title-stack {
       display: flex;
       flex-direction: column;
-      align-items: flex-start;
-      text-align: left;
+      align-items: center;
+      text-align: center;
+      width: 100%;
+      max-width: 1680px;
     }
     .slide-title .study-kicker {
-      font-size: 18px;
+      font-size: 22px;
       font-weight: 700;
       letter-spacing: 2.4px;
       text-transform: uppercase;
@@ -204,7 +207,7 @@
       margin-bottom: 12px;
     }
     .slide-title .compliance-line {
-      font-size: 72px;
+      font-size: 92px;
       font-weight: 800;
       letter-spacing: -2.4px;
       line-height: 0.95;
@@ -212,14 +215,14 @@
       margin-bottom: 14px;
     }
     .slide-title .topic-line {
-      font-size: 34px;
+      font-size: 44px;
       font-weight: 700;
       color: var(--text);
       line-height: 1.2;
       margin-bottom: 10px;
     }
     .slide-title .farm-line {
-      font-size: 26px;
+      font-size: 32px;
       font-weight: 700;
       color: var(--muted);
       margin-bottom: 22px;
@@ -228,13 +231,14 @@
       display: inline-flex;
       align-items: center;
       gap: 14px;
-      font-size: 28px;
+      font-size: 34px;
       font-weight: 700;
       color: var(--royal);
       margin-bottom: 22px;
+      justify-content: center;
     }
     .slide-title .oss-pill {
-      font-size: 16px;
+      font-size: 18px;
       font-weight: 800;
       letter-spacing: 1.2px;
       text-transform: uppercase;
@@ -245,18 +249,25 @@
       border-radius: 999px;
     }
     .slide-title .tech-line {
-      font-size: 22px;
+      font-size: 28px;
       font-weight: 700;
       color: var(--slate);
-      margin-bottom: 22px;
-      max-width: 1100px;
+      margin-bottom: 26px;
+      max-width: 1500px;
     }
     .slide-title .title-accent {
-      width: 120px;
-      height: 5px;
+      width: 160px;
+      height: 6px;
       background: linear-gradient(90deg, var(--royal), #dc3545);
       border-radius: 3px;
-      margin: 0 0 28px;
+      margin: 0 auto 28px;
+    }
+    .slide-title .badges {
+      justify-content: center;
+    }
+    .slide-title .badge {
+      font-size: 20px;
+      padding: 12px 20px;
     }
   </style>
 </head>
@@ -274,7 +285,7 @@
       <div class="title-stack">
         <div class="title-accent"></div>
         <div class="study-kicker">Early design</div>
-        <div class="compliance-line">Preliminary design</div>
+        <div class="compliance-line">BESS preliminary design</div>
         <div class="topic-line">From POC power to a single-line diagram</div>
         <div class="farm-line">Auto-sized PCS · transformers · cables · pandapower study</div>
         <div class="oss-line">

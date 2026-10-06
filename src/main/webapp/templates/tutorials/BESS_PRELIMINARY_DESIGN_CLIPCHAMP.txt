@@ -1,0 +1,49 @@
+CLIPCHAMP TEXT TO SPEECH
+Battery energy storage preliminary design, Electrisim
+Paste this whole file into Clipchamp text to speech. Spoken words only. No abbreviations.
+
+Today we use the battery energy storage preliminary design workflow in open-source Electrisim. You enter the agreed active power at the point of connection and the grid-code power factor. Electrisim builds the plant single-line diagram for you, then runs named load-flow cases, rating checks, and an active-power and reactive-power capability envelope at the point of connection. We will also show two real site layouts: a high-voltage cable between the distribution system operator point of connection and the customer substation, and a direct medium-voltage connection when there is no high-voltage to medium-voltage transformer.
+
+Six steps. Set point-of-connection power and ratings. Generate the diagram. Add a high-voltage cable when the point of connection is not at the battery site. Switch to a medium-voltage point of connection without the high-voltage transformer. Run the study. Then read one result that often surprises people: the megawatts at the point of connection are not the sum of the power conversion systems.
+
+Open Electrisim in the browser. Start from a blank diagram, or open the utility-scale battery energy storage template if you already use it. Go to Simulate, then the battery studies menu, then preliminary design.
+
+Under point of connection and grid, enter 50 megawatts as active power at the point of connection, and 0.95 as the grid-code power factor. Reactive power at the point of connection is computed as reactive power equals nominal active power times the tangent of the arccosine of the power factor, unless you tick specify reactive power directly because the operator gave you reactive power in megavar.
+
+Set the point-of-connection voltage to 132 kilovolts and the medium-voltage collection voltage to 33 kilovolts. Minimum, nominal, and maximum grid voltage are the operating voltages for the study cases, for example 0.95, 1.00, and 1.05 per unit. Plant voltage minimum and maximum, often 0.90 to 1.10, control the pass and fail colours on the diagram.
+
+Under power conversion system and battery energy storage, set four storage units. Apparent power of each power conversion system, maximum active power, the point-of-connection transformer, the string transformers, and the cable thermal rating are sized automatically from nominal active power, power factor, unit count, minimum voltage, auxiliary load, and whether you use a two-winding or a three-winding skid, until you type a value yourself. If you change nominal active power later, use reset ratings to auto-size to hand control back to the auto-sizer.
+
+Battery direct-current maximum active power tightens the alternating-current storage power limit on the diagram. It does not supply reactive power. Reactive power comes from the power conversion system apparent-power circle.
+
+Scroll to the high-voltage to medium-voltage transformer. Leave include high-voltage to medium-voltage transformer ticked for the first diagram. The on-load tap changer tap range and voltage band are here. Tap position sweep is optional and off by default. Leave the high-voltage cable to the battery site switched off for now. Medium-voltage cables and the auxiliary load can stay at the defaults for this demo.
+
+Click generate or update single-line diagram. The wizard hides so you can inspect the canvas. Use the restore chip to return to the inputs.
+
+From the top: external grid, then the high-voltage point of connection, then the point-of-connection transformer with an on-load tap changer, then the medium-voltage collection bus, then the auxiliary load. For each string: a medium-voltage cable, a medium-voltage to low-voltage transformer, a low-voltage bus, a power conversion system inverter, a direct-current bus, and a battery rack. The power conversion system is the storage element for the alternating-current load flow. The direct-current island is drawn, but it is not solved as a coupled direct-current network in pandapower.
+
+Click generate again after a small change. Existing plant cells update in place. You are not redrawing from scratch. Zoom to fit before you run the study.
+
+Many projects have the contractual point of connection at the distribution system operator substation and the high-voltage to medium-voltage transformer at the customer site. Re-open the wizard. Under high-voltage cable to battery site, tick high-voltage cable between grid point of connection and plant substation. Set the length, the resistance and reactance per kilometre, and the thermal rating in kiloamperes, or accept the auto-sized value from the plant apparent power and the high voltage. Generate again.
+
+The chain becomes the high-voltage point of connection, then the high-voltage cable, then the battery-site high-voltage bus, then the point-of-connection transformer, then the medium-voltage collection. Named cases and the active-power and reactive-power envelope still refer to the high-voltage point of connection, the contractual point of connection. The cable is a real line in the pandapower model. You will see loading on the high-voltage cable, and a voltage difference between the grid point of connection and the battery-site high-voltage bus under export.
+
+For the main study demo, turn the high-voltage cable off again and regenerate so the diagram stays compact. Or keep it on if you want to show both buses in the voltage profile.
+
+Some battery sites connect at 11 to 33 kilovolts with no step-up transformer at the point of connection. Untick include high-voltage to medium-voltage transformer. Set the medium-voltage collection voltage to your point-of-connection voltage, for example 20 kilovolts. Generate.
+
+The topology is the external grid connected directly to the medium-voltage point of connection. The collection bus is the point of connection. There is no high-voltage transformer, no on-load tap changer, no tap sweep, and no high-voltage cable option. The study still uses the medium-voltage point of connection for the achieved active and reactive power and for the envelope.
+
+For the rest of the video, tick the high-voltage transformer back on and regenerate the 132 kilovolt, 33 kilovolt plant, so the results match what most utility-scale viewers expect.
+
+Click run study. The progress log walks through named load-flow cases, rating verification, and the active-power and reactive-power envelope.
+
+In the results window, open the named cases. Pass or fail is about thermal loading and voltage against your plant band. That is separate from whether the point-of-connection target is met. Click the case nominal voltage export capacitive, or another row, and watch the result boxes fill on the single-line diagram. Click a limiting element or a bus name to select it on the canvas.
+
+Open the active-power and reactive-power chart. The grey rectangle is your grid-code power-factor band at the positive and negative nominal active power you sized for. The envelope can extend further where the plant active-power limit allows. On the voltage and reactive-power chart, charge and discharge at full active power show whether the plant covers the voltage and reactive-power band from your power factor.
+
+Here is the insight. Active power at the point of connection is positive when the plant exports into the grid, and it already includes auxiliaries and losses. It is not the sum of the power conversion system discharge ratings. Reactive power at the point of connection is set by the inverter apparent power, the transformer short-circuit voltage, the cables, and the auxiliary load. Raising the battery direct-current power does not add megavar if the power conversion system is already on its apparent-power circle.
+
+You can zoom and pan the charts, pick a point on the envelope, and compare the dispatch power at the power conversion system with the power at the point of connection in the hover text.
+
+That is battery energy storage preliminary design in Electrisim: from point-of-connection power and power factor, to an auto-generated single-line diagram, with an optional high-voltage cable and an optional medium-voltage point of connection, and a pandapower early-design study with ratings and active-power and reactive-power capability at the grid connection. Build and iterate your own plant at electrisim.com.

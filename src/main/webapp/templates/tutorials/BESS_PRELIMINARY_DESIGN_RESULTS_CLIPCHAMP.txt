@@ -1,0 +1,17 @@
+CLIPCHAMP TEXT TO SPEECH
+Results of the battery energy storage preliminary design
+Paste this file into Clipchamp text to speech. Spoken words only.
+
+The study comes back all green. Eighteen load-flow cases pass. None fail, and none diverge. All twelve requested points at the grid connection are met. Both capability charts are compliant.
+
+Look at the operating-point table. At every combination of low, nominal, and high grid voltage, export and import, the plant delivers the contract: 50 megawatts, and 16.4 megavar, which is exactly what a power factor of 0.95 asks for. Each power conversion system is only working at about 12.7 megawatts and a few megavar. The contract is shared, not carried by one machine.
+
+On the single-line diagram the high-voltage point of connection sits at 1.00 per unit. The 33 kilovolt collection bus is almost the same. The low-voltage buses sit a little above 1.01, because the on-load tap changer has moved to hold the plant inside band. Losses are only about a third of a megawatt.
+
+Here is the interesting part. On every named case the limiting element is the battery, at roughly 83 to 86 percent of its direct-current limit. The main transformer is at 76 percent of 73 megavolt-amperes. The converters are at 65 percent of a 21.3 megavolt-ampere rating. So the plant is not transformer-limited. The battery power cap is the first thing you would raise.
+
+The active-power and reactive-power chart explains the spare capacity. The grey rectangle is the grid-code box: plus and minus 50 megawatts, and plus and minus 16.4 megavar. The coloured curves sit outside that box at all three voltages, which is why the envelope is compliant. The curves actually reach about 58 megawatts at the point of connection. Four converters at 14.85 megawatts would be 59.4 megawatts at the machines. The missing megawatt is auxiliary load and cable and transformer loss, not a missing unit.
+
+The circle does not close down to zero reactive power. Each converter is allowed 14.85 megawatts, but it is rated 21.3 megavolt-amperes, so a large reactive-power margin is left on the nameplate. Raising the battery power does not spend that margin. Only a higher active-power limit on the converter does.
+
+The voltage and reactive-power chart is the same story at full contract power. From 0.95 to 1.05 per unit, both full discharge and full charge cover the required reactive band. At the high voltage the plant can offer more than the whole nominal megawatts as reactive power. The grid code only asked for about a third of nominal power. That is a comfortable preliminary design.
