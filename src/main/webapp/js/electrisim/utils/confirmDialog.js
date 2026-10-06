@@ -39,6 +39,7 @@ const VARIANTS = {
  * @param {Array<string|{text:string}>} [options.items]
  * @param {string} [options.confirmLabel]
  * @param {string} [options.cancelLabel]
+ * @param {boolean} [options.hideCancel] - One acknowledgement button. Escape still dismisses.
  * @returns {Promise<boolean>} true if confirmed
  */
 export function showConfirmDialog(options = {}) {
@@ -49,7 +50,8 @@ export function showConfirmDialog(options = {}) {
         variant = 'warning',
         items = [],
         confirmLabel = 'Continue',
-        cancelLabel = 'Cancel'
+        cancelLabel = 'Cancel',
+        hideCancel = false
     } = options;
 
     const theme = VARIANTS[variant] || VARIANTS.warning;
@@ -266,7 +268,7 @@ export function showConfirmDialog(options = {}) {
             if (e.target === overlay) close(false);
         });
 
-        footer.appendChild(cancelBtn);
+        if (!hideCancel) footer.appendChild(cancelBtn);
         footer.appendChild(confirmBtn);
         panel.appendChild(header);
         panel.appendChild(body);
@@ -274,6 +276,6 @@ export function showConfirmDialog(options = {}) {
         overlay.appendChild(panel);
         document.body.appendChild(overlay);
         document.addEventListener('keydown', onKey);
-        cancelBtn.focus();
+        (hideCancel ? confirmBtn : cancelBtn).focus();
     });
 }

@@ -65,6 +65,11 @@ export const COMPONENTS_DATA_SELECT_FIELDS = {
         values: ['wye', 'delta'],
         headerTooltip: 'OpenDSS connection type'
     },
+    phase: {
+        values: ['1', '2', '3'],
+        labels: { 1: 'Phase 1', 2: 'Phase 2', 3: 'Phase 3' },
+        headerTooltip: 'OpenDSS phase node (1, 2, or 3)'
+    },
     connection_type: {
         values: ['wye', 'delta'],
         labels: { wye: 'wye', delta: 'delta' },
