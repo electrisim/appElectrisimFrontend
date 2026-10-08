@@ -297,6 +297,12 @@ export const defaultWindTurbineData = {
     max_p_mw: WIND_POWER_CURVE_DEFAULT_RATED_MW,
     generator_type: 'current_source',
     current_source: true,
+    ikss_3ph_ka: '',
+    ikss_2ph_ka: '',
+    ikss_1ph_ka: '',
+    sc_ref_vn_kv: '',
+    r2_pu: '',
+    x2_pu: '',
     dyn_plant_kind: 'WIND',
     reactive_capability_curve: false,
     q_capability_curve_json: JSON.stringify(
@@ -410,6 +416,78 @@ export class WindTurbineDialog extends StaticGeneratorDialog {
 
         const genType = this.shortCircuitParameters?.find((p) => p.id === 'generator_type');
         if (genType) genType.value = 'current_source';
+        const kParam = this.shortCircuitParameters?.find((p) => p.id === 'k');
+        if (kParam) {
+            kParam.description =
+                'Short-circuit current / rated current (Ik / In). Pandapower injects Ik = k · Sn / (√3 · U). Used when the Ik" fields below are left at 0.';
+        }
+        const scBlank = (id) => {
+            const raw = this.data[id];
+            return raw == null || raw === '' ? '' : String(raw);
+        };
+        this.shortCircuitParameters = [
+            ...(this.shortCircuitParameters || []),
+            {
+                id: 'ikss_3ph_ka',
+                label: 'Ik" three-phase (kA)',
+                description:
+                    'Initial short-circuit current contribution for a three-phase fault, in kA at the reference voltage (PowerFactory Ik"3PF). When this is greater than 0 it sets the current-source injection and overrides Current Ratio k.',
+                type: 'number',
+                value: scBlank('ikss_3ph_ka'),
+                step: '0.0001',
+                min: '0'
+            },
+            {
+                id: 'ikss_2ph_ka',
+                label: 'Ik" two-phase (kA)',
+                description:
+                    'Initial short-circuit current contribution for a two-phase fault, in kA at the reference voltage (PowerFactory Ik"2PF).',
+                type: 'number',
+                value: scBlank('ikss_2ph_ka'),
+                step: '0.0001',
+                min: '0'
+            },
+            {
+                id: 'ikss_1ph_ka',
+                label: 'Ik" single-phase (kA)',
+                description:
+                    'Initial short-circuit current contribution for a single-phase fault, in kA at the reference voltage (PowerFactory Ik"1PF).',
+                type: 'number',
+                value: scBlank('ikss_1ph_ka'),
+                step: '0.0001',
+                min: '0'
+            },
+            {
+                id: 'sc_ref_vn_kv',
+                label: 'Ik" reference voltage (kV)',
+                description:
+                    'Voltage the Ik" kiloamps are referred to. PowerFactory reports them on the high-voltage side of the unit transformer — enter that voltage. Leave empty to use the bus the turbine is connected to.',
+                type: 'number',
+                value: scBlank('sc_ref_vn_kv'),
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'r2_pu',
+                label: 'Negative-sequence resistance r2 (p.u.)',
+                description:
+                    'Negative-sequence resistance in per unit on the turbine rated power. Applied with x2 on two-phase and single-phase faults. The R/X ratio above applies only to asynchronous machines.',
+                type: 'number',
+                value: scBlank('r2_pu'),
+                step: '0.01',
+                min: '0'
+            },
+            {
+                id: 'x2_pu',
+                label: 'Negative-sequence reactance x2 (p.u.)',
+                description:
+                    'Negative-sequence reactance in per unit on the turbine rated power. Applied on two-phase and single-phase faults only. Leave at 0 to keep pandapower’s Z2 = Z1 assumption.',
+                type: 'number',
+                value: scBlank('x2_pu'),
+                step: '0.01',
+                min: '0'
+            }
+        ];
         const dynKind = this.dynamicsParameters?.find((p) => p.id === 'dyn_plant_kind');
         if (dynKind) dynKind.value = 'WIND';
         const sn = this.ratingParameters?.find((p) => p.id === 'sn_mva');

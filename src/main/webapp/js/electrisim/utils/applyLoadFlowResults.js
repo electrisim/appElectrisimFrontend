@@ -4,6 +4,8 @@
 import { buildGraphCellLookupMap, resolveGraphCellForResult, formatResultNameHeader } from './attributeUtils.js';
 
 const COLOR_STATES = { DANGER: 'red', WARNING: 'orange', GOOD: 'green' };
+const LARGE_LOAD_FLOW_BUS_COUNT = 200;
+const SELECTION_PANEL_ID = 'electrisim-lf-selection-panel';
 
 function formatNumber(num, decimals = 3) {
     if (num == null || num === '' || num === 'NaN' || (typeof num === 'number' && Number.isNaN(num))) {
@@ -351,6 +353,90 @@ function spreadOverlappingResultBoxes(graph) {
     }
 }
 
+function removeLeftoverResultCells(model) {
+    const root = model.getRoot && model.getRoot();
+    if (!root) return;
+    const doomed = [];
+    const stack = [root];
+    while (stack.length) {
+        const cell = stack.pop();
+        const count = model.getChildCount(cell);
+        for (let i = 0; i < count; i++) stack.push(model.getChildAt(cell, i));
+        const style = String(model.getStyle(cell) || '');
+        if (style.includes('shapeELXXX=Result')) doomed.push(cell);
+    }
+    doomed.forEach((cell) => {
+        try { model.remove(cell); } catch (e) { /* parent already removed */ }
+    });
+}
+
+function ensureSelectionPanel() {
+    let panel = document.getElementById(SELECTION_PANEL_ID);
+    if (panel) return panel;
+    panel = document.createElement('div');
+    panel.id = SELECTION_PANEL_ID;
+    panel.setAttribute('style', [
+        'position:fixed', 'right:16px', 'bottom:16px', 'z-index:10050',
+        'max-width:280px', 'max-height:40vh', 'overflow:auto',
+        'padding:10px 12px', 'background:#fff', 'border:1px solid #b8dae9',
+        'border-radius:6px', 'box-shadow:0 4px 16px rgba(0,0,0,.12)',
+        'font:12px/1.45 Arial,sans-serif', 'color:#1a1a1a',
+        'white-space:pre-wrap', 'display:none'
+    ].join(';'));
+    document.body.appendChild(panel);
+    return panel;
+}
+
+function showSelectionPanel(text) {
+    const panel = ensureSelectionPanel();
+    if (!text) {
+        panel.style.display = 'none';
+        panel.textContent = '';
+        return;
+    }
+    panel.textContent = text;
+    panel.style.display = 'block';
+}
+
+function textForSelectedCell(graph, cell, texts) {
+    if (!cell || !texts) return '';
+    const seen = new Set();
+    let current = cell;
+    while (current && !seen.has(current)) {
+        seen.add(current);
+        const hit = texts.get(String(current.id));
+        if (hit) return hit;
+        current = graph.getModel().getParent(current);
+    }
+    return '';
+}
+
+function bindLoadFlowSelectionPanel(graph, texts) {
+    graph.__electrisimLfSelectionTexts = texts;
+    const cell = graph.getSelectionCell && graph.getSelectionCell();
+    showSelectionPanel(textForSelectedCell(graph, cell, texts));
+    if (graph.__electrisimLfSelectionBound) return;
+    graph.__electrisimLfSelectionBound = true;
+    const selection = graph.getSelectionModel && graph.getSelectionModel();
+    if (!selection || !selection.addListener || typeof mxEvent === 'undefined') return;
+    selection.addListener(mxEvent.CHANGE, () => {
+        const map = graph.__electrisimLfSelectionTexts;
+        if (!map) {
+            showSelectionPanel('');
+            return;
+        }
+        const selected = graph.getSelectionCell && graph.getSelectionCell();
+        showSelectionPanel(textForSelectedCell(graph, selected, map));
+    });
+}
+
+function clearLoadFlowSelectionPanel(graph) {
+    if (graph) graph.__electrisimLfSelectionTexts = null;
+    if (typeof document !== 'undefined' && document.getElementById(SELECTION_PANEL_ID)) {
+        showSelectionPanel('');
+    }
+}
+
 /**
  * @param {mxGraph} graph
  * @param {object} dataJson - pandapower load-flow result payload
@@ -363,6 +449,20 @@ export function applyLoadFlowResultsToGraph(graph, dataJson) {
 
     const lookup = buildGraphCellLookupMap(graph);
     const resolveCell = (row) => resolveGraphCellForResult(lookup, row, graph);
+    const colorOnly = (dataJson.busbars || []).length >= LARGE_LOAD_FLOW_BUS_COUNT;
+    const selectionTexts = colorOnly ? new Map() : null;
+    const noteLargeResult = (resultCell, text) => {
+        if (!selectionTexts || !resultCell) return false;
+        const trimmed = String(text || '').trim();
+        selectionTexts.set(String(resultCell.id), trimmed);
+        const edges = graph.getEdges && graph.getEdges(resultCell);
+        if (edges) {
+            for (const edge of edges) {
+                if (edge && edge.id != null) selectionTexts.set(String(edge.id), trimmed);
+            }
+        }
+        return true;
+    };
 
     if (typeof window !== 'undefined' && typeof window.stopLoadFlowPowerAnimation === 'function') {
         window.stopLoadFlowPowerAnimation();
@@ -375,6 +475,7 @@ export function applyLoadFlowResultsToGraph(graph, dataJson) {
     const largeDiagram = (dataJson.busbars || []).length > 40;
     model.beginUpdate();
     try {
+        if (colorOnly) removeLeftoverResultCells(model);
         (dataJson.busbars || []).forEach((cell) => {
             const resultCell = resolveCell(cell);
             if (!resultCell) return;
@@ -391,6 +492,10 @@ P[MW]: ${formatNumber(d.p)}
 ${qLine}
 PF: ${formatNumber(d.pf)}
 Q/P: ${formatNumber(d.qp)}`;
+            if (noteLargeResult(resultCell, text)) {
+                processVoltageColor(graph, resultCell, cell.vm_pu);
+                return;
+            }
             updateOrCreatePlaceholder(graph, resultCell, text, largeDiagram
                 ? { width: 80, height: 76, positionX: 0, positionY: 0, offsetXDelta: -96, offsetYDelta: -6, reposition: true }
                 : { width: 80, height: 76, positionX: 0, positionY: 1.0, offsetXDelta: 40, offsetYDelta: 35 });
@@ -409,6 +514,10 @@ Q/P: ${formatNumber(d.qp)}`;
             P_to[MW]: ${formatNumber(cell.p_to_mw)}
             Q_to[MVar]: ${formatNumber(cell.q_to_mvar)}
             i_to[kA]: ${formatNumber(cell.i_to_ka)}`;
+            if (noteLargeResult(resultCell, text)) {
+                processLoadingColor(graph, resultCell, cell.loading_percent);
+                return;
+            }
             const edge = (graph.getEdges && graph.getEdges(resultCell))?.[0];
             const parent = edge || resultCell;
             const lineLane = lineIdx % 5;
@@ -436,6 +545,10 @@ Q/P: ${formatNumber(d.qp)}`;
             i_HV[kA]: ${formatNumber(cell.i_hv_ka)}
             i_LV[kA]: ${formatNumber(cell.i_lv_ka)}
             loading[%]: ${formatNumber(cell.loading_percent)}${tapBlock}`;
+            if (noteLargeResult(resultCell, text)) {
+                processLoadingColor(graph, resultCell, cell.loading_percent);
+                return;
+            }
             const boxW = tapBlock ? 90 : 68;
             const boxH = tapBlock ? 88 : 64;
             updateSingleComponentResult(graph, resultCell, text, {
@@ -454,6 +567,10 @@ Q/P: ${formatNumber(d.qp)}`;
             i_MV[kA]: ${formatNumber(cell.i_mv_ka)}
             i_LV[kA]: ${formatNumber(cell.i_lv_ka)}
             loading[%]: ${formatNumber(cell.loading_percent)}${tapBlock}`;
+            if (noteLargeResult(resultCell, text)) {
+                processLoadingColor(graph, resultCell, cell.loading_percent);
+                return;
+            }
             const boxW = tapBlock ? 90 : 60;
             const boxH = tapBlock ? 72 : 50;
             updateSingleComponentResult(graph, resultCell, text, {
@@ -474,6 +591,7 @@ Q/P: ${formatNumber(d.qp)}`;
             ${qLine}
             PF: ${formatNumber(cell.pf)}
             Q/P: ${formatNumber(cell.q_p)}`;
+            if (noteLargeResult(resultCell, text)) return;
             updateEdgeAttachedPlaceholder(graph, resultCell, text, { width: 95, height: 68, positionX: -0.3 });
         });
 
@@ -486,6 +604,7 @@ Q/P: ${formatNumber(d.qp)}`;
             const text = `${label}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}`;
+            if (noteLargeResult(resultCell, text)) return;
             updateEdgeAttachedPlaceholder(graph, resultCell, text, { width: 60, height: 40, positionX: -0.3 });
         });
 
@@ -498,6 +617,7 @@ Q/P: ${formatNumber(d.qp)}`;
             Q[MVar]: ${formatNumber(cell.q_mvar)}
             U[degree]: ${formatNumber(cell.va_degree)}
             Um[pu]: ${formatNumber(cell.vm_pu)}`;
+            if (noteLargeResult(resultCell, text)) return;
             updateEdgeAttachedPlaceholder(graph, resultCell, text, largeDiagram
                 ? { width: 60, height: 40, positionX: 0, offsetXDelta: -82, offsetYDelta: -28, reposition: true }
                 : { width: 60, height: 40, positionX: -0.3 });
@@ -512,6 +632,7 @@ Q/P: ${formatNumber(d.qp)}`;
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}
             Um[pu]: ${formatNumber(cell.vm_pu)}${shuntCtl}`;
+            if (noteLargeResult(resultCell, text)) return;
             const boxW = shuntCtl ? 74 : 60;
             const boxH = shuntCtl ? 58 : 50;
             updateSingleComponentResult(graph, resultCell, text, {
@@ -527,6 +648,7 @@ Q/P: ${formatNumber(d.qp)}`;
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}
             Um[pu]: ${formatNumber(cell.vm_pu)}`;
+            if (noteLargeResult(resultCell, text)) return;
             updateSingleComponentResult(graph, resultCell, text, { width: 60, height: 40, positionX: -0.3 });
         });
 
@@ -537,6 +659,7 @@ Q/P: ${formatNumber(d.qp)}`;
             const text = `${label}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}`;
+            if (noteLargeResult(resultCell, text)) return;
             updateEdgeAttachedPlaceholder(graph, resultCell, text, largeDiagram
                 ? { width: 60, height: 40, positionX: 0, offsetXDelta: 78, offsetYDelta: 6, reposition: true }
                 : { width: 60, height: 40, positionX: -0.3 });
@@ -551,6 +674,10 @@ Q/P: ${formatNumber(d.qp)}`;
             const text = `${label}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}${loadLine}`;
+            if (noteLargeResult(resultCell, text)) {
+                processLoadingColor(graph, resultCell, cell.loading_percent);
+                return;
+            }
             updateEdgeAttachedPlaceholder(graph, resultCell, text, { width: 70, height: 80, positionX: -0.3 });
             processLoadingColor(graph, resultCell, cell.loading_percent);
         });
@@ -567,6 +694,10 @@ P_to[MW]: ${formatNumber(cell.p_to_mw)}
 Q_to[MVar]: ${formatNumber(cell.q_to_mvar)}
 i[kA]: ${formatNumber(cell.i_ka)}
 Loading[%]: ${formatNumber(cell.loading_percent, 1)}`;
+            if (noteLargeResult(resultCell, text)) {
+                processLoadingColor(graph, resultCell, cell.loading_percent);
+                return;
+            }
             updateOrCreatePlaceholder(graph, resultCell, text, {
                 width: 78, height: 102, positionX: 0, positionY: 0, offsetXDelta: 90, connectedToId: resultCell.id
             });
@@ -575,14 +706,18 @@ Loading[%]: ${formatNumber(cell.loading_percent, 1)}`;
     } finally {
         model.endUpdate();
         if (graph.getView?.().refresh) graph.getView().refresh();
-        if (largeDiagram) spreadOverlappingResultBoxes(graph);
+        if (largeDiagram && !colorOnly) spreadOverlappingResultBoxes(graph);
     }
+
+    if (colorOnly) bindLoadFlowSelectionPanel(graph, selectionTexts);
+    else clearLoadFlowSelectionPanel(graph);
 
     try {
         window.__electrisimLastLoadFlowResultJson = dataJson;
     } catch (_) { /* non-browser */ }
 
     try {
+        if (colorOnly) return;
         const wantAnim = typeof window.readSavedAnimatePowerFlow === 'function'
             ? window.readSavedAnimatePowerFlow()
             : false;
