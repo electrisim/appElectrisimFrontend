@@ -261,12 +261,12 @@ export function configureWindTurbineAttributes(grafka, vertex, options = {}) {
     g.setAttribute("max_ik_ka", options.max_ik_ka || "0.0");
     g.setAttribute("kappa", options.kappa || "0.0");
     g.setAttribute("current_source", options.current_source != null ? options.current_source : true);
-    g.setAttribute("ikss_3ph_ka", options.ikss_3ph_ka != null && options.ikss_3ph_ka !== "" ? String(options.ikss_3ph_ka) : "");
-    g.setAttribute("ikss_2ph_ka", options.ikss_2ph_ka != null && options.ikss_2ph_ka !== "" ? String(options.ikss_2ph_ka) : "");
-    g.setAttribute("ikss_1ph_ka", options.ikss_1ph_ka != null && options.ikss_1ph_ka !== "" ? String(options.ikss_1ph_ka) : "");
-    g.setAttribute("sc_ref_vn_kv", options.sc_ref_vn_kv != null && options.sc_ref_vn_kv !== "" ? String(options.sc_ref_vn_kv) : "");
-    g.setAttribute("r2_pu", options.r2_pu != null && options.r2_pu !== "" ? String(options.r2_pu) : "");
-    g.setAttribute("x2_pu", options.x2_pu != null && options.x2_pu !== "" ? String(options.x2_pu) : "");
+    g.setAttribute("ikss_3ph_ka", options.ikss_3ph_ka != null && options.ikss_3ph_ka !== "" ? String(options.ikss_3ph_ka) : "0.0866");
+    g.setAttribute("ikss_2ph_ka", options.ikss_2ph_ka != null && options.ikss_2ph_ka !== "" ? String(options.ikss_2ph_ka) : "0.0433");
+    g.setAttribute("ikss_1ph_ka", options.ikss_1ph_ka != null && options.ikss_1ph_ka !== "" ? String(options.ikss_1ph_ka) : "0.0433");
+    g.setAttribute("sc_ref_vn_kv", options.sc_ref_vn_kv != null && options.sc_ref_vn_kv !== "" ? String(options.sc_ref_vn_kv) : "30");
+    g.setAttribute("r2_pu", options.r2_pu != null && options.r2_pu !== "" ? String(options.r2_pu) : "0");
+    g.setAttribute("x2_pu", options.x2_pu != null && options.x2_pu !== "" ? String(options.x2_pu) : "1");
 
     g.setAttribute("OPF_parameters", "");
     g.setAttribute("controllable", String(options.controllable ?? false));

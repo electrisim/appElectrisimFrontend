@@ -182,7 +182,7 @@ export const WIND_Q_CAPABILITY_TEMPLATES = [
         id: 'frc_2d',
         label: 'FRC WTG P–U (voltage-dependent)',
         description:
-            'PowerFactory Fully Rated Converter WTG 2.5MW 50Hz Q(P,U) matrices. Stored in p.u. of Sn. Q=0 at P=0.',
+            'Fully rated converter WTG 2.5 MW, 50 Hz Q(P,U) matrices. Stored in p.u. of Sn. Q = 0 at P = 0.',
         apply: () => defaultQCap2dState()
     },
     {
@@ -289,6 +289,16 @@ export function computeWindTurbinePMw(windSpeedMs, curveJson, approx = 'linear')
 
 const defaultComputedPMw = computeWindTurbinePMw(DEFAULT_WIND_SPEED_MS, defaultWindPowerCurveJson, 'linear');
 
+/** Full-converter short-circuit defaults: Ik" at 30 kV, half current on unbalanced faults, x2 = 1 pu. */
+export const WIND_SC_DEFAULTS = {
+    ikss_3ph_ka: '0.0866',
+    ikss_2ph_ka: '0.0433',
+    ikss_1ph_ka: '0.0433',
+    sc_ref_vn_kv: '30',
+    r2_pu: '0',
+    x2_pu: '1'
+};
+
 export const defaultWindTurbineData = {
     ...defaultStaticGeneratorData,
     name: 'Wind Turbine',
@@ -297,12 +307,12 @@ export const defaultWindTurbineData = {
     max_p_mw: WIND_POWER_CURVE_DEFAULT_RATED_MW,
     generator_type: 'current_source',
     current_source: true,
-    ikss_3ph_ka: '',
-    ikss_2ph_ka: '',
-    ikss_1ph_ka: '',
-    sc_ref_vn_kv: '',
-    r2_pu: '',
-    x2_pu: '',
+    ikss_3ph_ka: '0.0866',
+    ikss_2ph_ka: '0.0433',
+    ikss_1ph_ka: '0.0433',
+    sc_ref_vn_kv: '30',
+    r2_pu: '0',
+    x2_pu: '1',
     dyn_plant_kind: 'WIND',
     reactive_capability_curve: false,
     q_capability_curve_json: JSON.stringify(
@@ -421,9 +431,10 @@ export class WindTurbineDialog extends StaticGeneratorDialog {
             kParam.description =
                 'Short-circuit current / rated current (Ik / In). Pandapower injects Ik = k · Sn / (√3 · U). Used when the Ik" fields below are left at 0.';
         }
-        const scBlank = (id) => {
+        const scValue = (id) => {
             const raw = this.data[id];
-            return raw == null || raw === '' ? '' : String(raw);
+            if (raw == null || String(raw).trim() === '') return WIND_SC_DEFAULTS[id];
+            return String(raw);
         };
         this.shortCircuitParameters = [
             ...(this.shortCircuitParameters || []),
@@ -431,9 +442,9 @@ export class WindTurbineDialog extends StaticGeneratorDialog {
                 id: 'ikss_3ph_ka',
                 label: 'Ik" three-phase (kA)',
                 description:
-                    'Initial short-circuit current contribution for a three-phase fault, in kA at the reference voltage (PowerFactory Ik"3PF). When this is greater than 0 it sets the current-source injection and overrides Current Ratio k.',
+                    'Initial short-circuit current contribution for a three-phase fault, in kA at the reference voltage. When this is greater than 0 it sets the current-source injection and overrides Current Ratio k.',
                 type: 'number',
-                value: scBlank('ikss_3ph_ka'),
+                value: scValue('ikss_3ph_ka'),
                 step: '0.0001',
                 min: '0'
             },
@@ -441,9 +452,9 @@ export class WindTurbineDialog extends StaticGeneratorDialog {
                 id: 'ikss_2ph_ka',
                 label: 'Ik" two-phase (kA)',
                 description:
-                    'Initial short-circuit current contribution for a two-phase fault, in kA at the reference voltage (PowerFactory Ik"2PF).',
+                    'Initial short-circuit current contribution for a two-phase fault, in kA at the reference voltage.',
                 type: 'number',
-                value: scBlank('ikss_2ph_ka'),
+                value: scValue('ikss_2ph_ka'),
                 step: '0.0001',
                 min: '0'
             },
@@ -451,9 +462,9 @@ export class WindTurbineDialog extends StaticGeneratorDialog {
                 id: 'ikss_1ph_ka',
                 label: 'Ik" single-phase (kA)',
                 description:
-                    'Initial short-circuit current contribution for a single-phase fault, in kA at the reference voltage (PowerFactory Ik"1PF).',
+                    'Initial short-circuit current contribution for a single-phase fault, in kA at the reference voltage.',
                 type: 'number',
-                value: scBlank('ikss_1ph_ka'),
+                value: scValue('ikss_1ph_ka'),
                 step: '0.0001',
                 min: '0'
             },
@@ -461,9 +472,9 @@ export class WindTurbineDialog extends StaticGeneratorDialog {
                 id: 'sc_ref_vn_kv',
                 label: 'Ik" reference voltage (kV)',
                 description:
-                    'Voltage the Ik" kiloamps are referred to. PowerFactory reports them on the high-voltage side of the unit transformer — enter that voltage. Leave empty to use the bus the turbine is connected to.',
+                    'Voltage the Ik" currents are referred to, usually the high-voltage side of the unit transformer. Leave empty to use the bus the turbine is connected to.',
                 type: 'number',
-                value: scBlank('sc_ref_vn_kv'),
+                value: scValue('sc_ref_vn_kv'),
                 step: '0.1',
                 min: '0'
             },
@@ -473,7 +484,7 @@ export class WindTurbineDialog extends StaticGeneratorDialog {
                 description:
                     'Negative-sequence resistance in per unit on the turbine rated power. Applied with x2 on two-phase and single-phase faults. The R/X ratio above applies only to asynchronous machines.',
                 type: 'number',
-                value: scBlank('r2_pu'),
+                value: scValue('r2_pu'),
                 step: '0.01',
                 min: '0'
             },
@@ -481,9 +492,9 @@ export class WindTurbineDialog extends StaticGeneratorDialog {
                 id: 'x2_pu',
                 label: 'Negative-sequence reactance x2 (p.u.)',
                 description:
-                    'Negative-sequence reactance in per unit on the turbine rated power. Applied on two-phase and single-phase faults only. Leave at 0 to keep pandapower’s Z2 = Z1 assumption.',
+                    'Negative-sequence reactance in per unit on the turbine rated power. Applied on two-phase and single-phase faults. Set to 0 to use the same impedance for negative sequence as for positive sequence.',
                 type: 'number',
-                value: scBlank('x2_pu'),
+                value: scValue('x2_pu'),
                 step: '0.01',
                 min: '0'
             }
@@ -1328,6 +1339,17 @@ export class WindTurbineDialog extends StaticGeneratorDialog {
         const pParam = this.powerParameters.find((x) => x.id === 'p_mw');
         if (pParam) pParam.value = String(p);
         this.data.p_mw = p;
+
+        for (const [id, fallback] of Object.entries(WIND_SC_DEFAULTS)) {
+            const param = this.shortCircuitParameters?.find((item) => item.id === id);
+            if (!param) continue;
+            const raw = param.value;
+            if (raw != null && String(raw).trim() !== '') continue;
+            param.value = fallback;
+            this.data[id] = fallback;
+            const input = this.inputs?.get(id);
+            if (input) input.value = fallback;
+        }
 
         const attrObj = {};
         if (cellData && cellData.attributes) {
