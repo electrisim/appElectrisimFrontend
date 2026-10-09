@@ -370,7 +370,32 @@ function removeLeftoverResultCells(model) {
     });
 }
 
+function selectionPanelBlockedByDialog() {
+    return !!(
+        document.querySelector('.geDialog') ||
+        document.querySelector('.modal-overlay') ||
+        document.querySelector('.not-editable-message-dialog')
+    );
+}
+
+/** The result card is fixed over the bottom-right, which is where dialog Apply sits. */
+function syncSelectionPanelWithDialogs() {
+    const panel = document.getElementById(SELECTION_PANEL_ID);
+    if (!panel) return;
+    const blocked = selectionPanelBlockedByDialog();
+    panel.style.visibility = blocked ? 'hidden' : '';
+    panel.style.pointerEvents = blocked ? 'none' : '';
+}
+
+function watchSelectionPanelAgainstDialogs() {
+    if (typeof window === 'undefined' || window.__electrisimSelectionPanelDialogWatch) return;
+    window.__electrisimSelectionPanelDialogWatch = true;
+    const observer = new MutationObserver(() => syncSelectionPanelWithDialogs());
+    observer.observe(document.body, { childList: true });
+}
+
 function ensureSelectionPanel() {
+    watchSelectionPanelAgainstDialogs();
     let panel = document.getElementById(SELECTION_PANEL_ID);
     if (panel) return panel;
     panel = document.createElement('div');
@@ -396,6 +421,7 @@ function showSelectionPanel(text) {
     }
     panel.textContent = text;
     panel.style.display = 'block';
+    syncSelectionPanelWithDialogs();
 }
 
 function textForSelectedCell(graph, cell, texts) {
