@@ -1,0 +1,31 @@
+CLIPCHAMP TEXT TO SPEECH
+Short-circuit comparison, Electrisim and PowerFactory
+Paste this whole file into Clipchamp text to speech. Spoken words only. No abbreviations that the voice would spell out letter by letter, except the standard name I E C 60909.
+
+Today we compare short-circuit results from Electrisim with the same study in PowerFactory. The network is an onshore wind farm you can open as a template: a 110 kilovolt point of connection, a 20 kilovolt collector, and seven fully rated converter turbines. Both studies use I E C 60909, the maximum case, and a voltage factor of 1.10. We compare the initial symmetrical short-circuit current, in kiloamperes. We do not compare the peak current.
+
+Six steps. Open the template. Walk the single-line diagram. Set the short-circuit study. Then read three-phase, two-phase, and single-phase results at the same places in both tools.
+
+Open Electrisim in the browser. Go to File, then New, and choose the onshore wind farm short circuit template. Zoom to fit so the bus names are readable.
+
+Start at Bus PoC, 110 kilovolts. The external grid sits on that bus. Its short-circuit power is 1000 megavolt-amperes, and the resistance to reactance ratio is 0.1. The zero-sequence ratios match the positive sequence: reactance zero over reactance is 1, and resistance zero over reactance zero is 0.1.
+
+The main transformer is 40 megavolt-amperes, 110 kilovolts to 20 kilovolts, vector group Dyn, short-circuit voltage 17.2 percent. On the low-voltage side is the bus named Busbar 20 kilovolt substation. A short cable, Cable Grid, joins that bus to the wind-farm busbar. From there, the collector strings feed seven wind turbines. Each turbine is about 2.5 megawatts, with its own unit transformer down to 690 volts. Leave the capacitor bank out of service. It is out of service in the PowerFactory case as well.
+
+Open one wind turbine and the Short Circuit tab. Every turbine uses the same values. The machine is a current source. The reference voltage is 20 kilovolts, which is the high-voltage side of the unit transformer, not 30 kilovolts. The initial current is 0.0866 kiloamperes for a three-phase fault, 0.0433 kiloamperes for a two-phase fault, and 0.0866 kiloamperes for a single-phase fault. Negative-sequence reactance is 1 per unit. Resistance in the negative sequence is 0.
+
+Go to Simulate, then Short Circuit. Stay on the pandapower tab and tick I E C 60909. Fault: three-phase. Case: maximum. Fault location: all busbars. Leave the failure clearing time at one second. Calculate.
+
+Electrisim writes a result box on each bus, and on the lines, the transformers, and the external grid. Read the initial symmetrical short-circuit current. Pause on five places, and say the PowerFactory value first, then Electrisim.
+
+At Bus PoC, both tools read 5.36 kiloamperes. At the 20 kilovolt substation, both read 6.75 kiloamperes. At the wind-farm busbar, both read 6.65 kiloamperes. The main transformer into the 20 kilovolt bus is 6.14 kiloamperes in both. Cable Grid is 6.04 kiloamperes in both. Three-phase agrees to the hundredth of a kiloampere. The voltage factor, the grid strength, the transformer short-circuit voltage, and the turbine current at 20 kilovolts are doing the same work in both models.
+
+Open Short Circuit again. Change the fault to two-phase. Keep maximum, and all busbars. In PowerFactory the faulted phases are B and C. Phase A carries no fault current. Calculate, and read the same five places.
+
+Bus PoC is 4.64 kiloamperes in both. The 20 kilovolt substation is 5.85 in PowerFactory and 5.86 in Electrisim. The wind-farm busbar is 5.76 and 5.77. The buses match. The main transformer into the 20 kilovolt bus is 5.32 in PowerFactory and 5.54 in Electrisim, about two tenths of a kiloampere higher. Cable Grid is 5.23 and 5.46, the same kind of gap. The turbine infeed that lifts the 20 kilovolt buses is included. The branch currents sit a little above the PowerFactory values.
+
+Open Short Circuit once more. Fault: single-phase to ground. Still maximum, all busbars. In PowerFactory the faulted phase is A. Calculate.
+
+Bus PoC is 5.34 kiloamperes in PowerFactory and 5.39 in Electrisim. The 20 kilovolt substation is 10.13 and 10.23. The wind-farm busbar is 9.88 and 10.03. The main transformer into the 20 kilovolt bus is 9.52 and 9.60. Cable Grid is 9.27 and 9.40. The wind farm contribution into the 20 kilovolt bus is about 0.61 kiloamperes in PowerFactory and 0.63 in Electrisim. Single-phase is a little higher in Electrisim, and every one of these gaps is within about fifteen hundredths of a kiloampere.
+
+That is the short-circuit comparison. Three-phase matches. Two-phase matches on the buses, with the transformer and Cable Grid about 0.2 kiloamperes higher. Single-phase stays within about 0.15 kiloamperes. The model is File, then New, onshore wind farm short circuit. The study is Simulate, then Short Circuit, I E C 60909, maximum. Try the same network at electrisim.com.

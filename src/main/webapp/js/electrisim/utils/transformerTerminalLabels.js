@@ -1,10 +1,13 @@
 /**
- * Cosmetic terminal labels for 2W / 3W transformers (cell XML: term_label_0..2).
+ * Cosmetic terminal labels and IEC vector-group marks for 2W / 3W transformers.
  * Port order matches grid export: edges[0]=hv, edges[1]=lv (2W); edges[0..2]=hv,mv,lv (3W).
+ * Vector-group glyphs are baked into the same SVG, in the HV / MV / LV circle.
  *
  * Labels are attached to shape.node (local cell coordinates). Do not use ownerSVGElement —
  * that is the diagram root; coordinates would be wrong and labels would not appear on the symbol.
  */
+
+import { clockHourFromDegrees, renderVectorGroupSymbols } from './transformerVectorGroupSymbol.js';
 
 export const TERM_LABEL_ATTRS = ['term_label_0', 'term_label_1', 'term_label_2'];
 
@@ -220,6 +223,7 @@ const SVG_2W_TEMPLATE =
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-45 -30 90 58">' +
     '<circle cx="-10" cy="0" r="14" fill="none" stroke="#1a1a2e" stroke-width="1.5"/>' +
     '<circle cx="10" cy="0" r="14" fill="none" stroke="#1a1a2e" stroke-width="1.5"/>' +
+    '%%S0%%%%S1%%' +
     '<line x1="-35" y1="0" x2="-24" y2="0" stroke="#1a1a2e" stroke-width="1.5"/>' +
     '<line x1="24" y1="0" x2="35" y2="0" stroke="#1a1a2e" stroke-width="1.5"/>' +
     '<line x1="-35" y1="0" x2="-41" y2="0" stroke="#1a1a2e" stroke-width="1.25" stroke-linecap="square"/>' +
@@ -233,6 +237,7 @@ const SVG_2W_TEMPLATE_VERTICAL =
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-30 -45 60 90">' +
     '<circle cx="0" cy="-12" r="14" fill="none" stroke="#1a1a2e" stroke-width="1.5"/>' +
     '<circle cx="0" cy="12" r="14" fill="none" stroke="#1a1a2e" stroke-width="1.5"/>' +
+    '%%S0%%%%S1%%' +
     '<line x1="0" y1="-26" x2="0" y2="-36" stroke="#1a1a2e" stroke-width="1.5"/>' +
     '<line x1="0" y1="26" x2="0" y2="36" stroke="#1a1a2e" stroke-width="1.5"/>' +
     '<line x1="0" y1="-36" x2="0" y2="-41" stroke="#1a1a2e" stroke-width="1.25" stroke-linecap="square"/>' +
@@ -246,6 +251,7 @@ const SVG_3W_TEMPLATE =
     '<circle cx="-10" cy="-8" r="14" fill="none" stroke="#1a1a2e" stroke-width="2"/>' +
     '<circle cx="10" cy="-8" r="14" fill="none" stroke="#1a1a2e" stroke-width="2"/>' +
     '<circle cx="0" cy="12" r="14" fill="none" stroke="#1a1a2e" stroke-width="2"/>' +
+    '%%S0%%%%S1%%%%S2%%' +
     '<line x1="-36" y1="-8" x2="-24" y2="-8" stroke="#1a1a2e" stroke-width="2"/>' +
     '<line x1="24" y1="-8" x2="36" y2="-8" stroke="#1a1a2e" stroke-width="2"/>' +
     '<line x1="0" y1="36" x2="0" y2="26" stroke="#1a1a2e" stroke-width="2"/>' +
@@ -263,6 +269,7 @@ const SVG_3W_TEMPLATE_VERTICAL =
     '<circle cx="0" cy="-8" r="14" fill="none" stroke="#1a1a2e" stroke-width="1.5"/>' +
     '<circle cx="-12" cy="12" r="14" fill="none" stroke="#1a1a2e" stroke-width="1.5"/>' +
     '<circle cx="12" cy="12" r="14" fill="none" stroke="#1a1a2e" stroke-width="1.5"/>' +
+    '%%S0%%%%S1%%%%S2%%' +
     '<line x1="0" y1="-22" x2="0" y2="-40" stroke="#1a1a2e" stroke-width="1.5"/>' +
     '<line x1="0" y1="-40" x2="0" y2="-44" stroke="#1a1a2e" stroke-width="1.25" stroke-linecap="square"/>' +
     '<line x1="-12" y1="26" x2="-12" y2="42" stroke="#1a1a2e" stroke-width="1.5"/>' +
@@ -278,12 +285,53 @@ function escapeXml(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function buildLabeledSvgUri(template, labels) {
+/** Circle centers match the templates above: [HV, LV] or [HV, MV, LV]. */
+const TRAFO_LAYOUTS = {
+    '2h': { centers: [{ x: -10, y: 0 }, { x: 10, y: 0 }] },
+    '2v': { centers: [{ x: 0, y: -12 }, { x: 0, y: 12 }] },
+    '3h': { centers: [{ x: -10, y: -8 }, { x: 10, y: -8 }, { x: 0, y: 12 }] },
+    '3v': { centers: [{ x: 0, y: -8 }, { x: -12, y: 12 }, { x: 12, y: 12 }] }
+};
+
+function layoutTemplate(key) {
+    if (key === '2v') return SVG_2W_TEMPLATE_VERTICAL;
+    if (key === '3h') return SVG_3W_TEMPLATE;
+    if (key === '3v') return SVG_3W_TEMPLATE_VERTICAL;
+    return SVG_2W_TEMPLATE;
+}
+
+function fillTransformerTemplate(template, labels, symbols) {
     let svg = template;
     for (let i = 0; i < labels.length; i++) {
         svg = svg.split('%%' + i + '%%').join(escapeXml(labels[i]));
     }
-    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    const syms = symbols || [];
+    for (let i = 0; i < 3; i++) {
+        svg = svg.split('%%S' + i + '%%').join(syms[i] || '');
+    }
+    return svg;
+}
+
+function getCellAttr(cell, name) {
+    if (!cell || !cell.value || typeof cell.value.getAttribute !== 'function') {
+        return '';
+    }
+    const v = cell.value.getAttribute(name);
+    return v == null ? '' : String(v).trim();
+}
+
+/**
+ * Full transformer SVG (circles, leads, terminal labels, vector-group marks).
+ * `which` is 2h, 2v, 3h, or 3v. Used by the canvas painter and by visual checks.
+ */
+export function renderTransformerSymbolSvg(which, labels, vectorGroup, fallbackClocks) {
+    const layout = TRAFO_LAYOUTS[which] || TRAFO_LAYOUTS['2h'];
+    const symbols = renderVectorGroupSymbols(vectorGroup, layout.centers, fallbackClocks);
+    return fillTransformerTemplate(layoutTemplate(which), labels, symbols);
+}
+
+function buildLabeledSvgUri(template, labels, symbols) {
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(fillTransformerTemplate(template, labels, symbols));
 }
 
 /** True when the cell uses the vertical winding asset (not merely rotation on a horizontal SVG). */
@@ -332,29 +380,37 @@ function paintTransformerTerminalLabels(state) {
     removeOldLayers(host);
 
     const cell = state.cell;
-    let template, labels;
+    let which, labels, fallbackClocks;
+    const vectorGroup = getCellAttr(cell, 'vector_group');
     if (trafoKind === 'Transformer') {
-        template = isVerticalTwoWindingTrafo(state, mxUtils)
-            ? SVG_2W_TEMPLATE_VERTICAL
-            : SVG_2W_TEMPLATE;
+        which = isVerticalTwoWindingTrafo(state, mxUtils) ? '2v' : '2h';
         labels = [getTermLabel(cell, 0, 'HV'), getTermLabel(cell, 1, 'LV')];
+        fallbackClocks = [0, clockHourFromDegrees(getCellAttr(cell, 'shift_degree'))];
     } else {
-        template = isVerticalThreeWindingTrafo(state, mxUtils)
-            ? SVG_3W_TEMPLATE_VERTICAL
-            : SVG_3W_TEMPLATE;
+        which = isVerticalThreeWindingTrafo(state, mxUtils) ? '3v' : '3h';
         labels = [getTermLabel(cell, 0, 'HV'), getTermLabel(cell, 1, 'MV'), getTermLabel(cell, 2, 'LV')];
+        fallbackClocks = [
+            0,
+            clockHourFromDegrees(getCellAttr(cell, 'shift_mv_degree')),
+            clockHourFromDegrees(getCellAttr(cell, 'shift_lv_degree'))
+        ];
     }
 
-    const dataUri = buildLabeledSvgUri(template, labels);
+    const dataUri = buildLabeledSvgUri(
+        layoutTemplate(which),
+        labels,
+        renderVectorGroupSymbols(vectorGroup, TRAFO_LAYOUTS[which].centers, fallbackClocks)
+    );
 
     if (isHtmlShapeNode(host)) {
         const img = host.querySelector('img');
-        if (img) {
+        if (img && img.getAttribute('data-electrisim-src') !== dataUri) {
+            img.setAttribute('data-electrisim-src', dataUri);
             img.src = dataUri;
         }
     } else {
         const img = host.querySelector('image');
-        if (img) {
+        if (img && img.getAttribute('href') !== dataUri) {
             img.setAttribute('href', dataUri);
             try { img.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', dataUri); } catch (_) {}
         }

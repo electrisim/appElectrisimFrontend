@@ -21,7 +21,7 @@ import {
     COMPONENT_TYPES,
     isSwitchClosedForPowerFlow
 } from '../loadFlow.js';
-import { computeWindTurbinePMw } from '../windTurbineDialog.js';
+import { computeWindTurbinePMw, WIND_SC_DEFAULTS } from '../windTurbineDialog.js';
 import { resolveStorageFixedPf } from '../storageDialog.js';
 import { resolveStorageQSetpoint } from './storageQCapability.js';
 import {
@@ -775,6 +775,18 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                     dyn_wt_DAMP: { name: 'dyn_wt_DAMP', optional: true },
                     dyn_dg_Tg: { name: 'dyn_dg_Tg', optional: true },
                 });
+                // Same defaults the Wind Turbine dialog shows when these attributes
+                // were never written (Components Data displays them too). Without this,
+                // Ik" is ignored until the element dialog Apply stores them.
+                for (const [scKey, scFallback] of Object.entries(WIND_SC_DEFAULTS)) {
+                    const raw = windAttrs[scKey];
+                    if (raw == null || String(raw).trim() === '') {
+                        windAttrs[scKey] = scFallback;
+                    }
+                }
+                if (windAttrs.generator_type == null || String(windAttrs.generator_type).trim() === '') {
+                    windAttrs.generator_type = 'current_source';
+                }
                 windAttrs.p_mw = computeWindTurbinePMw(
                     windAttrs.wind_speed_ms,
                     windAttrs.wind_power_curve_json,

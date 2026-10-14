@@ -106,14 +106,28 @@ export function isUserSelectionFaultMode(mode) {
     return m === 'selection' || m === 'user' || m === 'user_selection' || m === 'user selection';
 }
 
+const SHORT_CIRCUIT_FAULT_LABEL = {
+    '3ph': 'Three-phase',
+    '2ph': 'Two-phase',
+    '1ph': 'Single-phase to ground',
+};
+
+export function formatScFaultTypeLine(dataJson) {
+    const faultType = String(dataJson?.study_params?.fault_type || '').trim();
+    if (!faultType) return '';
+    const label = SHORT_CIRCUIT_FAULT_LABEL[faultType];
+    return label ? `Fault: ${label} (${faultType})\n` : `Fault: ${faultType}\n`;
+}
+
 export function formatScFaultLocationLine(dataJson) {
     const sp = dataJson?.study_params || {};
     const mode = sp.fault_bus_mode || 'all';
+    const faultLine = formatScFaultTypeLine(dataJson);
     if (isUserSelectionFaultMode(mode)) {
         const n = Array.isArray(dataJson?.busbars) ? dataJson.busbars.length : 0;
-        return `Fault location: User Selection (${n} busbar${n === 1 ? '' : 's'})\n`;
+        return `${faultLine}Fault location: User Selection (${n} busbar${n === 1 ? '' : 's'})\n`;
     }
-    return 'Fault location: All busbars\n';
+    return `${faultLine}Fault location: All busbars\n`;
 }
 
 /**
