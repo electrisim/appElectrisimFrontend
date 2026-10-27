@@ -2,6 +2,26 @@
 import { Dialog } from '../Dialog.js';
 import { ensureSubscriptionFunctions } from '../ensureSubscriptionFunctions.js';
 
+// Study settings are saved as JSON on the Storage cell, so they travel with the model file.
+// The attribute is not in the Storage whitelist in networkDataPreparation, so it is never
+// sent to the backend as element data.
+const SETTINGS_ATTR = 'bess_dispatch_reversal_settings';
+const SETTING_KEYS = [
+    'pocBusId', 'pStartMw', 'pEndMw', 'preHoldS', 'rampS', 'postHoldS', 'dt',
+    'vminPu', 'vmaxPu', 'olrtS', 'qSource', 'engine', 'frequency'
+];
+const DEFAULT_SETTINGS = {
+    preHoldS: '2',
+    rampS: '10',
+    postHoldS: '60',
+    dt: '0.1',
+    vminPu: '0.98',
+    vmaxPu: '1.02',
+    olrtS: '5',
+    engine: 'opender',
+    frequency: '50'
+};
+
 function _cellLabel(cell, fallback) {
     try {
         const name = cell?.value?.getAttribute?.('name') || cell?.value?.attributes?.getNamedItem?.('name')?.value;
@@ -65,11 +85,66 @@ function _defaultPocBusId(buses) {
     return pool[0].value;
 }
 
+function _readSavedSettings(cell) {
+    const raw = _attr(cell, SETTINGS_ATTR, '');
+    if (!raw) return null;
+    try {
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+/** Write the study settings onto the Storage cell (undoable; marks the diagram modified). */
+function _saveSettingsOnCell(graph, cell, settings) {
+    const model = graph?.getModel?.();
+    if (!model || !cell) return false;
+    let node;
+    if (cell.value && typeof cell.value.cloneNode === 'function') {
+        node = cell.value.cloneNode(true);
+    } else if (typeof mxUtils !== 'undefined') {
+        node = mxUtils.createXmlDocument().createElement('object');
+        if (cell.value != null) node.setAttribute('label', String(cell.value));
+    } else {
+        return false;
+    }
+    node.setAttribute(SETTINGS_ATTR, JSON.stringify(settings));
+    model.beginUpdate();
+    try {
+        model.setValue(cell, node);
+    } finally {
+        model.endUpdate();
+    }
+    return true;
+}
+
+/** Saved settings for this storage, falling back to defaults (start/end P from the Storage P). */
+function _settingsForStorage(meta, buses) {
+    const pMw = meta && Number.isFinite(meta.pMw) && meta.pMw !== 0 ? meta.pMw : 45;
+    const settings = {
+        ...DEFAULT_SETTINGS,
+        pocBusId: _defaultPocBusId(buses),
+        pStartMw: String(pMw),
+        pEndMw: String(-pMw),
+        qSource: meta?.qSource || 'inverter'
+    };
+    const saved = meta?.saved || {};
+    SETTING_KEYS.forEach((key) => {
+        if (saved[key] != null && saved[key] !== '') settings[key] = String(saved[key]);
+    });
+    if (!buses.some((b) => b.value === settings.pocBusId)) {
+        settings.pocBusId = _defaultPocBusId(buses);
+    }
+    return settings;
+}
+
 function _scanGraph(graph) {
     const buses = [];
     const storages = [];
+    const storageCells = new Map();
     const sourceBusIds = new Set();
-    if (!graph?.getModel) return { buses, storages };
+    if (!graph?.getModel) return { buses, storages, storageCells };
     const model = graph.getModel();
     const cells = (typeof model.getDescendants === 'function' ? model.getDescendants() : []) || [];
     cells.forEach((cell) => {
@@ -96,8 +171,10 @@ function _scanGraph(graph) {
                 pMw: parseFloat(pMw) || 0,
                 curveOn,
                 voltDep: /^(true|1|yes|on)$/i.test(String(_attr(cell, 'q_cap_voltage_dependent', ''))),
-                qSource
+                qSource,
+                saved: _readSavedSettings(cell)
             });
+            storageCells.set(id, cell);
         }
         if (shape === 'Bus' || shape === 'Busbar' || style.includes('shapeELXXX=Bus')) {
             const vnKv = parseFloat(_attr(cell, 'vn_kv', '0')) || 0;
@@ -111,7 +188,7 @@ function _scanGraph(graph) {
         const src = b.isSource ? ' — source/slack' : '';
         b.label = `${b.name} — ${kv}${src}`;
     });
-    return { buses, storages };
+    return { buses, storages, storageCells };
 }
 
 export class BessDispatchReversalDialog extends Dialog {
@@ -122,48 +199,55 @@ export class BessDispatchReversalDialog extends Dialog {
 
         let buses = [];
         let storages = [];
+        let storageCells = new Map();
         try {
-            ({ buses, storages } = _scanGraph(this.graph));
+            ({ buses, storages, storageCells } = _scanGraph(this.graph));
         } catch (e) {
             console.warn('BessDispatchReversalDialog: failed to scan graph', e);
         }
 
+        this._buses = buses;
+        this._storageCells = storageCells;
         this._storageMeta = Object.fromEntries(storages.map((s) => [s.value, s]));
+
+        // Open on the storage that was studied last (it has saved settings), else the first one.
+        const initialStorage = storages.find((s) => s.saved) || storages[0];
+        const s = _settingsForStorage(initialStorage, buses);
 
         this.parameters = [
             {
                 id: 'storageId',
                 label: 'BESS / Storage element',
                 type: 'select',
-                value: storages[0]?.value || '',
+                value: initialStorage?.value || '',
                 options: storages.length ? storages : [{ value: '', label: '(no Storage found)' }]
             },
             {
                 id: 'pocBusId',
                 label: 'POC bus (plant HV / grid connection — not the source bus)',
                 type: 'select',
-                value: _defaultPocBusId(buses),
+                value: s.pocBusId,
                 options: buses.length ? buses : [{ value: '', label: '(no buses found)' }]
             },
             {
                 id: 'pStartMw',
                 label: 'Start P [MW] (+ charge, − discharge)',
                 type: 'number',
-                value: '45',
+                value: s.pStartMw,
                 step: '1'
             },
             {
                 id: 'pEndMw',
                 label: 'End P [MW] after ramp',
                 type: 'number',
-                value: '-45',
+                value: s.pEndMw,
                 step: '1'
             },
             {
                 id: 'preHoldS',
                 label: 'Pre-hold at start P [s]',
                 type: 'number',
-                value: '2',
+                value: s.preHoldS,
                 step: '0.5',
                 min: '0'
             },
@@ -171,7 +255,7 @@ export class BessDispatchReversalDialog extends Dialog {
                 id: 'rampS',
                 label: 'Ramp duration [s]',
                 type: 'number',
-                value: '10',
+                value: s.rampS,
                 step: '0.5',
                 min: '0.1'
             },
@@ -179,7 +263,7 @@ export class BessDispatchReversalDialog extends Dialog {
                 id: 'postHoldS',
                 label: 'Post-hold at end P [s]',
                 type: 'number',
-                value: '60',
+                value: s.postHoldS,
                 step: '1',
                 min: '0'
             },
@@ -187,7 +271,7 @@ export class BessDispatchReversalDialog extends Dialog {
                 id: 'dt',
                 label: 'Time step [s]',
                 type: 'number',
-                value: '0.1',
+                value: s.dt,
                 step: '0.05',
                 min: '0.01'
             },
@@ -195,21 +279,21 @@ export class BessDispatchReversalDialog extends Dialog {
                 id: 'vminPu',
                 label: 'Min voltage limit [pu]',
                 type: 'number',
-                value: '0.98',
+                value: s.vminPu,
                 step: '0.001'
             },
             {
                 id: 'vmaxPu',
                 label: 'Max voltage limit [pu]',
                 type: 'number',
-                value: '1.02',
+                value: s.vmaxPu,
                 step: '0.001'
             },
             {
                 id: 'olrtS',
                 label: 'Open-loop response time [s] (IEEE 1547 Volt-VAR / PF)',
                 type: 'number',
-                value: '5',
+                value: s.olrtS,
                 step: '0.5',
                 min: '0.1'
             },
@@ -221,17 +305,17 @@ export class BessDispatchReversalDialog extends Dialog {
                     {
                         value: 'inverter',
                         label: 'Storage inverter settings (Fixed PF / Q setpoint / Volt-VAR)',
-                        default: (storages[0]?.qSource || 'inverter') === 'inverter'
+                        default: s.qSource === 'inverter'
                     },
                     {
                         value: 'curve_inject',
                         label: 'Q capability — inject max (q_min). Use this to see the P–Q curve and voltage derate.',
-                        default: (storages[0]?.qSource || 'inverter') === 'curve_inject'
+                        default: s.qSource === 'curve_inject'
                     },
                     {
                         value: 'curve_absorb',
                         label: 'Q capability — absorb max (q_max)',
-                        default: (storages[0]?.qSource || 'inverter') === 'curve_absorb'
+                        default: s.qSource === 'curve_absorb'
                     }
                 ]
             },
@@ -240,8 +324,8 @@ export class BessDispatchReversalDialog extends Dialog {
                 label: 'Simulation engine',
                 type: 'radio',
                 options: [
-                    { value: 'opender', label: 'OpenDER + OpenDSS (IEEE 1547 inverter, recommended)', default: true },
-                    { value: 'opendss', label: 'OpenDSS only (fixed PF / InvControl on Storage, no OLRT)' }
+                    { value: 'opender', label: 'OpenDER + OpenDSS (IEEE 1547 inverter, recommended)', default: s.engine === 'opender' },
+                    { value: 'opendss', label: 'OpenDSS only (fixed PF / InvControl on Storage, no OLRT)', default: s.engine === 'opendss' }
                 ]
             },
             {
@@ -249,8 +333,8 @@ export class BessDispatchReversalDialog extends Dialog {
                 label: 'Frequency [Hz]',
                 type: 'radio',
                 options: [
-                    { value: '50', label: '50 Hz', default: true },
-                    { value: '60', label: '60 Hz' }
+                    { value: '50', label: '50 Hz', default: s.frequency === '50' },
+                    { value: '60', label: '60 Hz', default: s.frequency === '60' }
                 ]
             }
         ];
@@ -279,6 +363,38 @@ export class BessDispatchReversalDialog extends Dialog {
         return values;
     }
 
+    /** Fill the open form with the saved (or default) settings of another storage. */
+    loadSettingsIntoForm(storageId) {
+        const settings = _settingsForStorage(this._storageMeta[storageId], this._buses || []);
+        SETTING_KEYS.forEach((key) => {
+            const param = (this.parameters || []).find((p) => p.id === key);
+            if (!param) return;
+            if (param.type === 'radio') {
+                const radio = this.inputs?.get(`${key}_${settings[key]}`);
+                if (radio) radio.checked = true;
+            } else {
+                const input = this.inputs?.get(key);
+                if (input) input.value = settings[key];
+            }
+        });
+    }
+
+    /** Save the settings of this run on the Storage cell; returns true when saved. */
+    saveSettings(form) {
+        const cell = this._storageCells?.get(form?.storageId);
+        if (!cell) return false;
+        const settings = {};
+        SETTING_KEYS.forEach((key) => {
+            if (form[key] != null && form[key] !== '') settings[key] = String(form[key]);
+        });
+        try {
+            return _saveSettingsOnCell(this.graph, cell, settings);
+        } catch (e) {
+            console.warn('BessDispatchReversalDialog: could not save study settings', e);
+            return false;
+        }
+    }
+
     getDescription() {
         return '<strong>BESS dispatch reversal — voltage overshoot screening</strong><br>' +
             'Ramp active power from charge to discharge (e.g. +45 MW → −45 MW in 10 s) while co-simulating ' +
@@ -286,7 +402,8 @@ export class BessDispatchReversalDialog extends Dialog {
             'with the OpenDSS network. Plot POC voltage, P, and Q vs time to check ±2% limits during FCR / primary-market reversals.<br><br>' +
             'Set charge/discharge PF and Volt-VAR on the Storage → Inverter Control tab; they are mapped into OpenDER.<br>' +
             '<strong>Use Q capability curve</strong> and <strong>Voltage-dependent Q envelope</strong> only change V(t)/Q(t) when Q is taken from the envelope ' +
-            '(choose inject or absorb max below) or when a non-unity PF hits the kVA / curve limit. Unity PF with inverter Q stays at Q = 0.';
+            '(choose inject or absorb max below) or when a non-unity PF hits the kVA / curve limit. Unity PF with inverter Q stays at Q = 0.<br><br>' +
+            'The settings you calculate with are saved on the selected Storage element and kept when you save the model.';
     }
 
     async checkSubscriptionStatus() {
@@ -330,15 +447,17 @@ export class BessDispatchReversalDialog extends Dialog {
 
             const meta = this._storageMeta[form.storageId];
             if (meta && Number.isFinite(meta.pMw) && meta.pMw !== 0) {
-                if (!form.pStartMw || form.pStartMw === '45') {
-                    form.pStartMw = String(meta.pMw);
-                }
-                if (!form.pEndMw || form.pEndMw === '-45') {
-                    form.pEndMw = String(-meta.pMw);
-                }
+                if (!form.pStartMw) form.pStartMw = String(meta.pMw);
+                if (!form.pEndMw) form.pEndMw = String(-meta.pMw);
             }
+            this.saveSettings(form);
             callback?.(form);
         }, this.parameters);
+
+        const storageSelect = this.inputs?.get('storageId');
+        if (storageSelect) {
+            this.addEventListener(storageSelect, 'change', () => this.loadSettingsIntoForm(storageSelect.value));
+        }
     }
 }
 

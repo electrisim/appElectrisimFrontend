@@ -2,7 +2,7 @@
  * Map Editor initializer - adds Map Editor button and menu integration
  */
 
-import { MapEditorDialog } from '../dialogs/MapEditorDialog.js';
+import { MapEditorDialog } from '../dialogs/MapEditorDialog.js?v=2';
 
 // Define early so it's always available (e.g. from console)
 window.showMapEditorDialog = function (retryCount) {

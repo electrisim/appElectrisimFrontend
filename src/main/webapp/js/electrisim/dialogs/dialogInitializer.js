@@ -89,7 +89,19 @@ function resolveEditableCell(cell) {
     return null;
 }
 
+function isResultBoxCell(cell) {
+    return getCellStyleString(cell).indexOf('shapeELXXX=Result') >= 0;
+}
+
 function openEditDataForCell(ui, graph, cell, evt) {
+    // A result box expands in place. Do not walk up to the bus/component dialog.
+    if (isResultBoxCell(cell)) {
+        if (typeof window.toggleResultBox === 'function') {
+            window.toggleResultBox(graph, cell);
+        }
+        if (evt) mxEvent.consume(evt);
+        return true;
+    }
     const target = resolveEditableCell(cell);
     if (!target) return false;
     // Prevent dblClick + mouseDown double-detection from opening twice
@@ -214,8 +226,27 @@ function installDoubleClickEditData(retryCount) {
             const x = me.getGraphX();
             const y = me.getGraphY();
             const sameSpot = Math.abs(x - lastClick.x) <= TOLERANCE && Math.abs(y - lastClick.y) <= TOLERANCE;
+            if (isResultBoxCell(cell)) {
+                if (typeof window.expandResultMarkerAtEvent === 'function' && window.expandResultMarkerAtEvent(graph, evt, cell)) {
+                    me.consume();
+                    if (graph.isCellSelected(cell)) graph.removeSelectionCell(cell);
+                    lastClick = { time: 0, cell: null, x: 0, y: 0, opened: true };
+                    return;
+                }
+                if (lastClick.cell === cell && sameSpot && now - lastClick.time > 0 && now - lastClick.time <= DOUBLE_MS) {
+                    if (typeof window.toggleResultBox === 'function') {
+                        window.toggleResultBox(graph, cell);
+                    }
+                    me.consume();
+                    lastClick = { time: 0, cell: null, x: 0, y: 0, opened: true };
+                    return;
+                }
+                lastClick = { time: now, cell, x, y, opened: false };
+                return;
+            }
             const sameOrRelated =
                 lastClick.cell &&
+                !isResultBoxCell(lastClick.cell) &&
                 (cell === lastClick.cell ||
                     resolveEditableCell(cell) === resolveEditableCell(lastClick.cell));
 

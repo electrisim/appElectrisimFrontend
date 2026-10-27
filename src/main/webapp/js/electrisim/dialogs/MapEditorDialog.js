@@ -5,7 +5,7 @@
 
 import { Dialog } from '../Dialog.js';
 import { MapEditor, NODE_TYPES } from '../map/MapEditor.js';
-import { mapToElectricalModel } from '../map/mapToElectricalModel.js';
+import { mapToElectricalModel } from '../map/mapToElectricalModel.js?v=2';
 import { attachBackdropCloseHandler } from '../utils/dialogStyles.js';
 
 export class MapEditorDialog extends Dialog {

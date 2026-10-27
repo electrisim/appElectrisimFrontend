@@ -20,7 +20,7 @@ import {
     validateBusConnections,
     COMPONENT_TYPES,
     isSwitchClosedForPowerFlow
-} from '../loadFlow.js';
+} from '../loadFlow.js?v=6';
 import { computeWindTurbinePMw, WIND_SC_DEFAULTS } from '../windTurbineDialog.js';
 import { resolveStorageFixedPf } from '../storageDialog.js';
 import { resolveStorageQSetpoint } from './storageQCapability.js';

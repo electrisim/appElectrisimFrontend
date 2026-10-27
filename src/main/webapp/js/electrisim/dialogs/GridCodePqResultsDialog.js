@@ -5,12 +5,120 @@ import {
     getGridTemplateDisplayName,
     findGridTemplateKeyByName
 } from './RPCDialog.js';
+import {
+    buildGraphCellLookupMap,
+    resolveGraphCellForResult,
+    getDisplayName,
+    looksLikeInternalGraphObjectId
+} from '../utils/attributeUtils.js';
 
 console.log('GridCodePqResultsDialog.js LOADED');
+
+const PQ_Q_ELEMENT_SOURCES = [
+    { key: 'staticgenerators', type: 'Static generator', wind: true },
+    { key: 'generators', type: 'Generator' },
+    { key: 'storages', type: 'Storage' },
+    { key: 'shunts', type: 'Shunt reactor' },
+    { key: 'capacitors', type: 'Capacitor' },
+    { key: 'svcs', type: 'SVC' }
+];
+
+const PQ_Q_TYPE_ORDER = [
+    'Wind turbine',
+    'Static generator',
+    'Generator',
+    'Storage',
+    'Shunt reactor',
+    'Capacitor',
+    'SVC'
+];
+
+const PQ_Q_TYPE_COLOR = {
+    'Wind turbine': '#198754',
+    'Static generator': '#0f766e',
+    'Generator': '#0dcaf0',
+    'Storage': '#6f42c1',
+    'Shunt reactor': '#fd7e14',
+    'Capacitor': '#d63384',
+    'SVC': '#6c757d'
+};
 
 function _fmt(v, digits = 3) {
     if (v == null || Number.isNaN(Number(v))) return '—';
     return Number(v).toFixed(digits);
+}
+
+function _csvEscape(v) {
+    const s = v == null ? '' : String(v);
+    if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+    return s;
+}
+
+function _pqSideLabel(side) {
+    return side === 'q_min'
+        ? 'Q min (underexcited, inductive)'
+        : 'Q max (overexcited, capacitive)';
+}
+
+const PQ_Q_TYPE_PALETTE = {
+    'Wind turbine': ['#198754', '#146c43', '#20c997'],
+    'Static generator': ['#0f766e', '#115e59', '#0d9488'],
+    'Generator': ['#0dcaf0', '#087990'],
+    'Storage': ['#6f42c1', '#59359a'],
+    'Shunt reactor': ['#fd7e14', '#d9480f', '#e67700'],
+    'Capacitor': ['#d63384', '#a61e4d'],
+    'SVC': ['#6c757d', '#495057']
+};
+
+function _aggregateContribution(rows, collapseTypes) {
+    const buckets = new Map();
+    (rows || []).forEach((row) => {
+        const qNum = Number(row.qMvar);
+        if (!Number.isFinite(qNum)) return;
+        const collapsed = collapseTypes.has(row.type);
+        const key = collapsed ? `type:${row.type}` : `name:${row.type}|${row.name}`;
+        let bucket = buckets.get(key);
+        if (!bucket) {
+            bucket = {
+                key, type: row.type, name: row.name, q: 0, count: 0, collapsed
+            };
+            buckets.set(key, bucket);
+        }
+        bucket.q += qNum;
+        bucket.count += 1;
+    });
+    return [...buckets.values()];
+}
+
+function _chartOperatingQ(bucket) {
+    // Use the solved load-flow Q. A shunt reactor at 208 Mvar is plotted at 208,
+    // the same value as the result on the diagram.
+    return bucket.q;
+}
+
+function _operatingWords(bucket) {
+    const q = Number(bucket.q);
+    if (bucket.type === 'Shunt reactor') {
+        return q >= 0 ? 'inductive (underexcited)' : 'capacitive (overexcited)';
+    }
+    return q >= 0 ? 'capacitive (overexcited)' : 'inductive (underexcited)';
+}
+
+function _contributionLabel(bucket) {
+    if (bucket.collapsed) return `${bucket.type} ×${bucket.count} total`;
+    if (bucket.count > 1) return `${bucket.name} ×${bucket.count} total`;
+    return bucket.name || bucket.type;
+}
+
+function _contributionSentence(bucket, magText, unit) {
+    const qOp = _chartOperatingQ(bucket);
+    const word = _operatingWords(bucket);
+    const label = _contributionLabel(bucket);
+    const mag = magText(Math.abs(qOp));
+    if (bucket.count > 1) {
+        return `${label}: operating Q ${mag} ${unit} ${word} (${magText(Math.abs(qOp) / bucket.count)} ${unit} on each unit).`;
+    }
+    return `${label}: operating Q ${mag} ${unit} ${word}.`;
 }
 
 function _voltageKeyVariants(v) {
@@ -252,6 +360,12 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         this._unitPuBtn = null;
         this._signGenBtn = null;
         this._signLoadBtn = null;
+        this._pqMaximized = false;
+        this._pqDialogEl = null;
+        this._pqMaxBtn = null;
+        this._showElementQ = false;
+        this._elementQOffBtn = null;
+        this._elementQOnBtn = null;
     }
 
     show(results) {
@@ -265,6 +379,8 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         this._plotPuP = false;
         this._plotPuQ = false;
         this._plotLoadOriented = false;
+        this._pqMaximized = false;
+        this._showElementQ = false;
         this._pqChartSpecs = [];
         _attachPqRequirementOverlay(data);
         if (Number(data.pmax_pcc_mw) > 0) this._pn = Number(data.pmax_pcc_mw);
@@ -296,6 +412,19 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         Object.assign(titleText.style, { fontWeight: '700', fontSize: '16px', color: '#212529' });
         titleBar.appendChild(titleText);
 
+        const titleActions = document.createElement('div');
+        Object.assign(titleActions.style, { display: 'flex', alignItems: 'center', gap: '8px' });
+        const maxBtn = document.createElement('button');
+        maxBtn.type = 'button';
+        maxBtn.textContent = 'Maximize';
+        Object.assign(maxBtn.style, {
+            border: '1px solid #ced4da', background: '#fff', color: '#212529',
+            borderRadius: '4px', padding: '4px 10px', fontSize: '12px', fontWeight: '600', cursor: 'pointer'
+        });
+        maxBtn.onclick = () => this._togglePqMaximize();
+        this._pqMaxBtn = maxBtn;
+        titleActions.appendChild(maxBtn);
+
         const closeBtn = document.createElement('button');
         closeBtn.textContent = '\u00d7';
         Object.assign(closeBtn.style, {
@@ -303,8 +432,10 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
             cursor: 'pointer', color: '#6c757d', fontWeight: '700'
         });
         closeBtn.onclick = () => this.destroy();
-        titleBar.appendChild(closeBtn);
+        titleActions.appendChild(closeBtn);
+        titleBar.appendChild(titleActions);
         dialog.appendChild(titleBar);
+        this._pqDialogEl = dialog;
 
         dialog.appendChild(this._createComplianceBanner(data));
         dialog.appendChild(this._createSummaryBar(data));
@@ -401,6 +532,10 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
             padding: '12px 24px', borderTop: '1px solid #e9ecef',
             display: 'flex', justifyContent: 'flex-end', gap: '8px'
         });
+        const imageBtn = this._styledButton('Save image', '#0d6efd', '#0b5ed7');
+        imageBtn.onclick = () => this._saveChartImage();
+        footerBar.appendChild(imageBtn);
+
         const downloadBtn = this._styledButton('Download CSV', '#28a745', '#218838');
         downloadBtn.onclick = () => this._downloadCSV(data);
         footerBar.appendChild(downloadBtn);
@@ -500,6 +635,12 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         this._signLoadBtn = makeBtn('Load (+P import)', () => this._setPlotSign(true));
         addGroup('Sign convention', this._signGenBtn, this._signLoadBtn);
 
+        this._elementQOffBtn = makeBtn('Off', () => this._setShowElementQ(false));
+        this._elementQOnBtn = makeBtn('On', () => this._setShowElementQ(true));
+        this._elementQOffBtn.title = 'Capability curve only.';
+        this._elementQOnBtn.title = 'Mark each group’s operating reactive power from the selected load flow.';
+        addGroup('Element Q', this._elementQOffBtn, this._elementQOnBtn);
+
         this._syncUnitToggleStyle();
         return bar;
     }
@@ -516,6 +657,26 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         apply(this._unitPuBtn, pu);
         apply(this._signGenBtn, !this._plotLoadOriented);
         apply(this._signLoadBtn, this._plotLoadOriented);
+        apply(this._elementQOffBtn, !this._showElementQ);
+        apply(this._elementQOnBtn, this._showElementQ);
+    }
+
+    _setShowElementQ(show) {
+        if (this._showElementQ === show) return;
+        this._showElementQ = show;
+        this._syncUnitToggleStyle();
+        (this._pqChartSpecs || []).forEach((spec) => {
+            if (spec.panel?._pqClickHint) spec.panel._pqClickHint.textContent = this._pqClickHintText();
+        });
+        this._refreshAllElementQTables();
+        (this._pqChartSpecs || []).forEach((spec) => this._refreshElementMarkers(spec.panel));
+    }
+
+    _pqClickHintText() {
+        if (this._showElementQ) {
+            return 'Element Q is on. Markers are the operating reactive power from the load flow of the red point you select, not the available capability. Click a red point to show that load flow on the diagram.';
+        }
+        return 'Click a red capability point to show that load flow on the diagram. Q max is overexcited (capacitive). Q min is underexcited (inductive). Turn on Element Q to draw each group’s total on the chart.';
     }
 
     _setPlotUnits(usePu) {
@@ -538,6 +699,7 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         const gen = ++this._pqRedrawGen;
         (this.chartInstances || []).forEach((c) => { try { c.destroy(); } catch (e) { /* noop */ } });
         this.chartInstances = [];
+        this._refreshAllElementQTables();
         this._loadChartJS().then(() => {
             if (gen !== this._pqRedrawGen) return;
             (this._pqChartSpecs || []).forEach((s) => {
@@ -554,7 +716,8 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         Object.assign(clickHint.style, {
             fontSize: '12px', color: '#6c757d', marginBottom: '10px', lineHeight: '1.45'
         });
-        clickHint.textContent = 'Click any red capability point to update load-flow result boxes on the diagram for that operating point.';
+        clickHint.textContent = this._pqClickHintText();
+        panel._pqClickHint = clickHint;
         panel.appendChild(clickHint);
 
         const pointStatus = document.createElement('div');
@@ -583,9 +746,10 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         const canvas = document.createElement('canvas');
         canvas.width = 850;
         canvas.height = 450;
-        Object.assign(canvas.style, { width: '100%', maxHeight: '450px' });
+        Object.assign(canvas.style, { width: '100%', height: '450px', maxHeight: '450px' });
         panel.appendChild(canvas);
         this._pqChartSpecs.push({ canvas, curveData, reqData, voltageLevel, fullData, panel });
+        this._mountElementQSection(panel, curveData);
     }
 
     _createSummaryBar(data) {
@@ -606,7 +770,9 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
             extra.push(['Q dispatch', 'Park Controller']);
         }
         if (data.load_flow_count != null) {
-            extra.push(['Load flows', String(data.load_flow_count)]);
+            const seconds = Number(data.elapsed_s);
+            const timing = Number.isFinite(seconds) && seconds > 0 ? ` in ${seconds.toFixed(0)} s` : '';
+            extra.push(['Load flows', `${data.load_flow_count}${timing}`]);
         }
         if (data.pq_compliance === true) extra.push(['P-Q compliance', 'COMPLIANT']);
         else if (data.pq_compliance === false) extra.push(['P-Q compliance', 'NON-COMPLIANT']);
@@ -727,6 +893,578 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         return wrap;
     }
 
+    _cellLookup() {
+        const graph = this.ui?.editor?.graph;
+        if (!graph) return null;
+        if (this._cellLookupMap && this._cellLookupGraph === graph) return this._cellLookupMap;
+        this._cellLookupGraph = graph;
+        this._cellLookupMap = buildGraphCellLookupMap(graph);
+        return this._cellLookupMap;
+    }
+
+    _cellForResultRow(row) {
+        const graph = this.ui?.editor?.graph;
+        const map = this._cellLookup();
+        if (!graph || !map || !row) return null;
+        return resolveGraphCellForResult(map, row, graph);
+    }
+
+    _elementDisplayName(row, typeLabel, cell) {
+        if (cell) return getDisplayName(cell, row?.name, typeLabel);
+        const raw = row?.name != null ? String(row.name) : '';
+        if (raw && !looksLikeInternalGraphObjectId(raw)) return raw.replace(/_/g, '#');
+        return typeLabel;
+    }
+
+    _elementRowsFromSnapshot(lf) {
+        if (!lf) return [];
+        const rows = [];
+        PQ_Q_ELEMENT_SOURCES.forEach((src) => {
+            const list = lf[src.key];
+            if (!Array.isArray(list)) return;
+            list.forEach((item) => {
+                const cell = this._cellForResultRow(item);
+                let type = src.type;
+                if (src.wind && String(cell?.style || '').includes('shapeELXXX=Wind Turbine')) {
+                    type = 'Wind turbine';
+                }
+                const pMw = item?.p_mw;
+                const qMvar = item?.q_mvar;
+                const pNum = (pMw == null || pMw === '') ? NaN : Number(pMw);
+                const qNum = (qMvar == null || qMvar === '') ? NaN : Number(qMvar);
+                rows.push({
+                    name: this._elementDisplayName(item, type, cell),
+                    type,
+                    pMw,
+                    qMvar,
+                    pScaled: Number.isFinite(pNum) ? this._scaleP(pNum) : NaN,
+                    qScaled: Number.isFinite(qNum) ? this._scaleQ(qNum) : NaN
+                });
+            });
+        });
+        rows.sort((a, b) => {
+            const ia = PQ_Q_TYPE_ORDER.indexOf(a.type);
+            const ib = PQ_Q_TYPE_ORDER.indexOf(b.type);
+            if (ia !== ib) return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+            return String(a.name).localeCompare(String(b.name), undefined, { numeric: true });
+        });
+        return rows;
+    }
+
+    _resolveEnvelopeSnapshot(vKey, side, pPlot, pDispatch) {
+        let lf = this._resolvePointLoadflow(vKey, side, pPlot);
+        let pKey = pPlot;
+        if (!lf && pDispatch != null) {
+            lf = this._resolvePointLoadflow(vKey, side, pDispatch);
+            pKey = pDispatch;
+        }
+        return { lf, pKey };
+    }
+
+    _defaultElementSelection(vKey, curveData) {
+        const pick = (side) => {
+            const pArr = side === 'q_min'
+                ? (curveData.p_min_mw || curveData.p_mw || [])
+                : (curveData.p_max_mw || curveData.p_mw || []);
+            const qArr = side === 'q_min' ? (curveData.q_min_mvar || []) : (curveData.q_max_mvar || []);
+            const pDisp = curveData.p_dispatch_mw || [];
+            for (let i = pArr.length - 1; i >= 0; i--) {
+                const resolved = this._resolveEnvelopeSnapshot(vKey, side, pArr[i], pDisp[i]);
+                if (!resolved.lf) continue;
+                return {
+                    side,
+                    pKey: resolved.pKey,
+                    pPcc: pArr[i],
+                    qPcc: qArr[i]
+                };
+            }
+            return null;
+        };
+        return pick('q_max') || pick('q_min');
+    }
+
+    _pqPowerUnits() {
+        return {
+            p: this._plotPuP ? 'p.u.' : 'MW',
+            q: this._plotPuQ ? 'p.u.' : 'Mvar'
+        };
+    }
+
+    _elementQStatusText(sel) {
+        if (!sel) return '';
+        const units = this._pqPowerUnits();
+        return `Element reactive power — ${_pqSideLabel(sel.side)}: P = ${_fmt(this._scaleP(sel.pPcc))} ${units.p}, Q = ${_fmt(this._scaleQ(sel.qPcc))} ${units.q}`;
+    }
+
+    _mountElementQSection(panel, curveData) {
+        const section = document.createElement('div');
+        Object.assign(section.style, { marginTop: '16px' });
+        panel._elementQSection = section;
+        panel._pqCurveData = curveData;
+        panel.appendChild(section);
+        panel._elementQSelection = this._defaultElementSelection(panel.dataset.rpcVoltageKey, curveData);
+        this._refreshElementQTable(panel);
+    }
+
+    _refreshAllElementQTables() {
+        (this._pqChartSpecs || []).forEach((s) => this._refreshElementQTable(s.panel));
+    }
+
+    _selectElementQPoint(panel, selection) {
+        panel._elementQSelection = selection;
+        this._refreshElementQTable(panel);
+        this._refreshElementMarkers(panel);
+    }
+
+    _togglePqMaximize() {
+        this._pqMaximized = !this._pqMaximized;
+        this._applyPqDialogSize();
+    }
+
+    _applyPqDialogSize() {
+        const dialog = this._pqDialogEl;
+        if (!dialog) return;
+        if (this._pqMaximized) {
+            Object.assign(dialog.style, {
+                width: '98vw', height: '96vh', maxWidth: '98vw', maxHeight: '96vh', borderRadius: '6px'
+            });
+        } else {
+            Object.assign(dialog.style, {
+                width: '920px', height: '', maxWidth: '95vw', maxHeight: '90vh', borderRadius: '10px'
+            });
+        }
+        const chartH = this._pqMaximized ? '56vh' : '450px';
+        (this._pqChartSpecs || []).forEach((spec) => {
+            spec.canvas.style.height = chartH;
+            spec.canvas.style.maxHeight = chartH;
+        });
+        if (this._pqMaxBtn) this._pqMaxBtn.textContent = this._pqMaximized ? 'Restore' : 'Maximize';
+        requestAnimationFrame(() => {
+            (this.chartInstances || []).forEach((chart) => {
+                try { chart.resize(); } catch (e) { /* chart already destroyed */ }
+            });
+        });
+    }
+
+    _visiblePqPanel() {
+        const specs = this._pqChartSpecs || [];
+        const visible = specs.find((spec) => spec.panel && spec.panel.style.display !== 'none');
+        return (visible || specs[0] || {}).panel || null;
+    }
+
+    _contributionModel(panel) {
+        if (panel._contributionModel) return panel._contributionModel;
+        const curve = panel._pqCurveData || {};
+        const vKey = panel.dataset.rpcVoltageKey;
+        const samples = [];
+        [
+            { side: 'q_max', pKey: 'p_max_mw', qKey: 'q_max_mvar' },
+            { side: 'q_min', pKey: 'p_min_mw', qKey: 'q_min_mvar' }
+        ].forEach(({ side, pKey, qKey }) => {
+            const pArr = curve[pKey] || curve.p_mw || [];
+            const qArr = curve[qKey] || [];
+            const pDisp = curve.p_dispatch_mw || [];
+            const seen = new Set();
+            for (let i = 0; i < pArr.length; i++) {
+                const resolved = this._resolveEnvelopeSnapshot(vKey, side, pArr[i], pDisp[i]);
+                if (!resolved.lf) continue;
+                const dedupe = `${side}|${resolved.pKey}`;
+                if (seen.has(dedupe)) continue;
+                seen.add(dedupe);
+                samples.push({
+                    side,
+                    p: Number(pArr[i]),
+                    qPcc: qArr[i] == null ? null : Number(qArr[i]),
+                    rows: this._elementRowsFromSnapshot(resolved.lf)
+                });
+            }
+        });
+        const namesByType = new Map();
+        samples.forEach((sample) => sample.rows.forEach((row) => {
+            if (!namesByType.has(row.type)) namesByType.set(row.type, new Set());
+            namesByType.get(row.type).add(row.name);
+        }));
+        const collapseTypes = new Set();
+        namesByType.forEach((names, type) => {
+            if (names.size > 4) collapseTypes.add(type);
+        });
+        const tracks = new Map();
+        samples.forEach((sample) => {
+            _aggregateContribution(sample.rows, collapseTypes).forEach((bucket) => {
+                if (!tracks.has(bucket.key)) {
+                    tracks.set(bucket.key, {
+                        key: bucket.key,
+                        type: bucket.type,
+                        name: bucket.name,
+                        collapsed: bucket.collapsed,
+                        count: bucket.count,
+                        q_max: [],
+                        q_min: []
+                    });
+                }
+                const track = tracks.get(bucket.key);
+                track.count = Math.max(track.count, bucket.count);
+                track[sample.side].push({ p: sample.p, q: bucket.q });
+            });
+        });
+        const typeSeen = {};
+        const ordered = [...tracks.values()].sort((a, b) => {
+            const ia = PQ_Q_TYPE_ORDER.indexOf(a.type);
+            const ib = PQ_Q_TYPE_ORDER.indexOf(b.type);
+            if (ia !== ib) return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+            return String(a.name).localeCompare(String(b.name), undefined, { numeric: true });
+        });
+        ordered.forEach((track) => {
+            const palette = PQ_Q_TYPE_PALETTE[track.type] || [PQ_Q_TYPE_COLOR[track.type] || '#495057'];
+            const idx = typeSeen[track.type] || 0;
+            typeSeen[track.type] = idx + 1;
+            track.color = palette[idx % palette.length];
+            track.label = _contributionLabel(track);
+        });
+        panel._contributionModel = { collapseTypes, tracks: ordered };
+        return panel._contributionModel;
+    }
+
+    _selectedContributionLines(panel) {
+        const sel = panel?._elementQSelection;
+        const units = this._pqPowerUnits();
+        if (!sel) return ['Click a red point to read how each group contributes at that active power.'];
+        const model = this._contributionModel(panel);
+        const lf = this._resolvePointLoadflow(panel.dataset.rpcVoltageKey, sel.side, sel.pKey);
+        const lines = [
+            `${_pqSideLabel(sel.side)} at PCC P = ${_fmt(this._scaleP(sel.pPcc))} ${units.p}. Plant Q at the PCC is ${_fmt(this._scaleQ(sel.qPcc))} ${units.q}.`
+        ];
+        if (!lf) {
+            lines.push('No stored load flow for this point.');
+            return lines;
+        }
+        const buckets = _aggregateContribution(this._elementRowsFromSnapshot(lf), model.collapseTypes);
+        buckets.sort((a, b) => {
+            const ia = PQ_Q_TYPE_ORDER.indexOf(a.type);
+            const ib = PQ_Q_TYPE_ORDER.indexOf(b.type);
+            if (ia !== ib) return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+            return String(a.name).localeCompare(String(b.name), undefined, { numeric: true });
+        });
+        const magText = (q) => {
+            let v = Math.abs(Number(q));
+            if (this._plotPuQ && this._pn > 0) v /= this._pn;
+            return _fmt(v);
+        };
+        buckets.forEach((bucket) => lines.push(_contributionSentence(bucket, magText, units.q)));
+        if (!buckets.length) lines.push('No reactive elements in this load flow.');
+        lines.push('Markers use the operating Q from this load flow, with the same sign as the result on the diagram.');
+        return lines;
+    }
+
+    _elementMarkerDatasets(panel) {
+        if (!this._showElementQ) return [];
+        const sel = panel._elementQSelection;
+        if (!sel) return [];
+        const lf = this._resolvePointLoadflow(panel.dataset.rpcVoltageKey, sel.side, sel.pKey);
+        if (!lf) return [];
+        const y = this._scaleP(sel.pPcc);
+        if (!Number.isFinite(y)) return [];
+        const model = this._contributionModel(panel);
+        const colorByKey = new Map(model.tracks.map((track) => [track.key, track.color]));
+        const buckets = _aggregateContribution(this._elementRowsFromSnapshot(lf), model.collapseTypes);
+        return buckets.map((bucket) => {
+            const operatingQ = _chartOperatingQ(bucket);
+            const x = this._scaleQ(operatingQ);
+            const word = _operatingWords(bucket);
+            const label = _contributionLabel(bucket);
+            let mag = Math.abs(operatingQ);
+            if (this._plotPuQ && this._pn > 0) mag /= this._pn;
+            const tip = `${label}: operating Q ${ _fmt(mag) } from this load flow, ${word}`;
+            return {
+                label: `${label} — ${word}`,
+                _elementQ: true,
+                _elementTip: tip,
+                data: [{ x, y, _tip: tip }],
+                showLine: false,
+                pointRadius: 7,
+                pointHoverRadius: 9,
+                pointHitRadius: 12,
+                pointStyle: 'rectRot',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 1.5,
+                borderColor: colorByKey.get(bucket.key) || PQ_Q_TYPE_COLOR[bucket.type] || '#495057',
+                backgroundColor: colorByKey.get(bucket.key) || PQ_Q_TYPE_COLOR[bucket.type] || '#495057',
+                order: 2
+            };
+        });
+    }
+
+    _refreshElementMarkers(panel) {
+        const chart = panel?._pqChart;
+        if (!chart) return;
+        chart.data.datasets = chart.data.datasets.filter((ds) => !ds._elementQ);
+        this._elementMarkerDatasets(panel).forEach((ds) => chart.data.datasets.push(ds));
+        chart.update();
+    }
+
+    _saveChartImage() {
+        const panel = this._visiblePqPanel();
+        const chart = panel?._pqChart;
+        if (!chart) {
+            alert('The P-Q diagram is not ready yet.');
+            return;
+        }
+        const chartUrl = chart.toBase64Image('image/png', 1);
+        const img = new Image();
+        img.onload = () => {
+            const source = this._selectedContributionLines(panel);
+            const measure = document.createElement('canvas').getContext('2d');
+            const maxW = Math.max(280, img.width - 48);
+            const wrapped = [];
+            source.forEach((line, i) => {
+                measure.font = i === 0 ? '600 16px sans-serif' : '15px sans-serif';
+                const words = String(line).split(' ');
+                let cur = '';
+                words.forEach((word) => {
+                    const next = cur ? `${cur} ${word}` : word;
+                    if (measure.measureText(next).width > maxW && cur) {
+                        wrapped.push({ text: cur, head: i === 0 && wrapped.length === 0 });
+                        cur = word;
+                    } else {
+                        cur = next;
+                    }
+                });
+                if (cur) wrapped.push({ text: cur, head: i === 0 && !wrapped.some((row) => row.head) });
+            });
+            const lineH = 22;
+            const footerH = 28 + wrapped.length * lineH + 12;
+            const out = document.createElement('canvas');
+            out.width = img.width;
+            out.height = img.height + footerH;
+            const ctx = out.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, out.width, out.height);
+            ctx.drawImage(img, 0, 0);
+            ctx.textBaseline = 'top';
+            wrapped.forEach((row, i) => {
+                ctx.font = row.head ? '600 16px sans-serif' : '15px sans-serif';
+                ctx.fillStyle = row.head ? '#212529' : '#343a40';
+                ctx.fillText(row.text, 24, img.height + 16 + i * lineH);
+            });
+            const a = document.createElement('a');
+            a.href = out.toDataURL('image/png');
+            a.download = `GridCode_PQ_diagram_${new Date().toISOString().slice(0, 16).replace(/[:.]/g, '-')}.png`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        };
+        img.src = chartUrl;
+    }
+
+    _showSelectedPointOnDiagram(panel) {
+        const sel = panel?._elementQSelection;
+        const vKey = panel?.dataset?.rpcVoltageKey;
+        if (!sel || !vKey) return;
+        this._onCapabilityPointClick(vKey, sel.side, sel.pKey, sel.qPcc, panel);
+    }
+
+    _refreshElementQTable(panel) {
+        const section = panel?._elementQSection;
+        if (!section) return;
+        section.replaceChildren();
+
+        const units = this._pqPowerUnits();
+        const sel = panel._elementQSelection;
+        const vKey = panel.dataset.rpcVoltageKey;
+        const lf = sel ? this._resolvePointLoadflow(vKey, sel.side, sel.pKey) : null;
+
+        const head = document.createElement('div');
+        Object.assign(head.style, {
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            gap: '12px', flexWrap: 'wrap', marginBottom: '6px'
+        });
+        const title = document.createElement('div');
+        title.textContent = 'Reactive power by element';
+        Object.assign(title.style, { fontWeight: '700', fontSize: '14px', color: '#212529' });
+        head.appendChild(title);
+
+        const showBtn = this._styledButton('Show on diagram', '#0d6efd', '#0b5ed7');
+        Object.assign(showBtn.style, { padding: '6px 12px', fontSize: '12px' });
+        showBtn.disabled = !lf;
+        if (!lf) {
+            showBtn.style.opacity = '0.55';
+            showBtn.style.cursor = 'not-allowed';
+        }
+        showBtn.onclick = () => this._showSelectedPointOnDiagram(panel);
+        head.appendChild(showBtn);
+        section.appendChild(head);
+
+        const subtitle = document.createElement('div');
+        Object.assign(subtitle.style, { fontSize: '13px', color: '#343a40', marginBottom: '4px' });
+        subtitle.textContent = sel
+            ? this._elementQStatusText(sel)
+            : 'No stored load flow for this voltage.';
+        section.appendChild(subtitle);
+
+        const hint = document.createElement('div');
+        Object.assign(hint.style, { fontSize: '12px', color: '#6c757d', lineHeight: '1.45', marginBottom: '8px' });
+        hint.textContent = 'Positive generator Q is overexcited (capacitive). Positive shunt-reactor Q is inductive absorption. Values follow the chart unit and sign toggles.';
+        section.appendChild(hint);
+
+        const explain = document.createElement('div');
+        Object.assign(explain.style, {
+            fontSize: '13px', color: '#212529', lineHeight: '1.5', marginBottom: '10px'
+        });
+        const contributionLines = this._selectedContributionLines(panel);
+        contributionLines.forEach((line, i) => {
+            const row = document.createElement('div');
+            row.textContent = line;
+            if (i === 0) row.style.fontWeight = '600';
+            if (i === contributionLines.length - 1) {
+                row.style.color = '#6c757d';
+                row.style.fontSize = '12px';
+                row.style.marginTop = '4px';
+            }
+            explain.appendChild(row);
+        });
+        section.appendChild(explain);
+
+        if (panel._rpcPointStatusEl && sel) {
+            panel._rpcPointStatusEl.style.display = 'block';
+            panel._rpcPointStatusEl.textContent = `${this._elementQStatusText(sel)}. Click the red point to show this load flow on the diagram.`;
+        }
+
+        if (!lf) {
+            const empty = document.createElement('div');
+            empty.textContent = 'No stored load flow for this point. Re-run Grid Code Compliance (P-Q) to refresh point data.';
+            Object.assign(empty.style, { fontSize: '13px', color: '#856404' });
+            section.appendChild(empty);
+            return;
+        }
+
+        const rows = this._elementRowsFromSnapshot(lf);
+        if (!rows.length) {
+            const empty = document.createElement('div');
+            empty.textContent = 'This load flow has no wind turbines, generators, shunts, capacitors, storage, or SVCs.';
+            Object.assign(empty.style, { fontSize: '13px', color: '#495057' });
+            section.appendChild(empty);
+            return;
+        }
+
+        const thStyle = {
+            padding: '4px 6px', borderBottom: '1px solid #dee2e6', textAlign: 'left',
+            fontWeight: '600', fontSize: '12px', color: '#495057'
+        };
+        const tdStyle = { padding: '3px 6px', borderBottom: '1px solid #f1f3f5', fontSize: '12px' };
+        const numStyle = { ...tdStyle, textAlign: 'right', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' };
+
+        const makeTable = (headers) => {
+            const table = document.createElement('table');
+            Object.assign(table.style, { width: '100%', borderCollapse: 'collapse' });
+            const hr = document.createElement('tr');
+            headers.forEach((h, i) => {
+                const th = document.createElement('th');
+                th.textContent = h;
+                Object.assign(th.style, thStyle);
+                const numericFrom = headers[0] === 'Element' ? 2 : 1;
+                if (i >= numericFrom) th.style.textAlign = 'right';
+                hr.appendChild(th);
+            });
+            table.appendChild(hr);
+            return table;
+        };
+
+        const byType = new Map();
+        rows.forEach((row) => {
+            if (!byType.has(row.type)) byType.set(row.type, { count: 0, p: 0, q: 0, pOk: false, qOk: false });
+            const g = byType.get(row.type);
+            g.count += 1;
+            if (Number.isFinite(row.pScaled)) { g.p += row.pScaled; g.pOk = true; }
+            if (Number.isFinite(row.qScaled)) { g.q += row.qScaled; g.qOk = true; }
+        });
+
+        const totals = makeTable(['Type', 'Count', `P (${units.p})`, `Q (${units.q})`]);
+        PQ_Q_TYPE_ORDER.forEach((type) => {
+            const g = byType.get(type);
+            if (!g) return;
+            const tr = document.createElement('tr');
+            [type, String(g.count), g.pOk ? _fmt(g.p) : '—', g.qOk ? _fmt(g.q) : '—'].forEach((text, i) => {
+                const td = document.createElement('td');
+                td.textContent = text;
+                Object.assign(td.style, i === 0 ? tdStyle : numStyle);
+                if (i === 0) td.style.fontWeight = '600';
+                tr.appendChild(td);
+            });
+            totals.appendChild(tr);
+        });
+        section.appendChild(totals);
+
+        const scroller = document.createElement('div');
+        Object.assign(scroller.style, { maxHeight: '280px', overflowY: 'auto', marginTop: '10px' });
+        const detail = makeTable(['Element', 'Type', `P (${units.p})`, `Q (${units.q})`]);
+        rows.forEach((row) => {
+            const tr = document.createElement('tr');
+            [
+                row.name,
+                row.type,
+                Number.isFinite(row.pScaled) ? _fmt(row.pScaled) : '—',
+                Number.isFinite(row.qScaled) ? _fmt(row.qScaled) : '—'
+            ].forEach((text, i) => {
+                const td = document.createElement('td');
+                td.textContent = text;
+                Object.assign(td.style, i >= 2 ? numStyle : tdStyle);
+                tr.appendChild(td);
+            });
+            detail.appendChild(tr);
+        });
+        scroller.appendChild(detail);
+        section.appendChild(scroller);
+
+        let sumQ = 0;
+        let anyQ = false;
+        rows.forEach((row) => {
+            if (Number.isFinite(row.qScaled)) {
+                sumQ += row.qScaled;
+                anyQ = true;
+            }
+        });
+        const pccQ = this._scaleQ(sel.qPcc);
+        const footer = document.createElement('div');
+        Object.assign(footer.style, { marginTop: '8px', fontSize: '12px', color: '#343a40', lineHeight: '1.45' });
+        let text = `PCC Q: ${_fmt(pccQ)} ${units.q}. Sum of listed elements: ${_fmt(anyQ ? sumQ : null)} ${units.q}.`;
+        if (Number.isFinite(pccQ) && anyQ) {
+            text += ` Difference (network Q — lines, transformers, and loads): ${_fmt(pccQ - sumQ)} ${units.q}.`;
+        }
+        footer.textContent = text;
+        section.appendChild(footer);
+    }
+
+    _appendElementQCsv(data) {
+        const levels = data.voltage_levels || [];
+        let csv = '\n# Reactive power by element at each envelope point\nVoltage_pu,Side,P_PCC_MW,Element,Type,P_MW,Q_Mvar\n';
+        let any = false;
+        levels.forEach((v) => {
+            const vKey = String(parseFloat(v).toFixed(4));
+            const curve = data.curves ? (_lookupVoltageMap(data.curves, v) || data.curves[vKey]) : null;
+            if (!curve) return;
+            const pDisp = curve.p_dispatch_mw || [];
+            ['q_max', 'q_min'].forEach((side) => {
+                const pArr = side === 'q_min'
+                    ? (curve.p_min_mw || curve.p_mw || [])
+                    : (curve.p_max_mw || curve.p_mw || []);
+                const n = Math.max(pArr.length, pDisp.length);
+                const seen = new Set();
+                for (let i = 0; i < n; i++) {
+                    const resolved = this._resolveEnvelopeSnapshot(vKey, side, pArr[i], pDisp[i]);
+                    if (!resolved.lf) continue;
+                    const dedupe = `${side}|${resolved.pKey}`;
+                    if (seen.has(dedupe)) continue;
+                    seen.add(dedupe);
+                    this._elementRowsFromSnapshot(resolved.lf).forEach((row) => {
+                        any = true;
+                        csv += `${v},${side},${pArr[i] != null ? pArr[i] : ''},${_csvEscape(row.name)},${_csvEscape(row.type)},${row.pMw != null ? row.pMw : ''},${row.qMvar != null ? row.qMvar : ''}\n`;
+                    });
+                }
+            });
+        });
+        return any ? csv : '';
+    }
+
     _scaleP(p) {
         let v = Number(p);
         if (this._plotLoadOriented) v = -v;
@@ -751,8 +1489,8 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
     _qAxisLabel() {
         const unit = this._plotPuQ ? 'p.u. of Pmax' : 'Mvar';
         const conv = this._plotLoadOriented
-            ? '+ underexcited (load), − overexcited'
-            : '+ overexcited, − underexcited';
+            ? '+ inductive (underexcited), − capacitive (overexcited)'
+            : '+ capacitive (overexcited), − inductive (underexcited)';
         return `Net Q at PCC (${unit}) — ${conv}`;
     }
 
@@ -808,7 +1546,7 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
 
         const datasets = [
             {
-                label: 'Capability Q_max',
+                label: 'Capability Q_max (overexcited, capacitive)',
                 data: capabilityMaxData,
                 borderColor: '#dc3545',
                 backgroundColor: 'transparent',
@@ -824,7 +1562,7 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
                 order: 1
             },
             {
-                label: 'Capability Q_min',
+                label: 'Capability Q_min (underexcited, inductive)',
                 data: capabilityMinData,
                 borderColor: '#dc3545',
                 backgroundColor: 'transparent',
@@ -871,7 +1609,7 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
                 }
                 const reqLabelSuffix = fullData.grid_code_template_name ? ' (grid code)' : '';
                 datasets.push({
-                    label: `Required Q (overexcited)${reqLabelSuffix}`,
+                    label: `Required Q (overexcited, capacitive)${reqLabelSuffix}`,
                     data: reqMaxPts,
                     borderColor: '#0d6efd',
                     backgroundColor: 'transparent',
@@ -884,7 +1622,7 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
                     order: 0
                 });
                 datasets.push({
-                    label: `Required Q (underexcited)${reqLabelSuffix}`,
+                    label: `Required Q (underexcited, inductive)${reqLabelSuffix}`,
                     data: reqMinPts,
                     borderColor: '#0d6efd',
                     backgroundColor: 'transparent',
@@ -920,6 +1658,7 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                layout: { padding: { top: 8, right: 16, bottom: 4, left: 4 } },
                 onClick: (evt, elements, chartInst) => {
                     if (!elements?.length) return;
                     const el = elements[0];
@@ -931,6 +1670,12 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
                     if (!this._resolvePointLoadflow(vKey, raw._rpcSide, pKey) && raw._rpcPDispatch != null) {
                         pKey = raw._rpcPDispatch;
                     }
+                    this._selectElementQPoint(panel, {
+                        side: raw._rpcSide,
+                        pKey,
+                        pPcc: raw._rpcP,
+                        qPcc: raw._rpcQ
+                    });
                     this._onCapabilityPointClick(vKey, raw._rpcSide, pKey, raw._rpcQ, panel);
                 },
                 plugins: {
@@ -952,12 +1697,14 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
                     tooltip: {
                         callbacks: {
                             label: (c) => {
+                                if (c.raw?._tip) return c.raw._tip;
+                                if (c.dataset?._elementTip) return c.dataset._elementTip;
                                 const xu = this._plotPuQ ? 'p.u.' : 'Mvar';
                                 const yu = this._plotPuP ? 'p.u.' : 'MW';
                                 const base = `Q: ${c.parsed.x?.toFixed(3)} ${xu}, P: ${c.parsed.y?.toFixed(3)} ${yu}`;
                                 const dsLabel = c.dataset?.label || '';
                                 if (dsLabel.startsWith('Capability Q_')) {
-                                    return `${base} at PCC — click to show load flow on diagram`;
+                                    return `${base} at PCC — click to show this load flow on the diagram`;
                                 }
                                 return base;
                             }
@@ -971,17 +1718,21 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
                             text: this._qAxisLabel(),
                             font: { size: 12, weight: '600' }
                         },
-                        grid: { color: 'rgba(0,0,0,0.06)' }
+                        grid: { color: 'rgba(0,0,0,0.06)' },
+                        grace: '6%'
                     },
                     y: {
                         title: { display: true, text: this._pAxisLabel(), font: { size: 13, weight: '600' } },
                         grid: { color: 'rgba(0,0,0,0.06)' },
-                        min: yMin
+                        min: yMin,
+                        grace: '8%'
                     }
                 }
             }
         });
+        panel._pqChart = chart;
         this.chartInstances.push(chart);
+        this._refreshElementMarkers(panel);
     }
 
     _downloadCSV(data) {
@@ -1028,6 +1779,7 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
                 csv += `${v},${_lookupVoltageMap(data.compliance, v)}\n`;
             });
         }
+        csv += this._appendElementQCsv(data);
         csv += `\n# Overall P-Q compliance,${data.pq_compliance === true ? 'COMPLIANT' : data.pq_compliance === false ? 'NON-COMPLIANT' : 'Not assessed'}\n`;
         const blob = new Blob([csv], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);

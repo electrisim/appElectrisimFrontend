@@ -149,6 +149,24 @@ function formatTapControlOnTrafo(cell) {
     return line;
 }
 
+function graphAttr(graphCell, name) {
+    if (!graphCell?.value?.getAttribute) return '';
+    const value = graphCell.value.getAttribute(name);
+    return value == null ? '' : String(value);
+}
+
+function formatShuntRatingNote(result, graphCell) {
+    const tableOn = ['true', '1', 'yes', 'on'].includes(graphAttr(graphCell, 'step_dependency_table').toLowerCase());
+    if (tableOn) {
+        return '\n            Q from the characteristic table × U²';
+    }
+    const qStep = Number(graphAttr(graphCell, 'q_mvar'));
+    const step = Number(result?.step);
+    if (!Number.isFinite(qStep) || !Number.isFinite(step)) return '';
+    const at1pu = qStep * step;
+    return `\n            ${formatNumber(qStep)} Mvar × step ${formatNumber(step, 0)} = ${formatNumber(at1pu)} Mvar at 1.0 pu`;
+}
+
 function formatShuntControlOnShunt(cell) {
     const sc = cell.shunt_control_result;
     if (!sc) {
@@ -181,6 +199,8 @@ function findAllPlaceholdersForComponent(graph, componentCell) {
     const matches = (child, isDirectChild) => {
         const st = model.getStyle(child) || '';
         if (!isResultPlaceholderStyle(st)) return false;
+        const tagged = st.match(/connectedTo=([^;]+)/);
+        if (tagged && String(tagged[1]).trim() !== compId) return false;
         if (isDirectChild) return true;
         const m = st.match(/connectedTo=([^;]+)/);
         return m ? String(m[1]).trim() === compId : false;
@@ -286,71 +306,6 @@ function updateSingleComponentResult(graph, resultCell, text, opts = {}) {
 /** Edge-attached injectors (External Grid, Generator, …): placeholder lives on the edge, not the vertex. */
 function updateEdgeAttachedPlaceholder(graph, resultCell, text, opts) {
     return updateSingleComponentResult(graph, resultCell, text, opts);
-}
-
-function resultBoxesOverlap(a, b, pad) {
-    return a.x < b.x + b.w + pad && a.x + a.w + pad > b.x
-        && a.y < b.y + b.h + pad && a.y + a.h + pad > b.y;
-}
-
-/** Nudge result labels apart on large diagrams so they do not sit on the same spot. */
-function spreadOverlappingResultBoxes(graph) {
-    if (!graph?.getView || typeof mxPoint === 'undefined') return;
-    const model = graph.getModel();
-    const view = graph.getView();
-    if (typeof view.validate === 'function') view.validate();
-    const boxes = [];
-    const visit = (cell) => {
-        if (!cell) return;
-        const style = model.getStyle(cell) || '';
-        if (style.indexOf('shapeELXXX=Result') >= 0) {
-            const state = view.getState(cell);
-            if (state && state.width > 0 && state.height > 0) boxes.push(cell);
-        }
-        const n = model.getChildCount(cell);
-        for (let i = 0; i < n; i++) visit(model.getChildAt(cell, i));
-    };
-    visit(graph.getDefaultParent());
-    if (boxes.length < 25) return;
-    boxes.sort((a, b) => {
-        const sa = view.getState(a);
-        const sb = view.getState(b);
-        return (sa.y - sb.y) || (sa.x - sb.x);
-    });
-    const placed = [];
-    model.beginUpdate();
-    try {
-        boxes.forEach((cell) => {
-            const state = view.getState(cell);
-            if (!state) return;
-            let dx = 0;
-            let dy = 0;
-            for (let step = 0; step < 10; step++) {
-                const rect = { x: state.x + dx, y: state.y + dy, w: state.width, h: state.height };
-                if (!placed.some((other) => resultBoxesOverlap(rect, other, 8))) break;
-                if (step % 2 === 0) dy += state.height + 12;
-                else dx += 36;
-            }
-            if (dx !== 0 || dy !== 0) {
-                const geo = model.getGeometry(cell);
-                if (geo) {
-                    const next = geo.clone();
-                    const ox = geo.offset ? geo.offset.x : 0;
-                    const oy = geo.offset ? geo.offset.y : 0;
-                    next.offset = new mxPoint(ox + dx, oy + dy);
-                    model.setGeometry(cell, next);
-                }
-            }
-            placed.push({
-                x: state.x + dx,
-                y: state.y + dy,
-                w: state.width,
-                h: state.height
-            });
-        });
-    } finally {
-        model.endUpdate();
-    }
 }
 
 function removeLeftoverResultCells(model) {
@@ -498,7 +453,6 @@ export function applyLoadFlowResultsToGraph(graph, dataJson) {
     }
 
     const model = graph.getModel();
-    const largeDiagram = (dataJson.busbars || []).length > 40;
     model.beginUpdate();
     try {
         if (colorOnly) removeLeftoverResultCells(model);
@@ -522,13 +476,11 @@ Q/P: ${formatNumber(d.qp)}`;
                 processVoltageColor(graph, resultCell, cell.vm_pu);
                 return;
             }
-            updateOrCreatePlaceholder(graph, resultCell, text, largeDiagram
-                ? { width: 80, height: 76, positionX: 0, positionY: 0, offsetXDelta: -96, offsetYDelta: -6, reposition: true }
-                : { width: 80, height: 76, positionX: 0, positionY: 1.0, offsetXDelta: 40, offsetYDelta: 35 });
+            updateOrCreatePlaceholder(graph, resultCell, text, { width: 80, height: 76, positionX: 0, positionY: 1.0, offsetXDelta: 40, offsetYDelta: 35 });
             processVoltageColor(graph, resultCell, cell.vm_pu);
         });
 
-        (dataJson.lines || []).forEach((cell, lineIdx) => {
+        (dataJson.lines || []).forEach((cell) => {
             const resultCell = resolveCell(cell);
             if (!resultCell) return;
             const label = formatResultNameHeader(resultCell, replaceUnderscores(cell.name), 'Line');
@@ -546,17 +498,7 @@ Q/P: ${formatNumber(d.qp)}`;
             }
             const edge = (graph.getEdges && graph.getEdges(resultCell))?.[0];
             const parent = edge || resultCell;
-            const lineLane = lineIdx % 5;
-            updateOrCreatePlaceholder(graph, parent, text, largeDiagram
-                ? {
-                    width: 70, height: 70,
-                    positionX: 0.18 + lineLane * 0.14,
-                    positionY: 0,
-                    isLine: true,
-                    offsetYDelta: (lineLane % 2 === 0 ? -1 : 1) * (28 + lineLane * 22),
-                    reposition: true
-                }
-                : { width: 70, height: 70, positionX: 0.5, positionY: 0, isLine: true });
+            updateOrCreatePlaceholder(graph, parent, text, { width: 70, height: 70, positionX: 0, positionY: 0, isLine: true });
             processLoadingColor(graph, resultCell, cell.loading_percent);
         });
 
@@ -644,9 +586,7 @@ Q/P: ${formatNumber(d.qp)}`;
             U[degree]: ${formatNumber(cell.va_degree)}
             Um[pu]: ${formatNumber(cell.vm_pu)}`;
             if (noteLargeResult(resultCell, text)) return;
-            updateEdgeAttachedPlaceholder(graph, resultCell, text, largeDiagram
-                ? { width: 60, height: 40, positionX: 0, offsetXDelta: -82, offsetYDelta: -28, reposition: true }
-                : { width: 60, height: 40, positionX: -0.3 });
+            updateEdgeAttachedPlaceholder(graph, resultCell, text, { width: 60, height: 40, positionX: -0.3 });
         });
 
         (dataJson.shunts || []).forEach((cell) => {
@@ -654,13 +594,14 @@ Q/P: ${formatNumber(d.qp)}`;
             if (!resultCell) return;
             const label = formatResultNameHeader(resultCell, replaceUnderscores(cell.name), 'Shunt');
             const shuntCtl = formatShuntControlOnShunt(cell);
+            const ratingNote = formatShuntRatingNote(cell, resultCell);
             const text = `${label}
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}
-            Um[pu]: ${formatNumber(cell.vm_pu)}${shuntCtl}`;
+            Um[pu]: ${formatNumber(cell.vm_pu)}${ratingNote}${shuntCtl}`;
             if (noteLargeResult(resultCell, text)) return;
-            const boxW = shuntCtl ? 74 : 60;
-            const boxH = shuntCtl ? 58 : 50;
+            const boxW = ratingNote ? 220 : (shuntCtl ? 74 : 60);
+            const boxH = 50 + (ratingNote ? 22 : 0) + (shuntCtl ? 22 : 0);
             updateSingleComponentResult(graph, resultCell, text, {
                 width: boxW, height: boxH, positionX: -0.3
             });
@@ -686,9 +627,7 @@ Q/P: ${formatNumber(d.qp)}`;
             P[MW]: ${formatNumber(cell.p_mw)}
             Q[MVar]: ${formatNumber(cell.q_mvar)}`;
             if (noteLargeResult(resultCell, text)) return;
-            updateEdgeAttachedPlaceholder(graph, resultCell, text, largeDiagram
-                ? { width: 60, height: 40, positionX: 0, offsetXDelta: 78, offsetYDelta: 6, reposition: true }
-                : { width: 60, height: 40, positionX: -0.3 });
+            updateEdgeAttachedPlaceholder(graph, resultCell, text, { width: 60, height: 40, positionX: -0.3 });
         });
 
         (dataJson.storages || []).forEach((cell) => {
@@ -706,6 +645,18 @@ Q/P: ${formatNumber(d.qp)}`;
             }
             updateEdgeAttachedPlaceholder(graph, resultCell, text, { width: 70, height: 80, positionX: -0.3 });
             processLoadingColor(graph, resultCell, cell.loading_percent);
+        });
+
+        (dataJson.svcs || []).forEach((cell) => {
+            const resultCell = resolveCell(cell);
+            if (!resultCell) return;
+            const label = formatResultNameHeader(resultCell, replaceUnderscores(cell.name), 'SVC');
+            const text = `${label}
+            P[MW]: ${formatNumber(cell.p_mw)}
+            Q[MVar]: ${formatNumber(cell.q_mvar)}
+            Um[pu]: ${formatNumber(cell.vm_pu)}`;
+            if (noteLargeResult(resultCell, text)) return;
+            updateEdgeAttachedPlaceholder(graph, resultCell, text, { width: 70, height: 56, positionX: -0.3 });
         });
 
         (dataJson.switches || []).forEach((cell) => {
@@ -732,7 +683,9 @@ Loading[%]: ${formatNumber(cell.loading_percent, 1)}`;
     } finally {
         model.endUpdate();
         if (graph.getView?.().refresh) graph.getView().refresh();
-        if (largeDiagram && !colorOnly) spreadOverlappingResultBoxes(graph);
+        if (!colorOnly && typeof window !== 'undefined' && typeof window.repositionAllResultBoxes === 'function') {
+            window.repositionAllResultBoxes(graph);
+        }
     }
 
     if (colorOnly) bindLoadFlowSelectionPanel(graph, selectionTexts);

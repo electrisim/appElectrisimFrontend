@@ -105,6 +105,35 @@ function machineQBand(m) {
     return null;
 }
 
+/** Qmin…Qmax interpolated on the machine curve at its Active power (Power tab). */
+function fillQAtPCell(td, m) {
+    td.textContent = '';
+    td.style.color = '#6c757d';
+    td.style.fontFamily = 'ui-monospace, Consolas, monospace';
+    td.style.fontSize = '12px';
+    const qMin = Number(m?.q_min_mvar);
+    const qMax = Number(m?.q_max_mvar);
+    if (!Number.isFinite(qMin) || !Number.isFinite(qMax)) {
+        td.textContent = '—';
+        td.title = 'Enable the Q capability curve on the machine dialog';
+        return;
+    }
+    const main = document.createElement('div');
+    main.textContent = `${qMin.toFixed(2)} … ${qMax.toFixed(2)}`;
+    td.appendChild(main);
+    const pMw = Number(m?.p_mw);
+    if (Number.isFinite(pMw)) {
+        const sub = document.createElement('div');
+        sub.textContent = `at P = ${pMw.toFixed(2)} MW`;
+        sub.style.cssText = 'font-size:11px;color:#868e96;margin-top:2px;font-family:Arial,sans-serif;';
+        td.appendChild(sub);
+        td.title =
+            `Qmin … Qmax interpolated on the Q capability curve at Active power ${pMw.toFixed(3)} MW (Power tab), U = 1.0 p.u.`;
+    } else {
+        td.title = 'Qmin … Qmax from the Q capability curve, U = 1.0 p.u.';
+    }
+}
+
 function listBusNames(graph) {
     const names = [];
     if (!graph?.getModel) return names;
@@ -252,8 +281,13 @@ export class ParkControllerDialog extends Dialog {
         const stored = parseJsonArray(this.data.machines_json);
         this.machines = this._mergeMachineCandidates(listMachineCandidates(this.graph), stored);
         for (const prev of stored) {
-            if (!this.machines.some((m) => m.name === prev.name)) {
+            const prevId = prev?.id != null ? String(prev.id) : '';
+            const already = this.machines.some((m) =>
+                (prevId && m.id === prevId) || (!prevId && m.name === prev.name)
+            );
+            if (!already) {
                 this.machines.push({
+                    id: prevId,
                     name: prev.name,
                     typ: prev.typ || 'Static Generator',
                     connected: prev.connected !== false,
@@ -268,11 +302,30 @@ export class ParkControllerDialog extends Dialog {
 
     _mergeMachineCandidates(candidates, storedRows) {
         const stored = Array.isArray(storedRows) ? storedRows : parseJsonArray(this.data.machines_json);
-        const byName = new Map(stored.map((m) => [m.name, m]));
-        const live = new Map((this.machines || []).map((m) => [m.name, m]));
+        const byId = new Map();
+        const byName = new Map();
+        for (const row of stored) {
+            if (!row) continue;
+            const id = row.id != null ? String(row.id) : '';
+            if (id) byId.set(id, row);
+            if (!byName.has(row.name)) byName.set(row.name, []);
+            byName.get(row.name).push(row);
+        }
         return candidates.map((c) => {
-            const prev = byName.get(c.name) || live.get(c.name);
+            const id = c.id != null ? String(c.id) : '';
+            let prev = id ? byId.get(id) : null;
+            if (prev) {
+                const queue = byName.get(c.name);
+                if (queue) {
+                    const at = queue.indexOf(prev);
+                    if (at >= 0) queue.splice(at, 1);
+                }
+            } else {
+                const queue = byName.get(c.name);
+                prev = queue && queue.length ? queue.shift() : null;
+            }
             return {
+                id,
                 name: c.name,
                 typ: c.typ,
                 connected: prev ? prev.connected !== false : false,
@@ -797,6 +850,22 @@ export class ParkControllerDialog extends Dialog {
         return form;
     }
 
+    _syncMachinesConnectedSelectAll(headerCb) {
+        if (!headerCb || !this.machines.length) {
+            if (headerCb) {
+                headerCb.checked = false;
+                headerCb.indeterminate = false;
+                headerCb.disabled = true;
+            }
+            return;
+        }
+        headerCb.disabled = false;
+        const connectedCount = this.machines.filter((m) => m.connected).length;
+        const n = this.machines.length;
+        headerCb.checked = connectedCount === n;
+        headerCb.indeterminate = connectedCount > 0 && connectedCount < n;
+    }
+
     _renderMachines(host) {
         const form = this._formColumn();
         form.appendChild(
@@ -839,19 +908,52 @@ export class ParkControllerDialog extends Dialog {
         });
         desc.textContent =
             'Select Wind Turbines, Static Generators, or Generators controlled by this park controller. ' +
-            'Q at P shows limits from each machine’s Q capability tab (P–Q curve) at its current P.';
+            'Q at P is interpolated on each machine’s Q capability curve at its Active power (Power tab). ' +
+            'It is not the widest point of the curve.';
         tableCard.append(title, desc);
 
         const table = document.createElement('table');
         table.style.cssText = 'width:100%;border-collapse:collapse;font-size:13px;background:#fff;border-radius:6px;overflow:hidden;';
-        table.innerHTML =
-            '<thead><tr style="background:#e9ecef;">' +
-            '<th style="text-align:left;padding:10px 12px;">Connected</th>' +
-            '<th style="text-align:left;padding:10px 12px;">Machine</th>' +
-            '<th style="text-align:left;padding:10px 12px;">Type</th>' +
-            '<th style="text-align:left;padding:10px 12px;">Q at P [Mvar]</th>' +
-            '</tr></thead>';
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        headerRow.style.background = '#e9ecef';
+        const thConnected = document.createElement('th');
+        thConnected.style.cssText = 'text-align:left;padding:10px 12px;';
+        const headerCb = document.createElement('input');
+        headerCb.type = 'checkbox';
+        headerCb.title = 'Select or clear all machines';
+        Object.assign(headerCb.style, {
+            width: '20px',
+            height: '20px',
+            accentColor: '#007bff',
+            cursor: 'pointer',
+            verticalAlign: 'middle',
+            marginRight: '8px'
+        });
+        headerCb.onchange = () => {
+            const on = headerCb.checked;
+            headerCb.indeterminate = false;
+            this.machines.forEach((m) => {
+                m.connected = on;
+            });
+            for (const rowCb of rowCheckboxes) rowCb.checked = on;
+            this._redistributePercents();
+        };
+        thConnected.append(headerCb, document.createTextNode('Connected'));
+        const thMachine = document.createElement('th');
+        thMachine.style.cssText = 'text-align:left;padding:10px 12px;';
+        thMachine.textContent = 'Machine';
+        const thType = document.createElement('th');
+        thType.style.cssText = 'text-align:left;padding:10px 12px;';
+        thType.textContent = 'Type';
+        const thQ = document.createElement('th');
+        thQ.style.cssText = 'text-align:left;padding:10px 12px;';
+        thQ.textContent = 'Q at P [Mvar]';
+        headerRow.append(thConnected, thMachine, thType, thQ);
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
         const tbody = document.createElement('tbody');
+        const rowCheckboxes = [];
         this.machines.forEach((m, idx) => {
             const tr = document.createElement('tr');
             tr.style.borderBottom = '1px solid #e9ecef';
@@ -861,8 +963,10 @@ export class ParkControllerDialog extends Dialog {
             cb.type = 'checkbox';
             cb.checked = !!m.connected;
             Object.assign(cb.style, { width: '20px', height: '20px', accentColor: '#007bff', cursor: 'pointer' });
+            rowCheckboxes.push(cb);
             cb.onchange = () => {
                 this.machines[idx].connected = cb.checked;
+                this._syncMachinesConnectedSelectAll(headerCb);
                 this._redistributePercents();
             };
             tdC.appendChild(cb);
@@ -875,20 +979,11 @@ export class ParkControllerDialog extends Dialog {
             tdT.textContent = m.typ;
             const tdQ = document.createElement('td');
             tdQ.style.padding = '10px 12px';
-            tdQ.style.color = '#6c757d';
-            tdQ.style.fontFamily = 'ui-monospace, Consolas, monospace';
-            tdQ.style.fontSize = '12px';
-            if (Number.isFinite(Number(m.q_min_mvar)) && Number.isFinite(Number(m.q_max_mvar))) {
-                tdQ.textContent = `${Number(m.q_min_mvar).toFixed(2)} … ${Number(m.q_max_mvar).toFixed(2)}`;
-                const pNote = Number.isFinite(Number(m.p_mw)) ? ` at P = ${Number(m.p_mw).toFixed(3)} MW` : '';
-                tdQ.title = `From machine Q capability${pNote}, U = 1.0 p.u.`;
-            } else {
-                tdQ.textContent = '—';
-                tdQ.title = 'Enable Q capability curve on the machine dialog';
-            }
+            fillQAtPCell(tdQ, m);
             tr.append(tdC, tdN, tdT, tdQ);
             tbody.appendChild(tr);
         });
+        this._syncMachinesConnectedSelectAll(headerCb);
         table.appendChild(tbody);
         tableCard.appendChild(table);
         if (!this.machines.length) {
@@ -1261,14 +1356,7 @@ export class ParkControllerDialog extends Dialog {
             tdN.textContent = m.name;
             const tdCap = document.createElement('td');
             tdCap.style.padding = '10px 12px';
-            tdCap.style.fontFamily = 'ui-monospace, Consolas, monospace';
-            tdCap.style.fontSize = '12px';
-            tdCap.style.color = '#6c757d';
-            if (Number.isFinite(Number(m.q_min_mvar)) && Number.isFinite(Number(m.q_max_mvar))) {
-                tdCap.textContent = `${Number(m.q_min_mvar).toFixed(2)} … ${Number(m.q_max_mvar).toFixed(2)}`;
-            } else {
-                tdCap.textContent = '—';
-            }
+            fillQAtPCell(tdCap, m);
             const tdP = document.createElement('td');
             tdP.style.padding = '10px 12px';
             const inp = document.createElement('input');
@@ -1286,8 +1374,7 @@ export class ParkControllerDialog extends Dialog {
                 this.inputs.get('distribution_method')?.value || this.data.distribution_method;
             inp.disabled = method !== 'Individual Reactive Power';
             inp.onchange = () => {
-                const idx = this.machines.findIndex((x) => x.name === m.name);
-                if (idx >= 0) this.machines[idx].q_percent = Number(inp.value) || 0;
+                m.q_percent = Number(inp.value) || 0;
             };
             tdP.appendChild(inp);
             tr.append(tdI, tdN, tdCap, tdP);
@@ -1334,8 +1421,7 @@ export class ParkControllerDialog extends Dialog {
         connected.forEach((m, i) => {
             const w = useEqual ? 1 : weights[i];
             const pct = (100 * (useEqual ? 1 : w)) / (useEqual ? connected.length : sum);
-            const idx = this.machines.findIndex((x) => x.name === m.name);
-            if (idx >= 0) this.machines[idx].q_percent = Math.round(pct * 1e5) / 1e5;
+            m.q_percent = Math.round(pct * 1e5) / 1e5;
         });
     }
 
@@ -1366,7 +1452,8 @@ export class ParkControllerDialog extends Dialog {
             name: get('name', DEFAULT_PARK_CONTROLLER_NAME),
             enabled: get('enabled', true),
             machines_json: JSON.stringify(
-                this.machines.map(({ name, typ, connected, q_percent }) => ({
+                this.machines.map(({ id, name, typ, connected, q_percent }) => ({
+                    id: id != null ? String(id) : '',
                     name,
                     typ,
                     connected: !!connected,

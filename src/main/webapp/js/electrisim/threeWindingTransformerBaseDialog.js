@@ -3,6 +3,8 @@ import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/ec
 import { createDialogBracketGroup } from './utils/dialogBracketGroup.js';
 import { rowDefsThreeWindingTransformerLibrary, gridOptionsThreeWindingTransformerLibrary, columnDefsThreeWindingTransformerLibrary } from './threeWindingTransformerLibraryDialog.js';
 import { LibraryDialogManager } from './LibraryDialogManager.js';
+import { getThreeWindingSideBusNames } from './utils/gridUtils.js';
+import { getTermLabel } from './utils/transformerTerminalLabels.js';
 
 // Default values for three-winding transformer parameters (based on pandapower documentation)
 // vk_*_percent, vkr_*_percent, pfe_kw, i0_percent are in Load Flow tab (necessary for power flow per pandapower trafo3w)
@@ -63,6 +65,8 @@ export class ThreeWindingTransformerDialog extends Dialog {
         this.currentTab = 'loadflow';
         this.data = { ...defaultThreeWindingTransformerData };
         this.inputs = new Map(); // Initialize inputs map for form elements
+        /** Diagram cell when opened from Edit Data (for connected bus names on tap/control side). */
+        this.cell = null;
         
         // Schematic parameters (terminal labels shown on the canvas symbol)
         this.schematicParameters = [
@@ -243,7 +247,7 @@ export class ThreeWindingTransformerDialog extends Dialog {
             {
                 id: 'tap_side',
                 label: 'Tap Side (tap_side)',
-                description: 'Where the tap changer is located (hv, mv, lv)',
+                description: 'Terminal where the tap changer sits. Each choice is the name printed on the symbol and the busbar connected to that terminal.',
                 type: 'select',
                 value: this.data.tap_side,
                 options: ['hv', 'mv', 'lv']
@@ -324,7 +328,7 @@ export class ThreeWindingTransformerDialog extends Dialog {
             {
                 id: 'control_side',
                 label: 'Control Side (control_side)',
-                description: 'Winding whose bus voltage is kept within the deadband: hv, mv, or lv (pandapower trafo3w DiscreteTapControl)',
+                description: 'Terminal whose busbar voltage is kept inside the deadband. Each choice is the name printed on the symbol and the busbar connected to that terminal.',
                 type: 'select',
                 value: this.data.control_side,
                 options: ['hv', 'mv', 'lv'],
@@ -447,6 +451,49 @@ export class ThreeWindingTransformerDialog extends Dialog {
     
     getDescription() {
         return '<strong>Configure Three Winding Transformer Parameters</strong><br>Set parameters for three-winding transformer with HV, MV, and LV sides. See the <a href="https://electrisim.com/documentation.html#three-winding-transformer" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
+    }
+
+    /** Called from Edit Data so tap/control side lists show connected busbar names. */
+    setCell(cell) {
+        this.cell = cell;
+        this.graph = this.ui?.editor?.graph || this.graph;
+        this.refreshWindingSideSelectOptions();
+    }
+
+    formatWindingSideSelectLabel(side, schematicLabel, busName) {
+        const onSymbol = schematicLabel && String(schematicLabel).trim()
+            ? String(schematicLabel).trim()
+            : side.toUpperCase();
+        const busPart = busName && String(busName).trim()
+            ? String(busName).trim()
+            : 'not connected';
+        return `${onSymbol} — ${busPart}`;
+    }
+
+    buildWindingSideSelectOptions() {
+        const sides = ['hv', 'mv', 'lv'];
+        const termIndex = { hv: 0, mv: 1, lv: 2 };
+        const busNames = getThreeWindingSideBusNames(this.cell);
+        return sides.map((side) => {
+            const idx = termIndex[side];
+            const schematic = this.cell
+                ? getTermLabel(this.cell, idx, side.toUpperCase())
+                : (this.data[`term_label_${idx}`] || side.toUpperCase());
+            return {
+                value: side,
+                label: this.formatWindingSideSelectLabel(side, schematic, busNames[side])
+            };
+        });
+    }
+
+    refreshWindingSideSelectOptions() {
+        const options = this.buildWindingSideSelectOptions();
+        ['tap_side', 'control_side'].forEach((id) => {
+            const param = this.loadFlowParameters.find((p) => p.id === id);
+            if (param) {
+                param.options = options;
+            }
+        });
     }
     
     show(callback) {
@@ -698,10 +745,12 @@ export class ThreeWindingTransformerDialog extends Dialog {
             }
 
             const isNameField = param.id === 'name';
+            const isSideSelect = param.id === 'tap_side' || param.id === 'control_side';
+            const isWideField = isNameField || isSideSelect;
             const parameterRow = document.createElement('div');
             Object.assign(parameterRow.style, {
                 display: 'grid',
-                gridTemplateColumns: isNameField ? 'minmax(0, 1fr) minmax(300px, 1.2fr)' : '1fr 200px',
+                gridTemplateColumns: isWideField ? 'minmax(0, 1fr) minmax(300px, 1.4fr)' : '1fr 200px',
                 gap: '20px',
                 alignItems: 'start',
                 padding: '16px',
@@ -754,8 +803,8 @@ export class ThreeWindingTransformerDialog extends Dialog {
                 alignItems: 'center',
                 justifyContent: 'flex-end',
                 minHeight: '60px',
-                width: isNameField ? '100%' : '200px',
-                ...(isNameField ? { minWidth: '0' } : {})
+                width: isWideField ? '100%' : '200px',
+                ...(isWideField ? { minWidth: '0' } : {})
             });
             
             let input;
@@ -774,18 +823,20 @@ export class ThreeWindingTransformerDialog extends Dialog {
                 });
             } else if (param.type === 'select') {
                 input = document.createElement('select');
-                param.options.forEach(option => {
+                (param.options || []).forEach(option => {
                     const opt = document.createElement('option');
-                    opt.value = option;
-                    opt.textContent = option;
-                    if (option === param.value) {
+                    const val = typeof option === 'object' ? option.value : option;
+                    const lbl = typeof option === 'object' ? (option.label || option.value) : option;
+                    opt.value = val;
+                    opt.textContent = lbl;
+                    if (val === param.value) {
                         opt.selected = true;
                     }
                     input.appendChild(opt);
                 });
                 Object.assign(input.style, {
-                    width: isNameField ? '100%' : '180px',
-                    ...(isNameField ? { minWidth: '0' } : {}),
+                    width: isWideField ? '100%' : '180px',
+                    ...(isWideField ? { minWidth: '0', maxWidth: '100%' } : {}),
                     padding: '10px 14px',
                     border: '2px solid #ced4da',
                     borderRadius: '6px',
@@ -1119,6 +1170,7 @@ export class ThreeWindingTransformerDialog extends Dialog {
             }
         }
         
+        this.refreshWindingSideSelectOptions();
         console.log('Populated Three Winding Transformer dialog parameters with cell data');
     }
 }

@@ -79,6 +79,8 @@ const PVSYSTEM_STYLE = IMG_BASE + 'shape=image;image=' + ELECTRICAL_SYMBOLS['sym
 
 const LINE_STYLE_BASE = 'edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=0;html=1;shapeELXXX=Line';
 const NOT_EDITABLE_LINE  = 'edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0.5;shapeELXXX=NotEditableLine';
+/** Component sits below its bus: leave the top of the symbol so the lead does not detour upward. */
+const NOT_EDITABLE_LINE_UP = 'edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;entryX=0.5;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;exitPerimeter=0;entryPerimeter=0;shapeELXXX=NotEditableLine';
 /** Straight vertical edges for wind turbine compound: fully specified with Dx/Dy/Perimeter=0 */
 const WT_EDGE_DOWN = 'edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;shapeELXXX=NotEditableLine';
 const WT_EDGE_UP   = 'edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;shapeELXXX=NotEditableLine';
@@ -438,7 +440,7 @@ export function mapToElectricalModel(graph, mapData, point = { x: 100, y: 100 })
                 const cy = above ? by - h - COMP_GAP : by + BUS_H + COMP_GAP;
                 const v = graph.insertVertex(parent, null, '', cx, cy, w, h, style);
                 if (cfgFn) cfgFn(graph, v, opts);
-                graph.insertEdge(parent, null, '', v, bus, NOT_EDITABLE_LINE);
+                graph.insertEdge(parent, null, '', v, bus, above ? NOT_EDITABLE_LINE : NOT_EDITABLE_LINE_UP);
             };
 
             switch (node.type) {
@@ -464,13 +466,14 @@ export function mapToElectricalModel(graph, mapData, point = { x: 100, y: 100 })
                     const sgenStyle = STATIC_GEN_STYLE + ';rotation=180';
                     const staticGen = graph.insertVertex(parent, null, '', sgenX, sgenY, sgenW, sgenH, sgenStyle);
                     configureStaticGeneratorAttributes(graph, staticGen, { p_mw: pMw, q_mvar: '0', sn_mva: String(Number(pMw) * 1.2) });
-                    graph.insertEdge(parent, null, '', staticGen, lvBus, WT_EDGE_UP);
+                    // Static gen is above the LV bus: leave the bottom of the symbol.
+                    graph.insertEdge(parent, null, '', staticGen, lvBus, WT_EDGE_DOWN);
 
                     // Vertical trafo: LV bus above, HV bus below → rotate 180° so LV winding faces up.
                     const [trafoW, trafoH] = symWh('sym-transformer-v');
                     const trafoX = centerX - trafoW / 2;
                     const trafoY = lvBusY + BUS_H + (by - lvBusY - BUS_H - trafoH) / 2;
-                    const trafoStyleRotated = TRANSFORMER_V_STYLE + 'rotation=180;';
+                    const trafoStyleRotated = TRANSFORMER_V_STYLE + ';rotation=180;';
                     const trafo = graph.insertVertex(parent, null, '', trafoX, trafoY, trafoW, trafoH, trafoStyleRotated);
                     configureTransformerAttributes(graph, trafo, {
                         name: (node.name || node.id) + '_trafo',
@@ -479,8 +482,9 @@ export function mapToElectricalModel(graph, mapData, point = { x: 100, y: 100 })
                         sn_mva: String(Number(pMw) * 1.2)
                     });
                     // Local bottom (LV in SVG) faces up after 180° → LV bus; local top (HV) faces down → HV bus.
-                    graph.insertEdge(parent, null, '', trafo, lvBus, WT_EDGE_DOWN);
-                    graph.insertEdge(parent, null, '', trafo, hvBus, WT_EDGE_UP);
+                    // Leave the symbol on the side that faces each bus so the lead stays vertical.
+                    graph.insertEdge(parent, null, '', trafo, lvBus, WT_EDGE_UP);
+                    graph.insertEdge(parent, null, '', trafo, hvBus, WT_EDGE_DOWN);
                     break;
                 }
 
@@ -775,5 +779,8 @@ export function mapToElectricalModel(graph, mapData, point = { x: 100, y: 100 })
         return { nodeToVertex, nodeCount: nodes.length, cableCount: cables.length };
     } finally {
         graph.getModel().endUpdate();
+        if (typeof window !== 'undefined' && typeof window.repositionAllResultBoxes === 'function') {
+            try { window.repositionAllResultBoxes(graph); } catch (e) { /* ignore */ }
+        }
     }
 }

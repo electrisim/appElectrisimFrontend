@@ -134,6 +134,7 @@ export class GridCodePqDialog extends RPCDialog {
                 label: 'Additional shunts',
                 type: 'multiselect',
                 options: [],
+                help: 'Shunt reactors start ticked and operate in the study. Untick a reactor to take it out of service. Capacitors stay unticked until you select them. Unticked shunts do not exchange reactive power and do not appear in the results.',
                 bracketGroup: 'plant'
             },
             {
@@ -416,13 +417,18 @@ export class GridCodePqDialog extends RPCDialog {
 
     createMultiSelect(param) {
         const container = super.createMultiSelect(param);
-        if (param.id === 'excludeGeneratorIds' || param.id === 'shuntIds') {
-            const data = this.inputs.get(param.id);
-            if (data && data._multiCheckboxes) {
-                data._multiCheckboxes.forEach((cb) => {
-                    cb.checked = false;
-                });
-            }
+        const data = this.inputs.get(param.id);
+        if (!data || !data._multiCheckboxes) return container;
+        if (param.id === 'excludeGeneratorIds') {
+            data._multiCheckboxes.forEach((cb) => {
+                cb.checked = false;
+            });
+        }
+        if (param.id === 'shuntIds') {
+            data._multiCheckboxes.forEach((cb) => {
+                const label = cb.dataset.label || '';
+                cb.checked = !!cb.value && /\(Shunt Reactor\)$/.test(label);
+            });
         }
         return container;
     }
@@ -609,6 +615,29 @@ export class GridCodePqDialog extends RPCDialog {
             this._qDispatchRadioInputs.forEach((el) => {
                 el.addEventListener('change', () => this._syncQDispatchUi());
             });
+        }
+
+        if (param.id === 'excludeGeneratorIds') {
+            const details = document.createElement('details');
+            Object.assign(details.style, { marginBottom: '0' });
+            const summary = document.createElement('summary');
+            summary.textContent = param.label;
+            Object.assign(summary.style, {
+                cursor: 'pointer', fontWeight: '600', fontSize: '13px',
+                color: '#495057', marginBottom: '6px'
+            });
+            details.appendChild(summary);
+            if (input instanceof Node) details.appendChild(input);
+            if (param.help) {
+                const hint = document.createElement('div');
+                hint.textContent = param.help;
+                Object.assign(hint.style, {
+                    fontSize: '12px', color: '#6c757d', marginTop: '4px', lineHeight: '1.45'
+                });
+                details.appendChild(hint);
+            }
+            this._shadowUnavailableField(details, param);
+            return details;
         }
 
         if (param.help) {

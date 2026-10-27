@@ -14,13 +14,13 @@
          Several of these are no longer executed at load (see electrisimScripts below) - preloading
          keeps their on-demand import() a warm cache hit without spending main-thread time on
          evaluating them during startup. -->
-    <link rel="modulepreload" href="js/electrisim/shortCircuit.js">
+    <link rel="modulepreload" href="js/electrisim/shortCircuit.js?v=2">
     <link rel="modulepreload" href="js/electrisim/arcFlash.js">
     <link rel="modulepreload" href="js/electrisim/motorStarting.js">
     <link rel="modulepreload" href="js/electrisim/transientStability.js">
     <link rel="modulepreload" href="js/electrisim/eigenvalueAnalysis.js">
-    <link rel="modulepreload" href="js/electrisim/loadFlow.js">
-    <link rel="modulepreload" href="js/electrisim/loadflowOpenDss.js">
+    <link rel="modulepreload" href="js/electrisim/loadFlow.js?v=6">
+    <link rel="modulepreload" href="js/electrisim/loadflowOpenDss.js?v=2">
     <link rel="modulepreload" href="js/electrisim/optimalPowerFlow.js">
     <link rel="modulepreload" href="js/electrisim/contingencyAnalysis.js">
     <link rel="modulepreload" href="js/electrisim/dataCenterSiteScreening.js">
@@ -79,7 +79,7 @@
                 return;
             }
             window.loadLeafletForMapEditor().then(function() {
-                return import('./js/electrisim/dialogs/MapEditorDialog.js');
+                return import('./js/electrisim/dialogs/MapEditorDialog.js?v=2');
             }).then(function(m) {
                 new m.MapEditorDialog(ui).show();
             }).catch(function(e) {
@@ -383,7 +383,7 @@
             { src: 'js/electrisim/capacitorDialog.js', type: 'module', async: true },
             { src: 'js/electrisim/loadDialog.js', type: 'module', async: true },
             { src: 'js/electrisim/asymmetricLoadDialog.js', type: 'module', async: true },
-            { src: 'js/electrisim/shortCircuit.js', type: 'module', async: true },
+            { src: 'js/electrisim/shortCircuit.js?v=2', type: 'module', async: true },
             { src: 'js/electrisim/arcFlash.js', type: 'module', async: true },
             { src: 'js/electrisim/motorStarting.js', type: 'module', async: true },
             { src: 'js/electrisim/transientStability.js', type: 'module', async: true },
@@ -399,20 +399,20 @@
             { src: 'js/electrisim/dialogs/StorageControllerDialog.js', type: 'module', async: true },
             { src: 'js/electrisim/dialogs/WindTurbineControllerDialog.js?v=20260818c', type: 'module', async: true },
             { src: 'js/electrisim/dialogs/WindTurbineDynamicControllerDialog.js', type: 'module', async: true },
-            { src: 'js/electrisim/dialogs/ParkControllerDialog.js?v=20260818d', type: 'module', async: true },
+            { src: 'js/electrisim/dialogs/ParkControllerDialog.js?v=20261019c', type: 'module', async: true },
             { src: 'js/electrisim/SSCDialog.js', type: 'module', async: true },
             { src: 'js/electrisim/SVCDialog.js', type: 'module', async: true },
             { src: 'js/electrisim/TCSCDialog.js', type: 'module', async: true },
             { src: 'js/electrisim/dcLineDialog.js', type: 'module', async: true },
             { src: 'js/electrisim/configureAttributes.js', type: 'module', async: true },
             { src: 'js/electrisim/supportingFunctions.js?v=schutterwald-bus2', type: 'module', async: true },
-            { src: 'js/electrisim/loadFlow.js', type: 'module', async: true },
-            { src: 'js/electrisim/loadflowOpenDss.js', type: 'module', async: true },
+            { src: 'js/electrisim/loadFlow.js?v=6', type: 'module', async: true },
+            { src: 'js/electrisim/loadflowOpenDss.js?v=2', type: 'module', async: true },
             { src: 'js/electrisim/bessSizing.js', type: 'module', async: true },
             { src: 'js/electrisim/gridCodePqAnalysis.js', type: 'module', async: true },
             { src: 'js/electrisim/gridCodeVqAnalysis.js', type: 'module', async: true },
             { src: 'js/electrisim/optimalPowerFlow.js', type: 'module', async: true },
-            { src: 'js/electrisim/shortCircuit.js', type: 'module', async: true },
+            { src: 'js/electrisim/shortCircuit.js?v=2', type: 'module', async: true },
             { src: 'js/electrisim/contingencyAnalysis.js', type: 'module', async: true },
             { src: 'js/electrisim/dataCenterSiteScreening.js', type: 'module', async: true },
             { src: 'js/electrisim/protectionCoordination.js', type: 'module', async: true },
@@ -750,7 +750,7 @@
 								'js/electrisim/utils/autoInitOptimizers.js',
 								// Then load other utilities and dialogs
 								'js/electrisim/dialogs/EditDataDialog.js',
-                                'js/electrisim/results/resultBoxes.js?v=6',
+                                'js/electrisim/results/resultBoxes.js?v=35',
                                 'js/electrisim/results/flowDirectionVisualization.js?v=14',
                                 'js/electrisim/results/loadFlowAnimation.js?v=12',
                                 'js/electrisim/results/loadFlowColouring.js?v=1',
@@ -763,7 +763,7 @@
 								'js/electrisim/utils/cellUtils.js',
 								'js/electrisim/utils/networkPreparation.js',
                                 'js/electrisim/ensureSubscriptionFunctions.js',
-                                'js/electrisim/dialogs/dialogInitializer.js',
+                                'js/electrisim/dialogs/dialogInitializer.js?v=4',
 								'js/electrisim/dialogs/BessSizingDialog.js',
 								'js/electrisim/dialogs/RPCDialog.js',
 								'js/electrisim/dialogs/RPCResultsDialog.js',
@@ -799,7 +799,7 @@
 								'js/electrisim/capacitorDialog.js',
 								'js/electrisim/loadDialog.js',
 								'js/electrisim/asymmetricLoadDialog.js',
-								'js/electrisim/shortCircuit.js',
+								'js/electrisim/shortCircuit.js?v=2',
 								'js/electrisim/impedanceDialog.js',
 								'js/electrisim/wardDialog.js',
 								'js/electrisim/extendedWardDialog.js',
@@ -811,17 +811,17 @@
 								'js/electrisim/dialogs/StorageControllerDialog.js',
 								'js/electrisim/dialogs/WindTurbineControllerDialog.js?v=20260818c',
 								'js/electrisim/dialogs/WindTurbineDynamicControllerDialog.js',
-								'js/electrisim/dialogs/ParkControllerDialog.js?v=20260818d',
+								'js/electrisim/dialogs/ParkControllerDialog.js?v=20261019c',
 								'js/electrisim/SSCDialog.js',
 								'js/electrisim/SVCDialog.js',
 								'js/electrisim/TCSCDialog.js',
 								'js/electrisim/dcLineDialog.js',
 								'js/electrisim/configureAttributes.js',
 								// MapEditorDialog.js is pulled in by mapInitializer.js's static import
-								'js/electrisim/map/mapInitializer.js',
+								'js/electrisim/map/mapInitializer.js?v=2',
 								'js/electrisim/supportingFunctions.js?v=schutterwald-bus2',
-								'js/electrisim/loadFlow.js',
-								'js/electrisim/loadflowOpenDss.js',
+								'js/electrisim/loadFlow.js?v=6',
+								'js/electrisim/loadflowOpenDss.js?v=2',
 								'js/electrisim/optimalPowerFlow.js',
 								'js/electrisim/timeSeriesSimulation.js',
 								'js/electrisim/contingencyAnalysis.js',

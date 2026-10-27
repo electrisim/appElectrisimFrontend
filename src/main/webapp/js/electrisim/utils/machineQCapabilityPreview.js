@@ -75,21 +75,29 @@ export function machineOperatingPMw(typ, attrs) {
     return Number.isFinite(p) ? p : 0;
 }
 
-/** Qmin/Qmax [Mvar] at operating P (U = 1.0 p.u. for voltage-dependent tables). */
+/** True when the cell stores a Q(P,U) table (Wind Turbine). A 1D P–Q JSON is not this. */
+function hasExplicitQCap2d(attrs) {
+    const present = (raw) => raw != null && String(raw).trim() !== '' && String(raw).trim() !== '[]';
+    return (
+        present(attrs?.q_cap_u_json) &&
+        present(attrs?.q_cap_p_json) &&
+        present(attrs?.q_cap_qmax_json) &&
+        present(attrs?.q_cap_qmin_json)
+    );
+}
+
+/**
+ * Qmin/Qmax [Mvar] at operating P.
+ * Static Generator Q capability tab is the 1D P–Q JSON — interpolate that at p_mw.
+ * Voltage-dependent Q(P,U) is used only when those matrices are stored on the cell.
+ */
 export function machineQCapabilityBand(attrs, pMw) {
     const sn = Number(attrs.sn_mva);
     const baseSn = Number.isFinite(sn) && sn > 0 ? sn : 2.5;
-    const qCapOn =
-        attrs.reactive_capability_curve === true || attrs.reactive_capability_curve === 'true';
     const curveStyle = attrs.curve_style || 'straightLineYValues';
 
-    const qCap2d = loadQCap2dFromAttrs(attrs, baseSn);
-    const has2d =
-        Array.isArray(qCap2d?.p) &&
-        qCap2d.p.length >= 2 &&
-        Array.isArray(qCap2d?.qmax) &&
-        Array.isArray(qCap2d?.qmin);
-    if (qCapOn || has2d) {
+    if (hasExplicitQCap2d(attrs)) {
+        const qCap2d = loadQCap2dFromAttrs(attrs, baseSn);
         const lim = interpQCap2dMvar(qCap2d, pMw, 1.0, baseSn);
         if (lim && Number.isFinite(lim.q_min_mvar) && Number.isFinite(lim.q_max_mvar)) {
             return {
@@ -111,7 +119,7 @@ export function machineQCapabilityBand(attrs, pMw) {
                     return {
                         q_min_mvar: qMin,
                         q_max_mvar: qMax,
-                        has_q_capability: qCapOn || true
+                        has_q_capability: true
                     };
                 }
             }
@@ -132,12 +140,14 @@ export function listMachineCandidates(graph) {
         const m = style.match(/shapeELXXX=([^;]+)/);
         if (!m || !allowed.has(m[1])) continue;
         const attrs = cellAttrMap(cell);
+        const id = cell.id != null ? String(cell.id) : '';
         let name = attrs.name;
-        if (!name) name = (cell.mxObjectId || cell.id || '').toString().replace('#', '_');
+        if (!name) name = (cell.mxObjectId || id || '').toString().replace('#', '_');
         const typ = m[1];
         const pMw = machineOperatingPMw(typ, attrs);
         const qBand = machineQCapabilityBand(attrs, pMw);
         out.push({
+            id,
             name,
             typ,
             sn_mva: attrs.sn_mva,

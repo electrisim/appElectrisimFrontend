@@ -37,13 +37,35 @@ function violationText(count) {
     return n === 1 ? '1 violation' : `${n} violations`;
 }
 
-function contingencyCell(count, caseName) {
-    const n = Number(count);
+// Worst N-1 / N-1-1 cell. Newer backends count only violations that are new or worse than the
+// same outage with the project at 0 MW, and report the plain count separately (*_all).
+function contingencyCell(row, tier) {
+    const pick = (n1Key, n11Key) => row[tier === 'n1' ? n1Key : n11Key];
+    const n = Number(pick('worst_n1_violations', 'worst_n11_violations'));
+    const caseName = pick('n1_worst_case', 'n11_worst_case');
     if (!Number.isFinite(n) || n < 0) return 'Did not converge';
-    if (n === 0) return 'No extra violations';
-    const label = prettyOutageName(caseName);
-    const countText = n === 1 ? '1 violation' : `${n} violations`;
-    return label ? `${countText} — ${label}` : countText;
+    const allRaw = pick('worst_n1_violations_all', 'worst_n11_violations_all');
+    if (allRaw === undefined) {
+        // Older backend: plain counts.
+        if (n === 0) return 'No extra violations';
+        const label = prettyOutageName(caseName);
+        const countText = n === 1 ? '1 violation' : `${n} violations`;
+        return label ? `${countText} — ${label}` : countText;
+    }
+    const all = Number(allRaw);
+    const parts = [];
+    if (n === 0) {
+        parts.push(all > 0 ? `No new violations (${all} already at 0 MW)` : 'No new violations');
+    } else {
+        const label = prettyOutageName(caseName);
+        const countText = n === 1 ? '1 new or worse violation' : `${n} new or worse violations`;
+        parts.push(label ? `${countText} — ${label}` : countText);
+    }
+    const newFailed = Number(pick('n1_new_failed_cases', 'n11_new_failed_cases')) || 0;
+    if (newFailed > 0) {
+        parts.push(newFailed === 1 ? '1 outage stops converging' : `${newFailed} outages stop converging`);
+    }
+    return parts.join('; ');
 }
 
 function mwText(value) {
@@ -55,8 +77,8 @@ function mwText(value) {
 function cellText(row, key) {
     if (key === 'requested_mw' || key === 'headroom_mw') return mwText(row[key]);
     if (key === 'base_violations') return violationText(row.base_violations);
-    if (key === 'n1') return contingencyCell(row.worst_n1_violations, row.n1_worst_case);
-    if (key === 'n11') return contingencyCell(row.worst_n11_violations, row.n11_worst_case);
+    if (key === 'n1') return contingencyCell(row, 'n1');
+    if (key === 'n11') return contingencyCell(row, 'n11');
     if (key === 'upgrade_likely') return row.upgrade_likely ? 'Upgrade likely' : 'Within limits';
     if (key === 'notes') return row.notes ? String(row.notes) : '—';
     return row[key] == null || row[key] === '' ? '—' : String(row[key]);
@@ -103,8 +125,13 @@ export class DataCenterSiteScreeningResultsDialog {
         toolbar.style.cssText = 'padding:10px 20px 0;display:flex;justify-content:space-between;align-items:center;gap:12px;';
         const hint = document.createElement('div');
         hint.style.cssText = 'font-size:12px;color:#6c757d;line-height:1.45;';
+        const relative = (this.results.summary || {}).comparison === 'new_or_worse_vs_0_mw';
         hint.textContent =
             'Headroom is the largest project load that still meets the voltage and thermal limits. ' +
+            (relative
+                ? 'Each case is compared with the same case at 0 MW: only violations the project adds or makes worse count, ' +
+                  'so problems already in the network are not charged to the project. '
+                : '') +
             'Click a violation count to see which buses, lines, and transformers are outside the limits, ' +
             'then open that load flow in the Network Dashboard.';
         const csvBtn = document.createElement('button');
@@ -143,6 +170,9 @@ export class DataCenterSiteScreeningResultsDialog {
             ['N-1-1 cases', summary.n11_cases ?? '—'],
             ['Upgrade likely', summary.upgrade_likely_count ?? '—']
         ];
+        if (summary.baseline_n1_cases_with_violations !== undefined) {
+            chips.push(['N-1 cases already outside limits at 0 MW', summary.baseline_n1_cases_with_violations]);
+        }
         chips.forEach(([label, value]) => {
             const chip = document.createElement('div');
             chip.style.cssText = 'background:#fff;border:1px solid #e9ecef;border-radius:6px;padding:6px 10px;font-size:12px;';
@@ -236,7 +266,9 @@ export class DataCenterSiteScreeningResultsDialog {
             const name = prettyOutageName(row.n1_worst_case) || 'worst N-1';
             return {
                 title: `${row.site_name} at ${mwText(row.requested_mw)} — N-1 ${name}`,
-                note: 'Outage with the most limit breaches at this project size.',
+                note: row.worst_n1_violations_all !== undefined
+                    ? 'Outage with the most limit breaches that are new, or worse than the same outage at 0 MW.'
+                    : 'Outage with the most limit breaches at this project size.',
                 details: row.n1_violation_details || [],
                 snapshot: row.n1_snapshot,
                 site: { id: row.site_id, name: row.site_name, p_mw: Number(row.requested_mw) },
@@ -246,7 +278,9 @@ export class DataCenterSiteScreeningResultsDialog {
         const name = prettyOutageName(row.n11_worst_case) || 'worst N-1-1';
         return {
             title: `${row.site_name} at ${mwText(row.requested_mw)} — N-1-1 ${name}`,
-            note: 'Pair of outages with the most limit breaches at this project size.',
+            note: row.worst_n11_violations_all !== undefined
+                ? 'Pair of outages with the most limit breaches that are new, or worse than the same pair at 0 MW.'
+                : 'Pair of outages with the most limit breaches at this project size.',
             details: row.n11_violation_details || [],
             snapshot: row.n11_snapshot,
             site: { id: row.site_id, name: row.site_name, p_mw: Number(row.requested_mw) },
@@ -257,7 +291,8 @@ export class DataCenterSiteScreeningResultsDialog {
     _violationButton(row, key, text) {
         const bundle = this._caseBundle(row, key);
         const clickable = (bundle.details && bundle.details.length) || bundle.snapshot;
-        if (!clickable || text === 'No violations' || text === 'No extra violations' || text === 'Did not converge') {
+        if (!clickable || text === 'No violations' || text === 'No extra violations' ||
+            text.startsWith('No new violations') || text === 'Did not converge') {
             const span = document.createElement('span');
             span.textContent = text;
             return span;
@@ -286,7 +321,10 @@ export class DataCenterSiteScreeningResultsDialog {
             const name = item.name || item.id || '';
             const value = item.text || '';
             const limit = item.limit ? ` (limit ${item.limit})` : '';
-            li.textContent = `${kind} ${name} — ${value}${limit}`;
+            let change = '';
+            if (item.change === 'worse') change = `, worse than at 0 MW (${item.baseline_text || 'n/a'})`;
+            else if (item.change === 'new') change = ', new';
+            li.textContent = `${kind} ${name} — ${value}${limit}${change}`;
             list.appendChild(li);
         });
         return list;

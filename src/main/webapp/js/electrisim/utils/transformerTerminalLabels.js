@@ -300,8 +300,60 @@ function layoutTemplate(key) {
     return SVG_2W_TEMPLATE;
 }
 
-function fillTransformerTemplate(template, labels, symbols) {
+/**
+ * IEC 60617 tap-changer mark: a diagonal arrow through the tapped winding's circle (r = 14),
+ * pointing up-right.
+ */
+function renderTapArrow(center, centers) {
+    // Nudge the arrow toward the winding's outer edge so it clears the vector-group sign
+    // and the neighbouring circles.
+    const cx = centers.reduce((s, c) => s + c.x, 0) / centers.length;
+    const cy = centers.reduce((s, c) => s + c.y, 0) / centers.length;
+    const len = Math.hypot(center.x - cx, center.y - cy) || 1;
+    const shift = 5;
+    const ox = center.x + ((center.x - cx) / len) * shift;
+    const oy = center.y + ((center.y - cy) / len) * shift;
+    const k = 10;
+    const x1 = +(ox - k).toFixed(2), y1 = +(oy + k).toFixed(2);
+    const x2 = ox + k, y2 = oy - k;
+    const d = Math.SQRT1_2;
+    const head = 5, half = 2.5;
+    const bx = x2 - head * d, by = y2 + head * d;
+    const pts = [
+        [x2, y2],
+        [bx + half * d, by + half * d],
+        [bx - half * d, by - half * d]
+    ].map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`).join(' ');
+    return `<g class="electrisim-tap-arrow"><line x1="${x1}" y1="${y1}" x2="${bx.toFixed(2)}" y2="${by.toFixed(2)}" ` +
+        'stroke="#1a1a2e" stroke-width="1.25" stroke-linecap="round"/>' +
+        `<polygon points="${pts}" fill="#1a1a2e"/></g>`;
+}
+
+/**
+ * Winding index (into TRAFO_LAYOUTS centers) that carries the tap changer, or -1 when the
+ * transformer has no usable tap range. 2W: [hv, lv]; 3W: [hv, mv, lv].
+ */
+export function getTapWindingIndex(cell, threeWinding) {
+    const num = (name) => {
+        const v = parseFloat(getCellAttr(cell, name));
+        return Number.isFinite(v) ? v : NaN;
+    };
+    const tapMin = num('tap_min');
+    const tapMax = num('tap_max');
+    const step = num('tap_step_percent');
+    if (!(tapMax > tapMin) || !(Math.abs(step) > 0)) {
+        return -1;
+    }
+    const sides = threeWinding ? ['hv', 'mv', 'lv'] : ['hv', 'lv'];
+    const side = getCellAttr(cell, 'tap_side').toLowerCase() || 'hv';
+    return sides.indexOf(side);
+}
+
+function fillTransformerTemplate(template, labels, symbols, tapCenter, centers) {
     let svg = template;
+    if (tapCenter) {
+        svg = svg.replace('</svg>', renderTapArrow(tapCenter, centers || [tapCenter]) + '</svg>');
+    }
     for (let i = 0; i < labels.length; i++) {
         svg = svg.split('%%' + i + '%%').join(escapeXml(labels[i]));
     }
@@ -324,14 +376,15 @@ function getCellAttr(cell, name) {
  * Full transformer SVG (circles, leads, terminal labels, vector-group marks).
  * `which` is 2h, 2v, 3h, or 3v. Used by the canvas painter and by visual checks.
  */
-export function renderTransformerSymbolSvg(which, labels, vectorGroup, fallbackClocks) {
+export function renderTransformerSymbolSvg(which, labels, vectorGroup, fallbackClocks, tapIndex = -1) {
     const layout = TRAFO_LAYOUTS[which] || TRAFO_LAYOUTS['2h'];
     const symbols = renderVectorGroupSymbols(vectorGroup, layout.centers, fallbackClocks);
-    return fillTransformerTemplate(layoutTemplate(which), labels, symbols);
+    return fillTransformerTemplate(layoutTemplate(which), labels, symbols, layout.centers[tapIndex], layout.centers);
 }
 
-function buildLabeledSvgUri(template, labels, symbols) {
-    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(fillTransformerTemplate(template, labels, symbols));
+function buildLabeledSvgUri(template, labels, symbols, tapCenter, centers) {
+    return 'data:image/svg+xml;charset=utf-8,' +
+        encodeURIComponent(fillTransformerTemplate(template, labels, symbols, tapCenter, centers));
 }
 
 /** True when the cell uses the vertical winding asset (not merely rotation on a horizontal SVG). */
@@ -355,6 +408,67 @@ function isVerticalThreeWindingTrafo(state, mxUtils) {
     return /sym-3w-transformer-v/i.test(styleStr) || /sym-3w-transformer-v/i.test(img);
 }
 
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const TRUE_VALUES = ['true', '1', 'yes', 'on'];
+
+/** True when a shunt reactor has a step controller (DiscreteShuntController or Line P → step). */
+export function isShuntTapControlled(cell) {
+    return ['discrete_shunt_control', 'line_flow_step_control']
+        .some((name) => TRUE_VALUES.includes(getCellAttr(cell, name).toLowerCase()));
+}
+
+/**
+ * Shunt reactors use draw.io's choke stencil, so the tap arrow cannot be baked into an image.
+ * Draw it as an SVG overlay across the shape bounds; shape.redraw() rebuilds the node, so the
+ * overlay is re-added on every repaint and disappears when control is switched off.
+ */
+function paintShuntTapArrow(state) {
+    const host = state.shape.node;
+    if (!host || !host.querySelectorAll || isHtmlShapeNode(host)) {
+        return;
+    }
+    host.querySelectorAll('[data-electrisim-shunt-tap]').forEach((el) => el.parentNode && el.parentNode.removeChild(el));
+    if (!isShuntTapControlled(state.cell)) {
+        return;
+    }
+    const b = state.shape.bounds || state;
+    if (!b || !(b.width > 0) || !(b.height > 0)) {
+        return;
+    }
+    const scale = (state.view && state.view.scale) || 1;
+    const cx = b.x + b.width / 2;
+    const cy = b.y + b.height * 0.58;
+    const k = 0.42 * Math.min(b.width, b.height);
+    const d = Math.SQRT1_2;
+    const head = Math.min(6 * scale, k * 0.6);
+    const half = head / 2;
+    const x2 = cx + k, y2 = cy - k;
+    const bx = x2 - head * d, by = y2 + head * d;
+    const color = state.shape.stroke && state.shape.stroke !== 'none' ? state.shape.stroke : '#1a1a2e';
+
+    const g = document.createElementNS(SVG_NS, 'g');
+    g.setAttribute('data-electrisim-shunt-tap', '1');
+    g.setAttribute('pointer-events', 'none');
+    const line = document.createElementNS(SVG_NS, 'line');
+    line.setAttribute('x1', cx - k);
+    line.setAttribute('y1', cy + k);
+    line.setAttribute('x2', bx);
+    line.setAttribute('y2', by);
+    line.setAttribute('stroke', color);
+    line.setAttribute('stroke-width', Math.max(1, 1.25 * scale));
+    line.setAttribute('stroke-linecap', 'round');
+    const poly = document.createElementNS(SVG_NS, 'polygon');
+    poly.setAttribute('points', [
+        [x2, y2],
+        [bx + half * d, by + half * d],
+        [bx - half * d, by - half * d]
+    ].map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`).join(' '));
+    poly.setAttribute('fill', color);
+    g.appendChild(line);
+    g.appendChild(poly);
+    host.appendChild(g);
+}
+
 function paintTransformerTerminalLabels(state) {
     if (!state || !state.cell || !state.shape) {
         return;
@@ -365,6 +479,10 @@ function paintTransformerTerminalLabels(state) {
     }
     const mxUtils = typeof window !== 'undefined' && window.mxUtils;
     if (!mxUtils || !mxUtils.getValue) {
+        return;
+    }
+    if (getShapeELXXXFromState(state, mxUtils) === 'Shunt Reactor') {
+        paintShuntTapArrow(state);
         return;
     }
     const trafoKind = resolveElectrisimTransformerKind(state, mxUtils);
@@ -396,10 +514,13 @@ function paintTransformerTerminalLabels(state) {
         ];
     }
 
+    const tapIndex = getTapWindingIndex(cell, trafoKind === 'Three Winding Transformer');
     const dataUri = buildLabeledSvgUri(
         layoutTemplate(which),
         labels,
-        renderVectorGroupSymbols(vectorGroup, TRAFO_LAYOUTS[which].centers, fallbackClocks)
+        renderVectorGroupSymbols(vectorGroup, TRAFO_LAYOUTS[which].centers, fallbackClocks),
+        TRAFO_LAYOUTS[which].centers[tapIndex],
+        TRAFO_LAYOUTS[which].centers
     );
 
     if (isHtmlShapeNode(host)) {

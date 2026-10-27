@@ -1079,7 +1079,9 @@ export class RPCResultsDialog {
             return;
         }
 
-        const sideLabel = side === 'q_max' ? 'Q_max (overexcited)' : 'Q_min (underexcited)';
+        const sideLabel = side === 'q_max'
+            ? 'Q_max (overexcited, capacitive)'
+            : 'Q_min (underexcited, inductive)';
         const statusText = `Showing diagram load flow — ${sideLabel}: P = ${Number(pMw).toFixed(2)} MW, Q = ${Number(qMvar).toFixed(2)} Mvar @ ${parseFloat(vKey)} pu`;
         if (panel?._rpcPointStatusEl) {
             panel._rpcPointStatusEl.style.display = 'block';
