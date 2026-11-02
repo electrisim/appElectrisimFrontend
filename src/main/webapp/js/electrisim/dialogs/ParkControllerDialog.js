@@ -162,6 +162,20 @@ function listLineTrafoNames(graph) {
     return names.sort();
 }
 
+/** How many buses, lines and transformers on this page carry the given name. */
+function countControlQAtMatches(graph, name) {
+    if (!name || !graph?.getModel) return 0;
+    let n = 0;
+    for (const cell of graph.getModel().getDescendants?.() || []) {
+        const m = (cell.getStyle?.() || '').match(/shapeELXXX=([^;]+)/);
+        if (!m || !['Bus', 'Busbar', 'Line', 'Transformer', 'Three Winding Transformer'].includes(m[1])) continue;
+        let cellName = cell.value?.getAttribute?.('name');
+        if (!cellName) cellName = (cell.mxObjectId || cell.id || '').toString().replace('#', '_');
+        if (cellName === name) n++;
+    }
+    return n;
+}
+
 /** Boundary candidates for Control Q at: busbars first, then lines/transformers. */
 function listControlQAtNames(graph) {
     const buses = listBusNames(graph);
@@ -394,7 +408,7 @@ export class ParkControllerDialog extends Dialog {
     showTabDialog() {
         this.ui = this.ui || window.App?.main?.editor?.editorUi;
         this.graph = this.ui?.editor?.graph;
-        if (this.graph) {
+        if (this.graph && this._usesMachines !== false) {
             this.machines = this._mergeMachineCandidates(listMachineCandidates(this.graph));
         }
 
@@ -432,10 +446,9 @@ export class ParkControllerDialog extends Dialog {
             borderBottom: '2px solid #e9ecef',
             marginBottom: '16px'
         });
-        const tabMachines = this.createTab('Machines', 'machines', this.currentTab === 'machines');
-        const tabGeneral = this.createTab('General', 'general', this.currentTab === 'general');
-        const tabDist = this.createTab('Distribution', 'distribution', this.currentTab === 'distribution');
-        tabBar.append(tabMachines, tabGeneral, tabDist);
+        const tabSpecs = this._tabSpecs();
+        const tabEls = tabSpecs.map(([label, key]) => this.createTab(label, key, this.currentTab === key));
+        tabBar.append(...tabEls);
         container.appendChild(tabBar);
 
         const scroll = document.createElement('div');
@@ -476,10 +489,10 @@ export class ParkControllerDialog extends Dialog {
         container.appendChild(footer);
 
         this.container = container;
-        this._tabs = [tabMachines, tabGeneral, tabDist];
-        tabMachines.onclick = () => this.switchTab('machines', tabMachines);
-        tabGeneral.onclick = () => this.switchTab('general', tabGeneral);
-        tabDist.onclick = () => this.switchTab('distribution', tabDist);
+        this._tabs = tabEls;
+        tabEls.forEach((el, i) => {
+            el.onclick = () => this.switchTab(tabSpecs[i][1], el);
+        });
 
         if (this._stackedOverStudy) {
             this._mountStackedOverlay(container);
@@ -491,6 +504,15 @@ export class ParkControllerDialog extends Dialog {
         }
 
         this._renderCurrentTab();
+    }
+
+    /** [label, key] of each tab, in order (subclasses may replace). */
+    _tabSpecs() {
+        return [
+            ['Machines', 'machines'],
+            ['General', 'general'],
+            ['Distribution', 'distribution']
+        ];
     }
 
     createTab(label, key, active) {
@@ -717,6 +739,102 @@ export class ParkControllerDialog extends Dialog {
         styleControl(sel, wide);
         this.inputs.set(id, sel);
         return sel;
+    }
+
+    /**
+     * Control Q at select. A saved name that no element on this page carries stays selected
+     * (so saving does not clear it) and is marked: the load flow would skip the controller.
+     */
+    _controlQAtInput(value) {
+        const names = listControlQAtNames(this.graph);
+        const sel = this._namedSelectInput('control_q_at', value, names);
+        const matches = countControlQAtMatches(this.graph, value);
+        let note = '';
+        if (value && matches === 0) {
+            const opt = document.createElement('option');
+            opt.value = value;
+            opt.textContent = `${value} (not found on this page)`;
+            opt.selected = true;
+            sel.insertBefore(opt, sel.options[1] || null);
+            sel.style.borderColor = '#dc3545';
+            note = `No bus, line or transformer on this page is named "${value}". ` +
+                'The load flow will skip this Park Controller until you pick an element here.';
+        } else if (value && matches > 1) {
+            sel.style.borderColor = '#fd7e14';
+            note = `${matches} elements on this page are named "${value}". ` +
+                'Give the measuring point a unique name so the right one is used.';
+        }
+        if (!note) return sel;
+        const wrap = document.createElement('div');
+        Object.assign(wrap.style, { display: 'flex', flexDirection: 'column', width: '100%', gap: '6px' });
+        const msg = document.createElement('div');
+        msg.textContent = note;
+        Object.assign(msg.style, {
+            fontSize: '12px',
+            lineHeight: '1.4',
+            color: matches === 0 ? '#b02a37' : '#9a5b00'
+        });
+        wrap.append(sel, msg);
+        return wrap;
+    }
+
+    /**
+     * Live explanation of the Q setpoint sign for the chosen "Control Q at" element,
+     * including how the value shows up in the load-flow result boxes.
+     */
+    _qSetpointSignNote(qInput) {
+        const note = document.createElement('div');
+        Object.assign(note.style, {
+            margin: '-6px 0 14px',
+            padding: '10px 14px',
+            background: '#eef5ff',
+            border: '1px solid #cfe2ff',
+            borderRadius: '6px',
+            fontSize: '12.5px',
+            lineHeight: '1.5',
+            color: '#084298'
+        });
+        const fmt = (v) => (Math.round(Math.abs(v) * 1000) / 1000).toString();
+        const update = () => {
+            const q = parseFloat(qInput.value);
+            const atSel = this.inputs.get('control_q_at');
+            const at = (atSel && atSel.value) || this.data.control_q_at || '';
+            if (!at) {
+                note.textContent = 'Pick "Control Q at" to see what this setpoint means.';
+                return;
+            }
+            const isBus = listBusNames(this.graph).includes(at);
+            const lines = [];
+            if (!Number.isFinite(q) || Math.abs(q) < 1e-9) {
+                lines.push(`0 Mvar: no net reactive power exchange at "${at}".`);
+            } else if (isBus) {
+                lines.push(q < 0
+                    ? `${q} Mvar: the park absorbs ${fmt(q)} Mvar from busbar "${at}" (underexcited, inductive).`
+                    : `+${q} Mvar: the park feeds ${fmt(q)} Mvar into busbar "${at}" (overexcited, capacitive).`);
+            } else {
+                lines.push(q < 0
+                    ? `${q} Mvar: ${fmt(q)} Mvar flows into the bus at the measuring end of "${at}" (the line's from-end / the transformer's HV side).`
+                    : `+${q} Mvar: ${fmt(q)} Mvar flows from the bus at the measuring end of "${at}" into it (the line's from-end / the transformer's HV side).`);
+            }
+            if (isBus && Number.isFinite(q) && Math.abs(q) >= 1e-9) {
+                lines.push(
+                    'In the load-flow results, read this on the transformer or cable that connects the park to the busbar. ' +
+                    'It shows the flow from the busbar’s side: ' +
+                    (q < 0
+                        ? `"Q=${fmt(q)} MVar out of bus".`
+                        : `"Q=-${fmt(q)} MVar into bus".`)
+                );
+                lines.push(
+                    'The busbar’s own result box shows only the elements connected directly to it (for example a shunt reactor), not this flow.'
+                );
+            }
+            note.textContent = lines.join(' ');
+        };
+        qInput.addEventListener('input', update);
+        const atSel = this.inputs.get('control_q_at');
+        if (atSel) atSel.addEventListener('change', update);
+        update();
+        return note;
     }
 
     _textareaInput(id, value) {
@@ -1139,18 +1257,20 @@ export class ParkControllerDialog extends Dialog {
                 this._paramCard(
                     'Control Q at (bus/line/trafo)',
                     'Busbar, line, or transformer where reactive power is controlled.',
-                    this._namedSelectInput('control_q_at', this.data.control_q_at, listControlQAtNames(this.graph))
+                    this._controlQAtInput(this.data.control_q_at)
                 )
             );
             const qType = this.inputs.get('q_control_type')?.value || this.data.q_control_type;
             if (qType === 'Const. Q') {
+                const qInput = this._numberInput('q_set_mvar', this.data.q_set_mvar, '0.1');
                 form.appendChild(
                     this._paramCard(
                         'Q setpoint [Mvar]',
-                        'Constant reactive power setpoint at the boundary.',
-                        this._numberInput('q_set_mvar', this.data.q_set_mvar, '0.1')
+                        'Reactive power the park delivers at "Control Q at". + = park exports Q (overexcited, capacitive), − = park absorbs Q (underexcited, inductive).',
+                        qInput
                     )
                 );
+                form.appendChild(this._qSetpointSignNote(qInput));
             } else if (qType === 'Q(V)-Characteristic') {
                 form.appendChild(
                     this._paramCard(
@@ -1190,7 +1310,7 @@ export class ParkControllerDialog extends Dialog {
                 this._paramCard(
                     'Control Q at (bus/line/trafo)',
                     'Busbar, line, or transformer where Q is derived from the power-factor target.',
-                    this._namedSelectInput('control_q_at', this.data.control_q_at, listControlQAtNames(this.graph))
+                    this._controlQAtInput(this.data.control_q_at)
                 )
             );
             const pfType = this.inputs.get('pf_control_type')?.value || this.data.pf_control_type;
@@ -1233,7 +1353,7 @@ export class ParkControllerDialog extends Dialog {
                 this._paramCard(
                     'Control Q at (bus/line/trafo)',
                     'Busbar, line, or transformer where Q = P × tan(φ).',
-                    this._namedSelectInput('control_q_at', this.data.control_q_at, listControlQAtNames(this.graph))
+                    this._controlQAtInput(this.data.control_q_at)
                 )
             );
             form.appendChild(

@@ -293,6 +293,7 @@ export class HarmonicAnalysisDialog extends Dialog {
     }
 
     show(callback) {
+        callback = globalThis.rememberStudySettings?.(this, callback) ?? callback;
         // Fresh inputs map
         this.inputs.clear();
 

@@ -46,7 +46,7 @@
 </clibs>
 
 <template url="renewables/reactive_power_onshore_WF_33MW.drawio" title="onshore wind farm 33MW" libs="general;uml"/>
-<template url="renewables/offshore wind 1GW 100km rev6.drawio" title="offshore wind farm 1 GW" libs="general;uml"/>
+<template url="renewables/offshore wind 1GW 100km rev7.drawio" title="offshore wind farm 1 GW" libs="general;uml"/>
 <template url="renewables/PV 100MW.drawio" title="PV solar farm" libs="general;uml"/>
 <template url="transmission/case4gs.drawio" title="IEEE 4 bus" libs="general;uml"/>
 <template url="transmission/case5.drawio" title="IEEE 5 bus" libs="general;uml"/>

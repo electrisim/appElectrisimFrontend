@@ -95,14 +95,20 @@ export class GridCodePqDialog extends RPCDialog {
                     {
                         value: 'local',
                         label: 'Local Q on each static generator / wind turbine',
+                        hint: 'Local Q sets each unit’s q_mvar from its P–Q capability.',
                         default: true
                     },
                     {
                         value: 'park',
-                        label: 'Park Controller — constant Q at the point of connection'
+                        label: 'Park Controller — constant Q at the point of connection',
+                        hint: 'Park Controller (constant Q) sweeps the controller’s Q setpoint to find the plant’s Q_max and Q_min at the point of connection.'
+                    },
+                    {
+                        value: 'park_configured',
+                        label: 'Park Controller — exactly as configured',
+                        hint: 'Park Controller (exactly as configured) runs the controller with its own mode, setpoint, Control Q at and characteristics at every P, and plots that operating curve instead of a capability envelope. Other park controllers are taken out of service so they cannot overwrite Q.'
                     }
                 ],
-                help: 'Local Q sets each unit’s q_mvar from its P–Q capability. Park Controller uses BinarySearchControl so the plant meets a constant-Q setpoint at the point of connection. Other park controllers are taken out of service so they cannot overwrite Q.',
                 bracketGroup: 'plant',
                 bracketGroupTitle: 'Plant'
             },
@@ -112,6 +118,14 @@ export class GridCodePqDialog extends RPCDialog {
                 type: 'select',
                 options: [],
                 help: 'If a Park Controller is on the diagram, it is selected automatically. Configure… opens that element’s dialog (also when Plant Q dispatch is Local Q). Park dispatch uses this controller for constant Q at the point of connection.',
+                bracketGroup: 'plant'
+            },
+            {
+                id: 'pscId',
+                label: 'Plant Supervisory Controller',
+                type: 'select',
+                options: [],
+                help: 'Used with "Park Controller — exactly as configured": at each P the operating point runs this controller (its STATCOMs and shunt reactors hold its target at its controlled bus). The capability edges push its STATCOMs to their Q rating and its reactors to their extreme steps. Pick — none — to leave it out of the study.',
                 bracketGroup: 'plant'
             },
             {
@@ -135,6 +149,14 @@ export class GridCodePqDialog extends RPCDialog {
                 type: 'multiselect',
                 options: [],
                 help: 'Shunt reactors start ticked and operate in the study. Untick a reactor to take it out of service. Capacitors stay unticked until you select them. Unticked shunts do not exchange reactive power and do not appear in the results.',
+                bracketGroup: 'plant'
+            },
+            {
+                id: 'sscIds',
+                label: 'STATCOMs (SSC)',
+                type: 'multiselect',
+                options: [],
+                help: 'STATCOMs start ticked and operate in the study. Untick one to take it out of service. With "Park Controller — exactly as configured", a ticked STATCOM with a Q rating (set in its dialog) is pushed to that rating to draw the red envelope; without a rating it is left out of the sweep.',
                 bracketGroup: 'plant'
             },
             {
@@ -305,7 +327,8 @@ export class GridCodePqDialog extends RPCDialog {
             'Sweeps plant active power and maps the reactive capability envelope at the point of connection. ' +
             'The results chart plots net P and Q at the PCC (not generator-terminal P). ' +
             '<strong>Plant Q dispatch</strong> is either local Q on each static generator / wind turbine, or a diagram ' +
-            '<strong>Park Controller</strong> (constant Q at the point of connection). ' +
+            '<strong>Park Controller</strong>: either constant Q at the point of connection, swept to find the capability envelope, ' +
+            'or exactly as configured, which plots the plant’s operating curve. ' +
             'Two- and three-winding DiscreteTapControl and shunt reactor control (DiscreteShuntController and Line P→shunt step) ' +
             'can be enabled independently; shunt on/off still reduces compensation steps before plant Q when the loading limit binds. ' +
             'Pandapower only. Park Q applies to wind turbines and static generators. ' +
@@ -322,6 +345,8 @@ export class GridCodePqDialog extends RPCDialog {
         const model = this.graph.getModel();
         const parks = [];
         const shunts = [];
+        const sscs = [];
+        const pscs = [];
         const plantGens = [];
         const canvasEq = { trafo2w: false, trafo3w: false, shuntReactor: false, shuntComp: false };
         const cellsArray = model.getDescendants();
@@ -346,10 +371,28 @@ export class GridCodePqDialog extends RPCDialog {
                     label: name || `ParkController ${cell.getId()}`
                 });
             }
+            if (shape === 'PlantSupervisoryController') {
+                pscs.push({
+                    value: cell.getId(),
+                    label: name || `Plant Supervisory Controller ${cell.getId()}`
+                });
+            }
             if (shape === 'Shunt Reactor' || shape === 'Capacitor' || shape === 'Shunt') {
                 shunts.push({
                     value: cell.getId(),
                     label: `${name || shape} (${shape})`
+                });
+            }
+            if (shape === 'SSC') {
+                const qMax = parseFloat(cellAttr(cell, 'q_max_mvar'));
+                const qMin = parseFloat(cellAttr(cell, 'q_min_mvar'));
+                const rated = (Number.isFinite(qMax) && qMax > 0) || (Number.isFinite(qMin) && qMin < 0);
+                const rating = rated
+                    ? `Q rating ${Number.isFinite(qMin) ? qMin : 0} … +${Number.isFinite(qMax) ? Math.abs(qMax) : 0} Mvar`
+                    : 'no Q rating set';
+                sscs.push({
+                    value: cell.getId(),
+                    label: `${name || 'SSC'} (STATCOM, ${rating})`
                 });
             }
             if (shape === 'Wind Turbine' || shape === 'Static Generator') {
@@ -373,11 +416,25 @@ export class GridCodePqDialog extends RPCDialog {
             }
         }
 
+        const pscParam = this.parameters.find((p) => p.id === 'pscId');
+        if (pscParam) {
+            pscParam.options = pscs.length
+                ? [{ value: '', label: '— none —' }, ...pscs.map((p, i) => ({ ...p, default: i === 0 }))]
+                : [{ value: '', label: 'No Plant Supervisory Controller on diagram' }];
+        }
+
         const shuntParam = this.parameters.find((p) => p.id === 'shuntIds');
         if (shuntParam) {
             shuntParam.options = shunts.length
                 ? shunts
                 : [{ value: '', label: 'No shunts / capacitors found' }];
+        }
+
+        const sscParam = this.parameters.find((p) => p.id === 'sscIds');
+        if (sscParam) {
+            sscParam.options = sscs.length
+                ? sscs
+                : [{ value: '', label: 'No STATCOM (SSC) on the diagram' }];
         }
 
         const exclParam = this.parameters.find((p) => p.id === 'excludeGeneratorIds');
@@ -430,22 +487,33 @@ export class GridCodePqDialog extends RPCDialog {
                 cb.checked = !!cb.value && /\(Shunt Reactor\)$/.test(label);
             });
         }
+        if (param.id === 'sscIds') {
+            data._multiCheckboxes.forEach((cb) => {
+                cb.checked = !!cb.value;
+            });
+        }
         return container;
     }
 
     _qDispatchMode() {
+        const known = (v) => (v === 'park' || v === 'park_configured' ? v : 'local');
         const radios = this._qDispatchRadioInputs;
         if (radios && radios.length) {
             const checked = radios.find((r) => r.checked);
-            if (checked) return checked.value === 'park' ? 'park' : 'local';
+            if (checked) return known(checked.value);
         }
         const stored = this.inputs.get('qDispatchMode');
-        if (stored && stored.value === 'park' && stored.checked) return 'park';
+        if (stored && stored.checked) return known(stored.value);
         return 'local';
     }
 
+    /** True for either Park Controller dispatch option. */
+    _parkDispatchOn() {
+        return this._qDispatchMode() !== 'local';
+    }
+
     _syncQDispatchUi() {
-        const parkOn = this._qDispatchMode() === 'park';
+        const parkOn = this._parkDispatchOn();
         this._setParkFieldShadowed(!parkOn);
         if (parkOn) this._syncGeneratorsFromPark();
         this._syncParkConfigureButton();
@@ -459,7 +527,7 @@ export class GridCodePqDialog extends RPCDialog {
         if (shadowed) {
             group.style.opacity = '0.45';
             group.style.pointerEvents = 'none';
-            group.title = 'Select “Park Controller — constant Q at the point of connection” to use and configure this element.';
+            group.title = 'Select a Park Controller option under Plant Q dispatch to use and configure this element.';
             group.querySelectorAll('label').forEach((el) => {
                 el.style.color = '#adb5bd';
             });
@@ -473,7 +541,7 @@ export class GridCodePqDialog extends RPCDialog {
     }
 
     _syncParkConfigureButton() {
-        const parkOn = this._qDispatchMode() === 'park';
+        const parkOn = this._parkDispatchOn();
         const parkSel = this.inputs.get('parkControllerId');
         const hasPark = Boolean(parkSel && parkSel.value);
         const enable = parkOn && hasPark;
@@ -496,7 +564,7 @@ export class GridCodePqDialog extends RPCDialog {
     _syncGeneratorsFromPark() {
         const parkSel = this.inputs.get('parkControllerId');
         const parkId = parkSel && parkSel.value;
-        if (!parkId || this._qDispatchMode() !== 'park') return;
+        if (!parkId || !this._parkDispatchOn()) return;
         const cell = this.graph.getModel().getCell(parkId);
         if (!cell) return;
         let machines = [];
@@ -521,7 +589,7 @@ export class GridCodePqDialog extends RPCDialog {
     }
 
     _openParkControllerDialog() {
-        if (this._qDispatchMode() !== 'park') return;
+        if (!this._parkDispatchOn()) return;
         const parkSel = this.inputs.get('parkControllerId');
         const parkId = parkSel && parkSel.value;
         if (!parkId) {
@@ -564,7 +632,7 @@ export class GridCodePqDialog extends RPCDialog {
         delete values.uqRequirements;
         delete values.uqGridCodeTemplateKey;
         values.pMaxMw = values.pnMw;
-        values.iParkCtrl = values.qDispatchMode === 'park';
+        values.iParkCtrl = values.qDispatchMode === 'park' || values.qDispatchMode === 'park_configured';
         if (this.container) {
             [
                 'iTrfCtrl', 'iTrf3wCtrl', 'run_control_shunt', 'shntCtrl', 'limQUprot',
@@ -611,6 +679,17 @@ export class GridCodePqDialog extends RPCDialog {
         if (input instanceof Node) formGroup.appendChild(input);
 
         if (param.id === 'qDispatchMode') {
+            // Each option's explanation sits in light grey directly under its tick box.
+            [...input.children].forEach((row, i) => {
+                const text = param.options[i]?.hint;
+                if (!text) return;
+                const hint = document.createElement('div');
+                hint.textContent = text;
+                Object.assign(hint.style, {
+                    fontSize: '12px', color: '#9aa0a6', lineHeight: '1.4', marginLeft: '20px', marginBottom: '4px'
+                });
+                row.after(hint);
+            });
             this._qDispatchRadioInputs = [...formGroup.querySelectorAll('input[type="radio"][name="qDispatchMode"]')];
             this._qDispatchRadioInputs.forEach((el) => {
                 el.addEventListener('change', () => this._syncQDispatchUi());

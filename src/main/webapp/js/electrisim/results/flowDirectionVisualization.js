@@ -796,15 +796,18 @@
         return 'Q=' + formatNum(qn) + ' MVar into bus (capacitive supply)';
     }
 
-    /** Net nodal bus Q (elements + branch terminals): + = absorbed/inductive, − = supplied/capacitive. */
+    /**
+     * Bus Q = sum of the elements connected to the bus (grid, loads, shunts, STATCOMs, generators),
+     * load convention: + = those elements absorb Q (inductive), − = they supply Q (capacitive).
+     */
     function formatBusNetReactiveQ(qMvar) {
         var qn = Number(qMvar);
         if (!Number.isFinite(qn)) return 'Q=N/A';
         if (Math.abs(qn) < FLOW_EPSILON) return 'Q≈0 (unity PF)';
         if (qn > 0) {
-            return 'Q=' + formatNum(qn) + ' MVar (inductive, absorbed)';
+            return 'Q=' + formatNum(qn) + ' MVar (absorbed by elements on this bus, inductive)';
         }
-        return 'Q=' + formatNum(qn) + ' MVar (capacitive, supplied)';
+        return 'Q=' + formatNum(qn) + ' MVar (supplied by elements on this bus, capacitive)';
     }
 
     /** Element Q for loads/shunts: pandapower positive load Q = inductive. */
@@ -814,15 +817,16 @@
         if (Math.abs(qn) < FLOW_EPSILON) return 'Q≈0';
         elementKind = elementKind || 'load';
         if (elementKind === 'shunt' || elementKind === 'capacitor') {
-            if (qn < 0) return 'Q=' + formatNum(qn) + ' MVar (capacitive, supplied)';
-            return 'Q=' + formatNum(qn) + ' MVar (inductive setting)';
+            if (qn < 0) return 'Q=' + formatNum(qn) + ' MVar (supplied, capacitive)';
+            return 'Q=' + formatNum(qn) + ' MVar (absorbed, inductive)';
         }
-        if (elementKind === 'externalgrid' || elementKind === 'generator') {
-            // pandapower source convention: +Q = reactive supplied INTO the network
-            // (supports inductive load); −Q = reactive ABSORBED from the network
-            // (e.g. soaking up line/cable capacitive charging).
-            if (qn > 0) return 'Q=' + formatNum(qn) + ' MVar (inductive, supplied to network)';
-            if (qn < 0) return 'Q=' + formatNum(qn) + ' MVar (capacitive, absorbed from network)';
+        if (elementKind === 'externalgrid') {
+            return formatExternalGridReactiveQ(qn);
+        }
+        if (elementKind === 'generator') {
+            // Generator convention: +Q = supplied (overexcited), −Q = absorbed (underexcited).
+            if (qn > 0) return 'Q=' + formatNum(qn) + ' MVar (supplied, overexcited/capacitive)';
+            if (qn < 0) return 'Q=' + formatNum(qn) + ' MVar (absorbed, underexcited/inductive)';
             return 'Q≈0 (unity PF)';
         }
         if (qn > 0) return 'Q=' + formatNum(qn) + ' MVar (inductive, consumed)';
@@ -835,14 +839,14 @@
         unit = unit || 'MVar';
         if (!Number.isFinite(qn)) return 'Q=N/A';
         if (Math.abs(qn) < FLOW_EPSILON) return 'Q≈0 (unity PF)';
-        // pandapower source convention: +Q = reactive supplied INTO the network
-        // (supports inductive load); −Q = reactive ABSORBED from the network
-        // (e.g. soaking up line/cable capacitive charging — Ferranti effect).
+        // pandapower source convention: +Q = the grid supplies Q INTO the network (the network
+        // side is net inductive); −Q = the grid ABSORBS Q from the network (the network side is
+        // net capacitive, e.g. cable charging or a plant exporting Q).
         if (qn > 0) {
-            return 'Q=' + formatNum(qn) + ' ' + unit + ' (inductive, supplied to network)';
+            return 'Q=' + formatNum(qn) + ' ' + unit + ' (grid supplies Q; network side is inductive)';
         }
         if (qn < 0) {
-            return 'Q=' + formatNum(qn) + ' ' + unit + ' (capacitive, absorbed from network)';
+            return 'Q=' + formatNum(qn) + ' ' + unit + ' (grid absorbs Q; network side is capacitive)';
         }
         return 'Q≈0 (unity PF)';
     }

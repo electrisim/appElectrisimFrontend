@@ -463,6 +463,7 @@ export class ProtectionCoordinationDialog extends Dialog {
     }
 
     show(callback) {
+        callback = globalThis.rememberStudySettings?.(this, callback) ?? callback;
         this.inputs.clear();
 
         const container = document.createElement('div');

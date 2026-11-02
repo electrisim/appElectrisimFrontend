@@ -1,10 +1,11 @@
+import { parseVoltageLevels, voltageLevelsErrorMessage } from './utils/voltageLevelsInput.js';
 import {
     getGridTemplateRequirementsMw,
     getGridTemplateDisplayName,
     estimateRpcInstalledMw
 } from './dialogs/RPCDialog.js';
-import { GridCodePqDialog } from './dialogs/GridCodePqDialog.js';
-import { GridCodePqResultsDialog } from './dialogs/GridCodePqResultsDialog.js';
+import { GridCodePqDialog } from './dialogs/GridCodePqDialog.js?v=pq20261102';
+import { GridCodePqResultsDialog } from './dialogs/GridCodePqResultsDialog.js?v=pq20261103b';
 import { prepareNetworkData } from './utils/networkDataPreparation.js';
 import {
     createSimulationProgressOverlay,
@@ -159,7 +160,8 @@ function gridCodePqAnalysis(a, b, c) {
             return;
         }
 
-        const parkOn = values.qDispatchMode === 'park' || coerceBool(values.iParkCtrl);
+        const parkConfigured = values.qDispatchMode === 'park_configured';
+        const parkOn = values.qDispatchMode === 'park' || parkConfigured || coerceBool(values.iParkCtrl);
         if (parkOn && !values.parkControllerId) {
             alert('Plant Q dispatch is set to Park Controller: select a Park Controller, or switch to Local Q on each unit.');
             return;
@@ -182,6 +184,14 @@ function gridCodePqAnalysis(a, b, c) {
             return;
         }
 
+        // Voltage levels: accept "0.9, 0.95" and "0,9; 0,95"; refuse values that are not p.u.
+        const vlParsed = parseVoltageLevels(values.voltageLevels, { fallback: [0.9, 0.95, 1.0, 1.05, 1.1] });
+        const vlError = voltageLevelsErrorMessage(values.voltageLevels, vlParsed);
+        if (vlError) {
+            alert(vlError);
+            return;
+        }
+
         const abortController = new AbortController();
         let overlay = null;
         const stopRun = () => {
@@ -194,10 +204,8 @@ function gridCodePqAnalysis(a, b, c) {
         };
 
         try {
-            const voltageLevels = (values.voltageLevels || '1.0')
-                .split(',')
-                .map((s) => parseFloat(s.trim()))
-                .filter((v) => !isNaN(v));
+            // An empty field means the levels shown as its placeholder, not 1.0 pu only.
+            const voltageLevels = vlParsed.levels;
 
             const model = graph.getModel();
             const pccCell = model.getCell(values.pccBusId);
@@ -216,7 +224,12 @@ function gridCodePqAnalysis(a, b, c) {
             const shuntNames = (values.shuntIds || []).filter((id) => id).map((id) => {
                 return _getCellNetworkName(model.getCell(id));
             }).filter((n) => n);
+            const sscNames = (values.sscIds || []).filter((id) => id).map((id) => {
+                return _getCellNetworkName(model.getCell(id));
+            }).filter((n) => n);
 
+            // Plant Supervisory Controller picked in the dialog ('' = none): its diagram cell id.
+            const pscCellId = values.pscId ? String(values.pscId) : '';
             let parkControllerName = null;
             let parkControllerId = null;
             if (values.parkControllerId) {
@@ -273,10 +286,12 @@ function gridCodePqAnalysis(a, b, c) {
                 generator_names: generatorNames,
                 exclude_generator_names: excludeNames,
                 shunt_names: shuntNames,
+                ssc_names: sscNames,
                 park_controller_name: parkControllerName,
                 park_controller_id: parkControllerId,
+                psc_cell_id: pscCellId,
                 i_park_ctrl: parkOn,
-                q_dispatch_mode: parkOn ? 'park' : 'local',
+                q_dispatch_mode: parkConfigured ? 'park_configured' : (parkOn ? 'park' : 'local'),
                 voltage_levels: voltageLevels,
                 pn_mw: parseFloat(values.pnMw) || 0,
                 un_kv: parseFloat(values.unKv) || 0,

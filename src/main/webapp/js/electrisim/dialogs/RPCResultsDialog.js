@@ -1067,6 +1067,18 @@ export class RPCResultsDialog {
         this._pointBanner = null;
     }
 
+    /** Optional plain-language note after the clicked point's Q (subclasses may add one). */
+    _pointQNote() {
+        return '';
+    }
+
+    /** Label for a clicked capability point (subclasses may rename it). */
+    _pointSideLabel(side) {
+        return side === 'q_max'
+            ? 'Q_max (overexcited, capacitive)'
+            : 'Q_min (underexcited, inductive)';
+    }
+
     _onCapabilityPointClick(vKey, side, pMw, qMvar, panel) {
         const lf = this._resolvePointLoadflow(vKey, side, pMw);
         if (!lf) {
@@ -1079,10 +1091,8 @@ export class RPCResultsDialog {
             return;
         }
 
-        const sideLabel = side === 'q_max'
-            ? 'Q_max (overexcited, capacitive)'
-            : 'Q_min (underexcited, inductive)';
-        const statusText = `Showing diagram load flow — ${sideLabel}: P = ${Number(pMw).toFixed(2)} MW, Q = ${Number(qMvar).toFixed(2)} Mvar @ ${parseFloat(vKey)} pu`;
+        const sideLabel = this._pointSideLabel(side);
+        const statusText = `Showing diagram load flow — ${sideLabel}: P = ${Number(pMw).toFixed(2)} MW, Q = ${Number(qMvar).toFixed(2)} Mvar${this._pointQNote(qMvar, lf)} @ ${parseFloat(vKey)} pu`;
         if (panel?._rpcPointStatusEl) {
             panel._rpcPointStatusEl.style.display = 'block';
             panel._rpcPointStatusEl.textContent = statusText;

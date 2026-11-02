@@ -1139,6 +1139,28 @@ export function configureParkControllerAttributes(grafka, vertex, options = {}) 
     grafka.getModel().setValue(vertex, g);
 }
 
+export function configurePlantSupervisoryControllerAttributes(grafka, vertex, options = {}) {
+    var name = options.name || "Plant Supervisory Controller";
+    var g = mxUtils.createXmlDocument().createElement("object");
+    g.setAttribute("label", name);
+    g.setAttribute("name", name);
+    g.setAttribute("Controller_parameters", "");
+    g.setAttribute("enabled", String(options.enabled !== false));
+    g.setAttribute("control_bus", options.control_bus || "");
+    g.setAttribute("control_mode", options.control_mode || "Q");
+    g.setAttribute("q_set_mvar", String(options.q_set_mvar ?? "0"));
+    g.setAttribute("vm_set_pu", String(options.vm_set_pu ?? "1.0"));
+    g.setAttribute("droop_percent", String(options.droop_percent ?? "4"));
+    g.setAttribute("q_ref_mvar", String(options.q_ref_mvar ?? "0"));
+    g.setAttribute("cos_phi", String(options.cos_phi ?? "1.0"));
+    g.setAttribute("excitation", options.excitation || "Overexcited");
+    g.setAttribute("qp_characteristic_json", options.qp_characteristic_json || "[]");
+    g.setAttribute("statcoms_json", options.statcoms_json || "[]");
+    g.setAttribute("reactors_json", options.reactors_json || "[]");
+    g.setAttribute("statcom_band_percent", String(options.statcom_band_percent ?? "50"));
+    grafka.getModel().setValue(vertex, g);
+}
+
 export function configureSVCAttributes(grafka, vertex, options = {}) {
 
     var g = mxUtils.createXmlDocument().createElement("object");
@@ -1495,6 +1517,7 @@ if (typeof window !== 'undefined') {
     window.configureWindTurbineControllerAttributes = configureWindTurbineControllerAttributes;
     window.configureWindTurbineDynamicControllerAttributes = configureWindTurbineDynamicControllerAttributes;
     window.configureParkControllerAttributes = configureParkControllerAttributes;
+    window.configurePlantSupervisoryControllerAttributes = configurePlantSupervisoryControllerAttributes;
     window.configureLoad1phAttributes = configureLoad1phAttributes;
     window.configureSource1phAttributes = configureSource1phAttributes;
     window.configureGenerator1phAttributes = configureGenerator1phAttributes;

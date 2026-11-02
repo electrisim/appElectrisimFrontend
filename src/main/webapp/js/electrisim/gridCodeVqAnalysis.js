@@ -1,3 +1,4 @@
+import { parseVoltageLevels, voltageLevelsErrorMessage } from './utils/voltageLevelsInput.js';
 import {
     getUqGridTemplateRequirementsMw,
     getUqGridTemplateDisplayName,
@@ -195,6 +196,14 @@ function gridCodeVqAnalysis(a, b, c) {
             return;
         }
 
+        // Voltage levels: accept "0.9, 0.95" and "0,9; 0,95"; refuse values that are not p.u.
+        const vlParsed = parseVoltageLevels(values.voltageLevels, { fallback: [] });
+        const vlError = voltageLevelsErrorMessage(values.voltageLevels, vlParsed);
+        if (vlError) {
+            alert(vlError);
+            return;
+        }
+
         const abortController = new AbortController();
         let overlay = null;
         const stopRun = () => {
@@ -207,13 +216,7 @@ function gridCodeVqAnalysis(a, b, c) {
         };
 
         try {
-            let voltageLevels = [];
-            if (typeof values.voltageLevels === 'string' && values.voltageLevels.trim()) {
-                voltageLevels = values.voltageLevels
-                    .split(',')
-                    .map((s) => parseFloat(s.trim()))
-                    .filter((v) => !isNaN(v));
-            }
+            let voltageLevels = vlParsed.levels;
 
             const model = graph.getModel();
             const pccCell = model.getCell(values.pccBusId);

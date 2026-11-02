@@ -1,4 +1,5 @@
 // Dialog.js - Base class for all dialogs
+import { rememberStudySettings } from './utils/studySettingsMemory.js';
 import {
     DIALOG_STYLES,
     attachBackdropCloseHandler,
@@ -68,6 +69,7 @@ export class Dialog {
     }
 
     show(callback, parameters = []) {
+        callback = rememberStudySettings(this, callback);
         // Store callback for potential use in fallback
         this.callback = callback;
         

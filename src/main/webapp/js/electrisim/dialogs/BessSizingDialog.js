@@ -517,6 +517,7 @@ export class BessSizingDialog extends Dialog {
     }
 
     show(callback) {
+        callback = globalThis.rememberStudySettings?.(this, callback) ?? callback;
         // Populate options BEFORE showing the dialog
         try {
             this.populateOptions();

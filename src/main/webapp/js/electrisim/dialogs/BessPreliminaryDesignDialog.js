@@ -393,6 +393,7 @@ export class BessPreliminaryDesignDialog extends Dialog {
     }
 
     show(callback) {
+        callback = globalThis.rememberStudySettings?.(this, callback) ?? callback;
         this.displayDialog(callback);
     }
 

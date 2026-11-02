@@ -6,7 +6,7 @@
     <link rel="preconnect" href="https://js.stripe.com" crossorigin>
     <link rel="preconnect" href="https://unpkg.com" crossorigin>
     <link rel="dns-prefetch" href="https://web-sdk.smartlook.com">
-    <link rel="preload" href="js/app.min.js?v=ieee118-fit2" as="script">
+    <link rel="preload" href="js/app.min.js?v=psc-sidebar9" as="script">
     <link rel="preload" href="https://unpkg.com/ag-grid-community@31.3.2/dist/ag-grid-community.min.js" as="script">
 
     <!-- Module preload hints for analysis engines: makes browser fetch them earlier (HTTP/2 prioritized)
@@ -19,7 +19,7 @@
     <link rel="modulepreload" href="js/electrisim/motorStarting.js">
     <link rel="modulepreload" href="js/electrisim/transientStability.js">
     <link rel="modulepreload" href="js/electrisim/eigenvalueAnalysis.js">
-    <link rel="modulepreload" href="js/electrisim/loadFlow.js?v=6">
+    <link rel="modulepreload" href="js/electrisim/loadFlow.js?v=11">
     <link rel="modulepreload" href="js/electrisim/loadflowOpenDss.js?v=2">
     <link rel="modulepreload" href="js/electrisim/optimalPowerFlow.js">
     <link rel="modulepreload" href="js/electrisim/contingencyAnalysis.js">
@@ -352,7 +352,7 @@
         // Define application scripts (ES modules)
         const appScripts = [
             { src: 'js/electrisim/auth-globals.js' },
-            { src: 'js/app.min.js?v=ieee118-fit2' },
+            { src: 'js/app.min.js?v=psc-sidebar9' },
            // { src: 'js/extensions.min.js' },
            // { src: 'js/shapes.min.js' },
             { src: 'js/electrisim/dialogs/EditDataDialog.js', type: 'module', async: true },
@@ -400,17 +400,18 @@
             { src: 'js/electrisim/dialogs/WindTurbineControllerDialog.js?v=20260818c', type: 'module', async: true },
             { src: 'js/electrisim/dialogs/WindTurbineDynamicControllerDialog.js', type: 'module', async: true },
             { src: 'js/electrisim/dialogs/ParkControllerDialog.js?v=20261019c', type: 'module', async: true },
+            { src: 'js/electrisim/dialogs/PlantSupervisoryControllerDialog.js', type: 'module', async: true },
             { src: 'js/electrisim/SSCDialog.js', type: 'module', async: true },
             { src: 'js/electrisim/SVCDialog.js', type: 'module', async: true },
             { src: 'js/electrisim/TCSCDialog.js', type: 'module', async: true },
             { src: 'js/electrisim/dcLineDialog.js', type: 'module', async: true },
             { src: 'js/electrisim/configureAttributes.js', type: 'module', async: true },
             { src: 'js/electrisim/supportingFunctions.js?v=schutterwald-bus2', type: 'module', async: true },
-            { src: 'js/electrisim/loadFlow.js?v=6', type: 'module', async: true },
+            { src: 'js/electrisim/loadFlow.js?v=11', type: 'module', async: true },
             { src: 'js/electrisim/loadflowOpenDss.js?v=2', type: 'module', async: true },
             { src: 'js/electrisim/bessSizing.js', type: 'module', async: true },
-            { src: 'js/electrisim/gridCodePqAnalysis.js', type: 'module', async: true },
-            { src: 'js/electrisim/gridCodeVqAnalysis.js', type: 'module', async: true },
+            { src: 'js/electrisim/gridCodePqAnalysis.js?v=pq20261103', type: 'module', async: true },
+            { src: 'js/electrisim/gridCodeVqAnalysis.js?v=vl20261102', type: 'module', async: true },
             { src: 'js/electrisim/optimalPowerFlow.js', type: 'module', async: true },
             { src: 'js/electrisim/shortCircuit.js?v=2', type: 'module', async: true },
             { src: 'js/electrisim/contingencyAnalysis.js', type: 'module', async: true },
@@ -655,7 +656,7 @@
 							
 							// Use async loading for app.min.js to prevent blocking
 							var appScript = document.createElement('script');
-							appScript.src = 'js/app.min.js?v=ieee118-fit2';
+							appScript.src = 'js/app.min.js?v=psc-sidebar9';
 							appScript.async = false; // Maintain execution order but don't block parsing
 							appScript.defer = true;
 							appScript.onload = function() {
@@ -750,8 +751,8 @@
 								'js/electrisim/utils/autoInitOptimizers.js',
 								// Then load other utilities and dialogs
 								'js/electrisim/dialogs/EditDataDialog.js',
-                                'js/electrisim/results/resultBoxes.js?v=35',
-                                'js/electrisim/results/flowDirectionVisualization.js?v=14',
+                                'js/electrisim/results/resultBoxes.js?v=37',
+                                'js/electrisim/results/flowDirectionVisualization.js?v=15',
                                 'js/electrisim/results/loadFlowAnimation.js?v=12',
                                 'js/electrisim/results/loadFlowColouring.js?v=1',
                                 'js/electrisim/results/networkHealthDashboard.js?v=4',
@@ -767,8 +768,8 @@
 								'js/electrisim/dialogs/BessSizingDialog.js',
 								'js/electrisim/dialogs/RPCDialog.js',
 								'js/electrisim/dialogs/RPCResultsDialog.js',
-								'js/electrisim/dialogs/GridCodePqDialog.js',
-								'js/electrisim/dialogs/GridCodePqResultsDialog.js',
+								'js/electrisim/dialogs/GridCodePqDialog.js?v=pq20261102',
+								'js/electrisim/dialogs/GridCodePqResultsDialog.js?v=pq20261103b',
 								'js/electrisim/dialogs/GridCodeVqDialog.js',
 								'js/electrisim/dialogs/GridCodeVqResultsDialog.js',
 								'js/electrisim/dialogs/DiagnosticReportDialog.js',
@@ -812,6 +813,7 @@
 								'js/electrisim/dialogs/WindTurbineControllerDialog.js?v=20260818c',
 								'js/electrisim/dialogs/WindTurbineDynamicControllerDialog.js',
 								'js/electrisim/dialogs/ParkControllerDialog.js?v=20261019c',
+								'js/electrisim/dialogs/PlantSupervisoryControllerDialog.js',
 								'js/electrisim/SSCDialog.js',
 								'js/electrisim/SVCDialog.js',
 								'js/electrisim/TCSCDialog.js',
@@ -820,7 +822,7 @@
 								// MapEditorDialog.js is pulled in by mapInitializer.js's static import
 								'js/electrisim/map/mapInitializer.js?v=2',
 								'js/electrisim/supportingFunctions.js?v=schutterwald-bus2',
-								'js/electrisim/loadFlow.js?v=6',
+								'js/electrisim/loadFlow.js?v=11',
 								'js/electrisim/loadflowOpenDss.js?v=2',
 								'js/electrisim/optimalPowerFlow.js',
 								'js/electrisim/timeSeriesSimulation.js',

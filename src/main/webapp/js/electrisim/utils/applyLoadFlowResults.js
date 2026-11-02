@@ -530,7 +530,15 @@ Q/P: ${formatNumber(d.qp)}`;
             if (!resultCell) return;
             const label = formatResultNameHeader(resultCell, replaceUnderscores(cell.name), 'Trafo3W');
             const tapBlock = formatTapControlOnTrafo(cell);
-            const text = `${label}
+            // P and Q at each winding terminal (pandapower: flow from the bus into the transformer).
+            const windingLines = ['hv', 'mv', 'lv'].map((k) => {
+                const q = cell[`q_${k}_mvar`];
+                const qText = (typeof window !== 'undefined' && window.formatBranchTerminalQ)
+                    ? window.formatBranchTerminalQ(q)
+                    : `Q=${formatNumber(q)} MVar`;
+                return `\n            ${k.toUpperCase()}: P=${formatNumber(cell[`p_${k}_mw`])} MW, ${qText}`;
+            }).join('');
+            const text = `${label}${windingLines}
             i_HV[kA]: ${formatNumber(cell.i_hv_ka)}
             i_MV[kA]: ${formatNumber(cell.i_mv_ka)}
             i_LV[kA]: ${formatNumber(cell.i_lv_ka)}
@@ -657,6 +665,25 @@ Q/P: ${formatNumber(d.qp)}`;
             Um[pu]: ${formatNumber(cell.vm_pu)}`;
             if (noteLargeResult(resultCell, text)) return;
             updateEdgeAttachedPlaceholder(graph, resultCell, text, { width: 70, height: 56, positionX: -0.3 });
+        });
+
+        (dataJson.sscs || []).forEach((cell) => {
+            const resultCell = resolveCell(cell);
+            if (!resultCell) return;
+            const label = formatResultNameHeader(resultCell, replaceUnderscores(cell.name), 'SSC');
+            // pandapower load convention: negative q_mvar = STATCOM supplies Q.
+            const note = cell.forced_to_rating
+                ? '\n            (held at its Q rating for this point)'
+                : (cell.controller ? `\n            Led by ${cell.controller}` : '');
+            const qSsc = Number(cell.q_mvar);
+            const qWord = !Number.isFinite(qSsc) || Math.abs(qSsc) < 1e-3
+                ? ''
+                : (qSsc > 0 ? ' (absorbed, inductive)' : ' (supplied, capacitive)');
+            const text = `${label}
+            q_mvar: ${formatNumber(cell.q_mvar)}${qWord}
+            vm_pu: ${formatNumber(cell.vm_pu)}${note}`;
+            if (noteLargeResult(resultCell, text)) return;
+            updateSingleComponentResult(graph, resultCell, text, { width: 80, height: 56, positionX: -0.3 });
         });
 
         (dataJson.switches || []).forEach((cell) => {

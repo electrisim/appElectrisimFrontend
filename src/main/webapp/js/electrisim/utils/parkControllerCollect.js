@@ -78,6 +78,45 @@ export function collectParkControllers(graph) {
     return out;
 }
 
+/**
+ * Plant Supervisory Controller cells for the network payload: leads STATCOMs and variable
+ * shunt reactors to a V / Q / droop / cos phi / Q(P) target at one busbar.
+ * @param {Object} graph
+ * @returns {Array<Object>}
+ */
+export function collectPlantSupervisoryControllers(graph) {
+    const out = [];
+    if (!graph?.getModel) return out;
+    const cells = graph.getModel().getDescendants?.() || [];
+    for (const cell of cells) {
+        const style = parseCellStyle(cell.getStyle?.() || '') || {};
+        if (style.shapeELXXX !== 'PlantSupervisoryController') continue;
+        const enabled = cellAttr(cell, 'enabled');
+        if (enabled != null && !truthy(enabled)) continue;
+        out.push({
+            typ: 'PlantSupervisoryController',
+            name: cellAttr(cell, 'name') || 'Plant Supervisory Controller',
+            id: cell.mxObjectId || cell.id,
+            cell_id: cell.id,
+            enabled: true,
+            control_bus: cellAttr(cell, 'control_bus') || '',
+            control_mode: cellAttr(cell, 'control_mode') || 'Q',
+            q_set_mvar: cellAttr(cell, 'q_set_mvar') || '0',
+            vm_set_pu: cellAttr(cell, 'vm_set_pu') || '1.0',
+            droop_percent: cellAttr(cell, 'droop_percent') || '4',
+            q_ref_mvar: cellAttr(cell, 'q_ref_mvar') || '0',
+            cos_phi: cellAttr(cell, 'cos_phi') || '1.0',
+            excitation: cellAttr(cell, 'excitation') || 'Overexcited',
+            qp_characteristic_json: cellAttr(cell, 'qp_characteristic_json') || '[]',
+            statcoms_json: cellAttr(cell, 'statcoms_json') || '[]',
+            reactors_json: cellAttr(cell, 'reactors_json') || '[]',
+            statcom_band_percent: cellAttr(cell, 'statcom_band_percent') || '50'
+        });
+    }
+    return out;
+}
+
 if (typeof window !== 'undefined') {
     window.collectParkControllers = collectParkControllers;
+    window.collectPlantSupervisoryControllers = collectPlantSupervisoryControllers;
 }

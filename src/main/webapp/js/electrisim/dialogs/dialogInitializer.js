@@ -11,6 +11,7 @@ import { StorageControllerDialog } from './StorageControllerDialog.js';
 import { WindTurbineControllerDialog } from './WindTurbineControllerDialog.js';
 import { WindTurbineDynamicControllerDialog } from './WindTurbineDynamicControllerDialog.js';
 import { ParkControllerDialog } from './ParkControllerDialog.js';
+import { PlantSupervisoryControllerDialog } from './PlantSupervisoryControllerDialog.js';
 import { syncWindTurbineFromController } from '../utils/windTurbineControllerApply.js';
 import { hideMxGraphTooltip, isElectrisimDialogOpen } from '../Dialog.js';
 
@@ -25,6 +26,7 @@ window.StorageControllerDialog = StorageControllerDialog;
 window.WindTurbineControllerDialog = WindTurbineControllerDialog;
 window.WindTurbineDynamicControllerDialog = WindTurbineDynamicControllerDialog;
 window.ParkControllerDialog = ParkControllerDialog;
+window.PlantSupervisoryControllerDialog = PlantSupervisoryControllerDialog;
 
 // are loaded as standalone modules and make themselves available globally
 
@@ -355,7 +357,8 @@ function initializeDialogs() {
                     StorageController: StorageControllerDialog,
                     WindTurbineController: WindTurbineControllerDialog,
                     WindTurbineDynamicController: WindTurbineDynamicControllerDialog,
-                    ParkController: ParkControllerDialog
+                    ParkController: ParkControllerDialog,
+                    PlantSupervisoryController: PlantSupervisoryControllerDialog
                 };
                 if (controlDialogs[controlType]) {
                     const ControlDialog = controlDialogs[controlType];
@@ -376,7 +379,8 @@ function initializeDialogs() {
                         if (
                             (controlType === 'WindTurbineController' ||
                                 controlType === 'WindTurbineDynamicController' ||
-                                controlType === 'ParkController') &&
+                                controlType === 'ParkController' ||
+                                controlType === 'PlantSupervisoryController') &&
                             values.name != null
                         ) {
                             value.setAttribute('label', values.name);

@@ -37,6 +37,7 @@ const electrisimScripts = [
     'js/electrisim/dialogs/WindTurbineControllerDialog.js',
     'js/electrisim/dialogs/WindTurbineDynamicControllerDialog.js',
     'js/electrisim/dialogs/ParkControllerDialog.js',
+    'js/electrisim/dialogs/PlantSupervisoryControllerDialog.js',
     'js/electrisim/SSCDialog.js',
     'js/electrisim/SVCDialog.js',
     'js/electrisim/TCSCDialog.js',

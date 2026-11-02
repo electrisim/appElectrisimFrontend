@@ -1,5 +1,5 @@
 import { attachBackdropCloseHandler } from '../utils/dialogStyles.js';
-import { RPCResultsDialog } from './RPCResultsDialog.js';
+import { RPCResultsDialog } from './RPCResultsDialog.js?v=pq20261102';
 import {
     getGridTemplateRequirementsMw,
     getGridTemplateDisplayName,
@@ -18,10 +18,57 @@ const PQ_Q_ELEMENT_SOURCES = [
     { key: 'staticgenerators', type: 'Static generator', wind: true },
     { key: 'generators', type: 'Generator' },
     { key: 'storages', type: 'Storage' },
-    { key: 'shunts', type: 'Shunt reactor' },
-    { key: 'capacitors', type: 'Capacitor' },
-    { key: 'svcs', type: 'SVC' }
+    // flip: the load flow reports these in load convention (+ = absorbing); the chart axis
+    // is generator convention (+ = capacitive), so absorbing elements plot negative.
+    { key: 'shunts', type: 'Shunt reactor', flip: true },
+    { key: 'capacitors', type: 'Capacitor', flip: true },
+    { key: 'svcs', type: 'SVC', flip: true },
+    { key: 'sscs', type: 'STATCOM', flip: true }
 ];
+
+// With the Park Controller as configured, only the STATCOM moves between the two edges, so the
+// plant Q on the "lower" edge can still be capacitive (e.g. cable charging). Name the edges by
+// position, not by inductive/capacitive.
+const PQ_STATCOM_EDGE_LABEL = {
+    q_max: 'Capability Q_max — highest plant Q (STATCOM at +rating)',
+    q_min: 'Capability Q_min — lowest plant Q (STATCOM at −rating)'
+};
+
+/** Plain-language direction of plant Q at the PCC (generator convention). */
+function _pccQDirection(qMvar) {
+    const q = Number(qMvar);
+    if (!Number.isFinite(q) || Math.abs(q) < 1e-3) return 'unity PF at the PCC';
+    return q > 0
+        ? 'capacitive: plant supplies Q to the grid'
+        : 'inductive: plant absorbs Q from the grid';
+}
+
+/**
+ * Q of the external grid(s) in a stored load flow, explained next to the plant Q at the PCC.
+ * The External Grid box uses the grid's own sign (+ = grid supplies, − = grid absorbs), so when
+ * the PCC is the grid's bus it shows the plant Q with the opposite sign.
+ */
+function _gridSideQ(lf, plantQ) {
+    const grids = Array.isArray(lf?.externalgrids) ? lf.externalgrids : [];
+    let q = 0;
+    let n = 0;
+    grids.forEach((g) => {
+        const v = Number(g?.q_mvar);
+        if (Number.isFinite(v)) { q += v; n += 1; }
+    });
+    if (!n) return null;
+    const who = n > 1 ? 'External Grid boxes (sum)' : 'External Grid box';
+    const qp = Number(plantQ);
+    const mirror = Number.isFinite(qp) && Math.abs(qp + q) <= Math.max(0.01, 1e-4 * Math.abs(qp));
+    const action = q < 0 ? 'grid absorbs it' : 'grid supplies it';
+    return {
+        q,
+        short: `${who} shows ${_fmt(q)} Mvar`,
+        long: mirror
+            ? `${who}: ${_fmt(q)} Mvar — the same Q seen from the grid (${action}), so the sign is opposite`
+            : `${who}: ${_fmt(q)} Mvar — grid's own sign (+ = grid supplies, − = grid absorbs); it differs from the plant Q by the network between the PCC and the grid`
+    };
+}
 
 const PQ_Q_TYPE_ORDER = [
     'Wind turbine',
@@ -30,7 +77,8 @@ const PQ_Q_TYPE_ORDER = [
     'Storage',
     'Shunt reactor',
     'Capacitor',
-    'SVC'
+    'SVC',
+    'STATCOM'
 ];
 
 const PQ_Q_TYPE_COLOR = {
@@ -40,7 +88,8 @@ const PQ_Q_TYPE_COLOR = {
     'Storage': '#6f42c1',
     'Shunt reactor': '#fd7e14',
     'Capacitor': '#d63384',
-    'SVC': '#6c757d'
+    'SVC': '#6c757d',
+    'STATCOM': '#82c91e'
 };
 
 function _fmt(v, digits = 3) {
@@ -67,7 +116,8 @@ const PQ_Q_TYPE_PALETTE = {
     'Storage': ['#6f42c1', '#59359a'],
     'Shunt reactor': ['#fd7e14', '#d9480f', '#e67700'],
     'Capacitor': ['#d63384', '#a61e4d'],
-    'SVC': ['#6c757d', '#495057']
+    'SVC': ['#6c757d', '#495057'],
+    'STATCOM': ['#82c91e', '#5c940d']
 };
 
 function _aggregateContribution(rows, collapseTypes) {
@@ -91,16 +141,12 @@ function _aggregateContribution(rows, collapseTypes) {
 }
 
 function _chartOperatingQ(bucket) {
-    // Use the solved load-flow Q. A shunt reactor at 208 Mvar is plotted at 208,
-    // the same value as the result on the diagram.
+    // Q in the chart's generator convention: a shunt reactor absorbing 208 Mvar plots at -208.
     return bucket.q;
 }
 
 function _operatingWords(bucket) {
     const q = Number(bucket.q);
-    if (bucket.type === 'Shunt reactor') {
-        return q >= 0 ? 'inductive (underexcited)' : 'capacitive (overexcited)';
-    }
     return q >= 0 ? 'capacitive (overexcited)' : 'inductive (underexcited)';
 }
 
@@ -114,9 +160,9 @@ function _contributionSentence(bucket, magText, unit) {
     const qOp = _chartOperatingQ(bucket);
     const word = _operatingWords(bucket);
     const label = _contributionLabel(bucket);
-    const mag = magText(Math.abs(qOp));
+    const mag = magText(qOp);
     if (bucket.count > 1) {
-        return `${label}: operating Q ${mag} ${unit} ${word} (${magText(Math.abs(qOp) / bucket.count)} ${unit} on each unit).`;
+        return `${label}: operating Q ${mag} ${unit} ${word} (${magText(qOp / bucket.count)} ${unit} on each unit).`;
     }
     return `${label}: operating Q ${mag} ${unit} ${word}.`;
 }
@@ -196,9 +242,36 @@ function _interpPqQInSpan(x, xs, ys, pTol = 1e-3) {
     return _interpPqQ(Math.min(Math.max(x, lo), hi), xs, ys);
 }
 
+/** Park Controller as configured: each operating point must lie inside the required band. */
+function _computeOperatingCompliance(curve, req, tolMvar = 1e-4) {
+    const reqP = req.p_mw || [];
+    const reqMax = req.q_req_max_mvar || [];
+    const reqMin = req.q_req_min_mvar || [];
+    const ps = reqP.map(Number).filter(Number.isFinite);
+    if (!ps.length) return null;
+    const pLo = Math.min(...ps);
+    const pHi = Math.max(...ps);
+    const pArr = curve.p_max_mw || curve.p_mw || [];
+    const qArr = curve.q_max_mvar || [];
+    let checked = 0;
+    for (let i = 0; i < pArr.length; i++) {
+        const p = Number(pArr[i]);
+        if (!Number.isFinite(p) || p < pLo - tolMvar || p > pHi + tolMvar) continue;
+        const q = qArr[i];
+        if (q == null || !Number.isFinite(Number(q))) return false;
+        const hi = _interpPqQ(p, reqP, reqMax);
+        const lo = _interpPqQ(p, reqP, reqMin);
+        if (hi == null || lo == null) return false;
+        if (Number(q) > hi + tolMvar || Number(q) < lo - tolMvar) return false;
+        checked++;
+    }
+    return checked ? true : false;
+}
+
 /** Capability must cover required Qmax/Qmin over the P-Q envelope. true / false / null. */
 function _computePqCompliance(curve, req, tolMvar = 1e-4) {
     if (!_hasPqReqPoints(req) || !curve) return null;
+    if (curve.operating) return _computeOperatingCompliance(curve, req, tolMvar);
     const reqP = req.p_mw || [];
     const reqMax = req.q_req_max_mvar || [];
     const reqMin = req.q_req_min_mvar || [];
@@ -342,6 +415,21 @@ function _attachPqRequirementOverlay(data) {
     else data.pq_compliance = null;
 
     const hasReq = !!data._pqReqFallback;
+    if (data.q_dispatch_mode === 'park_configured' && data.statcom_envelope) {
+        const names = (data.statcom_names || []).join(', ') || 'STATCOM';
+        data.pcc_q_convention = 'Red area: plant P-Q range at the PCC with the Park Controller running exactly as configured and ' +
+            `${names} pushed to its capacitive (Q_max) and inductive (Q_min) rating: the P-Q capability of the whole plant (generators, cables, transformers, shunts and STATCOM). ` +
+            (hasReq
+                ? 'Blue: grid-code required envelope in p.u. of Pmax at the PCC. The plant is compliant when the red area fully covers the blue area.'
+                : 'No grid-code requirement was selected, so compliance is not assessed.');
+        return;
+    }
+    if (data.q_dispatch_mode === 'park_configured') {
+        data.pcc_q_convention = hasReq
+            ? 'Red: plant operating point at the PCC with the Park Controller running exactly as configured (one load flow per P). Blue: grid-code required envelope in p.u. of Pmax at the PCC. The plant is compliant when every red point lies inside the blue area. This is not a capability envelope.'
+            : 'Red: plant operating point at the PCC with the Park Controller running exactly as configured (one load flow per P). This is not a capability envelope. No grid-code requirement was selected, so compliance is not assessed.';
+        return;
+    }
     data.pcc_q_convention = hasReq
         ? 'Red: plant P-Q capability at the PCC. Blue: grid-code required envelope in p.u. of Pmax at the PCC (net P after collector and transformer losses, not generator Pn). The plant is compliant when the red area fully covers the blue area.'
         : 'Red: plant P-Q capability at the PCC (P and Q from the load flow at the point of connection, including collector and transformer losses). No grid-code requirement was selected, so compliance is not assessed. Choose a Grid Code Template and run again to overlay the required envelope.';
@@ -379,9 +467,13 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         this._plotPuP = false;
         this._plotPuQ = false;
         this._plotLoadOriented = false;
-        this._pqMaximized = false;
+        this._pqMaximized = true;  // open full-screen; "Restore" shrinks it
         this._showElementQ = false;
         this._pqChartSpecs = [];
+        this._pqStatcomEnv = data.q_dispatch_mode === 'park_configured' && !!data.statcom_envelope;
+        // Single operating curve only (no STATCOM range to sweep).
+        this._pqOperating = data.q_dispatch_mode === 'park_configured' && !this._pqStatcomEnv;
+        this._pqConfigured = data.q_dispatch_mode === 'park_configured';
         _attachPqRequirementOverlay(data);
         if (Number(data.pmax_pcc_mw) > 0) this._pn = Number(data.pmax_pcc_mw);
         this._createModal(data);
@@ -532,7 +624,13 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
             padding: '12px 24px', borderTop: '1px solid #e9ecef',
             display: 'flex', justifyContent: 'flex-end', gap: '8px'
         });
+        const copyBtn = this._styledButton('Copy image', '#0d6efd', '#0b5ed7');
+        copyBtn.title = 'Copy a report-quality image of the visible P-Q chart, ready to paste into a document, article or post.';
+        copyBtn.onclick = () => this._copyReportImage(copyBtn);
+        footerBar.appendChild(copyBtn);
+
         const imageBtn = this._styledButton('Save image', '#0d6efd', '#0b5ed7');
+        imageBtn.title = 'Save a report-quality PNG (1600 px wide at 2x, large fonts and legend) of the visible P-Q chart.';
         imageBtn.onclick = () => this._saveChartImage();
         footerBar.appendChild(imageBtn);
 
@@ -548,6 +646,7 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         this.overlay.appendChild(dialog);
         attachBackdropCloseHandler(this.overlay, dialog, () => this.destroy());
         document.body.appendChild(this.overlay);
+        this._applyPqDialogSize();
     }
 
     _createComplianceBanner(data) {
@@ -562,12 +661,20 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
             bg = '#d4edda';
             border = '#c3e6cb';
             color = '#155724';
-            text = 'COMPLIANT — plant P-Q capability covers the required envelope at every voltage level.';
+            text = this._pqStatcomEnv
+                ? 'COMPLIANT — with the Park Controller as configured and the STATCOM at its rating, the plant range covers the required envelope at every voltage level.'
+                : this._pqOperating
+                ? 'COMPLIANT — every operating point of the Park Controller, as configured, lies inside the required envelope at every voltage level.'
+                : 'COMPLIANT — plant P-Q capability covers the required envelope at every voltage level.';
         } else if (hasReq && ok === false) {
             bg = '#f8d7da';
             border = '#f5c6cb';
             color = '#721c24';
-            text = 'NON-COMPLIANT — plant P-Q capability does not cover the required envelope at one or more voltage levels.';
+            text = this._pqStatcomEnv
+                ? 'NON-COMPLIANT — with the Park Controller as configured and the STATCOM at its rating, the plant range does not cover the required envelope at one or more voltage levels.'
+                : this._pqOperating
+                ? 'NON-COMPLIANT — with the Park Controller as configured, at least one operating point lies outside the required envelope.'
+                : 'NON-COMPLIANT — plant P-Q capability does not cover the required envelope at one or more voltage levels.';
         } else if (hasReq && ok == null) {
             text = 'Grid-code requirement is shown (blue). Compliance could not be computed for every voltage level — check the tab badges.';
         }
@@ -641,6 +748,14 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         this._elementQOnBtn.title = 'Mark each group’s operating reactive power from the selected load flow.';
         addGroup('Element Q', this._elementQOffBtn, this._elementQOnBtn);
 
+        this._elementQBothBtn = makeBtn('Both', () => this._setElementQEdge('both'));
+        this._elementQCapBtn = makeBtn('Capacitive', () => this._setElementQEdge('capacitive'));
+        this._elementQIndBtn = makeBtn('Inductive', () => this._setElementQEdge('inductive'));
+        this._elementQBothBtn.title = 'Show element Q on both edges of the STATCOM envelope.';
+        this._elementQCapBtn.title = 'Show element Q only on the capacitive edge (Q max, overexcited).';
+        this._elementQIndBtn.title = 'Show element Q only on the inductive edge (Q min, underexcited).';
+        addGroup('Element Q edge', this._elementQBothBtn, this._elementQCapBtn, this._elementQIndBtn);
+
         this._syncUnitToggleStyle();
         return bar;
     }
@@ -659,6 +774,24 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         apply(this._signLoadBtn, this._plotLoadOriented);
         apply(this._elementQOffBtn, !this._showElementQ);
         apply(this._elementQOnBtn, this._showElementQ);
+        const edge = this._elementQEdge || 'both';
+        apply(this._elementQBothBtn, edge === 'both');
+        apply(this._elementQCapBtn, edge === 'capacitive');
+        apply(this._elementQIndBtn, edge === 'inductive');
+        // Edge choice only matters while Element Q is on: shade and disable it otherwise.
+        [this._elementQBothBtn, this._elementQCapBtn, this._elementQIndBtn].forEach((btn) => {
+            if (!btn) return;
+            btn.disabled = !this._showElementQ;
+            btn.style.opacity = this._showElementQ ? '1' : '0.45';
+            btn.style.cursor = this._showElementQ ? 'pointer' : 'not-allowed';
+        });
+    }
+
+    _setElementQEdge(edge) {
+        if ((this._elementQEdge || 'both') === edge) return;
+        this._elementQEdge = edge;
+        this._syncUnitToggleStyle();
+        (this._pqChartSpecs || []).forEach((spec) => this._refreshElementMarkers(spec.panel));
     }
 
     _setShowElementQ(show) {
@@ -673,8 +806,20 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
     }
 
     _pqClickHintText() {
+        if (this._showElementQ && this._pqStatcomEnv) {
+            return 'Element Q is on. Each element group, including the STATCOM, is drawn twice: diamonds and solid line along the capacitive edge (Q_max), triangles and dashed line along the inductive edge (Q_min). Click a red point to show that load flow on the diagram.';
+        }
+        if (this._pqStatcomEnv) {
+            return 'Red edges: P-Q capability of the whole plant with the Park Controller as configured and the STATCOM at its capacitive (Q_max) / inductive (Q_min) rating. Click any point to show that load flow on the diagram. Turn on Element Q to see each element group along both edges.';
+        }
+        if (this._showElementQ && this._pqOperating) {
+            return 'Element Q is on. Each element group is drawn at every operating point (one diamond per P), so you can follow how its Q changes along the characteristic. Click a red point to show that load flow on the diagram.';
+        }
         if (this._showElementQ) {
             return 'Element Q is on. Markers are the operating reactive power from the load flow of the red point you select, not the available capability. Click a red point to show that load flow on the diagram.';
+        }
+        if (this._pqOperating) {
+            return 'Click a red operating point to show that load flow on the diagram. Each point is the plant with the Park Controller running exactly as configured. Turn on Element Q to draw each group’s total on the chart.';
         }
         return 'Click a red capability point to show that load flow on the diagram. Q max is overexcited (capacitive). Q min is underexcited (inductive). Turn on Element Q to draw each group’s total on the chart.';
     }
@@ -746,10 +891,38 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         const canvas = document.createElement('canvas');
         canvas.width = 850;
         canvas.height = 450;
-        Object.assign(canvas.style, { width: '100%', height: '450px', maxHeight: '450px' });
+        const chartH = this._pqMaximized ? 'max(56vh, calc(96vh - 330px))' : '450px';
+        Object.assign(canvas.style, { width: '100%', height: chartH, maxHeight: chartH });
         panel.appendChild(canvas);
         this._pqChartSpecs.push({ canvas, curveData, reqData, voltageLevel, fullData, panel });
         this._mountElementQSection(panel, curveData);
+    }
+
+    /** How element Q signs on the chart relate to the result boxes on the diagram. */
+    _elementSignNote() {
+        if (this._plotLoadOriented) {
+            return 'Sign of element Q: the chart uses load convention (+ = absorbed, inductive; − = supplied, capacitive). ' +
+                'Diagram boxes for shunt reactors, capacitors and STATCOMs use the same sign; generator boxes show the opposite sign.';
+        }
+        return 'Sign of element Q: the chart uses generator convention (+ = supplied, capacitive; − = absorbed, inductive). ' +
+            'Diagram boxes for shunt reactors, capacitors and STATCOMs use load convention (+ = absorbed), so a STATCOM ' +
+            'absorbing 200 Mvar shows +200 on the diagram and −200 here.';
+    }
+
+    _pointQNote(qMvar, lf) {
+        const grid = _gridSideQ(lf, qMvar);
+        return grid
+            ? ` (${_pccQDirection(qMvar)}; ${grid.short})`
+            : ` (${_pccQDirection(qMvar)})`;
+    }
+
+    _pointSideLabel(side) {
+        if (this._pqStatcomEnv) {
+            if (side === 'q_op') return 'Operating point (Park Controller as configured)';
+            return side === 'q_min' ? PQ_STATCOM_EDGE_LABEL.q_min : PQ_STATCOM_EDGE_LABEL.q_max;
+        }
+        if (this._pqOperating) return 'Operating point (Park Controller as configured)';
+        return _pqSideLabel(side);
     }
 
     _createSummaryBar(data) {
@@ -762,6 +935,16 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
             extra.push(['Q dispatch', 'Local Q on each static generator / wind turbine']);
             if (data.park_controller_name) {
                 extra.push(['Park Controller', data.park_controller_name + ' (not used)']);
+            }
+        } else if (data.q_dispatch_mode === 'park_configured') {
+            extra.push(['Q dispatch', data.statcom_envelope
+                ? 'Park Controller — exactly as configured; range from STATCOM rating'
+                : 'Park Controller — exactly as configured (operating curve)']);
+            if (data.statcom_envelope && (data.statcom_names || []).length) {
+                extra.push(['STATCOM', data.statcom_names.join(', ')]);
+            }
+            if (data.park_controller_name) {
+                extra.push(['Park Controller', data.park_controller_name + ' (active)']);
             }
         } else if (data.park_controller_name) {
             extra.push(['Q dispatch', 'Park Controller — constant Q at PoC']);
@@ -831,13 +1014,18 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         const wrap = document.createElement('div');
         Object.assign(wrap.style, { marginTop: '16px', overflowX: 'auto' });
         const title = document.createElement('div');
-        title.textContent = 'Reactive power capability at 10% steps of Pn (P at PCC)';
+        title.textContent = this._pqOperating
+            ? 'Operating point at 10% steps of Pn (P at PCC), Park Controller as configured'
+            : 'Reactive power capability at 10% steps of Pn (P at PCC)';
         Object.assign(title.style, { fontWeight: '600', marginBottom: '8px', fontSize: '13px' });
         wrap.appendChild(title);
         const table = document.createElement('table');
         Object.assign(table.style, { width: '100%', borderCollapse: 'collapse', fontSize: '12px' });
         const head = document.createElement('tr');
-        ['U (p.u.)', 'P at PCC (MW)', 'P (p.u.)', 'Q_max (Mvar)', 'Q_min (Mvar)', 'cosφ over', 'cosφ under'].forEach((h) => {
+        const heads = this._pqOperating
+            ? ['U (p.u.)', 'P at PCC (MW)', 'P (p.u.)', 'Q (Mvar)', 'cosφ']
+            : ['U (p.u.)', 'P at PCC (MW)', 'P (p.u.)', 'Q_max (Mvar)', 'Q_min (Mvar)', 'cosφ over', 'cosφ under'];
+        heads.forEach((h) => {
             const th = document.createElement('th');
             th.textContent = h;
             Object.assign(th.style, {
@@ -848,11 +1036,16 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         table.appendChild(head);
         data.output_table.forEach((row) => {
             const tr = document.createElement('tr');
-            [
-                _fmt(row.u_pu, 4), _fmt(row.p_mw, 2), _fmt(row.p_pu, 2),
-                _fmt(row.q_max_mvar, 2), _fmt(row.q_min_mvar, 2),
-                _fmt(row.cosphi_over, 3), _fmt(row.cosphi_under, 3)
-            ].forEach((t) => {
+            (this._pqOperating
+                ? [
+                    _fmt(row.u_pu, 4), _fmt(row.p_mw, 2), _fmt(row.p_pu, 2),
+                    _fmt(row.q_max_mvar, 2), _fmt(row.cosphi_over, 3)
+                ]
+                : [
+                    _fmt(row.u_pu, 4), _fmt(row.p_mw, 2), _fmt(row.p_pu, 2),
+                    _fmt(row.q_max_mvar, 2), _fmt(row.q_min_mvar, 2),
+                    _fmt(row.cosphi_over, 3), _fmt(row.cosphi_under, 3)
+                ]).forEach((t) => {
                 const td = document.createElement('td');
                 td.textContent = t;
                 Object.assign(td.style, { padding: '3px 6px', borderBottom: '1px solid #f1f3f5' });
@@ -929,7 +1122,10 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
                     type = 'Wind turbine';
                 }
                 const pMw = item?.p_mw;
-                const qMvar = item?.q_mvar;
+                let qMvar = item?.q_mvar;
+                if (src.flip && qMvar != null && qMvar !== '' && Number.isFinite(Number(qMvar))) {
+                    qMvar = -Number(qMvar);
+                }
                 const pNum = (pMw == null || pMw === '') ? NaN : Number(pMw);
                 const qNum = (qMvar == null || qMvar === '') ? NaN : Number(qMvar);
                 rows.push({
@@ -993,7 +1189,7 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
     _elementQStatusText(sel) {
         if (!sel) return '';
         const units = this._pqPowerUnits();
-        return `Element reactive power — ${_pqSideLabel(sel.side)}: P = ${_fmt(this._scaleP(sel.pPcc))} ${units.p}, Q = ${_fmt(this._scaleQ(sel.qPcc))} ${units.q}`;
+        return `Element reactive power — ${this._pointSideLabel(sel.side)}: P = ${_fmt(this._scaleP(sel.pPcc))} ${units.p}, Q = ${_fmt(this._scaleQ(sel.qPcc))} ${units.q} (${_pccQDirection(sel.qPcc)})`;
     }
 
     _mountElementQSection(panel, curveData) {
@@ -1033,7 +1229,7 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
                 width: '920px', height: '', maxWidth: '95vw', maxHeight: '90vh', borderRadius: '10px'
             });
         }
-        const chartH = this._pqMaximized ? '56vh' : '450px';
+        const chartH = this._pqMaximized ? 'max(56vh, calc(96vh - 330px))' : '450px';
         (this._pqChartSpecs || []).forEach((spec) => {
             spec.canvas.style.height = chartH;
             spec.canvas.style.maxHeight = chartH;
@@ -1128,11 +1324,11 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
     _selectedContributionLines(panel) {
         const sel = panel?._elementQSelection;
         const units = this._pqPowerUnits();
-        if (!sel) return ['Click a red point to read how each group contributes at that active power.'];
+        if (!sel) return ['Click a red point to read how each group contributes at that active power.', this._elementSignNote()];
         const model = this._contributionModel(panel);
         const lf = this._resolvePointLoadflow(panel.dataset.rpcVoltageKey, sel.side, sel.pKey);
         const lines = [
-            `${_pqSideLabel(sel.side)} at PCC P = ${_fmt(this._scaleP(sel.pPcc))} ${units.p}. Plant Q at the PCC is ${_fmt(this._scaleQ(sel.qPcc))} ${units.q}.`
+            `${this._pointSideLabel(sel.side)} at PCC P = ${_fmt(this._scaleP(sel.pPcc))} ${units.p}. Plant Q at the PCC is ${_fmt(this._scaleQ(sel.qPcc))} ${units.q} (${_pccQDirection(sel.qPcc)}).`
         ];
         if (!lf) {
             lines.push('No stored load flow for this point.');
@@ -1145,19 +1341,83 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
             if (ia !== ib) return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
             return String(a.name).localeCompare(String(b.name), undefined, { numeric: true });
         });
-        const magText = (q) => {
-            let v = Math.abs(Number(q));
-            if (this._plotPuQ && this._pn > 0) v /= this._pn;
-            return _fmt(v);
-        };
+        const magText = (q) => _fmt(this._scaleQ(Number(q)));
         buckets.forEach((bucket) => lines.push(_contributionSentence(bucket, magText, units.q)));
         if (!buckets.length) lines.push('No reactive elements in this load flow.');
-        lines.push('Markers use the operating Q from this load flow, with the same sign as the result on the diagram.');
+        lines.push(this._elementSignNote());
         return lines;
+    }
+
+    /**
+     * Park Controller as configured: element Q markers for every operating point at once,
+     * one dataset (colour) per element group, so each group draws its own curve of dots.
+     */
+    _operatingElementMarkerDatasets(panel) {
+        const vKey = panel.dataset.rpcVoltageKey;
+        const curve = panel._pqCurveData || {};
+        const pDisp = curve.p_dispatch_mw || [];
+        // STATCOM envelope: one set of dots along Q_max and one along Q_min.
+        // Single operating curve: one set along that curve.
+        const runs = curve.statcom_envelope
+            ? [
+                { side: 'q_max', p: curve.p_max_mw || curve.p_mw || [], tag: 'Q_max', style: 'rectRot', dash: [] },
+                { side: 'q_min', p: curve.p_min_mw || curve.p_mw || [], tag: 'Q_min', style: 'triangle', dash: [4, 3] }
+            ]
+            : [{ side: 'q_max', p: curve.p_max_mw || curve.p_mw || [], tag: '', style: 'rectRot', dash: [3, 3] }];
+        const model = this._contributionModel(panel);
+        const colorByKey = new Map(model.tracks.map((track) => [track.key, track.color]));
+        const groups = new Map();
+        // Edge toggle applies to the STATCOM envelope only; a single operating curve has no edge to pick.
+        const edge = this._elementQEdge || 'both';
+        const edgeSide = edge === 'capacitive' ? 'q_max' : edge === 'inductive' ? 'q_min' : null;
+        const shownRuns = curve.statcom_envelope && edgeSide ? runs.filter((run) => run.side === edgeSide) : runs;
+        shownRuns.forEach((run) => {
+            run.p.forEach((p, i) => {
+                const y = this._scaleP(p);
+                if (!Number.isFinite(y)) return;
+                const { lf } = this._resolveEnvelopeSnapshot(vKey, run.side, p, pDisp[i]);
+                if (!lf) return;
+                _aggregateContribution(this._elementRowsFromSnapshot(lf), model.collapseTypes).forEach((bucket) => {
+                    const operatingQ = _chartOperatingQ(bucket);
+                    const x = this._scaleQ(operatingQ);
+                    if (!Number.isFinite(x)) return;
+                    const base = _contributionLabel(bucket);
+                    const label = run.tag ? `${base} (${run.tag})` : base;
+                    const tip = `${label}: Q ${_fmt(x)} at P = ${_fmt(y)}, ${_operatingWords(bucket)}`;
+                    const key = `${run.side}|${bucket.key}`;
+                    if (!groups.has(key)) {
+                        const color = colorByKey.get(bucket.key) || PQ_Q_TYPE_COLOR[bucket.type] || '#495057';
+                        groups.set(key, {
+                            label,
+                            _elementQ: true,
+                            data: [],
+                            showLine: true,
+                            borderWidth: 1,
+                            borderDash: run.dash,
+                            pointRadius: 6,
+                            pointHoverRadius: 8,
+                            pointHitRadius: 10,
+                            pointStyle: run.style,
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 1.5,
+                            borderColor: color,
+                            backgroundColor: color,
+                            order: 2
+                        });
+                    }
+                    groups.get(key).data.push({ x, y, _tip: tip });
+                });
+            });
+        });
+        return [...groups.values()].map((ds) => {
+            ds.data.sort((a, b) => a.y - b.y);
+            return ds;
+        });
     }
 
     _elementMarkerDatasets(panel) {
         if (!this._showElementQ) return [];
+        if (this._pqOperating || this._pqStatcomEnv) return this._operatingElementMarkerDatasets(panel);
         const sel = panel._elementQSelection;
         if (!sel) return [];
         const lf = this._resolvePointLoadflow(panel.dataset.rpcVoltageKey, sel.side, sel.pKey);
@@ -1172,9 +1432,7 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
             const x = this._scaleQ(operatingQ);
             const word = _operatingWords(bucket);
             const label = _contributionLabel(bucket);
-            let mag = Math.abs(operatingQ);
-            if (this._plotPuQ && this._pn > 0) mag /= this._pn;
-            const tip = `${label}: operating Q ${ _fmt(mag) } from this load flow, ${word}`;
+            const tip = `${label}: Q ${_fmt(x)} from this load flow, ${word}`;
             return {
                 label: `${label} — ${word}`,
                 _elementQ: true,
@@ -1202,58 +1460,222 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         chart.update();
     }
 
-    _saveChartImage() {
+    /**
+     * Report-quality image of the visible P-Q chart: the chart is redrawn off-screen at a fixed
+     * size with large fonts and line widths, under a header (study, grid code, voltage, verdict)
+     * and above a full-width legend, so it stays readable when pasted into a report or post.
+     * Resolves to a canvas.
+     */
+    async _renderReportCanvas() {
         const panel = this._visiblePqPanel();
         const chart = panel?._pqChart;
-        if (!chart) {
-            alert('The P-Q diagram is not ready yet.');
-            return;
-        }
-        const chartUrl = chart.toBase64Image('image/png', 1);
-        const img = new Image();
-        img.onload = () => {
-            const source = this._selectedContributionLines(panel);
-            const measure = document.createElement('canvas').getContext('2d');
-            const maxW = Math.max(280, img.width - 48);
-            const wrapped = [];
-            source.forEach((line, i) => {
-                measure.font = i === 0 ? '600 16px sans-serif' : '15px sans-serif';
-                const words = String(line).split(' ');
-                let cur = '';
-                words.forEach((word) => {
-                    const next = cur ? `${cur} ${word}` : word;
-                    if (measure.measureText(next).width > maxW && cur) {
-                        wrapped.push({ text: cur, head: i === 0 && wrapped.length === 0 });
-                        cur = word;
-                    } else {
-                        cur = next;
+        const Chart = window.Chart;
+        if (!chart || !Chart) throw new Error('The P-Q diagram is not ready yet.');
+        const spec = (this._pqChartSpecs || []).find((sp) => sp.panel === panel) || {};
+        const data = spec.fullData || {};
+        const vKey = panel.dataset.rpcVoltageKey;
+
+        const W = 1600, H = 900, SCALE = 2;          // logical px; drawn at 2x for sharp text
+        const host = document.createElement('div');
+        Object.assign(host.style, { position: 'fixed', left: '-10000px', top: '0', width: `${W}px`, height: `${H}px` });
+        const canvas = document.createElement('canvas');
+        canvas.width = W;      // Chart.js multiplies by devicePixelRatio (SCALE)
+        canvas.height = H;
+        Object.assign(canvas.style, { width: `${W}px`, height: `${H}px` });
+        host.appendChild(canvas);
+        document.body.appendChild(host);
+
+        const grow = (v, k, min) => (typeof v === 'number' ? Math.max(v * k, min) : v);
+        const datasets = chart.data.datasets
+            .map((ds, i) => ({ ds, i }))
+            .filter(({ i }) => chart.isDatasetVisible(i))
+            .map(({ ds }) => ({
+                ...ds,
+                data: (ds.data || []).map((pt) => (pt && typeof pt === 'object' ? { ...pt } : pt)),
+                borderWidth: grow(ds.borderWidth, 1.6, 2),
+                pointRadius: typeof ds.pointRadius === 'number'
+                    ? (ds.pointRadius > 0 ? Math.max(ds.pointRadius * 1.5, 4) : 0)
+                    : ds.pointRadius,
+                pointBorderWidth: grow(ds.pointBorderWidth, 1.4, 1)
+            }));
+
+        const src = chart.options || {};
+        const xs = src.scales?.x || {};
+        const ys = src.scales?.y || {};
+        const sides = this._qAxisSideLabels();
+        const sidesPlugin = {
+            id: 'qAxisSidesReport',
+            afterDraw(c) {
+                const x = c.scales.x;
+                if (!x) return;
+                const g = c.ctx;
+                g.save();
+                g.font = '600 18px Arial, sans-serif';
+                g.fillStyle = '#212529';
+                g.textBaseline = 'middle';
+                g.textAlign = 'left';
+                g.fillText(sides.left, c.chartArea.left, x.bottom - 14);
+                g.textAlign = 'right';
+                g.fillText(sides.right, c.chartArea.right, x.bottom - 14);
+                g.restore();
+            }
+        };
+        const whiteBg = {
+            id: 'whiteBg',
+            beforeDraw(c) {
+                const g = c.ctx;
+                g.save();
+                g.fillStyle = '#ffffff';
+                g.fillRect(0, 0, c.width, c.height);
+                g.restore();
+            }
+        };
+        const legendFilter = src.plugins?.legend?.labels?.filter;
+        const report = new Chart(canvas.getContext('2d'), {
+            type: chart.config.type,
+            data: { datasets },
+            plugins: [whiteBg, sidesPlugin],
+            options: {
+                responsive: false,
+                animation: false,
+                devicePixelRatio: SCALE,
+                layout: { padding: { top: 10, right: 28, bottom: 6, left: 10 } },
+                plugins: {
+                    title: { display: false },
+                    tooltip: { enabled: false },
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            filter: legendFilter,
+                            font: { size: 17 },
+                            color: '#212529',
+                            boxWidth: 34,
+                            boxHeight: 14,
+                            padding: 16
+                        }
                     }
-                });
-                if (cur) wrapped.push({ text: cur, head: i === 0 && !wrapped.some((row) => row.head) });
+                },
+                scales: {
+                    x: {
+                        type: xs.type, min: xs.min, max: xs.max, grace: xs.grace,
+                        title: { display: true, text: this._qAxisLabel(), font: { size: 19, weight: '600' }, color: '#212529', padding: { top: 8 } },
+                        ticks: { font: { size: 16 }, color: '#343a40' },
+                        grid: { color: 'rgba(0,0,0,0.08)' }
+                    },
+                    y: {
+                        type: ys.type, min: ys.min, max: ys.max, grace: ys.grace,
+                        title: { display: true, text: this._pAxisLabel(), font: { size: 19, weight: '600' }, color: '#212529' },
+                        ticks: { font: { size: 16 }, color: '#343a40' },
+                        grid: { color: 'rgba(0,0,0,0.08)' }
+                    }
+                }
+            }
+        });
+        report.draw();
+        const chartImg = report.toBase64Image('image/png', 1);
+        report.destroy();
+        host.remove();
+        const img = await new Promise((resolve, reject) => {
+            const im = new Image();
+            im.onload = () => resolve(im);
+            im.onerror = reject;
+            im.src = chartImg;
+        });
+
+        // Header: study, grid code, PCC voltage, verdict. Footer: Element Q notes when shown.
+        const vLabel = vKey != null ? `${parseFloat(vKey)} pu` : '';
+        const compliance = data.compliance ? (data.compliance[vKey] ?? null) : null;
+        const verdict = compliance === true ? 'COMPLIANT' : compliance === false ? 'NON-COMPLIANT' : '';
+        const subtitle = [
+            data.grid_code_template_name || '',
+            vLabel ? `PCC voltage ${vLabel}` : '',
+            Number(data.pmax_pcc_mw) > 0 ? `Pmax at PCC ${Number(data.pmax_pcc_mw).toFixed(1)} MW` : ''
+        ].filter(Boolean).join('  ·  ');
+        const notes = this._showElementQ ? this._selectedContributionLines(panel) : [];
+
+        const pad = 40 * SCALE;
+        const measure = document.createElement('canvas').getContext('2d');
+        const maxW = img.width - 2 * pad;
+        const wrap = (text, font) => {
+            measure.font = font;
+            const rows = [];
+            let cur = '';
+            String(text).split(' ').forEach((w) => {
+                const next = cur ? `${cur} ${w}` : w;
+                if (measure.measureText(next).width > maxW && cur) { rows.push(cur); cur = w; } else cur = next;
             });
-            const lineH = 22;
-            const footerH = 28 + wrapped.length * lineH + 12;
-            const out = document.createElement('canvas');
-            out.width = img.width;
-            out.height = img.height + footerH;
-            const ctx = out.getContext('2d');
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, out.width, out.height);
-            ctx.drawImage(img, 0, 0);
-            ctx.textBaseline = 'top';
-            wrapped.forEach((row, i) => {
-                ctx.font = row.head ? '600 16px sans-serif' : '15px sans-serif';
-                ctx.fillStyle = row.head ? '#212529' : '#343a40';
-                ctx.fillText(row.text, 24, img.height + 16 + i * lineH);
-            });
+            if (cur) rows.push(cur);
+            return rows;
+        };
+        const noteFont = `${15 * SCALE}px Arial, sans-serif`;
+        const noteRows = notes.flatMap((n) => wrap(n, noteFont));
+        const headH = 112 * SCALE;
+        const footH = (noteRows.length ? noteRows.length * 22 * SCALE + 24 * SCALE : 0) + 34 * SCALE;
+        const out = document.createElement('canvas');
+        out.width = img.width;
+        out.height = headH + img.height + footH;
+        const ctx = out.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, out.width, out.height);
+        ctx.textBaseline = 'top';
+        ctx.fillStyle = '#212529';
+        ctx.font = `700 ${30 * SCALE}px Arial, sans-serif`;
+        ctx.fillText('Grid Code Compliance — P-Q capability at the PCC', pad, 26 * SCALE);
+        ctx.font = `${19 * SCALE}px Arial, sans-serif`;
+        ctx.fillStyle = '#495057';
+        ctx.fillText(subtitle, pad, 70 * SCALE);
+        if (verdict) {
+            ctx.font = `700 ${19 * SCALE}px Arial, sans-serif`;
+            const tw = ctx.measureText(verdict).width;
+            const bx = img.width - pad - tw - 28 * SCALE;
+            ctx.fillStyle = compliance ? '#d1e7dd' : '#f8d7da';
+            ctx.fillRect(bx, 24 * SCALE, tw + 28 * SCALE, 40 * SCALE);
+            ctx.fillStyle = compliance ? '#0f5132' : '#842029';
+            ctx.fillText(verdict, bx + 14 * SCALE, 34 * SCALE);
+        }
+        ctx.drawImage(img, 0, headH);
+        let y = headH + img.height + 12 * SCALE;
+        ctx.font = noteFont;
+        ctx.fillStyle = '#343a40';
+        noteRows.forEach((row) => { ctx.fillText(row, pad, y); y += 22 * SCALE; });
+        ctx.font = `${13 * SCALE}px Arial, sans-serif`;
+        ctx.fillStyle = '#868e96';
+        ctx.textAlign = 'right';
+        ctx.fillText('Electrisim · pandapower load flow', img.width - pad, out.height - 26 * SCALE);
+        return out;
+    }
+
+    async _saveChartImage() {
+        try {
+            const out = await this._renderReportCanvas();
             const a = document.createElement('a');
             a.href = out.toDataURL('image/png');
             a.download = `GridCode_PQ_diagram_${new Date().toISOString().slice(0, 16).replace(/[:.]/g, '-')}.png`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-        };
-        img.src = chartUrl;
+        } catch (e) {
+            alert(e.message || String(e));
+        }
+    }
+
+    async _copyReportImage(btn) {
+        const label = btn ? btn.textContent : '';
+        try {
+            if (!navigator.clipboard || typeof window.ClipboardItem === 'undefined') {
+                throw new Error('This browser cannot copy images to the clipboard. Use "Save image" instead.');
+            }
+            // Pass the blob as a promise so the clipboard write starts within the click.
+            const blobPromise = this._renderReportCanvas()
+                .then((out) => new Promise((resolve) => out.toBlob(resolve, 'image/png')));
+            await navigator.clipboard.write([new window.ClipboardItem({ 'image/png': blobPromise })]);
+            if (btn) {
+                btn.textContent = 'Copied ✓';
+                setTimeout(() => { btn.textContent = label; }, 1800);
+            }
+        } catch (e) {
+            alert(e.message || String(e));
+        }
     }
 
     _showSelectedPointOnDiagram(panel) {
@@ -1488,10 +1910,14 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
 
     _qAxisLabel() {
         const unit = this._plotPuQ ? 'p.u. of Pmax' : 'Mvar';
-        const conv = this._plotLoadOriented
-            ? '+ inductive (underexcited), − capacitive (overexcited)'
-            : '+ capacitive (overexcited), − inductive (underexcited)';
-        return `Net Q at PCC (${unit}) — ${conv}`;
+        return `Net Q at PCC (${unit})`;
+    }
+
+    // Left/right captions for the Q axis: the negative side always sits on the left.
+    _qAxisSideLabels() {
+        const negative = this._plotLoadOriented ? 'capacitive (overexcited)' : 'inductive (underexcited)';
+        const positive = this._plotLoadOriented ? 'inductive (underexcited)' : 'capacitive (overexcited)';
+        return { left: `− ${negative}`, right: `+ ${positive}` };
     }
 
     _renderChart(canvas, curveData, reqData, voltageLevel, fullData, panel) {
@@ -1544,9 +1970,13 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
             });
         }
 
+        const operating = !!curveData.operating;
+        const statcomEnv = !!curveData.statcom_envelope;
         const datasets = [
             {
-                label: 'Capability Q_max (overexcited, capacitive)',
+                label: operating ? 'Operating point (Park Controller as configured)'
+                    : (statcomEnv ? PQ_STATCOM_EDGE_LABEL.q_max : 'Capability Q_max (overexcited, capacitive)'),
+                _pqPoints: true,
                 data: capabilityMaxData,
                 borderColor: '#dc3545',
                 backgroundColor: 'transparent',
@@ -1562,7 +1992,9 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
                 order: 1
             },
             {
-                label: 'Capability Q_min (underexcited, inductive)',
+                label: statcomEnv ? PQ_STATCOM_EDGE_LABEL.q_min : 'Capability Q_min (underexcited, inductive)',
+                _pqPoints: true,
+                hidden: operating,
                 data: capabilityMinData,
                 borderColor: '#dc3545',
                 backgroundColor: 'transparent',
@@ -1580,6 +2012,7 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
             },
             {
                 label: 'Capability Area',
+                hidden: operating,
                 data: envelopeData,
                 borderColor: 'transparent',
                 backgroundColor: 'rgba(220, 53, 69, 0.08)',
@@ -1651,10 +2084,31 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         const yVals = [...capabilityMaxData, ...capabilityMinData].map((d) => d.y).filter(Number.isFinite);
         const yMin = yVals.length ? Math.min(0, ...yVals) : undefined;
 
+        // Draws the Q-axis captions on the x-axis title row, one at each end of the plot.
+        const qAxisSidesPlugin = {
+            id: 'qAxisSides',
+            afterDraw(chartInst, args, pluginOpts) {
+                const xScale = chartInst.scales.x;
+                if (!xScale || !pluginOpts) return;
+                const { ctx: c, chartArea } = chartInst;
+                const y = xScale.bottom - 10;
+                c.save();
+                c.font = `600 12px ${Chart.defaults.font.family}`;
+                c.fillStyle = '#212529';
+                c.textBaseline = 'middle';
+                c.textAlign = 'left';
+                c.fillText(pluginOpts.left, chartArea.left, y);
+                c.textAlign = 'right';
+                c.fillText(pluginOpts.right, chartArea.right, y);
+                c.restore();
+            }
+        };
+
         const ctx = canvas.getContext('2d');
         const chart = new Chart(ctx, {
             type: 'scatter',
             data: { datasets },
+            plugins: [qAxisSidesPlugin],
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
@@ -1663,7 +2117,7 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
                     if (!elements?.length) return;
                     const el = elements[0];
                     const ds = chartInst.data.datasets[el.datasetIndex];
-                    if (!ds?.label?.startsWith('Capability Q_')) return;
+                    if (!ds?._pqPoints) return;
                     const raw = ds.data[el.index];
                     if (!raw || raw._rpcSide == null) return;
                     let pKey = raw._rpcP;
@@ -1690,10 +2144,15 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
                     legend: {
                         position: 'bottom',
                         labels: {
-                            filter: (item) => !item.text.includes('Area') && !item.text.startsWith('_'),
+                            filter: (item, chartData) => {
+                                const ds = chartData?.datasets?.[item.datasetIndex];
+                                if (ds?.hidden) return false;
+                                return !item.text.includes('Area') && !item.text.startsWith('_');
+                            },
                             font: { size: 12 }
                         }
                     },
+                    qAxisSides: this._qAxisSideLabels(),
                     tooltip: {
                         callbacks: {
                             label: (c) => {
@@ -1703,8 +2162,20 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
                                 const yu = this._plotPuP ? 'p.u.' : 'MW';
                                 const base = `Q: ${c.parsed.x?.toFixed(3)} ${xu}, P: ${c.parsed.y?.toFixed(3)} ${yu}`;
                                 const dsLabel = c.dataset?.label || '';
-                                if (dsLabel.startsWith('Capability Q_')) {
-                                    return `${base} at PCC — click to show this load flow on the diagram`;
+                                if (c.dataset?._pqPoints) {
+                                    const raw = c.raw || {};
+                                    let lf = null;
+                                    if (raw._rpcSide != null) {
+                                        lf = this._resolvePointLoadflow(vKey, raw._rpcSide, raw._rpcP);
+                                        if (!lf && raw._rpcPDispatch != null) {
+                                            lf = this._resolvePointLoadflow(vKey, raw._rpcSide, raw._rpcPDispatch);
+                                        }
+                                    }
+                                    const lines = [`Plant ${base} at PCC (${_pccQDirection(raw._rpcQ)})`];
+                                    const grid = _gridSideQ(lf, raw._rpcQ);
+                                    if (grid) lines.push(grid.long);
+                                    lines.push('Click to show this load flow on the diagram');
+                                    return lines;
                                 }
                                 return base;
                             }

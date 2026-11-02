@@ -282,6 +282,13 @@ export function getUqGridTemplateDisplayName(templateKey) {
     return tpl && tpl.name ? tpl.name : '';
 }
 
+/** Built-in P-Q grid-code templates that carry a requirement table: [{ key, name, description }]. */
+export function listGridTemplates() {
+    return Object.entries(GRID_CODE_TEMPLATES)
+        .filter(([, tpl]) => tpl && Array.isArray(tpl.rows) && tpl.rows.length > 0)
+        .map(([key, tpl]) => ({ key, name: tpl.name, description: tpl.description || '' }));
+}
+
 export function findGridTemplateKeyByName(name) {
     if (!name) return null;
     for (const [k, tpl] of Object.entries(GRID_CODE_TEMPLATES)) {
@@ -1546,6 +1553,7 @@ export class RPCDialog extends Dialog {
     }
 
     show(callback) {
+        callback = globalThis.rememberStudySettings?.(this, callback) ?? callback;
         try { this.populateOptions(); } catch (e) { console.error('Error populating RPC options:', e); }
         this.displayDialog(callback);
     }

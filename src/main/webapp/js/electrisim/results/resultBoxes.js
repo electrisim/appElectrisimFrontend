@@ -553,7 +553,9 @@ function decodeResultText(b64) {
 function looksLikeFullResult(text) {
     var raw = String(text || '');
     if (/\[\+\]|\[–\]|\[-\]/.test(raw)) return false;
-    return /U\[pu\]:|U\[kV\]:|P_HV\[MW\]:|P_LV\[MW\]:|P_from\[MW\]:|P\[MW\]:|Q\[MVar\]:|Q_from\[MVar\]:|Loading(?:\[%\])?:|i_from\[/.test(raw);
+    // Three-winding transformer text uses lowercase "loading[%]" and i_HV / i_MV / i_LV.
+    // STATCOM (SSC) text uses pandapower field names "q_mvar:" / "vm_pu:".
+    return /U\[pu\]:|U\[kV\]:|P_HV\[MW\]:|P_LV\[MW\]:|P_from\[MW\]:|P\[MW\]:|Q\[MVar\]:|Q_from\[MVar\]:|[Ll]oading(?:\[%\])?:|i_from\[|i_HV\[kA\]:|q_mvar:|vm_pu:/.test(raw);
 }
 
 function readStoredFullResult(model, box) {

@@ -20,7 +20,7 @@ import {
     validateBusConnections,
     COMPONENT_TYPES,
     isSwitchClosedForPowerFlow
-} from '../loadFlow.js?v=6';
+} from '../loadFlow.js?v=11';
 import { computeWindTurbinePMw, WIND_SC_DEFAULTS } from '../windTurbineDialog.js';
 import { resolveStorageFixedPf } from '../storageDialog.js';
 import { resolveStorageQSetpoint } from './storageQCapability.js';
@@ -29,7 +29,7 @@ import {
     collectWindTurbineControllersForPayload,
     applyWindTurbineControllerPrefs
 } from './windTurbineControllerApply.js';
-import { collectParkControllers } from './parkControllerCollect.js';
+import { collectParkControllers, collectPlantSupervisoryControllers } from './parkControllerCollect.js';
 import { clearFaultLocationMarkers } from './faultLocationMarkers.js';
 
 /**
@@ -1433,6 +1433,8 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         vm_internal_pu: 'vm_internal_pu',
                         va_internal_degree: 'va_internal_degree',
                         controllable: 'controllable',
+                        q_max_mvar: { name: 'q_max_mvar', optional: true },
+                        q_min_mvar: { name: 'q_min_mvar', optional: true },
                         in_service: { name: 'in_service', optional: true },
                         cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
                     })
@@ -1742,6 +1744,11 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
         addComponents(parks);
     } catch (e) {
         console.warn('Park Controller collect skipped:', e);
+    }
+    try {
+        addComponents(collectPlantSupervisoryControllers(graph));
+    } catch (e) {
+        console.warn('Plant Supervisory Controller collect skipped:', e);
     }
     addComponents(componentArrays.externalGrid);
     addComponents(componentArrays.generator);

@@ -2,7 +2,7 @@
  * Short-circuit fault-location helpers: All busbars vs User Selection.
  */
 
-import { parseCellStyle } from '../loadFlow.js?v=6';
+import { parseCellStyle } from '../loadFlow.js?v=11';
 import { formatResultNameHeader } from './attributeUtils.js';
 
 export function isElectricalBusCell(cell) {

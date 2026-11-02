@@ -48,7 +48,8 @@ export const ELECTRICAL_SYMBOLS = {
   'sym-pcs': { url: BASE + 'sym-pcs.svg', w: 56, h: 72 },
   'sym-svc': { url: BASE + 'sym-svc.svg', ...fit(58, 68) },
   'sym-tcsc': { url: BASE + 'sym-tcsc.svg', ...fit(92, 46) },
-  'sym-ssc': { url: BASE + 'sym-ssc.svg', ...fit(58, 62) },
+  // Coupling transformer on top of the STATCOM: taller artwork, so a larger max side keeps the circle size.
+  'sym-ssc': { url: BASE + 'sym-ssc.svg', ...fit(60, 100, 84) },
   'sym-dc-line': { url: BASE + 'sym-dc-line.svg', ...fit(74, 48) },
   'sym-load-dc': { url: BASE + 'sym-load-dc.svg', ...fit(46, 60) },
   'sym-switch': { url: BASE + 'sym-switch.svg', ...fit(74, 38) },

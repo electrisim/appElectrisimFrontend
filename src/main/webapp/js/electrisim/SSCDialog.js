@@ -32,11 +32,15 @@ export class SSCDialog extends Dialog {
                 description: 'Name identifier for the SSC (STATCOM)',
                 type: 'text',
                 value: this.data.name
-            },
+            }
+        ];
+
+        // Coupling transformer parameters
+        this.couplingParameters = [
             {
                 id: 'r_ohm',
                 label: 'Resistance (Ω)',
-                description: 'Resistance of the coupling transformer component of SSC(STATCOM)',
+                description: 'Resistance of the coupling transformer of the STATCOM. Not used by the load flow, which solves the STATCOM as a voltage-controlled source; kept for the exported pandapower SSC element.',
                 type: 'number',
                 value: this.data.r_ohm.toString(),
                 step: '0.01',
@@ -45,19 +49,19 @@ export class SSCDialog extends Dialog {
             {
                 id: 'x_ohm',
                 label: 'Reactance (Ω)',
-                description: 'Reactance of the coupling transformer component of SSC(STATCOM)',
+                description: 'Reactance of the coupling transformer of the STATCOM. Not used by the load flow, which solves the STATCOM as a voltage-controlled source; kept for the exported pandapower SSC element.',
                 type: 'number',
                 value: this.data.x_ohm.toString(),
                 step: '0.01'
             }
         ];
-        
+
         // Control parameters
         this.controlParameters = [
             {
                 id: 'set_vm_pu',
                 label: 'Voltage Set Point (p.u.)',
-                description: 'Set-point for the bus voltage magnitude at the connection bus',
+                description: 'Bus voltage the STATCOM holds. The load flow chooses the STATCOM\'s reactive power, within its Q rating, to hold this voltage. If the rating is not enough, Q stops at the rating and the voltage ends away from this value.',
                 type: 'number',
                 value: this.data.set_vm_pu.toString(),
                 step: '0.01',
@@ -66,7 +70,7 @@ export class SSCDialog extends Dialog {
             {
                 id: 'vm_internal_pu',
                 label: 'Internal Voltage (p.u.)',
-                description: 'The voltage magnitude of the voltage source converter VSC at the SSC(STATCOM)',
+                description: 'Voltage magnitude of the STATCOM converter. Not used by the load flow; kept for the exported pandapower SSC element.',
                 type: 'number',
                 value: this.data.vm_internal_pu.toString(),
                 step: '0.01',
@@ -75,10 +79,30 @@ export class SSCDialog extends Dialog {
             {
                 id: 'va_internal_degree',
                 label: 'Internal Angle (degrees)',
-                description: 'The voltage angle of the voltage source converter VSC at the SSC(STATCOM)',
+                description: 'Voltage angle of the STATCOM converter. Not used by the load flow; kept for the exported pandapower SSC element.',
                 type: 'number',
                 value: this.data.va_internal_degree.toString(),
                 step: '0.1'
+            },
+            {
+                id: 'q_max_mvar',
+                label: 'Q rating, capacitive (Mvar)',
+                description: 'Largest reactive power the STATCOM can supply (positive, e.g. 50). The load flow keeps the STATCOM\'s Q at or below this; 0 = it cannot supply Q. Leave both ratings empty for no limit. Grid Code P–Q with "Park Controller — exactly as configured" pushes the STATCOM to this value for the capacitive edge of the envelope; a STATCOM without ratings is left out of that sweep.',
+                type: 'number',
+                value: '',
+                placeholder: 'no limit',
+                step: '0.1',
+                min: '0'
+            },
+            {
+                id: 'q_min_mvar',
+                label: 'Q rating, inductive (Mvar)',
+                description: 'Largest reactive power the STATCOM can absorb, entered as a negative number (e.g. -50). The load flow keeps the STATCOM\'s Q at or above this; 0 = it cannot absorb Q. Grid Code P–Q uses it for the inductive edge of the envelope.',
+                type: 'number',
+                value: '',
+                placeholder: 'no limit',
+                step: '0.1',
+                max: '0'
             }
         ];
         
@@ -87,7 +111,7 @@ export class SSCDialog extends Dialog {
             {
                 id: 'controllable',
                 label: 'Controllable',
-                description: 'Whether the element is considered as actively controlling or as a fixed shunt impedance',
+                description: 'Ticked: the STATCOM regulates its bus voltage, with Q within its rating. Unticked: it does not regulate and exchanges no reactive power (Grid Code P–Q does not sweep it either).',
                 type: 'checkbox',
                 value: this.data.controllable
             },
@@ -162,13 +186,11 @@ export class SSCDialog extends Dialog {
 
         // Create tabs
         const electricalTab = this.createTab('Electrical', 'electrical', this.currentTab === 'electrical');
-        const controlTab = this.createTab('Control', 'control', this.currentTab === 'control');
-        const configTab = this.createTab('Configuration', 'config', this.currentTab === 'config');
+        const couplingTab = this.createTab('Coupling Transformer', 'coupling', this.currentTab === 'coupling');
         const economicTab = this.createTab('Economic', 'economic', this.currentTab === 'economic');
-        
+
         tabContainer.appendChild(electricalTab);
-        tabContainer.appendChild(controlTab);
-        tabContainer.appendChild(configTab);
+        tabContainer.appendChild(couplingTab);
         tabContainer.appendChild(economicTab);
         container.appendChild(tabContainer);
 
@@ -185,14 +207,12 @@ export class SSCDialog extends Dialog {
         });
 
         // Create tab content containers
-        const electricalContent = this.createTabContent('electrical', this.electricalParameters);
-        const controlContent = this.createTabContent('control', this.controlParameters);
-        const configContent = this.createTabContent('config', this.configParameters);
+        const electricalContent = this.createTabContent('electrical', [...this.electricalParameters, ...this.controlParameters, ...this.configParameters]);
+        const couplingContent = this.createTabContent('coupling', this.couplingParameters);
         const economicContent = this.createTabContent('economic', this.economicParameters);
-        
+
         contentArea.appendChild(electricalContent);
-        contentArea.appendChild(controlContent);
-        contentArea.appendChild(configContent);
+        contentArea.appendChild(couplingContent);
         contentArea.appendChild(economicContent);
         container.appendChild(contentArea);
 
@@ -234,10 +254,9 @@ export class SSCDialog extends Dialog {
         this.container = container;
         
         // Tab click handlers
-        electricalTab.onclick = () => this.switchTab('electrical', electricalTab, [controlTab, configTab, economicTab], electricalContent, [controlContent, configContent, economicContent]);
-        controlTab.onclick = () => this.switchTab('control', controlTab, [electricalTab, configTab, economicTab], controlContent, [electricalContent, configContent, economicContent]);
-        configTab.onclick = () => this.switchTab('config', configTab, [electricalTab, controlTab, economicTab], configContent, [electricalContent, controlContent, economicContent]);
-        economicTab.onclick = () => this.switchTab('economic', economicTab, [electricalTab, controlTab, configTab], economicContent, [electricalContent, controlContent, configContent]);
+        electricalTab.onclick = () => this.switchTab('electrical', electricalTab, [couplingTab, economicTab], electricalContent, [couplingContent, economicContent]);
+        couplingTab.onclick = () => this.switchTab('coupling', couplingTab, [electricalTab, economicTab], couplingContent, [electricalContent, economicContent]);
+        economicTab.onclick = () => this.switchTab('economic', economicTab, [electricalTab, couplingTab], economicContent, [electricalContent, couplingContent]);
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
@@ -381,6 +400,7 @@ export class SSCDialog extends Dialog {
                 input = document.createElement('input');
                 input.type = param.type;
                 input.value = param.value;
+                if (param.placeholder) input.placeholder = param.placeholder;
                 Object.assign(input.style, {
                     width: isNameField ? '100%' : '180px',
                     ...(isNameField ? { minWidth: '0' } : {}),
@@ -504,11 +524,14 @@ export class SSCDialog extends Dialog {
         const values = {};
         
         // Collect all parameter values from all tabs
-        [...this.electricalParameters, ...this.controlParameters, ...this.configParameters, ...(this.economicParameters || [])].forEach(param => {
+        [...this.electricalParameters, ...this.couplingParameters, ...this.controlParameters, ...this.configParameters, ...(this.economicParameters || [])].forEach(param => {
             const input = this.inputs.get(param.id);
             if (input) {
                 if (param.id === 'cost_per_unit_by_currency') {
                     values[param.id] = input.value || '0';
+                } else if (param.type === 'number' && param.placeholder && String(input.value).trim() === '') {
+                    // Q ratings: empty means "no limit", which differs from 0 ("no capability").
+                    values[param.id] = '';
                 } else if (param.type === 'number') {
                     values[param.id] = parseFloat(input.value) || 0;
                 } else if (param.type === 'checkbox') {
@@ -562,7 +585,7 @@ export class SSCDialog extends Dialog {
                 }
                 
                 // Update the dialog's parameter values (not DOM inputs)
-                const electricalParam = this.electricalParameters.find(p => p.id === attributeName);
+                const electricalParam = [...this.electricalParameters, ...this.couplingParameters].find(p => p.id === attributeName);
                 if (electricalParam) {
                     const oldValue = electricalParam.value;
                     if (electricalParam.type === 'checkbox') {
