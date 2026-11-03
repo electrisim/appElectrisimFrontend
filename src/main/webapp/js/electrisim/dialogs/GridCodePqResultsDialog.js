@@ -11,6 +11,7 @@ import {
     getDisplayName,
     looksLikeInternalGraphObjectId
 } from '../utils/attributeUtils.js';
+import { collectPqScenarios, findPqOverloads } from '../utils/pqOverloadCheck.js?v=ol20261103';
 
 console.log('GridCodePqResultsDialog.js LOADED');
 
@@ -463,6 +464,8 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
             return;
         }
         this.pointLoadflows = data.point_loadflows || {};
+        this._overloadResult = null;
+        this._overloadSection = null;
         this._pn = Number(data.pn_mw || data.total_installed_mw) || 0;
         this._plotPuP = false;
         this._plotPuQ = false;
@@ -602,7 +605,9 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
             this._redrawPqCharts();
         }
 
-        content.appendChild(this._createPlantSummary(data));
+        this._pqContentEl = content;
+        this._pqPlantSummaryEl = this._createPlantSummary(data);
+        content.appendChild(this._pqPlantSummaryEl);
 
         if (data.i_output && data.output_table && data.output_table.length) {
             content.appendChild(this._createOutputTable(data));
@@ -624,6 +629,15 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
             padding: '12px 24px', borderTop: '1px solid #e9ecef',
             display: 'flex', justifyContent: 'flex-end', gap: '8px'
         });
+        const overloadBtn = this._styledButton('Check overloads', '#fd7e14', '#e8590c');
+        overloadBtn.title = 'List lines and transformers above the loading limit in every analysed case (reads the stored load flows; runs no new calculation).';
+        overloadBtn.onclick = () => {
+            const limit = this._overloadResult ? this._overloadResult.limitPct : this._overloadDefaultLimit(data);
+            this._runOverloadCheck(data, limit);
+            this._overloadSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        };
+        footerBar.appendChild(overloadBtn);
+
         const copyBtn = this._styledButton('Copy image', '#0d6efd', '#0b5ed7');
         copyBtn.title = 'Copy a report-quality image of the visible P-Q chart, ready to paste into a document, article or post.';
         copyBtn.onclick = () => this._copyReportImage(copyBtn);
@@ -2206,6 +2220,257 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         this._refreshElementMarkers(panel);
     }
 
+    /** Short curve name for the overload tables. */
+    _overloadSideLabel(side) {
+        if (side === 'q_op' || this._pqOperating) return 'Operating point';
+        return side === 'q_min' ? 'Q min' : 'Q max';
+    }
+
+    _overloadDefaultLimit(data) {
+        const s = data?.study_settings || {};
+        const v = Number(s.max_loading_percent);
+        return Number.isFinite(v) && v > 0 ? v : 100;
+    }
+
+    _runOverloadCheck(data, limitPct) {
+        const scenarios = collectPqScenarios(data, (vKey, side, p) => this._resolvePointLoadflow(vKey, side, p));
+        const nameOf = (item, type) => this._elementDisplayName(item, type, this._cellForResultRow(item));
+        this._overloadResult = findPqOverloads(scenarios, limitPct, nameOf);
+        this._renderOverloadSection(data);
+        return this._overloadResult;
+    }
+
+    _overloadPanelFor(vKey) {
+        const spec = (this._pqChartSpecs || []).find((sp) => sp.panel?.dataset?.rpcVoltageKey === vKey);
+        return spec ? spec.panel : null;
+    }
+
+    _showOverloadScenario(scenario) {
+        if (!scenario) return;
+        this._onCapabilityPointClick(scenario.vKey, scenario.side, scenario.pKey, scenario.q,
+            this._overloadPanelFor(scenario.vKey));
+    }
+
+    _overloadScenarioText(sc) {
+        return `${sc.voltage} pu · ${this._overloadSideLabel(sc.side)} · P ${_fmt(sc.p, 1)} MW · Q ${_fmt(sc.q, 1)} Mvar`;
+    }
+
+    _overloadTable(headers, rows) {
+        const table = document.createElement('table');
+        Object.assign(table.style, { width: '100%', borderCollapse: 'collapse', fontSize: '12px', marginTop: '6px' });
+        const thead = document.createElement('thead');
+        const hr = document.createElement('tr');
+        headers.forEach((h) => {
+            const th = document.createElement('th');
+            th.textContent = h;
+            Object.assign(th.style, {
+                textAlign: 'left', padding: '6px 8px', borderBottom: '2px solid #dee2e6',
+                backgroundColor: '#f8f9fa', color: '#495057', fontWeight: '600'
+            });
+            hr.appendChild(th);
+        });
+        thead.appendChild(hr);
+        table.appendChild(thead);
+        const tbody = document.createElement('tbody');
+        rows.forEach((cells) => {
+            const tr = document.createElement('tr');
+            cells.forEach((c) => {
+                const td = document.createElement('td');
+                Object.assign(td.style, { padding: '5px 8px', borderBottom: '1px solid #e9ecef', verticalAlign: 'middle' });
+                if (c instanceof Node) td.appendChild(c);
+                else td.textContent = c == null ? '' : String(c);
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        return table;
+    }
+
+    _overloadShowButton(scenario) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = 'Show on diagram';
+        Object.assign(btn.style, {
+            border: '1px solid #0d6efd', background: '#fff', color: '#0d6efd', borderRadius: '4px',
+            padding: '2px 8px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap'
+        });
+        btn.title = 'Apply this load flow on the diagram';
+        btn.onclick = () => this._showOverloadScenario(scenario);
+        return btn;
+    }
+
+    _loadingText(v, limit) {
+        const span = document.createElement('span');
+        span.textContent = `${_fmt(v, 1)} %`;
+        Object.assign(span.style, { fontWeight: '600', color: v > limit ? '#b02a37' : '#212529' });
+        return span;
+    }
+
+    /** Overload section under the charts; created on the first check, refreshed after that. */
+    _renderOverloadSection(data) {
+        const res = this._overloadResult;
+        let section = this._overloadSection;
+        if (!section) {
+            section = document.createElement('div');
+            section.className = 'pq-overload-section';
+            Object.assign(section.style, {
+                marginTop: '18px', padding: '14px 16px', border: '1px solid #dee2e6',
+                borderRadius: '8px', backgroundColor: '#fff'
+            });
+            this._overloadSection = section;
+            const host = this._pqContentEl;
+            const anchor = this._pqPlantSummaryEl;
+            if (host && anchor && anchor.parentNode === host) host.insertBefore(section, anchor);
+            else if (host) host.appendChild(section);
+        }
+        section.innerHTML = '';
+
+        const head = document.createElement('div');
+        Object.assign(head.style, { display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' });
+        const title = document.createElement('div');
+        title.textContent = 'Overload check — lines and transformers in every analysed case';
+        Object.assign(title.style, { fontWeight: '700', fontSize: '14px', color: '#212529', marginRight: 'auto' });
+        head.appendChild(title);
+
+        const limLabel = document.createElement('label');
+        limLabel.textContent = 'Loading limit (%)';
+        Object.assign(limLabel.style, { fontSize: '12px', color: '#495057' });
+        const limInput = document.createElement('input');
+        limInput.type = 'number';
+        limInput.min = '1';
+        limInput.step = '1';
+        limInput.value = String(res.limitPct);
+        Object.assign(limInput.style, { width: '70px', padding: '3px 6px', fontSize: '12px', border: '1px solid #ced4da', borderRadius: '4px' });
+        const rerun = () => {
+            const v = parseFloat(String(limInput.value).replace(',', '.'));
+            if (!Number.isFinite(v) || v <= 0) {
+                alert('Enter a loading limit above 0 %.');
+                return;
+            }
+            this._runOverloadCheck(data, v);
+        };
+        limInput.onkeydown = (e) => { if (e.key === 'Enter') rerun(); };
+        const againBtn = this._styledButton('Check', '#fd7e14', '#e8590c');
+        Object.assign(againBtn.style, { padding: '4px 12px', fontSize: '12px' });
+        againBtn.onclick = rerun;
+        const csvBtn = this._styledButton('Download CSV', '#28a745', '#218838');
+        Object.assign(csvBtn.style, { padding: '4px 12px', fontSize: '12px' });
+        csvBtn.onclick = () => this._downloadOverloadCsv();
+        head.append(limLabel, limInput, againBtn, csvBtn);
+        section.appendChild(head);
+
+        const limit = res.limitPct;
+        const over = res.elements.filter((el) => el.maxLoading > limit);
+        const banner = document.createElement('div');
+        Object.assign(banner.style, {
+            marginTop: '10px', padding: '8px 12px', borderRadius: '6px', fontSize: '13px',
+            border: '1px solid', lineHeight: '1.45'
+        });
+        if (!res.scenarioCount) {
+            Object.assign(banner.style, { backgroundColor: '#fff3cd', borderColor: '#ffe69c', color: '#664d03' });
+            banner.textContent = 'No stored load flows to check. Run the P-Q study again to refresh the point data.';
+            section.appendChild(banner);
+            return;
+        }
+        const top = res.elements[0];
+        if (over.length) {
+            Object.assign(banner.style, { backgroundColor: '#f8d7da', borderColor: '#f1aeb5', color: '#58151c' });
+            banner.textContent = `${over.length} element${over.length === 1 ? '' : 's'} above ${_fmt(limit, 1)} % in ` +
+                `${res.overloadedScenarioCount} of ${res.scenarioCount} load flows. ` +
+                `Highest: ${top.name} at ${_fmt(top.maxLoading, 1)} % (${this._overloadScenarioText(top.worst)}).`;
+        } else {
+            Object.assign(banner.style, { backgroundColor: '#d1e7dd', borderColor: '#a3cfbb', color: '#0a3622' });
+            banner.textContent = `No line or transformer above ${_fmt(limit, 1)} % in any of the ${res.scenarioCount} load flows.` +
+                (top ? ` Highest: ${top.name} at ${_fmt(top.maxLoading, 1)} % (${this._overloadScenarioText(top.worst)}).` : '');
+        }
+        section.appendChild(banner);
+
+        if (data?.study_settings?.limit_overloads) {
+            const note = document.createElement('div');
+            Object.assign(note.style, { fontSize: '12px', color: '#6c757d', marginTop: '6px' });
+            note.textContent = `The study ran with the loading limit on (${_fmt(this._overloadDefaultLimit(data), 1)} %), ` +
+                'so plant Q was already reduced to keep loading within it. Cases still listed here could not be brought ' +
+                'within the limit, or you checked against a lower limit.';
+            section.appendChild(note);
+        }
+
+        const shown = over.length ? over : res.elements.slice(0, 5);
+        if (shown.length) {
+            const sub = document.createElement('div');
+            sub.textContent = over.length ? 'Overloaded elements (worst case of each)' : 'Highest-loaded elements (all within the limit)';
+            Object.assign(sub.style, { fontWeight: '600', fontSize: '12px', color: '#495057', marginTop: '12px' });
+            section.appendChild(sub);
+            section.appendChild(this._overloadTable(
+                ['Element', 'Type', 'Max loading', 'Worst case', 'Cases above limit', ''],
+                shown.map((el) => [
+                    el.name, el.type, this._loadingText(el.maxLoading, limit),
+                    this._overloadScenarioText(el.worst), `${el.count} of ${res.scenarioCount}`,
+                    this._overloadShowButton(el.worst)
+                ])
+            ));
+        }
+
+        if (res.cases.length) {
+            const details = document.createElement('details');
+            details.style.marginTop = '10px';
+            const summary = document.createElement('summary');
+            summary.textContent = `All overloaded cases (${res.cases.length})`;
+            Object.assign(summary.style, { cursor: 'pointer', fontSize: '12px', fontWeight: '600', color: '#495057' });
+            details.appendChild(summary);
+            const MAX_ROWS = 500;
+            details.appendChild(this._overloadTable(
+                ['U (pu)', 'Curve', 'P at PCC (MW)', 'Q at PCC (Mvar)', 'Element', 'Type', 'Loading', ''],
+                res.cases.slice(0, MAX_ROWS).map((c) => [
+                    c.scenario.voltage, this._overloadSideLabel(c.scenario.side), _fmt(c.scenario.p, 1),
+                    _fmt(c.scenario.q, 1), c.name, c.type, this._loadingText(c.loading, limit),
+                    this._overloadShowButton(c.scenario)
+                ])
+            ));
+            if (res.cases.length > MAX_ROWS) {
+                const more = document.createElement('div');
+                Object.assign(more.style, { fontSize: '12px', color: '#6c757d', marginTop: '4px' });
+                more.textContent = `Showing the ${MAX_ROWS} highest. Download CSV lists all ${res.cases.length}.`;
+                details.appendChild(more);
+            }
+            section.appendChild(details);
+        }
+    }
+
+    _overloadCsvText() {
+        const res = this._overloadResult;
+        if (!res) return '';
+        let csv = `\n# Overload check (limit ${res.limitPct} %): ${res.overloadedScenarioCount} of ${res.scenarioCount} load flows with an element above the limit\n`;
+        csv += 'Element,Type,Max_loading_pct,Worst_U_pu,Worst_curve,Worst_P_PCC_MW,Worst_Q_PCC_Mvar,Cases_above_limit\n';
+        res.elements.forEach((el) => {
+            const w = el.worst || {};
+            csv += [el.name, el.type, _fmt(el.maxLoading, 2), w.voltage, this._overloadSideLabel(w.side),
+                _fmt(w.p, 3), _fmt(w.q, 3), el.count].map(_csvEscape).join(',') + '\n';
+        });
+        if (res.cases.length) {
+            csv += '\n# Overloaded cases\nU_pu,Curve,P_PCC_MW,Q_PCC_Mvar,Element,Type,Loading_pct\n';
+            res.cases.forEach((c) => {
+                csv += [c.scenario.voltage, this._overloadSideLabel(c.scenario.side), _fmt(c.scenario.p, 3),
+                    _fmt(c.scenario.q, 3), c.name, c.type, _fmt(c.loading, 2)].map(_csvEscape).join(',') + '\n';
+            });
+        }
+        return csv;
+    }
+
+    _downloadOverloadCsv() {
+        const csv = this._overloadCsvText().replace(/^\n/, '');
+        if (!csv) return;
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `GridCode_PQ_overloads_${new Date().toISOString().slice(0, 16).replace(/[:.]/g, '-')}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
     _downloadCSV(data) {
         let csv = '# P-Q curves (P is net active power at the PCC)\nVoltage_pu,P_PCC_Qmax_MW,P_PCC_Qmin_MW,P_dispatch_MW,Q_max_Mvar,Q_min_Mvar,cosphi_over,cosphi_under\n';
         const levels = data.voltage_levels || [];
@@ -2251,6 +2516,7 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
             });
         }
         csv += this._appendElementQCsv(data);
+        csv += this._overloadCsvText();
         csv += `\n# Overall P-Q compliance,${data.pq_compliance === true ? 'COMPLIANT' : data.pq_compliance === false ? 'NON-COMPLIANT' : 'Not assessed'}\n`;
         const blob = new Blob([csv], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);

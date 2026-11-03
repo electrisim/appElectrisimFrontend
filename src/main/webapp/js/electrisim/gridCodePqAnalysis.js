@@ -5,7 +5,7 @@ import {
     estimateRpcInstalledMw
 } from './dialogs/RPCDialog.js';
 import { GridCodePqDialog } from './dialogs/GridCodePqDialog.js?v=pq20261102';
-import { GridCodePqResultsDialog } from './dialogs/GridCodePqResultsDialog.js?v=pq20261103b';
+import { GridCodePqResultsDialog } from './dialogs/GridCodePqResultsDialog.js?v=pq20261103c';
 import { prepareNetworkData } from './utils/networkDataPreparation.js';
 import {
     createSimulationProgressOverlay,
@@ -365,6 +365,13 @@ function gridCodePqAnalysis(a, b, c) {
 
             overlay.remove();
 
+            const pqRes = dataJson && (dataJson.grid_code_pq_results || dataJson.rpc_results);
+            if (pqRes) {
+                pqRes.study_settings = {
+                    limit_overloads: coerceBool(values.limitOverloads),
+                    max_loading_percent: parseFloat(values.maxLoadingPercent) || 100
+                };
+            }
             const resultsDialog = new GridCodePqResultsDialog(editorUi);
             resultsDialog.show(dataJson);
         } catch (error) {
