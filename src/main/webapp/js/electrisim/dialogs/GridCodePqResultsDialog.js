@@ -1,5 +1,5 @@
 import { attachBackdropCloseHandler } from '../utils/dialogStyles.js';
-import { RPCResultsDialog } from './RPCResultsDialog.js?v=pq20261102';
+import { RPCResultsDialog } from './RPCResultsDialog.js?v=uq20261104';
 import {
     getGridTemplateRequirementsMw,
     getGridTemplateDisplayName,
@@ -1480,14 +1480,38 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
      * and above a full-width legend, so it stays readable when pasted into a report or post.
      * Resolves to a canvas.
      */
-    async _renderReportCanvas() {
+    /**
+     * What the report image shows: the chart to redraw and its header. The U-Q dialog overrides
+     * this; the rest of the report rendering is shared.
+     */
+    _reportContext() {
         const panel = this._visiblePqPanel();
         const chart = panel?._pqChart;
-        const Chart = window.Chart;
-        if (!chart || !Chart) throw new Error('The P-Q diagram is not ready yet.');
+        if (!chart) return null;
         const spec = (this._pqChartSpecs || []).find((sp) => sp.panel === panel) || {};
         const data = spec.fullData || {};
         const vKey = panel.dataset.rpcVoltageKey;
+        const vLabel = vKey != null ? `${parseFloat(vKey)} pu` : '';
+        return {
+            chart,
+            title: 'Grid Code Compliance — P-Q capability at the PCC',
+            subtitle: [
+                data.grid_code_template_name || '',
+                vLabel ? `PCC voltage ${vLabel}` : '',
+                Number(data.pmax_pcc_mw) > 0 ? `Pmax at PCC ${Number(data.pmax_pcc_mw).toFixed(1)} MW` : ''
+            ].filter(Boolean).join('  ·  '),
+            compliance: data.compliance ? (data.compliance[vKey] ?? null) : null,
+            xLabel: this._qAxisLabel(),
+            yLabel: this._pAxisLabel(),
+            notes: this._showElementQ ? this._selectedContributionLines(panel) : []
+        };
+    }
+
+    async _renderReportCanvas() {
+        const rc = this._reportContext();
+        const chart = rc?.chart;
+        const Chart = window.Chart;
+        if (!chart || !Chart) throw new Error('The diagram is not ready yet.');
 
         const W = 1600, H = 900, SCALE = 2;          // logical px; drawn at 2x for sharp text
         const host = document.createElement('div');
@@ -1572,13 +1596,13 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
                 scales: {
                     x: {
                         type: xs.type, min: xs.min, max: xs.max, grace: xs.grace,
-                        title: { display: true, text: this._qAxisLabel(), font: { size: 19, weight: '600' }, color: '#212529', padding: { top: 8 } },
+                        title: { display: true, text: rc.xLabel, font: { size: 19, weight: '600' }, color: '#212529', padding: { top: 8 } },
                         ticks: { font: { size: 16 }, color: '#343a40' },
                         grid: { color: 'rgba(0,0,0,0.08)' }
                     },
                     y: {
                         type: ys.type, min: ys.min, max: ys.max, grace: ys.grace,
-                        title: { display: true, text: this._pAxisLabel(), font: { size: 19, weight: '600' }, color: '#212529' },
+                        title: { display: true, text: rc.yLabel, font: { size: 19, weight: '600' }, color: '#212529' },
                         ticks: { font: { size: 16 }, color: '#343a40' },
                         grid: { color: 'rgba(0,0,0,0.08)' }
                     }
@@ -1597,15 +1621,10 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         });
 
         // Header: study, grid code, PCC voltage, verdict. Footer: Element Q notes when shown.
-        const vLabel = vKey != null ? `${parseFloat(vKey)} pu` : '';
-        const compliance = data.compliance ? (data.compliance[vKey] ?? null) : null;
+        const compliance = rc.compliance;
         const verdict = compliance === true ? 'COMPLIANT' : compliance === false ? 'NON-COMPLIANT' : '';
-        const subtitle = [
-            data.grid_code_template_name || '',
-            vLabel ? `PCC voltage ${vLabel}` : '',
-            Number(data.pmax_pcc_mw) > 0 ? `Pmax at PCC ${Number(data.pmax_pcc_mw).toFixed(1)} MW` : ''
-        ].filter(Boolean).join('  ·  ');
-        const notes = this._showElementQ ? this._selectedContributionLines(panel) : [];
+        const subtitle = rc.subtitle || '';
+        const notes = rc.notes || [];
 
         const pad = 40 * SCALE;
         const measure = document.createElement('canvas').getContext('2d');
@@ -1634,7 +1653,7 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         ctx.textBaseline = 'top';
         ctx.fillStyle = '#212529';
         ctx.font = `700 ${30 * SCALE}px Arial, sans-serif`;
-        ctx.fillText('Grid Code Compliance — P-Q capability at the PCC', pad, 26 * SCALE);
+        ctx.fillText(rc.title, pad, 26 * SCALE);
         ctx.font = `${19 * SCALE}px Arial, sans-serif`;
         ctx.fillStyle = '#495057';
         ctx.fillText(subtitle, pad, 70 * SCALE);
@@ -1664,7 +1683,7 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
             const out = await this._renderReportCanvas();
             const a = document.createElement('a');
             a.href = out.toDataURL('image/png');
-            a.download = `GridCode_PQ_diagram_${new Date().toISOString().slice(0, 16).replace(/[:.]/g, '-')}.png`;
+            a.download = `${this._reportFilePrefix ? this._reportFilePrefix() : 'GridCode_PQ'}_diagram_${new Date().toISOString().slice(0, 16).replace(/[:.]/g, '-')}.png`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -1697,6 +1716,10 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         const vKey = panel?.dataset?.rpcVoltageKey;
         if (!sel || !vKey) return;
         this._onCapabilityPointClick(vKey, sel.side, sel.pKey, sel.qPcc, panel);
+    }
+
+    _elementQHintText() {
+        return 'Positive generator Q is overexcited (capacitive). Positive shunt-reactor Q is inductive absorption. Values follow the chart unit and sign toggles.';
     }
 
     _refreshElementQTable(panel) {
@@ -1739,7 +1762,7 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
 
         const hint = document.createElement('div');
         Object.assign(hint.style, { fontSize: '12px', color: '#6c757d', lineHeight: '1.45', marginBottom: '8px' });
-        hint.textContent = 'Positive generator Q is overexcited (capacitive). Positive shunt-reactor Q is inductive absorption. Values follow the chart unit and sign toggles.';
+        hint.textContent = this._elementQHintText();
         section.appendChild(hint);
 
         const explain = document.createElement('div');
@@ -2531,3 +2554,9 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
 }
 
 window.GridCodePqResultsDialog = GridCodePqResultsDialog;
+
+// Shared with the U-Q results dialog (element Q grouping, labels and colours).
+export {
+    _aggregateContribution, _chartOperatingQ, _contributionLabel, _operatingWords, _pccQDirection, _fmt,
+    PQ_Q_TYPE_ORDER, PQ_Q_TYPE_COLOR, PQ_Q_TYPE_PALETTE
+};

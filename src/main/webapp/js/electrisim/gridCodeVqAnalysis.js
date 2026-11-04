@@ -5,7 +5,7 @@ import {
     estimateRpcInstalledMw
 } from './dialogs/RPCDialog.js';
 import { GridCodeVqDialog } from './dialogs/GridCodeVqDialog.js';
-import { GridCodeVqResultsDialog } from './dialogs/GridCodeVqResultsDialog.js';
+import { GridCodeVqResultsDialog } from './dialogs/GridCodeVqResultsDialog.js?v=vq20261104';
 import { prepareNetworkData } from './utils/networkDataPreparation.js';
 import {
     createSimulationProgressOverlay,
@@ -175,7 +175,8 @@ function gridCodeVqAnalysis(a, b, c) {
             return;
         }
 
-        const parkOn = values.qDispatchMode === 'park' || coerceBool(values.iParkCtrl);
+        const parkConfigured = values.qDispatchMode === 'park_configured';
+        const parkOn = values.qDispatchMode === 'park' || parkConfigured || coerceBool(values.iParkCtrl);
         if (parkOn && !values.parkControllerId) {
             alert('Plant Q dispatch is set to Park Controller: select a Park Controller, or switch to Local Q on each unit.');
             return;
@@ -283,8 +284,9 @@ function gridCodeVqAnalysis(a, b, c) {
                 shunt_names: shuntNames,
                 park_controller_name: parkControllerName,
                 park_controller_id: parkControllerId,
+                psc_cell_id: values.pscId ? String(values.pscId) : '',
                 i_park_ctrl: parkOn,
-                q_dispatch_mode: parkOn ? 'park' : 'local',
+                q_dispatch_mode: parkConfigured ? 'park_configured' : (parkOn ? 'park' : 'local'),
                 voltage_levels: voltageLevels,
                 pn_mw: parseFloat(values.pnMw) || 0,
                 p_max_pct: parseFloat(values.pMaxPct) || 100,
@@ -354,6 +356,13 @@ function gridCodeVqAnalysis(a, b, c) {
 
             overlay.remove();
 
+            const vqRes = dataJson && (dataJson.grid_code_vq_results || dataJson.rpc_results);
+            if (vqRes) {
+                vqRes.study_settings = {
+                    limit_overloads: coerceBool(values.limitOverloads),
+                    max_loading_percent: parseFloat(values.maxLoadingPercent) || 100
+                };
+            }
             const resultsDialog = new GridCodeVqResultsDialog(editorUi);
             resultsDialog.show(dataJson);
         } catch (error) {

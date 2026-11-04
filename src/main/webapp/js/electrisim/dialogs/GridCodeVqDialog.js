@@ -63,7 +63,8 @@ export class GridCodeVqDialog extends GridCodePqDialog {
         return '<strong>Grid Code Compliance (V-Q)</strong><br>' +
             'Maps reactive capability versus voltage at the point of connection while plant active power is held at Pmax. ' +
             'The chart plots Qmax and Qmin at the PCC (red) against the U-Q/Pmax grid-code envelope (blue, Q/Pmax × Pn). ' +
-            '<strong>Plant Q dispatch</strong> is local Q on each unit or a <strong>Park Controller</strong> (constant Q at the PoC). ' +
+            '<strong>Plant Q dispatch</strong> is local Q on each unit, a <strong>Park Controller</strong> as constant Q at the PoC, ' +
+            'or the <strong>Park Controller as configured</strong> (with an optional Plant Supervisory Controller leading the STATCOMs and shunt reactors). ' +
             'Pandapower only. ' +
             'See the <a href="https://electrisim.com/documentation.html#grid-code-vq" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
@@ -85,7 +86,7 @@ export class GridCodeVqDialog extends GridCodePqDialog {
         const values = RPCDialog.prototype.getFormValues.call(this);
         delete values.requirements;
         delete values.gridCodeTemplateKey;
-        values.iParkCtrl = values.qDispatchMode === 'park';
+        values.iParkCtrl = values.qDispatchMode === 'park' || values.qDispatchMode === 'park_configured';
         if (this.container) {
             [
                 'iTrfCtrl', 'iTrf3wCtrl', 'run_control_shunt', 'shntCtrl', 'limQUprot',

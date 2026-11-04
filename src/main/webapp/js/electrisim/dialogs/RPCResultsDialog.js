@@ -904,13 +904,17 @@ export class RPCResultsDialog {
             }
         }
 
+        // Subclasses may restyle the Q axis (the Grid Code U-Q dialog matches its P-Q chart).
+        const uqAxis = this._uqQAxisOptions ? this._uqQAxisOptions() : null;
         const ctx = canvas.getContext('2d');
         const chart = new Chart(ctx, {
             type: 'scatter',
             data: { datasets },
+            plugins: uqAxis?.plugins || [],
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                ...(uqAxis?.layout ? { layout: uqAxis.layout } : {}),
                 onClick: (evt, elements, chartInst) => {
                     if (!elements?.length) return;
                     const el = elements[0];
@@ -922,6 +926,7 @@ export class RPCResultsDialog {
                     this._onCapabilityPointClick(vKey, raw._rpcSide, raw._rpcP, raw._rpcQ, panel);
                 },
                 plugins: {
+                    ...(uqAxis?.pluginOptions || {}),
                     title: {
                         display: true,
                         text: `U-Q/Pmax Diagram — P = ${Number(pAt).toFixed(1)} MW${
@@ -955,10 +960,11 @@ export class RPCResultsDialog {
                     x: {
                         title: {
                             display: true,
-                            text: 'Net Q at PCC (Mvar) — + overexcited, − underexcited; blue = PCC req.',
+                            text: uqAxis?.title || 'Net Q at PCC (Mvar) — + overexcited, − underexcited; blue = PCC req.',
                             font: { size: 12, weight: '600' }
                         },
-                        grid: { color: 'rgba(0,0,0,0.06)' }
+                        grid: { color: 'rgba(0,0,0,0.06)' },
+                        ...(uqAxis?.grace ? { grace: uqAxis.grace } : {})
                     },
                     y: {
                         title: {
