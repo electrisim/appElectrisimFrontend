@@ -580,6 +580,18 @@ export class BessPreliminaryDesignDialog extends Dialog {
                 qInp.value = String(Math.round(qFromPPf(pInp.value, pfInp.value) * 1000) / 1000);
             }
         };
+        // Only the PCS-grouping field of the chosen transformer type applies.
+        const syncTopologyFields = () => {
+            const threeW = this.inputs.get('stringTopology')?.value === 'three_winding';
+            [['pcsPerTrafo', !threeW], ['pcsPerWinding', threeW]].forEach(([id, active]) => {
+                const inp = this.inputs.get(id);
+                if (!inp) return;
+                inp.disabled = !active;
+                inp.style.background = active ? '#fff' : '#f1f5f9';
+                if (inp.parentElement) inp.parentElement.style.opacity = active ? '1' : '0.5';
+                inp.title = active ? '' : `Applies only to ${threeW ? 'two' : 'three'}-winding skids`;
+            });
+        };
         const ratingNote = document.createElement('div');
         ratingNote.style.cssText = 'display:none;margin-top:10px;padding:8px 10px;border-radius:6px;'
             + 'border:1px solid #fcd34d;background:#fffbeb;color:#92400e;font-size:12px;line-height:1.45;';
@@ -610,6 +622,7 @@ export class BessPreliminaryDesignDialog extends Dialog {
         form.addEventListener('input', () => { syncQFromPf(); refreshRatingNote(); });
         form.addEventListener('change', (e) => {
             syncQFromPf();
+            syncTopologyFields();
             const id = e.target && e.target.id;
             if (RATING_DRIVERS.has(id)) {
                 this._writeSuggestedRatings(computeSuggestedRatings(this.parseNumericValues(this.getFormValues())));
@@ -617,6 +630,7 @@ export class BessPreliminaryDesignDialog extends Dialog {
             refreshRatingNote();
         });
         syncQFromPf();
+        syncTopologyFields();
 
         form.appendChild(ratingNote);
         contentArea.appendChild(form);
