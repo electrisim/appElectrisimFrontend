@@ -42,6 +42,10 @@ const LV_BUS_END_PAD = 170;
 const LV3W_INNER_GAP = 10;
 /** Clearance between adjacent 3W skids. */
 const SKID_GUTTER = 96;
+/** Upper bound on PCS units in one plant (e.g. 7 skids × 16 string PCS = 112). */
+export const MAX_PCS_UNITS = 160;
+/** Upper bound on string PCS sharing one two-winding MV/LV transformer. */
+export const MAX_PCS_PER_TRAFO = 32;
 const TRAFO3W_STYLE = vertexStyleFromElectrisimSymbol('sym-3w-transformer-v', 'Three Winding Transformer');
 
 const BUSBAR_BASE = vertexStyleImportedBusbar('Bus');
@@ -145,6 +149,16 @@ function removePlantCells(graph, cells) {
     } finally {
         graph.getModel().endUpdate();
     }
+}
+
+/** A PCS moved to another skid keeps no link to the LV bus it left. */
+function detachFromOtherLvBuses(graph, storage, keepBus) {
+    const edges = graph.getModel().getEdges?.(storage) || [];
+    const stale = edges.filter((e) => {
+        const other = e.source === storage ? e.target : e.source;
+        return other && other !== keepBus && /^lvBus(A|B)?_\d+$/.test(getCellRole(other) || '');
+    });
+    if (stale.length) graph.removeCells(stale, true);
 }
 
 function removeEdgesBetween(graph, a, b) {
@@ -263,6 +277,20 @@ function lvBusWidthForPcs(n) {
 
 function threeWSkidWidth(pcsPerWinding) {
     return 2 * lvBusWidthForPcs(pcsPerWinding) + 2 * LV3W_INNER_GAP;
+}
+
+/**
+ * How PCS units are grouped under MV/LV transformers. Two-winding skids carry
+ * 1…MAX_PCS_PER_TRAFO PCS on one LV bus (string-inverter skids); three-winding
+ * skids carry 2 or 4 PCS on each of their two LV windings.
+ */
+export function skidLayout(params) {
+    const threeW = params?.stringTopology === 'three_winding';
+    const pcsPerWinding = Number(params?.pcsPerWinding) === 4 ? 4 : 2;
+    const perTrafo = parseInt(params?.pcsPerTrafo, 10);
+    const pcsPerTrafo = Math.max(1, Math.min(MAX_PCS_PER_TRAFO, Number.isFinite(perTrafo) ? perTrafo : 1));
+    const pcsPerSkid = threeW ? 2 * pcsPerWinding : pcsPerTrafo;
+    return { threeW, pcsPerWinding, pcsPerTrafo, pcsPerSkid };
 }
 
 function lvBusBox(bus) {
@@ -776,10 +804,9 @@ export function computeSuggestedRatings(params) {
     const uLv = Math.max(0.84, umin - 0.05);
     const unitSn = (Math.hypot(unitP, unitQ) / uLv) * 1.18;
     const plantMva = (Math.hypot(importP, qAtPcs) / umin) * 1.22;
-    const threeW = params.stringTopology === 'three_winding';
-    const pcsPerWinding = Number(params.pcsPerWinding) === 4 ? 4 : 2;
-    const pcsPerSkid = threeW ? 2 * pcsPerWinding : 1;
-    const stringTrafoSn = unitSn * pcsPerSkid;
+    const { threeW, pcsPerSkid } = skidLayout(params);
+    // A 2W skid carries only the PCS that exist; a 3W skid keeps equal windings.
+    const stringTrafoSn = unitSn * (threeW ? pcsPerSkid : Math.min(pcsPerSkid, n));
     return {
         hvTrafoSnMva: Math.ceil(plantMva * 10) / 10,
         stringTrafoSnMva: Math.ceil(stringTrafoSn * 10) / 10,
@@ -809,7 +836,7 @@ export function buildOrUpdateBessPlant(graph, params) {
     if (!graph) throw new Error('Graph not available');
     const parent = graph.getDefaultParent();
     const existing = findPlantCells(graph);
-    const nUnits = Math.max(1, Math.min(20, parseInt(params.numUnits, 10) || 1));
+    const nUnits = Math.max(1, Math.min(MAX_PCS_UNITS, parseInt(params.numUnits, 10) || 1));
     const suggested = computeSuggestedRatings(params);
     params.pMaxDischarge_MW = ratingOr(params.pMaxDischarge_MW, suggested.storagePMaxMw);
     params.pMaxCharge_MW = ratingOr(params.pMaxCharge_MW, suggested.storagePMaxMw);
@@ -832,19 +859,23 @@ export function buildOrUpdateBessPlant(graph, params) {
 
     graph.getModel().beginUpdate();
     try {
-        const threeW = params.stringTopology === 'three_winding';
-        const pcsPerWinding = Number(params.pcsPerWinding) === 4 ? 4 : 2;
-        const pcsPerSkid = threeW ? 2 * pcsPerWinding : 1;
-        const nSkids = threeW ? Math.max(1, Math.ceil(nUnits / pcsPerSkid)) : nUnits;
-        const skidW = threeW ? threeWSkidWidth(pcsPerWinding) : STRING_BUS_W;
-        const colPitch = threeW ? skidW + SKID_GUTTER : COL_SPACING;
+        const { threeW, pcsPerWinding, pcsPerSkid } = skidLayout(params);
+        const pcsOnBus2w = Math.min(pcsPerSkid, nUnits);
+        const nSkids = Math.max(1, Math.ceil(nUnits / pcsPerSkid));
+        const skidW = threeW ? threeWSkidWidth(pcsPerWinding) : lvBusWidthForPcs(pcsOnBus2w);
+        const colPitch = threeW
+            ? skidW + SKID_GUTTER
+            : (pcsOnBus2w > 1 ? Math.max(COL_SPACING, skidW + SKID_GUTTER) : COL_SPACING);
         const had3w = Object.keys(existing).some((k) => k.startsWith('lvTrafo3w_'));
         const had2w = Object.keys(existing).some((k) => /^lvTrafo_\d+$/.test(k));
         if ((threeW && had2w) || (!threeW && had3w)) {
             removePlantCells(graph, stringRoleKeys(existing).map((k) => existing[k]));
             stringRoleKeys(existing).forEach((k) => { delete existing[k]; });
         }
-        for (let i = 0; i < 20; i++) {
+        const staleScan = Math.max(MAX_PCS_UNITS, ...Object.keys(existing)
+            .map((k) => parseInt((k.match(/_(\d+)$/) || [])[1], 10) + 1)
+            .filter(Number.isFinite));
+        for (let i = 0; i < staleScan; i++) {
             const extra = [];
             if (i >= nUnits) {
                 ['storage_', 'dcBus_', 'battery_'].forEach((p) => {
@@ -861,7 +892,7 @@ export function buildOrUpdateBessPlant(graph, params) {
                     if (existing[`${p}${i}`]) extra.push(existing[`${p}${i}`]);
                 });
             } else {
-                if (i >= nUnits) {
+                if (i >= nSkids) {
                     ['stringBus_', 'cable_', 'lvTrafo_', 'lvBus_'].forEach((p) => {
                         if (existing[`${p}${i}`]) extra.push(existing[`${p}${i}`]);
                     });
@@ -1121,6 +1152,7 @@ export function buildOrUpdateBessPlant(graph, params) {
                 const bg = graph.getCellGeometry(bus);
                 graph.getModel().setStyle(storage, pcsStyle());
                 placeCell(graph, storage, bg.x + bg.width / 2 - sw / 2 + offsetX, bg.y + bg.height + COMP_GAP, sw, sh);
+                detachFromOtherLvBuses(graph, storage, bus);
                 const stEdge = ensureEdge(graph, parent, storage, bus, edgeStyleDeviceToBus(storage, bus));
                 nudgeResultChild(graph, stEdge, BOX.storage);
                 replaceRelativeLabels(graph, storage, storName);
@@ -1130,6 +1162,7 @@ export function buildOrUpdateBessPlant(graph, params) {
             ensureBusPlaceholder(graph, bus, lvBusBox(bus));
         };
         const pcsOffsets = (count) => {
+            if (count <= 0) return [];
             if (count <= 1) return [0];
             const pitch = PCS_COLUMN_PITCH;
             const startOff = -((count - 1) * pitch) / 2;
@@ -1186,21 +1219,24 @@ export function buildOrUpdateBessPlant(graph, params) {
                     placeCentered(graph, lvTrafo, colX, stringTrafoY);
                 }
 
+                const startIdx2w = s * pcsPerSkid;
+                const onSkid2w = Math.max(0, Math.min(pcsPerSkid, nUnits - startIdx2w));
+                const lvBusW = lvBusWidthForPcs(onSkid2w);
                 const lvName = `LV_Bus_${s + 1}`;
                 let lvBus = existing[`lvBus_${s}`];
                 if (!lvBus) {
-                    lvBus = insertBus(graph, parent, colX - STRING_BUS_W / 2, lvY, lvName, lvKv, `lvBus_${s}`, STRING_BUS_W);
+                    lvBus = insertBus(graph, parent, colX - lvBusW / 2, lvY, lvName, lvKv, `lvBus_${s}`, lvBusW);
                 } else {
                     configureBusAttributes(graph, lvBus, { name: lvName, vn_kv: String(lvKv) });
                     tagRole(graph, lvBus, `lvBus_${s}`);
-                    applyBusbar(graph, lvBus, colX - STRING_BUS_W / 2, lvY, STRING_BUS_W);
+                    applyBusbar(graph, lvBus, colX - lvBusW / 2, lvY, lvBusW);
                     replaceRelativeLabels(graph, lvBus, lvName);
                 }
                 const tLv = ensureEdge(graph, parent, lvTrafo, lvBus, edgeStyleTrafoToBus(lvTrafo, lvBus, 'lv'));
                 const tHv = ensureEdge(graph, parent, lvTrafo, stringBus, edgeStyleTrafoToBus(lvTrafo, stringBus, 'hv'));
                 parkEdgeResult(graph, tLv, [tHv], BOX.stringTrafo);
                 ensureBusPlaceholder(graph, lvBus, BOX.lvBus);
-                placePcs(lvBus, s, 0);
+                pcsOffsets(onSkid2w).forEach((dx, k) => placePcs(lvBus, startIdx2w + k, dx));
                 continue;
             }
 

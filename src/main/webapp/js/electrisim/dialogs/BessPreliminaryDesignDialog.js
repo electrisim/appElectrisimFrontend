@@ -7,7 +7,13 @@ import {
     preventAccidentalFormSubmit,
 } from '../utils/dialogStyles.js';
 import { createDialogBracketGroup } from '../utils/dialogBracketGroup.js';
-import { buildOrUpdateBessPlant, computeSuggestedRatings, findBessPlantElements } from '../bessPlantBuilder.js';
+import {
+    buildOrUpdateBessPlant,
+    computeSuggestedRatings,
+    findBessPlantElements,
+    MAX_PCS_UNITS,
+    MAX_PCS_PER_TRAFO,
+} from '../bessPlantBuilder.js';
 
 const WIZARD_STORE_KEY = 'electrisim.bessPreliminaryDesign.v1';
 const WIZARD_GRAPH_ATTR = 'bessPrelimWizard';
@@ -27,7 +33,7 @@ const RATING_FIELDS = [
 /** Editing one of these re-sizes the rating fields the user has not typed into. */
 const RATING_DRIVERS = new Set([
     'pocP_MW', 'powerFactor', 'pocQ_Mvar', 'specifyQDirectly', 'numUnits',
-    'stringTopology', 'pcsPerWinding', 'umin_pu', 'auxP_MW', 'mvVoltage_kV',
+    'stringTopology', 'pcsPerWinding', 'pcsPerTrafo', 'umin_pu', 'auxP_MW', 'mvVoltage_kV',
 ]);
 
 const DRAFT_EDITED_KEY = '_userEditedRatings';
@@ -201,6 +207,7 @@ export class BessPreliminaryDesignDialog extends Dialog {
             numUnits: parseInt(v('numUnits', 4), 10) || 4,
             stringTopology: topoDefault === 'three_winding' ? 'three_winding' : 'two_winding',
             pcsPerWinding: Number(v('pcsPerWinding', 2)) === 4 ? 4 : 2,
+            pcsPerTrafo: parseInt(v('pcsPerTrafo', 1), 10) || 1,
             umin_pu: Number(v('umin_pu', 0.95)) || 0.95,
             auxP_MW: Number(v('auxP_MW', 0.5)) || 0,
             mvVoltage_kV: Number(v('mvVoltage_kV', 33)) || 33,
@@ -226,7 +233,9 @@ export class BessPreliminaryDesignDialog extends Dialog {
             }),
             this._field('vmax_allow_pu', 'Plant voltage max (pu)', v('vmax_allow_pu', 1.10)),
             this._section('PCS / BESS'),
-            this._field('numUnits', 'Number of PCS / Storage units', v('numUnits', 4), 'number', '1'),
+            this._field('numUnits', 'Number of PCS / Storage units (plant total)', v('numUnits', 4), 'number', '1', {
+                hint: `Total inverters in the plant, up to ${MAX_PCS_UNITS}. They are shared out over the MV/LV transformers by the PCS-per-transformer setting below (e.g. 7 skids × 16 string PCS = 112).`,
+            }),
             this._field('storageSnMva', 'PCS rating per unit (MVA)', r('storageSnMva'), 'number', 'any', {
                 hint: 'Auto-sized from Pn, PF, and unit count until you type a value here; after that your rating is used as entered, '
                     + 'including in later sessions. “Reset ratings to auto-size” hands every rating back to the auto-sizer.',
@@ -271,10 +280,13 @@ export class BessPreliminaryDesignDialog extends Dialog {
             this._section('MV/LV transformers'),
             this._field('stringTopology', 'String transformer type', v('stringTopology', topoDefault), 'select', null, {
                 options: [
-                    { value: 'two_winding', label: 'Two-winding (1 PCS per trafo)' },
+                    { value: 'two_winding', label: 'Two-winding (1 or more PCS per trafo)' },
                     { value: 'three_winding', label: 'Three-winding skid (2 × 0.69 kV windings)' },
                 ],
-                hint: 'Three-winding: one MV/LV skid transformer with two 690 V windings, 2 or 4 inverters on each.',
+                hint: 'Two-winding: one MV/LV transformer per skid, with all its PCS on one LV bus — 1 for central inverters, or e.g. 16 for string PCS. Three-winding: one MV/LV skid transformer with two 690 V windings, 2 or 4 inverters on each.',
+            }),
+            this._field('pcsPerTrafo', 'PCS per transformer (2W skid)', v('pcsPerTrafo', 1), 'number', '1', {
+                hint: `1–${MAX_PCS_PER_TRAFO}. Number of skids = PCS units ÷ this value, rounded up.`,
             }),
             this._field('pcsPerWinding', 'PCS per LV winding (3W skid)', v('pcsPerWinding', 2), 'select', null, {
                 options: [
@@ -324,7 +336,7 @@ export class BessPreliminaryDesignDialog extends Dialog {
             vmin_allow_pu: num('vmin_allow_pu', 0.9),
             vmax_allow_pu: num('vmax_allow_pu', 1.1),
             frequency: num('frequency', 50),
-            numUnits: int('numUnits', 4),
+            numUnits: Math.max(1, Math.min(MAX_PCS_UNITS, int('numUnits', 4))),
             // Ratings left blank are filled from computeSuggestedRatings, not from
             // a fixed catalog value that would only suit one plant size.
             storageSnMva: num('storageSnMva', 0),
@@ -355,6 +367,7 @@ export class BessPreliminaryDesignDialog extends Dialog {
             batteryPmax_MW: num('batteryPmax_MW', num('pMaxDischarge_MW', 0)),
             stringTopology: raw.stringTopology === 'three_winding' ? 'three_winding' : 'two_winding',
             pcsPerWinding: int('pcsPerWinding', 2) === 4 ? 4 : 2,
+            pcsPerTrafo: Math.max(1, Math.min(MAX_PCS_PER_TRAFO, int('pcsPerTrafo', 1))),
             specifyQDirectly: raw.specifyQDirectly === true || raw.specifyQDirectly === 'true',
             useQCurve: raw.useQCurve === true || raw.useQCurve === 'true',
             tapSweep: raw.tapSweep === true || raw.tapSweep === 'true',
