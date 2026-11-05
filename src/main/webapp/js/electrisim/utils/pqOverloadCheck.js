@@ -74,6 +74,7 @@ export function collectPqScenarios(data, resolve) {
  *   limitPct, scenarioCount, overloadedScenarioCount,
  *   elements: [{ key, name, type, maxLoading, worst, count }]  (sorted, highest loading first; every element),
  *   cases:    [{ scenario, key, name, type, loading }]          (only the overloaded ones)
+ *   byType:   [{ type, count, top }]  every branch type checked, how many, and its most loaded element
  * }
  */
 export function findPqOverloads(scenarios, limitPct, nameOf = (item, type) => item?.name || type) {
@@ -110,11 +111,16 @@ export function findPqOverloads(scenarios, limitPct, nameOf = (item, type) => it
     });
     const sortedElements = [...elements.values()].sort((a, b) => b.maxLoading - a.maxLoading);
     cases.sort((a, b) => b.loading - a.loading);
+    const byType = PQ_OVERLOAD_BRANCHES.map((src) => {
+        const els = sortedElements.filter((el) => el.type === src.type);
+        return { type: src.type, count: els.length, top: els[0] || null };
+    }).filter((t) => t.count > 0);
     return {
         limitPct: limit,
         scenarioCount: scenarios.length,
         overloadedScenarioCount,
         elements: sortedElements,
-        cases
+        cases,
+        byType
     };
 }

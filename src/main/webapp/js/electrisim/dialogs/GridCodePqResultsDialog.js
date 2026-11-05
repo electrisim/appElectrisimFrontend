@@ -11,7 +11,40 @@ import {
     getDisplayName,
     looksLikeInternalGraphObjectId
 } from '../utils/attributeUtils.js';
-import { collectPqScenarios, findPqOverloads } from '../utils/pqOverloadCheck.js?v=ol20261103';
+import { collectPqScenarios, findPqOverloads } from '../utils/pqOverloadCheck.js?v=ol20261105';
+import { collectLineCurrents } from '../utils/pqLineCurrent.js?v=lc20261105';
+
+// Marker shapes for the line-current 3D chart, one per selected line.
+const PQ_LC_SYMBOLS = ['circle', 'diamond', 'square', 'cross', 'x', 'circle-open', 'diamond-open', 'square-open'];
+
+// Loading colour scale (cmin 0 %, cmax 100 %): green → yellow → orange below the rating, red at and above it.
+const PQ_LC_COLORSCALE = [
+    [0, '#1a9850'], [0.5, '#66bd63'], [0.7, '#d9ef8b'], [0.85, '#fee08b'], [0.97, '#fdae61'], [0.999, '#f46d43'], [1, '#d73027']
+];
+
+/** Rated current of a line sample (A): current / loading, i.e. pandapower max_i_ka x derating x parallel. */
+function _lcRatedA(sample) {
+    const i = Number(sample?.currentA);
+    const l = Number(sample?.loading);
+    return Number.isFinite(i) && Number.isFinite(l) && l > 0 ? (i * 100) / l : NaN;
+}
+
+/**
+ * Errors thrown inside Plotly (e.g. its WebGL 3D scene after the tab was in the background) must not
+ * open the app's "Unknown error" dialog: log them as warnings instead. Installed once.
+ */
+function _pqGuardPlotlyErrors() {
+    if (window.__pqPlotlyErrorGuard) return;
+    window.__pqPlotlyErrorGuard = true;
+    const previous = window.onerror;
+    window.onerror = function (message, source, lineno, colno, error) {
+        if (String(source || '').includes('plotly')) {
+            console.warn('3D chart (Plotly) error ignored:', message, error);
+            return true;
+        }
+        return typeof previous === 'function' ? previous.apply(this, arguments) : false;
+    };
+}
 
 console.log('GridCodePqResultsDialog.js LOADED');
 
@@ -466,6 +499,11 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         this.pointLoadflows = data.point_loadflows || {};
         this._overloadResult = null;
         this._overloadSection = null;
+        this._lineCurrents = null;
+        this._lineCurrentSel = null;
+        this._lineCurrentSection = null;
+        this._lcRedraw = null;
+        this._lcRange = null;
         this._pn = Number(data.pn_mw || data.total_installed_mw) || 0;
         this._plotPuP = false;
         this._plotPuQ = false;
@@ -629,6 +667,11 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
             padding: '12px 24px', borderTop: '1px solid #e9ecef',
             display: 'flex', justifyContent: 'flex-end', gap: '8px'
         });
+        const lineCurrentBtn = this._styledButton('Line current 3D', '#6f42c1', '#59359a');
+        lineCurrentBtn.title = 'Highest current in selected lines over every load flow of this study, as a 3D chart of Q, P and PCC voltage (reads the stored load flows; runs no new calculation).';
+        lineCurrentBtn.onclick = () => this._openLineCurrent3d(data);
+        footerBar.appendChild(lineCurrentBtn);
+
         const overloadBtn = this._styledButton('Check overloads', '#fd7e14', '#e8590c');
         overloadBtn.title = 'List lines and transformers above the loading limit in every analysed case (reads the stored load flows; runs no new calculation).';
         overloadBtn.onclick = () => {
@@ -2409,6 +2452,23 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         }
         section.appendChild(banner);
 
+        // What was checked: every line and transformer, with the most loaded one of each type.
+        if (res.byType?.length) {
+            const plural = { 'Line': 'lines', 'Transformer': 'transformers', '3-winding transformer': 'three-winding transformers' };
+            const checked = document.createElement('div');
+            Object.assign(checked.style, { fontSize: '12px', color: '#495057', marginTop: '8px' });
+            checked.textContent = `Checked ${res.byType.map((t) => `${t.count} ${t.count === 1 ? t.type.toLowerCase() : (plural[t.type] || t.type)}`).join(', ')} in each of the ${res.scenarioCount} load flows. Most loaded of each type:`;
+            section.appendChild(checked);
+            section.appendChild(this._overloadTable(
+                ['Type', 'Most loaded element', 'Max loading', 'Worst case', 'Cases above limit', ''],
+                res.byType.filter((t) => t.top).map((t) => [
+                    t.type, t.top.name, this._loadingText(t.top.maxLoading, limit),
+                    this._overloadScenarioText(t.top.worst), `${t.top.count} of ${res.scenarioCount}`,
+                    this._overloadShowButton(t.top.worst)
+                ])
+            ));
+        }
+
         if (data?.study_settings?.limit_overloads) {
             const note = document.createElement('div');
             Object.assign(note.style, { fontSize: '12px', color: '#6c757d', marginTop: '6px' });
@@ -2488,6 +2548,455 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         const a = document.createElement('a');
         a.href = url;
         a.download = `GridCode_PQ_overloads_${new Date().toISOString().slice(0, 16).replace(/[:.]/g, '-')}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    // ---- Line current 3D: every stored load flow of the study, per selected line ----
+
+    destroy() {
+        try {
+            const gd = this._lineCurrentSection?.querySelector('.js-plotly-plot');
+            if (gd && window.Plotly) window.Plotly.purge(gd);
+        } catch (e) { /* chart already gone */ }
+        super.destroy();
+    }
+
+    _loadPlotly() {
+        if (window.Plotly) return Promise.resolve();
+        if (this._plotlyLoading) return this._plotlyLoading;
+        this._plotlyLoading = new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js';
+            script.crossOrigin = 'anonymous';  // readable error messages instead of "Script error."
+            script.onload = () => {
+                _pqGuardPlotlyErrors();
+                resolve();
+            };
+            script.onerror = () => {
+                this._plotlyLoading = null;
+                reject(new Error('Could not load the 3D chart library. Check the internet connection and try again.'));
+            };
+            document.head.appendChild(script);
+        });
+        return this._plotlyLoading;
+    }
+
+    _lineCurrentData(data) {
+        if (!this._lineCurrents) {
+            const scenarios = collectPqScenarios(data, (vKey, side, p) => this._resolvePointLoadflow(vKey, side, p));
+            const nameOf = (row) => this._elementDisplayName(row, 'Line', this._cellForResultRow(row));
+            this._lineCurrents = collectLineCurrents(scenarios, nameOf);
+        }
+        return this._lineCurrents;
+    }
+
+    async _openLineCurrent3d(data) {
+        const lines = this._lineCurrentData(data);
+        if (!this._lineCurrentSel) this._lineCurrentSel = new Set(lines.slice(0, 3).map((l) => l.key));
+        this._renderLineCurrentSection(data);
+        this._lineCurrentSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    _renderLineCurrentSection(data) {
+        const lines = this._lineCurrentData(data);
+        let section = this._lineCurrentSection;
+        if (!section) {
+            section = document.createElement('div');
+            section.className = 'pq-line-current-section';
+            Object.assign(section.style, {
+                marginTop: '18px', padding: '14px 16px', border: '1px solid #dee2e6',
+                borderRadius: '8px', backgroundColor: '#fff'
+            });
+            this._lineCurrentSection = section;
+            const host = this._pqContentEl;
+            const anchor = this._pqPlantSummaryEl;
+            if (host && anchor && anchor.parentNode === host) host.insertBefore(section, anchor);
+            else if (host) host.appendChild(section);
+        }
+        section.replaceChildren();
+
+        const head = document.createElement('div');
+        Object.assign(head.style, { display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' });
+        const title = document.createElement('div');
+        title.textContent = 'Line current 3D — every load flow of this study';
+        Object.assign(title.style, { fontWeight: '700', fontSize: '14px', color: '#212529', marginRight: 'auto' });
+        const csvBtn = this._styledButton('Download CSV', '#28a745', '#218838');
+        Object.assign(csvBtn.style, { padding: '4px 12px', fontSize: '12px' });
+        csvBtn.onclick = () => this._downloadLineCurrentCsv();
+        head.append(title, csvBtn);
+        section.appendChild(head);
+
+        const hint = document.createElement('div');
+        Object.assign(hint.style, { fontSize: '12px', color: '#6c757d', margin: '6px 0 10px', lineHeight: '1.45' });
+        hint.textContent = 'Each point is one stored load flow of the study: X = Q at the PCC, Y = P at the PCC, '
+            + 'vertical axis = PCC voltage (or loading / current, see below). Colour shows the loading against the '
+            + 'line rating (green to orange below it, red above 100 %) or the current; size shows the current. One '
+            + 'line gives several rows of points: one row per curve (Q max, Q min, operating point) at each PCC '
+            + 'voltage, along the active-power sweep. Each selected line has its own marker shape and its highest '
+            + 'current is circled and labelled. Drag to rotate, '
+            + 'scroll to zoom, click a point to show that load flow on the diagram. Reads the stored results only.';
+        section.appendChild(hint);
+
+        const controls = document.createElement('div');
+        Object.assign(controls.style, { display: 'flex', gap: '18px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '10px', fontSize: '12px' });
+        const choice = (title, key, options) => {
+            const wrap = document.createElement('div');
+            Object.assign(wrap.style, { display: 'flex', alignItems: 'center', gap: '8px' });
+            const label = document.createElement('span');
+            label.textContent = title;
+            Object.assign(label.style, { fontWeight: '600', color: '#495057' });
+            const group = document.createElement('div');
+            Object.assign(group.style, { display: 'inline-flex', border: '1px solid #ced4da', borderRadius: '6px', overflow: 'hidden' });
+            const buttons = options.map(([value, text]) => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.textContent = text;
+                Object.assign(b.style, { padding: '4px 10px', border: 'none', fontSize: '12px', cursor: 'pointer' });
+                b.onclick = () => {
+                    if (key === '_lcZ' && this[key] !== value && this._lcRange) {
+                        this._lcRange.z = [null, null];
+                        (this._lcRangeInputs?.z || []).forEach((inp) => { inp.value = ''; });
+                    }
+                    this[key] = value;
+                    paint();
+                    this._lcRedraw?.();
+                };
+                return [value, b];
+            });
+            const paint = () => buttons.forEach(([value, b]) => {
+                const active = (this[key] || options[0][0]) === value;
+                b.style.backgroundColor = active ? '#6f42c1' : '#fff';
+                b.style.color = active ? '#fff' : '#495057';
+                b.style.fontWeight = active ? '600' : '500';
+            });
+            buttons.forEach(([, b]) => group.appendChild(b));
+            paint();
+            wrap.append(label, group);
+            controls.appendChild(wrap);
+        };
+        choice('Colour', '_lcColour', [['loading', 'Loading (%)'], ['current', 'Current (kA)']]);
+        choice('Vertical axis', '_lcZ', [['u', 'U at PCC (pu)'], ['loading', 'Loading (%)'], ['current', 'Current (kA)']]);
+        section.appendChild(controls);
+
+        // Axis ranges: empty = automatic. Changing the vertical-axis quantity clears its range.
+        if (!this._lcRange) this._lcRange = { x: [null, null], y: [null, null], z: [null, null] };
+        const ranges = document.createElement('div');
+        Object.assign(ranges.style, { display: 'flex', gap: '14px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '10px', fontSize: '12px' });
+        const rangeLabel = document.createElement('span');
+        rangeLabel.textContent = 'Axis range';
+        Object.assign(rangeLabel.style, { fontWeight: '600', color: '#495057' });
+        ranges.appendChild(rangeLabel);
+        const inputs = {};
+        const readNum = (v) => {
+            const n = parseFloat(String(v).replace(',', '.'));
+            return Number.isFinite(n) ? n : null;
+        };
+        [['x', 'Q (Mvar)'], ['y', 'P (MW)'], ['z', 'Vertical']].forEach(([axisKey, text]) => {
+            const wrap = document.createElement('span');
+            Object.assign(wrap.style, { display: 'inline-flex', alignItems: 'center', gap: '4px' });
+            const lab = document.createElement('span');
+            lab.textContent = text;
+            lab.style.color = '#495057';
+            wrap.appendChild(lab);
+            inputs[axisKey] = [0, 1].map((end) => {
+                const inp = document.createElement('input');
+                inp.type = 'text';
+                inp.inputMode = 'decimal';
+                inp.placeholder = end === 0 ? 'min' : 'max';
+                inp.title = 'Leave empty for automatic. Press Enter or leave the box to apply.';
+                Object.assign(inp.style, { width: '62px', padding: '3px 5px', fontSize: '12px', border: '1px solid #ced4da', borderRadius: '4px' });
+                const v = this._lcRange[axisKey][end];
+                inp.value = v == null ? '' : String(v);
+                const apply = () => {
+                    const n = readNum(inp.value);
+                    if (inp.value.trim() && n == null) {
+                        inp.style.borderColor = '#dc3545';
+                        return;
+                    }
+                    inp.style.borderColor = '#ced4da';
+                    if (this._lcRange[axisKey][end] === n) return;
+                    this._lcRange[axisKey][end] = n;
+                    this._lcRedraw?.();
+                };
+                inp.onkeydown = (e) => { if (e.key === 'Enter') apply(); };
+                inp.onblur = apply;
+                wrap.appendChild(inp);
+                return inp;
+            });
+            if (axisKey !== 'z') {
+                const dash = document.createElement('span');
+                dash.textContent = '';
+                wrap.appendChild(dash);
+            }
+            ranges.appendChild(wrap);
+        });
+        const resetBtn = document.createElement('button');
+        resetBtn.type = 'button';
+        resetBtn.textContent = 'Reset';
+        resetBtn.title = 'Automatic range on all axes';
+        Object.assign(resetBtn.style, { padding: '3px 10px', fontSize: '12px', border: '1px solid #ced4da', background: '#fff', borderRadius: '4px', cursor: 'pointer' });
+        resetBtn.onclick = () => {
+            this._lcRange = { x: [null, null], y: [null, null], z: [null, null] };
+            Object.values(inputs).flat().forEach((inp) => { inp.value = ''; inp.style.borderColor = '#ced4da'; });
+            this._lcRedraw?.();
+        };
+        ranges.appendChild(resetBtn);
+        this._lcRangeInputs = inputs;
+        section.appendChild(ranges);
+
+        if (!lines.length) {
+            const empty = document.createElement('div');
+            empty.textContent = 'No line results are stored with this study. Run it again to refresh the point data.';
+            Object.assign(empty.style, { fontSize: '13px', color: '#856404' });
+            section.appendChild(empty);
+            return;
+        }
+
+        const body = document.createElement('div');
+        Object.assign(body.style, { display: 'flex', gap: '14px', alignItems: 'stretch', flexWrap: 'wrap' });
+        section.appendChild(body);
+
+        // Line picker: sorted by highest current, with a filter box.
+        const picker = document.createElement('div');
+        Object.assign(picker.style, {
+            flex: '0 0 300px', border: '1px solid #e9ecef', borderRadius: '6px', padding: '8px',
+            display: 'flex', flexDirection: 'column', maxHeight: '560px'
+        });
+        const pickTitle = document.createElement('div');
+        pickTitle.textContent = `Lines (${lines.length}) — highest current first, up to ${PQ_LC_SYMBOLS.length}`;
+        Object.assign(pickTitle.style, { fontSize: '12px', fontWeight: '700', color: '#495057', marginBottom: '6px' });
+        const filter = document.createElement('input');
+        filter.type = 'search';
+        filter.placeholder = 'Filter lines…';
+        Object.assign(filter.style, { fontSize: '12px', padding: '4px 6px', border: '1px solid #ced4da', borderRadius: '4px', marginBottom: '6px' });
+        const list = document.createElement('div');
+        Object.assign(list.style, { overflowY: 'auto', flex: '1 1 auto' });
+        picker.append(pickTitle, filter, list);
+        body.appendChild(picker);
+
+        const rows = lines.map((line) => {
+            const label = document.createElement('label');
+            Object.assign(label.style, {
+                display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', padding: '3px 2px', cursor: 'pointer'
+            });
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.checked = this._lineCurrentSel.has(line.key);
+            cb.onchange = () => {
+                if (cb.checked && this._lineCurrentSel.size >= PQ_LC_SYMBOLS.length) {
+                    cb.checked = false;
+                    alert(`Select up to ${PQ_LC_SYMBOLS.length} lines at a time.`);
+                    return;
+                }
+                if (cb.checked) this._lineCurrentSel.add(line.key);
+                else this._lineCurrentSel.delete(line.key);
+                this._drawLineCurrent3d(plotDiv, table);
+            };
+            const name = document.createElement('span');
+            name.textContent = line.name;
+            Object.assign(name.style, { flex: '1 1 auto' });
+            const amps = document.createElement('span');
+            amps.textContent = `${_fmt(line.maxA / 1000, 3)} kA`;
+            Object.assign(amps.style, { color: '#6c757d', fontVariantNumeric: 'tabular-nums' });
+            label.append(cb, name, amps);
+            list.appendChild(label);
+            return { label, text: String(line.name).toLowerCase() };
+        });
+        filter.oninput = () => {
+            const f = filter.value.trim().toLowerCase();
+            rows.forEach((r) => { r.label.style.display = !f || r.text.includes(f) ? 'flex' : 'none'; });
+        };
+
+        const plotDiv = document.createElement('div');
+        Object.assign(plotDiv.style, { flex: '1 1 600px', minWidth: '420px', height: '560px' });
+        body.appendChild(plotDiv);
+
+        const table = document.createElement('div');
+        table.style.marginTop = '10px';
+        section.appendChild(table);
+
+        this._lcRedraw = () => this._drawLineCurrent3d(plotDiv, table);
+        this._lcRedraw();
+    }
+
+    async _drawLineCurrent3d(plotDiv, tableHost) {
+        const lines = (this._lineCurrents || []).filter((l) => this._lineCurrentSel.has(l.key));
+        this._renderLineCurrentTable(tableHost, lines);
+        const hasPlot = !!plotDiv._fullLayout;
+        if (!lines.length) {
+            if (window.Plotly && hasPlot) window.Plotly.purge(plotDiv);
+            plotDiv.textContent = 'Tick one or more lines to draw them.';
+            Object.assign(plotDiv.style, { display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6c757d', fontSize: '13px' });
+            return;
+        }
+        if (!window.Plotly) {
+            plotDiv.textContent = 'Loading the 3D chart…';
+            try {
+                await this._loadPlotly();
+            } catch (e) {
+                plotDiv.textContent = e.message;
+                return;
+            }
+        }
+        // Never clear the text of a live chart: that removes Plotly's canvas and the update draws nothing.
+        if (!hasPlot) plotDiv.textContent = '';
+        plotDiv.style.display = 'block';
+
+        const colourBy = this._lcColour || 'loading';   // 'loading' | 'current'
+        const zBy = this._lcZ || 'u';                    // 'u' | 'loading' | 'current'
+        const zOf = (s) => (zBy === 'loading' ? s.loading : zBy === 'current' ? s.currentA / 1000 : s.scenario.voltage);
+        const ok = (s) => [s.scenario.q, s.scenario.p, zOf(s), s.currentA].every(Number.isFinite);
+        const all = lines.flatMap((l) => l.samples.filter(ok).map((s) => s.currentA));
+        const cmin = Math.min(...all);
+        const cmaxA = Math.max(...all);
+        const span = (cmaxA - cmin) || 1;
+        const scenarios = [];
+        const traces = [];
+        // Colour by loading: against the line's rated current (pandapower max_i_ka), green well inside
+        // the rating, yellow / orange close to it, red only above 100 %.
+        // Colour by current: kA on the same green-to-red scale, from 0 to the highest current shown.
+        const colourOf = (s) => (colourBy === 'current'
+            ? s.currentA / 1000
+            : (Number.isFinite(s.loading) ? Math.max(0, s.loading) : 0));
+        const colourRange = colourBy === 'current' ? [0, cmaxA / 1000] : [0, 100];
+        const colorbar = colourBy === 'current'
+            ? { title: { text: 'Line current (kA)' }, thickness: 14, len: 0.75 }
+            : {
+                title: { text: 'Loading (% of rated current)' }, thickness: 14, len: 0.75,
+                tickvals: [0, 25, 50, 75, 100], ticktext: ['0', '25', '50', '75', '≥ 100']
+            };
+        const hoverOf = (line, s, lead = '') => {
+            const rated = _lcRatedA(s);
+            return `${lead}${line.name}<br>I = ${_fmt(s.currentA / 1000, 3)} kA`
+                + (Number.isFinite(rated) ? ` of ${_fmt(rated / 1000, 3)} kA rated` : '')
+                + (Number.isFinite(s.loading) ? ` (${_fmt(s.loading, 1)} %${s.loading > 100 ? ', ABOVE RATING' : ''})` : '')
+                + `<br>${this._overloadScenarioText(s.scenario)}`;
+        };
+        lines.forEach((line, i) => {
+            const pts = line.samples.filter(ok);
+            const custom = pts.map((s) => scenarios.push(s.scenario) - 1);
+            traces.push({
+                type: 'scatter3d',
+                mode: 'markers',
+                name: `${line.name} (max ${_fmt(line.maxA / 1000, 3)} kA)`,
+                x: pts.map((s) => s.scenario.q),
+                y: pts.map((s) => s.scenario.p),
+                z: pts.map(zOf),
+                customdata: custom,
+                text: pts.map((s) => hoverOf(line, s)),
+                hovertemplate: '%{text}<extra></extra>',
+                marker: {
+                    symbol: PQ_LC_SYMBOLS[i % PQ_LC_SYMBOLS.length],
+                    size: pts.map((s) => 4 + 8 * (s.currentA - cmin) / span),
+                    color: pts.map(colourOf),
+                    colorscale: PQ_LC_COLORSCALE,
+                    cmin: colourRange[0],
+                    cmax: colourRange[1],
+                    showscale: i === 0,
+                    colorbar: i === 0 ? colorbar : undefined,
+                    line: { width: pts.map((s) => (s.loading > 100 ? 2 : 0.5)), color: '#343a40' }
+                }
+            });
+            const w = line.samples.find((s) => s.scenario === line.worst);
+            if (w && ok(w)) {
+                traces.push({
+                    type: 'scatter3d',
+                    mode: 'markers+text',
+                    showlegend: false,
+                    x: [w.scenario.q],
+                    y: [w.scenario.p],
+                    z: [zOf(w)],
+                    customdata: [scenarios.push(w.scenario) - 1],
+                    text: [`${line.name}: ${_fmt(line.maxA / 1000, 3)} kA`],
+                    textposition: 'top center',
+                    textfont: { size: 11, color: '#212529' },
+                    hovertemplate: `${hoverOf(line, w, 'Highest current<br>')}<extra></extra>`,
+                    marker: { symbol: 'circle-open', size: 14, color: '#212529', line: { width: 3, color: '#212529' } }
+                });
+            }
+        });
+        // Range of one axis: the user's min / max where given; otherwise automatic, except that a
+        // (nearly) flat set of values gets a narrow band around it instead of Plotly's 0..2x default.
+        const vals = (fn) => lines.flatMap((l) => l.samples.filter(ok).map(fn)).filter(Number.isFinite);
+        const rangeFor = (key, values, pad) => {
+            const user = this._lcRange?.[key] || [null, null];
+            const lo = Math.min(...values);
+            const hi = Math.max(...values);
+            const flat = !(hi - lo > pad);
+            const autoLo = flat ? lo - pad : null;
+            const autoHi = flat ? hi + pad : null;
+            const r0 = user[0] != null ? user[0] : autoLo;
+            const r1 = user[1] != null ? user[1] : autoHi;
+            if (r0 == null && r1 == null) return { autorange: true };
+            const a = r0 != null ? r0 : lo - (hi - lo) * 0.05;
+            const b = r1 != null ? r1 : hi + (hi - lo) * 0.05;
+            return a < b ? { range: [a, b], autorange: false } : { autorange: true };
+        };
+        const zPad = zBy === 'loading' ? 5 : zBy === 'current' ? 0.05 : 0.05;
+        const axis = (text, extra = {}) => ({ title: { text }, gridcolor: '#e9ecef', zerolinecolor: '#adb5bd', backgroundcolor: '#fff', ...extra });
+        const zTitle = zBy === 'loading' ? 'Loading (% of rated current)' : zBy === 'current' ? 'Line current (kA)' : 'U at PCC (pu)';
+        const layout = {
+            margin: { l: 0, r: 0, t: 10, b: 0 },
+            legend: { orientation: 'h', y: 1.02, x: 0, font: { size: 11 } },
+            uirevision: 'line-current-3d',  // keep the user's rotation and zoom between updates
+            scene: {
+                xaxis: axis('Q at PCC (Mvar): − inductive / + capacitive', rangeFor('x', vals((s) => s.scenario.q), 1)),
+                yaxis: axis('P at PCC (MW)', rangeFor('y', vals((s) => s.scenario.p), 1)),
+                zaxis: axis(zTitle, rangeFor('z', vals(zOf), zPad)),
+                camera: { eye: { x: 1.6, y: -1.6, z: 0.9 } }
+            },
+            paper_bgcolor: '#fff'
+        };
+        await window.Plotly.react(plotDiv, traces, layout, { responsive: true, displaylogo: false });
+        plotDiv.removeAllListeners?.('plotly_click');
+        plotDiv.on('plotly_click', (ev) => {
+            const idx = ev?.points?.[0]?.customdata;
+            const scenario = Number.isInteger(idx) ? scenarios[idx] : null;
+            if (scenario) this._showOverloadScenario(scenario);
+        });
+    }
+
+    _renderLineCurrentTable(host, lines) {
+        host.replaceChildren();
+        if (!lines.length) return;
+        const sub = document.createElement('div');
+        sub.textContent = 'Highest current of each selected line';
+        Object.assign(sub.style, { fontWeight: '600', fontSize: '12px', color: '#495057' });
+        host.appendChild(sub);
+        host.appendChild(this._overloadTable(
+            ['Line', 'Highest current', 'Rated current', 'Loading at that point', 'Worst case', 'Load flows', ''],
+            lines.map((line) => [
+                line.name,
+                `${_fmt(line.maxA / 1000, 3)} kA`,
+                Number.isFinite(_lcRatedA({ currentA: line.maxA, loading: line.maxLoading }))
+                    ? `${_fmt(_lcRatedA({ currentA: line.maxA, loading: line.maxLoading }) / 1000, 3)} kA` : '—',
+                Number.isFinite(line.maxLoading) ? this._loadingText(line.maxLoading, 100) : '—',
+                line.worst ? this._overloadScenarioText(line.worst) : '—',
+                String(line.samples.length),
+                line.worst ? this._overloadShowButton(line.worst) : ''
+            ])
+        ));
+    }
+
+    _downloadLineCurrentCsv() {
+        const lines = (this._lineCurrents || []).filter((l) => this._lineCurrentSel?.has(l.key));
+        if (!lines.length) {
+            alert('Tick one or more lines first.');
+            return;
+        }
+        let csv = 'Line,U_pu,Curve,P_PCC_MW,Q_PCC_Mvar,Current_A,Rated_current_A,Loading_pct\n';
+        lines.forEach((line) => line.samples.forEach((s) => {
+            csv += [line.name, s.scenario.voltage, this._overloadSideLabel(s.scenario.side), _fmt(s.scenario.p, 3),
+                _fmt(s.scenario.q, 3), _fmt(s.currentA, 1), _fmt(_lcRatedA(s), 1), _fmt(s.loading, 2)].map(_csvEscape).join(',') + '\n';
+        }));
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${this._reportFilePrefix ? this._reportFilePrefix() : 'GridCode_PQ'}_line_currents_${new Date().toISOString().slice(0, 16).replace(/[:.]/g, '-')}.csv`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);

@@ -2,7 +2,7 @@ import {
     GridCodePqResultsDialog,
     _aggregateContribution, _chartOperatingQ, _contributionLabel, _operatingWords, _pccQDirection, _fmt,
     PQ_Q_TYPE_ORDER, PQ_Q_TYPE_COLOR, PQ_Q_TYPE_PALETTE
-} from './GridCodePqResultsDialog.js?v=pq20261104';
+} from './GridCodePqResultsDialog.js?v=pq20261105e';
 import { attachBackdropCloseHandler } from '../utils/dialogStyles.js';
 
 console.log('GridCodeVqResultsDialog.js LOADED');
@@ -33,6 +33,11 @@ export class GridCodeVqResultsDialog extends GridCodePqResultsDialog {
         this._pqMaximized = true;  // open full-screen; "Restore" shrinks it
         this._overloadResult = null;
         this._overloadSection = null;
+        this._lineCurrents = null;
+        this._lineCurrentSel = null;
+        this._lineCurrentSection = null;
+        this._lcRedraw = null;
+        this._lcRange = null;
         this._showElementQ = false;
         this._elementQEdge = 'both';
         this._uqPanel = null;
@@ -429,6 +434,11 @@ export class GridCodeVqResultsDialog extends GridCodePqResultsDialog {
             padding: '12px 24px', borderTop: '1px solid #e9ecef',
             display: 'flex', justifyContent: 'flex-end', gap: '8px'
         });
+        const lineCurrentBtn = this._styledButton('Line current 3D', '#6f42c1', '#59359a');
+        lineCurrentBtn.title = 'Highest current in selected lines over every load flow of this study, as a 3D chart of Q, P and PCC voltage (reads the stored load flows; runs no new calculation).';
+        lineCurrentBtn.onclick = () => this._openLineCurrent3d(data);
+        footer.appendChild(lineCurrentBtn);
+
         const overloadBtn = this._styledButton('Check overloads', '#fd7e14', '#e8590c');
         overloadBtn.title = 'List lines and transformers above the loading limit in every analysed case (reads the stored load flows; runs no new calculation).';
         overloadBtn.onclick = () => {
