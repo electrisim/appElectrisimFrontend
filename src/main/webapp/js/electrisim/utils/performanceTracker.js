@@ -1,3 +1,4 @@
+import { devLog } from './devLog.js';
 // Performance Tracking Utility
 // Monitors querySelector usage and tracks performance metrics
 
@@ -105,7 +106,7 @@ class PerformanceTracker {
             return result;
         };
 
-        console.log('🔍 Performance tracking enabled for DOM queries');
+        devLog('🔍 Performance tracking enabled for DOM queries');
     }
 
     /**
@@ -134,7 +135,7 @@ class PerformanceTracker {
             });
 
             observer.observe({ entryTypes: ['measure', 'longtask'] });
-            console.log('🔍 Long task monitoring enabled');
+            devLog('🔍 Long task monitoring enabled');
         } catch (error) {
             console.warn('Could not enable long task monitoring:', error);
         }
@@ -247,7 +248,7 @@ class PerformanceTracker {
             longTasks: [],
             renderTimes: []
         };
-        console.log('🔄 Performance metrics reset');
+        devLog('🔄 Performance metrics reset');
     }
 
     /**
@@ -255,7 +256,7 @@ class PerformanceTracker {
      */
     enable() {
         this.enableTracking();
-        console.log('✅ Performance tracking enabled');
+        devLog('✅ Performance tracking enabled');
     }
 
     /**
@@ -263,7 +264,7 @@ class PerformanceTracker {
      */
     disable() {
         this.enabled = false;
-        console.log('⏸️ Performance tracking disabled');
+        devLog('⏸️ Performance tracking disabled');
     }
 
     /**
@@ -321,6 +322,6 @@ export { PerformanceTracker, performanceTracker };
 export default performanceTracker;
 
 if (performanceTracker.tracking) {
-    console.log('📊 Performance Tracker active. Use window.logPerformanceReport() to see metrics.');
+    devLog('📊 Performance Tracker active. Use window.logPerformanceReport() to see metrics.');
 }
 

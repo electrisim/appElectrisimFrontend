@@ -1,3 +1,4 @@
+import { devLog } from './utils/devLog.js';
 /**
  * Performance Optimizer for Electrisim
  * Provides performance tips and optimizations for better user experience
@@ -19,7 +20,7 @@ class PerformanceOptimizer {
         if (this.isActive) return;
 
         this.isActive = true;
-        console.log('🚀 Electrisim Performance Optimizer activated');
+        devLog('🚀 Electrisim Performance Optimizer activated');
 
         // Apply all optimizations
         this.applyOptimizations();
@@ -30,7 +31,7 @@ class PerformanceOptimizer {
         // Add keyboard shortcuts
         this.addKeyboardShortcuts();
 
-        console.log('✅ Performance optimizations applied successfully');
+        devLog('✅ Performance optimizations applied successfully');
     }
 
     /**
@@ -125,7 +126,7 @@ class PerformanceOptimizer {
             oldKeys.forEach(key => localStorage.removeItem(key));
 
             if (oldKeys.length > 0) {
-                console.log(`🧹 Cleaned up ${oldKeys.length} old cache entries`);
+                devLog(`🧹 Cleaned up ${oldKeys.length} old cache entries`);
             }
         }
 
@@ -288,7 +289,7 @@ class PerformanceOptimizer {
      */
     optimizeGridPerformance() {
         // AG Grid optimizations are already applied in ComponentsDataDialog.js
-        console.log('📊 Grid performance optimizations active');
+        devLog('📊 Grid performance optimizations active');
     }
 
     /**
@@ -343,7 +344,7 @@ class PerformanceOptimizer {
                     const cellCount = editor.mxGraph.getModel().getDescendants().length;
 
                     if (cellCount > 1000) {
-                        console.log(`Large diagram detected: ${cellCount} cells. Applying memory optimizations...`);
+                        devLog(`Large diagram detected: ${cellCount} cells. Applying memory optimizations...`);
 
                         // Reduce rendering quality
                         this.renderingPaused = true;
@@ -383,7 +384,7 @@ class PerformanceOptimizer {
 
         if (isChrome || isEdge) {
             // Chrome/Edge optimizations
-            console.log('🌐 Chrome/Edge detected - applying Chromium optimizations');
+            devLog('🌐 Chrome/Edge detected - applying Chromium optimizations');
 
             // Enable hardware acceleration hints
             document.documentElement.style.setProperty('--webkit-font-smoothing', 'antialiased');
@@ -392,11 +393,11 @@ class PerformanceOptimizer {
 
         if (isFirefox) {
             // Firefox optimizations
-            console.log('🦊 Firefox detected - applying Firefox optimizations');
+            devLog('🦊 Firefox detected - applying Firefox optimizations');
 
             // Firefox-specific memory management
             if (window.mozMemory) {
-                console.log('🧠 Firefox memory management active');
+                devLog('🧠 Firefox memory management active');
             }
         }
     }
@@ -445,13 +446,13 @@ class PerformanceOptimizer {
             if (e.ctrlKey && e.shiftKey && e.key === 'C') {
                 e.preventDefault();
                 this.forceMemoryCleanup();
-                console.log('🧹 Manual cleanup completed');
+                devLog('🧹 Manual cleanup completed');
             }
         });
 
-        console.log('⌨️ Performance shortcuts active:');
-        console.log('  Ctrl+Shift+P: Toggle performance dashboard');
-        console.log('  Ctrl+Shift+C: Force memory cleanup');
+        devLog('⌨️ Performance shortcuts active:');
+        devLog('  Ctrl+Shift+P: Toggle performance dashboard');
+        devLog('  Ctrl+Shift+C: Force memory cleanup');
     }
 
     /**
@@ -528,8 +529,8 @@ class PerformanceOptimizer {
             '💡 For large models, work in smaller sections and save frequently'
         ];
 
-        console.log('🚀 Electrisim Performance Tips:');
-        tips.forEach(tip => console.log(`  ${tip}`));
+        devLog('🚀 Electrisim Performance Tips:');
+        tips.forEach(tip => devLog(`  ${tip}`));
 
         // Show in browser alert for immediate visibility
         const tipText = tips.join('\n• ');
@@ -555,5 +556,5 @@ if (typeof window !== 'undefined') {
     // Make globally accessible
     window.performanceOptimizer = performanceOptimizer;
 
-    console.log('⚡ Performance Optimizer loaded. Type "performanceOptimizer.showPerformanceTips()" for optimization tips.');
+    devLog('⚡ Performance Optimizer loaded. Type "performanceOptimizer.showPerformanceTips()" for optimization tips.');
 }

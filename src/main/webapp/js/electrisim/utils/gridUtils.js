@@ -1,3 +1,4 @@
+import { devLog } from './devLog.js';
 export const numberParser = (params) => {
     if (Number(params.newValue) >= 0) {
         return Number(params.newValue);
@@ -35,7 +36,7 @@ export const actionCellRenderer = (params) => {
 
 // Get connected bus IDs for a cell
 export const getConnectedBusId = (cell, isLine = false) => {
-    console.log('cell in getConnectedBusId', cell);
+    devLog('cell in getConnectedBusId', cell);
 
     if (isLine) {                 
         return {            

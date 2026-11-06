@@ -1,3 +1,4 @@
+import { devLog } from './utils/devLog.js';
 import { Dialog } from './Dialog.js';
 import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
 
@@ -190,7 +191,7 @@ export class WardDialog extends Dialog {
         applyButton.onclick = (e) => {
             e.preventDefault();
             const values = this.getFormValues();
-            console.log('Ward values:', values);
+            devLog('Ward values:', values);
             
             if (this.callback) {
                 this.callback(values);
@@ -500,29 +501,29 @@ export class WardDialog extends Dialog {
             delete window._globalDialogShowing;
         }
         
-        console.log('Ward dialog destroyed and flags cleared');
+        devLog('Ward dialog destroyed and flags cleared');
     }
     
     populateDialog(cellData) {
-        console.log('=== WardDialog.populateDialog called ===');
-        console.log('Cell data:', cellData);
+        devLog('=== WardDialog.populateDialog called ===');
+        devLog('Cell data:', cellData);
         
         // Log initial parameter values
-        console.log('Initial parameter values:');
+        devLog('Initial parameter values:');
         [...this.loadParameters, ...this.impedanceParameters].forEach(param => {
-            console.log(`  ${param.id}: ${param.value} (${param.type})`);
+            devLog(`  ${param.id}: ${param.value} (${param.type})`);
         });
         
         // Update parameter values based on cell data
         if (cellData && cellData.attributes) {
-            console.log(`Found ${cellData.attributes.length} attributes to process`);
+            devLog(`Found ${cellData.attributes.length} attributes to process`);
             
             for (let i = 0; i < cellData.attributes.length; i++) {
                 const attribute = cellData.attributes[i];
                 const attributeName = attribute.name;
                 const attributeValue = attribute.value;
                 
-                console.log(`Processing attribute: ${attributeName} = ${attributeValue}`);
+                devLog(`Processing attribute: ${attributeName} = ${attributeValue}`);
                 
                 // Update the dialog's parameter values (not DOM inputs)
                 const loadParam = this.loadParameters.find(p => p.id === attributeName);
@@ -533,7 +534,7 @@ export class WardDialog extends Dialog {
                     } else {
                         loadParam.value = attributeValue;
                     }
-                    console.log(`  Updated load ${attributeName}: ${oldValue} → ${loadParam.value}`);
+                    devLog(`  Updated load ${attributeName}: ${oldValue} → ${loadParam.value}`);
                 }
                 
                 const impedanceParam = this.impedanceParameters.find(p => p.id === attributeName);
@@ -544,31 +545,31 @@ export class WardDialog extends Dialog {
                     } else {
                         impedanceParam.value = attributeValue;
                     }
-                    console.log(`  Updated impedance ${attributeName}: ${oldValue} → ${impedanceParam.value}`);
+                    devLog(`  Updated impedance ${attributeName}: ${oldValue} → ${impedanceParam.value}`);
                 }
                 
                 const economicParam = (this.economicParameters || []).find(p => p.id === attributeName);
                 if (economicParam) {
                     economicParam.value = attributeValue;
                     this.data[attributeName] = attributeValue;
-                    console.log(`  Updated economic ${attributeName}: → ${attributeValue}`);
+                    devLog(`  Updated economic ${attributeName}: → ${attributeValue}`);
                 }
                 
                 if (!loadParam && !impedanceParam && !economicParam) {
-                    console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
+                    devLog(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
             }
         } else {
-            console.log('No cell data or attributes found');
+            devLog('No cell data or attributes found');
         }
         
         // Log final parameter values
-        console.log('Final parameter values:');
+        devLog('Final parameter values:');
         [...this.loadParameters, ...this.impedanceParameters].forEach(param => {
-            console.log(`  ${param.id}: ${param.value} (${param.type})`);
+            devLog(`  ${param.id}: ${param.value} (${param.type})`);
         });
         
-        console.log('=== WardDialog.populateDialog completed ===');
+        devLog('=== WardDialog.populateDialog completed ===');
     }
 }
 

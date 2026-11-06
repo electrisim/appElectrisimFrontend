@@ -1,3 +1,4 @@
+import { devLog } from './utils/devLog.js';
 // arcFlash.js - IEEE 1584-2018 Arc Flash analysis engine
 import { formatResultNameHeader, enrichResultJsonWithDialogNames } from './utils/attributeUtils.js';
 import { ArcFlashDialog } from './dialogs/ArcFlashDialog.js';
@@ -145,7 +146,7 @@ PPE Cat ${cell.ppe_category ?? 'N/A'}${methodTag}`;
             const dataJson = await response.json();
             overlay?.append(`Response ${response.status} in ${formatDurationMs(performance.now() - requestStart)}`, { time: true });
             overlay?.append('Processing results…', { time: true });
-            console.log('Arc flash backend response:', dataJson);
+            devLog('Arc flash backend response:', dataJson);
 
             if (handleErrors(dataJson)) {
                 overlay?.remove();
@@ -245,7 +246,7 @@ PPE Cat ${cell.ppe_category ?? 'N/A'}${methodTag}`;
 
             try {
                 const obj = prepareNetworkData(b, simulationParameters, { removeResultCells: false });
-                console.log('Arc flash data prepared:', obj);
+                devLog('Arc flash data prepared:', obj);
                 processNetworkData(ENV.backendUrl + '/', obj, b, grafka);
             } catch (error) {
                 console.error('Arc flash network preparation failed:', error);

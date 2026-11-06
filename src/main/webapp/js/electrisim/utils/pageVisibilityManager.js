@@ -1,3 +1,4 @@
+import { devLog } from './devLog.js';
 /**
  * Page Visibility Manager
  * Manages application behavior when tab is hidden/shown
@@ -34,7 +35,7 @@ class PageVisibilityManager {
         window.addEventListener('blur', () => this.handleBlur());
         window.addEventListener('focus', () => this.handleFocus());
         
-        console.log('✅ Page Visibility Manager initialized');
+        devLog('✅ Page Visibility Manager initialized');
     }
     
     /**
@@ -80,7 +81,7 @@ class PageVisibilityManager {
         this.statistics.pauseCount++;
         this.statistics.lastHiddenTime = Date.now();
         
-        console.log('⏸️  Page hidden - pausing operations');
+        devLog('⏸️  Page hidden - pausing operations');
         
         // Execute all pause callbacks
         this.pauseCallbacks.forEach(callback => {
@@ -111,9 +112,9 @@ class PageVisibilityManager {
             const hiddenDuration = Date.now() - this.statistics.lastHiddenTime;
             this.statistics.totalHiddenTime += hiddenDuration;
             
-            console.log(`▶️  Page visible - resuming operations (was hidden for ${(hiddenDuration / 1000).toFixed(1)}s)`);
+            devLog(`▶️  Page visible - resuming operations (was hidden for ${(hiddenDuration / 1000).toFixed(1)}s)`);
         } else {
-            console.log('▶️  Page visible - resuming operations');
+            devLog('▶️  Page visible - resuming operations');
         }
         
         // Execute all resume callbacks

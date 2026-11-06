@@ -1,3 +1,4 @@
+import { devLog } from '../utils/devLog.js';
 // dialogInitializer.js - Ensures proper dialog initialization
 import { installTransformerTerminalLabelOverlay } from '../utils/transformerTerminalLabels.js';
 import '../utils/inServiceCellStyle.js';
@@ -265,14 +266,14 @@ function installDoubleClickEditData(retryCount) {
         mouseUp: function () {}
     });
 
-    console.log('Double-click → Edit Data installed');
+    devLog('Double-click → Edit Data installed');
 }
 
 // Initialize all dialog overrides
 function initializeDialogs() {
     try {
         installTransformerTerminalLabelOverlay();
-        console.log('Initializing modern dialogs...');
+        devLog('Initializing modern dialogs...');
         
         // Double-click handler is idempotent; keep trying even if dialog overrides
         // were already installed (e.g. late App ready / re-entry).
@@ -283,29 +284,29 @@ function initializeDialogs() {
 
         // Check if already initialized to prevent multiple initializations
         if (EditorUi.prototype._dialogOverridesInitialized) {
-            console.log('Dialog overrides already initialized, skipping...');
+            devLog('Dialog overrides already initialized, skipping...');
             return;
         }
         
         // Ensure dialogs are available globally
         if (!window.EditDataDialog) {
             window.EditDataDialog = EditDataDialog;
-            console.log('EditDataDialog made available globally');
+            devLog('EditDataDialog made available globally');
         }
         
         if (!window.ComponentsDataDialog) {
             window.ComponentsDataDialog = ComponentsDataDialog;
-            console.log('ComponentsDataDialog made available globally');
+            devLog('ComponentsDataDialog made available globally');
         }
 
         if (!window.LoadFlowDialog) {
             window.LoadFlowDialog = LoadFlowDialog;
-            console.log('LoadFlowDialog made available globally');
+            devLog('LoadFlowDialog made available globally');
         }
 
         if (!window.OpenDSSLoadFlowDialog) {
             window.OpenDSSLoadFlowDialog = OpenDSSLoadFlowDialog;
-            console.log('OpenDSSLoadFlowDialog made available globally');
+            devLog('OpenDSSLoadFlowDialog made available globally');
         }
 
         // Store original method as backup
@@ -315,10 +316,10 @@ function initializeDialogs() {
         const customShowDataDialog = function(cell) {
             try {
                 hideMxGraphTooltip();
-                console.log('showDataDialog called with cell:', cell);
+                devLog('showDataDialog called with cell:', cell);
                 
                 if (!cell) {
-                    console.log('No cell provided, using root cell');
+                    devLog('No cell provided, using root cell');
                     cell = this.editor.graph.getModel().getRoot();
                 }
                 
@@ -337,7 +338,7 @@ function initializeDialogs() {
                 const isRootCell = cell === model.getRoot();
                 const cellStyle = cell.getStyle && cell.getStyle();
                 
-                console.log('Cell analysis:', {
+                devLog('Cell analysis:', {
                     isRootCell,
                     cellStyle: cellStyle || 'none',
                     hasShapeELXXX: cellStyle ? cellStyle.includes('shapeELXXX=') : false
@@ -401,12 +402,12 @@ function initializeDialogs() {
                 }
                 
                 // Otherwise, show EditDataDialog for individual cell
-                console.log('Showing EditDataDialog for individual cell');
+                devLog('Showing EditDataDialog for individual cell');
                 const dialog = new EditDataDialog(this, cell);
                 
                 // Check if the dialog should be shown (for special cases like Result elements)
                 if (dialog.shouldShowDialog === false) {
-                    console.log('Dialog should not be shown for this cell type');
+                    devLog('Dialog should not be shown for this cell type');
                     // Flags are managed internally by the dialog classes
                     return;
                 }
@@ -437,7 +438,7 @@ function initializeDialogs() {
         if (!EditorUi.prototype.showLoadFlowDialog) {
             EditorUi.prototype.showLoadFlowDialog = function(title, buttonText, callback) {
                 try {
-                    console.log('showLoadFlowDialog called');
+                    devLog('showLoadFlowDialog called');
                     
                     if (window.LoadFlowDialog) {
                         const dialog = new window.LoadFlowDialog(this);
@@ -457,7 +458,7 @@ function initializeDialogs() {
         if (!EditorUi.prototype.showLoadFlowDialogOpenDSS) {
             EditorUi.prototype.showLoadFlowDialogOpenDSS = function(title, buttonText, callback) {
                 try {
-                    console.log('showLoadFlowDialogOpenDSS called');
+                    devLog('showLoadFlowDialogOpenDSS called');
                     
                     if (window.OpenDSSLoadFlowDialog) {
                         const dialog = new window.OpenDSSLoadFlowDialog(this);
@@ -475,7 +476,7 @@ function initializeDialogs() {
 
         // Mark as initialized
         EditorUi.prototype._dialogOverridesInitialized = true;
-        console.log('Dialog overrides initialized successfully');
+        devLog('Dialog overrides initialized successfully');
         
     } catch (error) {
         console.error('Error initializing dialogs:', error);
@@ -499,7 +500,7 @@ window.addEventListener('load', () => {
         const liveUi = getEditorUi();
         if (liveUi?.editor?.graph) guardTooltipWhileDialogOpen(liveUi.editor.graph);
         if (window.EditorUi && !window.EditorUi.prototype._dialogOverridesInitialized) {
-            console.log('Attempting to initialize dialogs on window load...');
+            devLog('Attempting to initialize dialogs on window load...');
             waitForApp(initializeDialogs);
         }
     }, 1000);

@@ -1,3 +1,6 @@
+function escapeHtmlText(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
 // TransientStabilityResultsDialog.js - ANDES TDS results with charts
 (function () {
     function loadChartJs() {
@@ -144,7 +147,7 @@
             items.forEach(([k, v]) => {
                 const chip = document.createElement('div');
                 chip.style.cssText = 'background:#f1f3f5;padding:6px 10px;border-radius:4px;';
-                chip.innerHTML = `<strong>${k}:</strong> ${v ?? '—'}`;
+                chip.innerHTML = `<strong>${escapeHtmlText(k)}:</strong> ${escapeHtmlText(v ?? '—')}`;
                 card.appendChild(chip);
             });
             return card;
@@ -160,7 +163,7 @@
             try {
                 ChartCtor = await loadChartJs();
             } catch (e) {
-                host.innerHTML = `<p style="color:#c00;">${e.message}</p>`;
+                host.innerHTML = `<p style="color:#c00;">${escapeHtmlText(e.message)}</p>`;
                 return;
             }
 

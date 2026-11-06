@@ -1,3 +1,4 @@
+import { devLog } from './utils/devLog.js';
 import { Dialog } from './Dialog.js';
 import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
 
@@ -238,7 +239,7 @@ export class SSCDialog extends Dialog {
         applyButton.onclick = (e) => {
             e.preventDefault();
             const values = this.getFormValues();
-            console.log('SSC values:', values);
+            devLog('SSC values:', values);
             
             if (this.callback) {
                 this.callback(values);
@@ -554,29 +555,29 @@ export class SSCDialog extends Dialog {
             delete window._globalDialogShowing;
         }
         
-        console.log('SSC dialog destroyed and flags cleared');
+        devLog('SSC dialog destroyed and flags cleared');
     }
     
     populateDialog(cellData) {
-        console.log('=== SSCDialog.populateDialog called ===');
-        console.log('Cell data:', cellData);
+        devLog('=== SSCDialog.populateDialog called ===');
+        devLog('Cell data:', cellData);
         
         // Log initial parameter values
-        console.log('Initial parameter values:');
+        devLog('Initial parameter values:');
         [...this.electricalParameters, ...this.controlParameters, ...this.configParameters].forEach(param => {
-            console.log(`  ${param.id}: ${param.value} (${param.type})`);
+            devLog(`  ${param.id}: ${param.value} (${param.type})`);
         });
         
         // Update parameter values based on cell data
         if (cellData && cellData.attributes) {
-            console.log(`Found ${cellData.attributes.length} attributes to process`);
+            devLog(`Found ${cellData.attributes.length} attributes to process`);
             
             for (let i = 0; i < cellData.attributes.length; i++) {
                 const attribute = cellData.attributes[i];
                 const attributeName = attribute.name;
                 const attributeValue = attribute.value;
                 
-                console.log(`Processing attribute: ${attributeName} = ${attributeValue}`);
+                devLog(`Processing attribute: ${attributeName} = ${attributeValue}`);
                 
                 if (attributeName === 'cost_per_unit_by_currency') {
                     this.data[attributeName] = attributeValue;
@@ -593,7 +594,7 @@ export class SSCDialog extends Dialog {
                     } else {
                         electricalParam.value = attributeValue;
                     }
-                    console.log(`  Updated electrical ${attributeName}: ${oldValue} → ${electricalParam.value}`);
+                    devLog(`  Updated electrical ${attributeName}: ${oldValue} → ${electricalParam.value}`);
                 }
                 
                 const controlParam = this.controlParameters.find(p => p.id === attributeName);
@@ -604,7 +605,7 @@ export class SSCDialog extends Dialog {
                     } else {
                         controlParam.value = attributeValue;
                     }
-                    console.log(`  Updated control ${attributeName}: ${oldValue} → ${controlParam.value}`);
+                    devLog(`  Updated control ${attributeName}: ${oldValue} → ${controlParam.value}`);
                 }
                 
                 const configParam = this.configParameters.find(p => p.id === attributeName);
@@ -615,25 +616,25 @@ export class SSCDialog extends Dialog {
                     } else {
                         configParam.value = attributeValue;
                     }
-                    console.log(`  Updated config ${attributeName}: ${oldValue} → ${configParam.value}`);
+                    devLog(`  Updated config ${attributeName}: ${oldValue} → ${configParam.value}`);
                 }
                 
                 const economicParam = this.economicParameters?.find(p => p.id === attributeName);
                 if (!electricalParam && !controlParam && !configParam && !economicParam) {
-                    console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
+                    devLog(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
             }
         } else {
-            console.log('No cell data or attributes found');
+            devLog('No cell data or attributes found');
         }
         
         // Log final parameter values
-        console.log('Final parameter values:');
+        devLog('Final parameter values:');
         [...this.electricalParameters, ...this.controlParameters, ...this.configParameters].forEach(param => {
-            console.log(`  ${param.id}: ${param.value} (${param.type})`);
+            devLog(`  ${param.id}: ${param.value} (${param.type})`);
         });
         
-        console.log('=== SSCDialog.populateDialog completed ===');
+        devLog('=== SSCDialog.populateDialog completed ===');
     }
 }
 

@@ -1,3 +1,4 @@
+import { devLog } from '../utils/devLog.js';
 /**
  * Map Editor initializer - adds Map Editor button and menu integration
  */
@@ -62,7 +63,7 @@ function initializeMapEditor() {
         }
 
         if (document.getElementById('electrisim-map-editor-btn')) {
-            console.log('Map Editor button already added');
+            devLog('Map Editor button already added');
             return;
         }
 
@@ -95,7 +96,7 @@ function initializeMapEditor() {
         btn.onclick = () => window.showMapEditorDialog();
         document.body.appendChild(btn);
 
-        console.log('Map Editor initialized');
+        devLog('Map Editor initialized');
     } catch (err) {
         console.error('Map Editor init error:', err);
     }

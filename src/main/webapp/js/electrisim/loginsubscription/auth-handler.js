@@ -1,3 +1,4 @@
+import { devLog } from '../utils/devLog.js';
 // auth-handler.js - Handles authentication for app
 
 import config from '../config/environment.js';
@@ -161,22 +162,22 @@ async function login(email, password) {
 
 // Function to handle registration
 async function register(email, password, name) {
-    console.log('=== register() function called ===');
-    console.log('API_BASE_URL:', API_BASE_URL);
+    devLog('=== register() function called ===');
+    devLog('API_BASE_URL:', API_BASE_URL);
     
     try {
-        console.log('Making API call to /auth/register...');
+        devLog('Making API call to /auth/register...');
         const data = await apiCall('/auth/register', {
             method: 'POST',
             body: JSON.stringify({ email, password, name })
         });
-        console.log('API call successful, data:', data);
+        devLog('API call successful, data:', data);
 
         if (data.token) {
-            console.log('Token received, storing in localStorage...');
+            devLog('Token received, storing in localStorage...');
             localStorage.setItem('token', data.token);
             localStorage.setItem('user', JSON.stringify(data.user));
-            console.log('Token and user stored successfully');
+            devLog('Token and user stored successfully');
             
             // Track successful registration
             trackAuthSuccess('email_password', data.user);
@@ -366,25 +367,25 @@ function createLoginForm(container) {
 
     // Handle LinkedIn login
     form.querySelector('.linkedin-btn').addEventListener('click', () => {
-        console.log('LinkedIn button clicked!');
+        devLog('LinkedIn button clicked!');
         // Use Railway backend URL directly for OAuth
         const backendUrl = config.isDevelopment
             ? 'http://localhost:5502'
             : 'https://api.electrisim.com';
         const linkedinUrl = `${backendUrl}/api/auth/linkedin`;
-        console.log('Redirecting to:', linkedinUrl);
+        devLog('Redirecting to:', linkedinUrl);
         window.location.href = linkedinUrl;
     });
 
     // Handle Microsoft login
     form.querySelector('.microsoft-btn').addEventListener('click', () => {
-        console.log('Microsoft button clicked!');
+        devLog('Microsoft button clicked!');
         // Use Railway backend URL directly for OAuth
         const backendUrl = config.isDevelopment
             ? 'http://localhost:5502'
             : 'https://api.electrisim.com';
         const microsoftUrl = `${backendUrl}/api/auth/microsoft`;
-        console.log('Redirecting to:', microsoftUrl);
+        devLog('Redirecting to:', microsoftUrl);
         window.location.href = microsoftUrl;
     });
     
@@ -399,8 +400,8 @@ function createLoginForm(container) {
 
 // Create a simple registration form
 function createRegisterForm(container) {
-    console.log('=== createRegisterForm called ===');
-    console.log('auth-handler.js version: 2025-01-31-v2'); // Version for cache debugging
+    devLog('=== createRegisterForm called ===');
+    devLog('auth-handler.js version: 2025-01-31-v2'); // Version for cache debugging
     
     const form = document.createElement('form');
     form.className = 'register-form';
@@ -438,7 +439,7 @@ function createRegisterForm(container) {
     
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        console.log('=== REGISTRATION FORM SUBMITTED ===');
+        devLog('=== REGISTRATION FORM SUBMITTED ===');
         
         const name = form.querySelector('#name').value;
         const email = form.querySelector('#email').value;
@@ -446,7 +447,7 @@ function createRegisterForm(container) {
         const submitBtn = form.querySelector('button[type="submit"]');
         const errorElement = form.querySelector('#register-error');
         
-        console.log('Registration attempt for:', email);
+        devLog('Registration attempt for:', email);
         
         // Clear any previous errors and show loading state
         errorElement.textContent = '';
@@ -457,9 +458,9 @@ function createRegisterForm(container) {
             // Track registration attempt
             trackAuthError('registration_attempt', { message: 'User attempting registration' }, { email: email, name: name });
             
-            console.log('Calling register() API...');
+            devLog('Calling register() API...');
             const response = await register(email, password, name);
-            console.log('Registration API response:', response);
+            devLog('Registration API response:', response);
             
             // Dispatch auth state change event
             document.dispatchEvent(new CustomEvent('authStateChanged', {
@@ -468,31 +469,31 @@ function createRegisterForm(container) {
                     user: response.user
                 }
             }));
-            console.log('authStateChanged event dispatched');
+            devLog('authStateChanged event dispatched');
             
             // Check if user came from subscribe CTA - if so, redirect to Stripe checkout
             const urlParams = new URLSearchParams(window.location.search);
             const redirectIntent = urlParams.get('redirect');
-            console.log('Redirect intent:', redirectIntent);
+            devLog('Redirect intent:', redirectIntent);
             
             // Default redirect URL
             const baseUrl = config.isDevelopment
                 ? '/src/main/webapp/index.html'
                 : '/index.html';
-            console.log('Base URL:', baseUrl, 'isDevelopment:', config.isDevelopment);
+            devLog('Base URL:', baseUrl, 'isDevelopment:', config.isDevelopment);
             
             if (redirectIntent === 'subscribe') {
                 // User registered to subscribe - redirect to Stripe checkout
-                console.log('=== SUBSCRIBE INTENT DETECTED ===');
+                devLog('=== SUBSCRIBE INTENT DETECTED ===');
                 submitBtn.textContent = 'Redirecting to checkout...';
                 
-                console.log('window.redirectToStripeCheckout available:', typeof window.redirectToStripeCheckout === 'function');
+                devLog('window.redirectToStripeCheckout available:', typeof window.redirectToStripeCheckout === 'function');
                 
                 try {
                     if (typeof window.redirectToStripeCheckout === 'function') {
-                        console.log('Calling redirectToStripeCheckout...');
+                        devLog('Calling redirectToStripeCheckout...');
                         await window.redirectToStripeCheckout();
-                        console.log('redirectToStripeCheckout completed (should have redirected)');
+                        devLog('redirectToStripeCheckout completed (should have redirected)');
                     } else {
                         // Fallback: redirect to index
                         console.warn('redirectToStripeCheckout not available, redirecting to index');
@@ -505,12 +506,12 @@ function createRegisterForm(container) {
                 }
             } else {
                 // Normal registration - redirect to login with success message
-                console.log('=== NORMAL REGISTRATION (no subscribe intent) ===');
+                devLog('=== NORMAL REGISTRATION (no subscribe intent) ===');
                 submitBtn.textContent = 'Success! Redirecting...';
                 const loginUrl = config.isDevelopment
                     ? '/src/main/webapp/login.html?registered=1'
                     : '/login.html?registered=1';
-                console.log('Redirecting to:', loginUrl);
+                devLog('Redirecting to:', loginUrl);
                 window.location.href = loginUrl;
             }
         } catch (error) {
@@ -522,7 +523,7 @@ function createRegisterForm(container) {
         }
     });
     
-    console.log('Form submit event listener attached');
+    devLog('Form submit event listener attached');
 
     // Handle Google login
     form.querySelector('.google-btn').addEventListener('click', () => {
@@ -535,25 +536,25 @@ function createRegisterForm(container) {
 
     // Handle LinkedIn login
     form.querySelector('.linkedin-btn').addEventListener('click', () => {
-        console.log('LinkedIn button clicked!');
+        devLog('LinkedIn button clicked!');
         // Use Railway backend URL directly for OAuth
         const backendUrl = config.isDevelopment
             ? 'http://localhost:5502'
             : 'https://api.electrisim.com';
         const linkedinUrl = `${backendUrl}/api/auth/linkedin`;
-        console.log('Redirecting to:', linkedinUrl);
+        devLog('Redirecting to:', linkedinUrl);
         window.location.href = linkedinUrl;
     });
 
     // Handle Microsoft login
     form.querySelector('.microsoft-btn').addEventListener('click', () => {
-        console.log('Microsoft button clicked!');
+        devLog('Microsoft button clicked!');
         // Use Railway backend URL directly for OAuth
         const backendUrl = config.isDevelopment
             ? 'http://localhost:5502'
             : 'https://api.electrisim.com';
         const microsoftUrl = `${backendUrl}/api/auth/microsoft`;
-        console.log('Redirecting to:', microsoftUrl);
+        devLog('Redirecting to:', microsoftUrl);
         window.location.href = microsoftUrl;
     });
     
@@ -647,48 +648,48 @@ window.logout = () => {
 
 // Add debug function to check user data
 function debugUserData() {
-    console.log('=== Debug User Data ===');
-    console.log('localStorage user:', localStorage.getItem('user'));
-    console.log('localStorage token:', localStorage.getItem('token'));
+    devLog('=== Debug User Data ===');
+    devLog('localStorage user:', localStorage.getItem('user'));
+    devLog('localStorage token present:', !!localStorage.getItem('token'));
     
     try {
         const userStr = localStorage.getItem('user');
         if (userStr) {
             const user = JSON.parse(userStr);
-            console.log('Parsed user object:', user);
-            console.log('User email:', user ? user.email : 'No email');
-            console.log('User name:', user ? user.name : 'No name');
-            console.log('User ID:', user ? user.id : 'No ID');
+            devLog('Parsed user object:', user);
+            devLog('User email:', user ? user.email : 'No email');
+            devLog('User name:', user ? user.name : 'No name');
+            devLog('User ID:', user ? user.id : 'No ID');
         } else {
-            console.log('❌ No user data found in localStorage');
+            devLog('❌ No user data found in localStorage');
         }
     } catch (error) {
         console.error('Error parsing user data:', error);
     }
     
-    console.log('getCurrentUser function available:', typeof getCurrentUser === 'function');
-    console.log('window.getCurrentUser available:', typeof window.getCurrentUser === 'function');
-    console.log('window.authHandler available:', !!window.authHandler);
+    devLog('getCurrentUser function available:', typeof getCurrentUser === 'function');
+    devLog('window.getCurrentUser available:', typeof window.getCurrentUser === 'function');
+    devLog('window.authHandler available:', !!window.authHandler);
     
     // Test the getUserEmail function
-    console.log('--- Testing getUserEmail function ---');
+    devLog('--- Testing getUserEmail function ---');
     try {
         const userStr = localStorage.getItem('user');
         if (userStr) {
             const user = JSON.parse(userStr);
             if (user && user.email) {
-                console.log('✅ getUserEmail would return:', user.email);
+                devLog('✅ getUserEmail would return:', user.email);
             } else {
-                console.log('❌ User object has no email property');
+                devLog('❌ User object has no email property');
             }
         } else {
-            console.log('❌ No user data in localStorage');
+            devLog('❌ No user data in localStorage');
         }
     } catch (error) {
         console.error('❌ Error testing getUserEmail:', error);
     }
     
-    console.log('========================');
+    devLog('========================');
 }
 
 window.debugUserData = debugUserData;  // Make debug function globally available

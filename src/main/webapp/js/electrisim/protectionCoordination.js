@@ -1,3 +1,4 @@
+import { devLog } from './utils/devLog.js';
 // protectionCoordination.js - Protection Coordination study entry point.
 //
 // Workflow:
@@ -249,7 +250,7 @@ function downloadProtectionResultsText(dataJson) {
 
 async function postProtectionPayload(payload, signal) {
     const url = ENV.backendUrl + '/';
-    console.log('[Protection Coordination] POST', url);
+    devLog('[Protection Coordination] POST', url);
     const response = await fetch(url, {
         mode: 'cors',
         method: 'post',
@@ -364,7 +365,7 @@ function protectionCoordinationPandaPower(a, b, c) {
                 const dataJson = await postProtectionPayload(payload, simProgress.signal);
                 overlay.append(`Response received in ${formatDurationMs(performance.now() - requestStart)}`, { time: true });
                 overlay.append('Processing results…', { time: true });
-                console.log('[Protection Coordination] response:', dataJson);
+                devLog('[Protection Coordination] response:', dataJson);
 
                 if (dataJson && dataJson.error) {
                     overlay.remove();

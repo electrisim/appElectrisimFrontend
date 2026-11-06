@@ -1,3 +1,4 @@
+import { devLog } from '../utils/devLog.js';
 // Resend: verified sending domain noreply.electrisim.com (DNS send.noreply / resend._domainkey.noreply).
 // The auth API must use this exact "from" in development and production (not onboarding@resend.dev).
 const MAIL_FROM_TRANSACTIONAL = 'ElectriSim <noreply@noreply.electrisim.com>';
@@ -102,9 +103,9 @@ const currentConfig = config[env];
 
 window.ENV = currentConfig;
 window.getBackendUrlCandidates = getBackendUrlCandidates;
-console.log('Current environment:', env);
-console.log('Using backend URL:', currentConfig.backendUrl);
-console.log('Using API URL:', currentConfig.apiBaseUrl);
+devLog('Current environment:', env);
+devLog('Using backend URL:', currentConfig.backendUrl);
+devLog('Using API URL:', currentConfig.apiBaseUrl);
 
 
 export default currentConfig;

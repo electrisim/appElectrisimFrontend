@@ -1,3 +1,4 @@
+import { devLog } from './devLog.js';
 /**
  * Performance Utilities for Electrisim
  * Provides debounce, throttle, and cleanup mechanisms to prevent freezing
@@ -408,6 +409,6 @@ if (typeof window !== 'undefined') {
     };
 }
 
-console.log('✅ Performance utilities loaded');
+devLog('✅ Performance utilities loaded');
 
 

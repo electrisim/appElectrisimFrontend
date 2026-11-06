@@ -1,3 +1,4 @@
+import { devLog } from './utils/devLog.js';
 // dgInterconnection.js - DG Interconnection Screening (OpenDSS) entry point
 import { DgInterconnectionDialog } from './dialogs/DgInterconnectionDialog.js';
 import { DgInterconnectionResultsDialog } from './dialogs/DgInterconnectionResultsDialog.js';
@@ -8,7 +9,7 @@ import {
     formatDurationMs
 } from './utils/simulationProgressOverlay.js';
 
-console.log('dgInterconnection.js LOADED');
+devLog('dgInterconnection.js LOADED');
 
 const getBackendUrl = () => {
     if (window.ENV && window.ENV.backendUrl) {

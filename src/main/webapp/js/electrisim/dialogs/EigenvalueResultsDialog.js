@@ -1,3 +1,6 @@
+function escapeHtmlText(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
 // EigenvalueResultsDialog.js - ANDES EIG results with s-plane scatter
 (function () {
     function loadChartJs() {
@@ -107,7 +110,7 @@
             ].forEach(([k, v]) => {
                 const chip = document.createElement('div');
                 chip.style.cssText = 'background:#f1f3f5;padding:6px 10px;border-radius:4px;';
-                chip.innerHTML = `<strong>${k}:</strong> ${v ?? '—'}`;
+                chip.innerHTML = `<strong>${escapeHtmlText(k)}:</strong> ${escapeHtmlText(v ?? '—')}`;
                 card.appendChild(chip);
             });
             return card;
@@ -154,8 +157,8 @@
                 this.results.participation.forEach((p) => {
                     const div = document.createElement('div');
                     div.style.cssText = 'font-size:12px;margin-bottom:8px;';
-                    div.innerHTML = `<strong>Mode ${p.mode_index}:</strong> ` +
-                        (p.states || []).map((s) => `${s.state} (${Number(s.factor).toFixed(3)})`).join(', ');
+                    div.innerHTML = `<strong>Mode ${escapeHtmlText(p.mode_index)}:</strong> ` +
+                        (p.states || []).map((s) => `${escapeHtmlText(s.state)} (${Number(s.factor).toFixed(3)})`).join(', ');
                     wrap.appendChild(div);
                 });
             }
@@ -164,7 +167,7 @@
                 const details = document.createElement('details');
                 details.style.marginTop = '12px';
                 details.innerHTML = `<summary style="cursor:pointer;font-weight:600;">Defaults applied (${this.results.defaults_applied.length})</summary>
-                    <ul style="font-size:12px;color:#555;">${this.results.defaults_applied.map((d) => `<li>${d}</li>`).join('')}</ul>`;
+                    <ul style="font-size:12px;color:#555;">${this.results.defaults_applied.map((d) => `<li>${escapeHtmlText(d)}</li>`).join('')}</ul>`;
                 wrap.appendChild(details);
             }
             return wrap;
@@ -180,7 +183,7 @@
             try {
                 ChartCtor = await loadChartJs();
             } catch (e) {
-                host.innerHTML = `<p style="color:#c00;">${e.message}</p>`;
+                host.innerHTML = `<p style="color:#c00;">${escapeHtmlText(e.message)}</p>`;
                 return;
             }
             const canvas = document.createElement('canvas');

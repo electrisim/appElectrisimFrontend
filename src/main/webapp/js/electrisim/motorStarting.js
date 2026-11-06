@@ -1,3 +1,4 @@
+import { devLog } from './utils/devLog.js';
 // motorStarting.js - Motor starting / voltage dip analysis engine
 import { formatResultNameHeader } from './utils/attributeUtils.js';
 import { MotorStartingDialog } from './dialogs/MotorStartingDialog.js';
@@ -179,7 +180,7 @@ window.motorStartingPandaPower = function (a, b, c) {
             const dataJson = JSON.parse(text);
             overlay?.append(`Response ${response.status} in ${formatDurationMs(performance.now() - requestStart)}`, { time: true });
             overlay?.append('Processing results…', { time: true });
-            console.log('Motor starting backend response:', dataJson);
+            devLog('Motor starting backend response:', dataJson);
 
             if (handleErrors(dataJson)) {
                 overlay?.remove();
@@ -287,7 +288,7 @@ window.motorStartingPandaPower = function (a, b, c) {
 
             try {
                 const obj = prepareNetworkData(b, simulationParameters, { removeResultCells: false });
-                console.log('Motor starting data prepared:', obj);
+                devLog('Motor starting data prepared:', obj);
                 processNetworkData(ENV.backendUrl + '/', obj, b, grafka);
             } catch (error) {
                 console.error('Motor starting network preparation failed:', error);

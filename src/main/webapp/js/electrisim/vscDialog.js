@@ -1,3 +1,4 @@
+import { devLog } from './utils/devLog.js';
 import { Dialog } from './Dialog.js';
 import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
 
@@ -226,7 +227,7 @@ export class VscDialog extends Dialog {
         applyButton.onclick = (e) => {
             e.preventDefault();
             const values = this.getFormValues();
-            console.log('VSC values:', values);
+            devLog('VSC values:', values);
             
             if (this.callback) {
                 this.callback(values);

@@ -265,6 +265,9 @@ console.log('\nTest 8: KPI delta direction signs');
 {
     const cur = JSON.parse(JSON.stringify(baseRun));
     cur.lines[1].pl_mw = 0.50; // increase losses
+    // Losses are taken from the active-power balance (grid supply minus load), so the extra
+    // loss must also show up at the slack, as it does in a solved load flow.
+    cur.externalgrids[0].p_mw = baseRun.externalgrids[0].p_mw + (0.50 - baseRun.lines[1].pl_mw);
     const d = win.computeScenarioDelta(baseRun, cur);
     const losses = d.kpiDelta.totalLosses;
     assert(losses && losses.delta > 0,                  'losses delta positive');

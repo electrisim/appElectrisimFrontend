@@ -1,3 +1,6 @@
+function escapeHtmlText(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
 // DiagnosticReportDialog.js - Dialog for displaying diagnostic reports
 (function() {
     class DiagnosticReportDialog {
@@ -450,7 +453,7 @@
                 // Show note if diagnostic output wasn't captured
                 const noteSection = document.createElement('div');
                 noteSection.style.cssText = 'border: 1px solid #2196f3; border-radius: 4px; padding: 16px; background: #e3f2fd; margin-bottom: 16px;';
-                noteSection.innerHTML = `<p style="margin: 0; color: #1565c0;">ℹ️ ${diagnosticData.diagnostic_note}</p>`;
+                noteSection.innerHTML = `<p style="margin: 0; color: #1565c0;">ℹ️ ${escapeHtmlText(diagnosticData.diagnostic_note)}</p>`;
                 content.appendChild(noteSection);
             }
             
@@ -458,7 +461,7 @@
             if (diagnosticData.diagnostic_error) {
                 const errorSection = document.createElement('div');
                 errorSection.style.cssText = 'border: 1px solid #ff9800; border-radius: 4px; padding: 16px; background: #fff3e0; margin-bottom: 16px;';
-                errorSection.innerHTML = `<p style="margin: 0; color: #e65100;">⚠️ Diagnostic Error: ${diagnosticData.diagnostic_error}</p>`;
+                errorSection.innerHTML = `<p style="margin: 0; color: #e65100;">⚠️ Diagnostic Error: ${escapeHtmlText(diagnosticData.diagnostic_error)}</p>`;
                 content.appendChild(errorSection);
             }
             

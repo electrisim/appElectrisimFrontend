@@ -28,12 +28,21 @@ window.getCurrentUser = function() {
 // Debug function
 window.debugAuth = function() {
     console.log('=== AUTH DEBUG ===');
-    console.log('localStorage token:', localStorage.getItem('token'));
+    console.log('localStorage token present:', !!localStorage.getItem('token'));
     console.log('localStorage user:', localStorage.getItem('user'));
     console.log('isAuthenticated():', window.isAuthenticated());
     console.log('getCurrentUser():', window.getCurrentUser());
     console.log('==================');
 };
+
+// Debug output must not print login tokens: someone may paste it into a support request.
+function maskStoredValue(key, value) {
+    if (value == null) return value;
+    if (/token|secret|password|auth|session/i.test(String(key))) {
+        return `[hidden, ${String(value).length} characters]`;
+    }
+    return value;
+}
 
 // Enhanced debug function specifically for OAuth troubleshooting
 window.debugOAuth = function() {
@@ -44,8 +53,7 @@ window.debugOAuth = function() {
     
     for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        const value = localStorage.getItem(key);
-        console.log(`🔍   ${key}:`, value);
+        console.log(`🔍   ${key}:`, maskStoredValue(key, localStorage.getItem(key)));
     }
     
     console.log('🔍 sessionStorage length:', sessionStorage.length);
@@ -53,8 +61,7 @@ window.debugOAuth = function() {
     
     for (let i = 0; i < sessionStorage.length; i++) {
         const key = sessionStorage.key(i);
-        const value = sessionStorage.getItem(key);
-        console.log(`🔍   ${key}:`, value);
+        console.log(`🔍   ${key}:`, maskStoredValue(key, sessionStorage.getItem(key)));
     }
     
     console.log('🔍 Auth functions available:');
@@ -184,8 +191,16 @@ window.updateLoginButton = updateLoginButton;
     }
 })();
 
-// Test functions
+// Test functions (development hosts only: on the production site they would write fake credentials)
+function isProductionHost() {
+    return window.location.hostname === 'app.electrisim.com';
+}
+
 window.simulateOAuthLogin = function() {
+    if (isProductionHost()) {
+        console.warn('simulateOAuthLogin is disabled on the production site.');
+        return;
+    }
     console.log('Simulating OAuth login...');
     localStorage.setItem('token', 'test-token');
     localStorage.setItem('user', JSON.stringify({id: '123', email: 'test@example.com'}));
@@ -193,6 +208,10 @@ window.simulateOAuthLogin = function() {
 };
 
 window.simulateOAuthLogout = function() {
+    if (isProductionHost()) {
+        console.warn('simulateOAuthLogout is disabled on the production site.');
+        return;
+    }
     console.log('Simulating OAuth logout...');
     localStorage.removeItem('token');
     localStorage.removeItem('user');

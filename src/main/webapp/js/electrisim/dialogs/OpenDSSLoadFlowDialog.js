@@ -1,3 +1,4 @@
+import { devLog } from '../utils/devLog.js';
 // OpenDSSLoadFlowDialog.js - Dialog specifically for OpenDSS Load Flow parameters
 import { Dialog } from '../Dialog.js';
 import { ensureSubscriptionFunctions } from '../ensureSubscriptionFunctions.js';
@@ -99,18 +100,18 @@ export class OpenDSSLoadFlowDialog extends Dialog {
     }
 
     show(callback) {
-        console.log('OpenDSSLoadFlowDialog.show() called');
+        devLog('OpenDSSLoadFlowDialog.show() called');
         super.show(async (values) => {
-            console.log('OpenDSSLoadFlowDialog Calculate button clicked, values:', values);
+            devLog('OpenDSSLoadFlowDialog Calculate button clicked, values:', values);
             
             // Check subscription status before proceeding
             try {
-                console.log('OpenDSSLoadFlowDialog: Starting subscription check...');
+                devLog('OpenDSSLoadFlowDialog: Starting subscription check...');
                 const hasSubscription = await this.checkSubscriptionStatus();
-                console.log('OpenDSSLoadFlowDialog: Subscription check result:', hasSubscription);
+                devLog('OpenDSSLoadFlowDialog: Subscription check result:', hasSubscription);
                 
                 if (!hasSubscription) {
-                    console.log('OpenDSSLoadFlowDialog: No subscription, showing modal...');
+                    devLog('OpenDSSLoadFlowDialog: No subscription, showing modal...');
                     // Close the dialog first
                     if (this.modalOverlay && this.modalOverlay.parentNode) {
                         document.body.removeChild(this.modalOverlay);
@@ -118,7 +119,7 @@ export class OpenDSSLoadFlowDialog extends Dialog {
                     
                     // Show subscription modal if no active subscription
                     if (window.showSubscriptionModal) {
-                        console.log('OpenDSSLoadFlowDialog: Calling showSubscriptionModal');
+                        devLog('OpenDSSLoadFlowDialog: Calling showSubscriptionModal');
                         window.showSubscriptionModal();
                     } else {
                         console.error('OpenDSSLoadFlowDialog: Subscription modal not available');
@@ -127,7 +128,7 @@ export class OpenDSSLoadFlowDialog extends Dialog {
                     return;
                 }
                 
-                console.log('OpenDSSLoadFlowDialog: Subscription check passed, proceeding with calculation...');
+                devLog('OpenDSSLoadFlowDialog: Subscription check passed, proceeding with calculation...');
                 
                 // Convert object to array format expected by loadflowOpenDss.js
                 // The callback accepts the legacy fields followed by Monte Carlo settings.
@@ -145,7 +146,7 @@ export class OpenDSSLoadFlowDialog extends Dialog {
                     values.monteCarloHour || '0'
                 ];
                 
-                console.log('OpenDSSLoadFlowDialog: Calling callback with values array:', valuesArray);
+                devLog('OpenDSSLoadFlowDialog: Calling callback with values array:', valuesArray);
                 
                 if (callback) {
                     callback(valuesArray);
@@ -194,26 +195,26 @@ export class OpenDSSLoadFlowDialog extends Dialog {
 
     // Function to check subscription status
     async checkSubscriptionStatus() {
-        console.log('OpenDSSLoadFlowDialog.checkSubscriptionStatus() called');
+        devLog('OpenDSSLoadFlowDialog.checkSubscriptionStatus() called');
         try {
             // First ensure subscription functions are available
-            console.log('OpenDSSLoadFlowDialog: Ensuring subscription functions are available...');
+            devLog('OpenDSSLoadFlowDialog: Ensuring subscription functions are available...');
             const functionsStatus = await ensureSubscriptionFunctions();
-            console.log('OpenDSSLoadFlowDialog: Functions status:', functionsStatus);
+            devLog('OpenDSSLoadFlowDialog: Functions status:', functionsStatus);
             
             // Use the global subscription check function
             if (window.checkSubscriptionStatus) {
-                console.log('OpenDSSLoadFlowDialog: Using window.checkSubscriptionStatus');
+                devLog('OpenDSSLoadFlowDialog: Using window.checkSubscriptionStatus');
                 const result = await window.checkSubscriptionStatus();
-                console.log('OpenDSSLoadFlowDialog: window.checkSubscriptionStatus result:', result);
+                devLog('OpenDSSLoadFlowDialog: window.checkSubscriptionStatus result:', result);
                 return result;
             }
             
             // Fallback: check if subscription manager exists
             if (window.SubscriptionManager && window.SubscriptionManager.checkSubscriptionStatus) {
-                console.log('OpenDSSLoadFlowDialog: Using SubscriptionManager.checkSubscriptionStatus');
+                devLog('OpenDSSLoadFlowDialog: Using SubscriptionManager.checkSubscriptionStatus');
                 const result = await window.SubscriptionManager.checkSubscriptionStatus();
-                console.log('OpenDSSLoadFlowDialog: SubscriptionManager result:', result);
+                devLog('OpenDSSLoadFlowDialog: SubscriptionManager result:', result);
                 return result;
             }
             

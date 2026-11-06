@@ -1,3 +1,4 @@
+import { devLog } from './utils/devLog.js';
 // index.js - Entry point for modern Electrisim dialog implementations
 import { initializeDialogs } from './dialogInitializer.js';
 
@@ -7,7 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Initialize our modern dialog implementations
         initializeDialogs();
         
-        console.log('Successfully initialized Electrisim modern dialogs');
+        devLog('Successfully initialized Electrisim modern dialogs');
     } catch (error) {
         console.error('Error initializing Electrisim dialogs:', error);
     }

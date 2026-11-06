@@ -1,3 +1,4 @@
+import { devLog } from './utils/devLog.js';
 // bessDispatchReversal.js - BESS charge/discharge P-step voltage screening (OpenDER + OpenDSS)
 import { BessDispatchReversalDialog } from './dialogs/BessDispatchReversalDialog.js';
 import { BessDispatchReversalResultsDialog } from './dialogs/BessDispatchReversalResultsDialog.js';
@@ -87,8 +88,8 @@ function bessDispatchReversalStudy(a, b, c) {
             overlay.append('Sending request…', { time: true });
             const backendUrl = getBackendUrl();
             const body = JSON.stringify(in_data);
-            console.log('BESS Dispatch Reversal - Using backend URL:', backendUrl);
-            console.log('BESS Dispatch Reversal - POST starting', {
+            devLog('BESS Dispatch Reversal - Using backend URL:', backendUrl);
+            devLog('BESS Dispatch Reversal - POST starting', {
                 origin: window.location.origin,
                 backendUrl,
                 bytes: body.length,

@@ -1,9 +1,10 @@
+import { devLog } from '../utils/devLog.js';
 import { SIMULATION_FORM_SCROLL_STYLE, SIMULATION_INFO_BANNER_STYLE } from '../utils/dialogStyles.js';
 import { createDialogBracketGroup } from '../utils/dialogBracketGroup.js';
 import { GridCodePqDialog } from './GridCodePqDialog.js';
 import { RPCDialog } from './RPCDialog.js';
 
-console.log('GridCodeVqDialog.js LOADED');
+devLog('GridCodeVqDialog.js LOADED');
 
 const VQ_SKIP_PARAM_IDS = new Set([
     'pStartPct', 'pStepPct', 'pEndPct', 'iOpRange', 'iOutput', 'iShowPQ0',

@@ -1,3 +1,5 @@
+import { escapeHtml } from '../utils/htmlEscape.js';
+import { devLog } from '../utils/devLog.js';
 import { attachBackdropCloseHandler } from '../utils/dialogStyles.js';
 import { applyLoadFlowResultsToGraph } from '../utils/applyLoadFlowResults.js';
 import {
@@ -7,7 +9,7 @@ import {
     resolveUqTemplateKeyFromRpcResults
 } from './RPCDialog.js';
 
-console.log('RPCResultsDialog.js LOADED');
+devLog('RPCResultsDialog.js LOADED');
 
 const RPC_POINT_KEY = (pMw) => String(parseFloat(pMw).toFixed(4));
 
@@ -478,7 +480,7 @@ export class RPCResultsDialog {
         }
         items.forEach(([label, val]) => {
             const span = document.createElement('span');
-            span.innerHTML = `<strong>${label}:</strong> ${val}`;
+            span.innerHTML = `<strong>${escapeHtml(label)}:</strong> ${escapeHtml(val)}`;
             bar.appendChild(span);
         });
         if (data.pcc_q_convention) {

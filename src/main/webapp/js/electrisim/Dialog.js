@@ -1,3 +1,4 @@
+import { devLog } from './utils/devLog.js';
 // Dialog.js - Base class for all dialogs
 import { rememberStudySettings } from './utils/studySettingsMemory.js';
 import {
@@ -353,7 +354,7 @@ export class Dialog {
             }
 
             const values = this.getFormValues();
-            console.log(`${this.title} values:`, values);
+            devLog(`${this.title} values:`, values);
             
             if (this.callback) {
                 this.callback(values);
@@ -643,7 +644,7 @@ export class Dialog {
                 }
 
                 const values = this.getFormValues();
-                console.log(`${this.title} values:`, values);
+                devLog(`${this.title} values:`, values);
                 
                 if (this.callback) {
                     // Check if callback is async by calling it and checking if it returns a Promise

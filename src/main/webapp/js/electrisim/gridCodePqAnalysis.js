@@ -1,3 +1,4 @@
+import { devLog } from './utils/devLog.js';
 import { parseVoltageLevels, voltageLevelsErrorMessage } from './utils/voltageLevelsInput.js';
 import {
     getGridTemplateRequirementsMw,
@@ -14,7 +15,7 @@ import {
     readNdjsonStream
 } from './utils/simulationProgressOverlay.js';
 
-console.log('gridCodePqAnalysis.js LOADED');
+devLog('gridCodePqAnalysis.js LOADED');
 
 const getBackendUrl = () => {
     if (window.ENV && window.ENV.backendUrl) {
@@ -124,7 +125,7 @@ function coerceBool(v) {
 }
 
 function gridCodePqAnalysis(a, b, c) {
-    console.log('Grid Code Compliance (P-Q) started');
+    devLog('Grid Code Compliance (P-Q) started');
 
     const editorUi = a || window.App?.main?.editor?.editorUi;
     if (!editorUi) {
@@ -141,7 +142,7 @@ function gridCodePqAnalysis(a, b, c) {
 
     dialog.show(async (values) => {
         if (!values) {
-            console.log('P-Q dialog cancelled');
+            devLog('P-Q dialog cancelled');
             return;
         }
 
@@ -377,7 +378,7 @@ function gridCodePqAnalysis(a, b, c) {
         } catch (error) {
             if (isAbortError(error) || (typeof abortController !== 'undefined' && abortController.signal.aborted)) {
                 if (overlay) overlay.remove();
-                console.log('Grid Code Compliance (P-Q) stopped by user');
+                devLog('Grid Code Compliance (P-Q) stopped by user');
                 return;
             }
             console.error('Grid Code Compliance (P-Q) failed:', error);

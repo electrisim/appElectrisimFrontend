@@ -1,3 +1,4 @@
+import { devLog } from '../utils/devLog.js';
 import { SIMULATION_FORM_SCROLL_STYLE, SIMULATION_INFO_BANNER_STYLE } from '../utils/dialogStyles.js';
 import { createDialogBracketGroup } from '../utils/dialogBracketGroup.js';
 import { ParkControllerDialog } from './ParkControllerDialog.js';
@@ -6,7 +7,7 @@ import {
     estimateRpcInstalledMw
 } from './RPCDialog.js';
 
-console.log('GridCodePqDialog.js LOADED');
+devLog('GridCodePqDialog.js LOADED');
 
 function parseCellStyle(style) {
     if (!style) return null;

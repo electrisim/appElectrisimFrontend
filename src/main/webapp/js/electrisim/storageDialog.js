@@ -1,3 +1,4 @@
+import { devLog } from './utils/devLog.js';
 import { Dialog } from './Dialog.js';
 import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
 import { OPF_COST_CURRENCY_OPTIONS } from './utils/opfCostCurrency.js';
@@ -739,7 +740,7 @@ export class StorageDialog extends Dialog {
         applyButton.onclick = (e) => {
             e.preventDefault();
             const values = this.getFormValues();
-            console.log('Storage values:', values);
+            devLog('Storage values:', values);
             
             if (this.callback) {
                 this.callback(values);
@@ -1107,29 +1108,29 @@ export class StorageDialog extends Dialog {
             delete window._globalDialogShowing;
         }
         
-        console.log('Storage dialog destroyed and flags cleared');
+        devLog('Storage dialog destroyed and flags cleared');
     }
     
     populateDialog(cellData) {
-        console.log('=== StorageDialog.populateDialog called ===');
-        console.log('Cell data:', cellData);
+        devLog('=== StorageDialog.populateDialog called ===');
+        devLog('Cell data:', cellData);
         
         // Log initial parameter values
-        console.log('Initial parameter values:');
+        devLog('Initial parameter values:');
         [...this.powerParameters, ...this.energyParameters, ...this.configParameters, ...this.optimizationParameters, ...this.opendssParameters].forEach(param => {
-            console.log(`  ${param.id}: ${param.value} (${param.type})`);
+            devLog(`  ${param.id}: ${param.value} (${param.type})`);
         });
         
         // Update parameter values based on cell data
         if (cellData && cellData.attributes) {
-            console.log(`Found ${cellData.attributes.length} attributes to process`);
+            devLog(`Found ${cellData.attributes.length} attributes to process`);
             
             for (let i = 0; i < cellData.attributes.length; i++) {
                 const attribute = cellData.attributes[i];
                 const attributeName = attribute.name;
                 const attributeValue = attribute.value;
                 
-                console.log(`Processing attribute: ${attributeName} = ${attributeValue}`);
+                devLog(`Processing attribute: ${attributeName} = ${attributeValue}`);
                 
                 // Update the dialog's parameter values (not DOM inputs)
                 const powerParam = this.powerParameters.find(p => p.id === attributeName);
@@ -1140,7 +1141,7 @@ export class StorageDialog extends Dialog {
                     } else {
                         powerParam.value = attributeValue;
                     }
-                    console.log(`  Updated power ${attributeName}: ${oldValue} → ${powerParam.value}`);
+                    devLog(`  Updated power ${attributeName}: ${oldValue} → ${powerParam.value}`);
                 }
                 
                 const energyParam = this.energyParameters.find(p => p.id === attributeName);
@@ -1151,7 +1152,7 @@ export class StorageDialog extends Dialog {
                     } else {
                         energyParam.value = attributeValue;
                     }
-                    console.log(`  Updated energy ${attributeName}: ${oldValue} → ${energyParam.value}`);
+                    devLog(`  Updated energy ${attributeName}: ${oldValue} → ${energyParam.value}`);
                 }
                 
                 const configParam = this.configParameters.find(p => p.id === attributeName);
@@ -1162,7 +1163,7 @@ export class StorageDialog extends Dialog {
                     } else {
                         configParam.value = attributeValue;
                     }
-                    console.log(`  Updated config ${attributeName}: ${oldValue} → ${configParam.value}`);
+                    devLog(`  Updated config ${attributeName}: ${oldValue} → ${configParam.value}`);
                 }
                 
                 const optimizationParam = this.optimizationParameters.find(p => p.id === attributeName);
@@ -1173,7 +1174,7 @@ export class StorageDialog extends Dialog {
                     } else {
                         optimizationParam.value = attributeValue;
                     }
-                    console.log(`  Updated optimization ${attributeName}: ${oldValue} → ${optimizationParam.value}`);
+                    devLog(`  Updated optimization ${attributeName}: ${oldValue} → ${optimizationParam.value}`);
                 }
 
                 const opendssParam = this.opendssParameters.find(p => p.id === attributeName);
@@ -1184,7 +1185,7 @@ export class StorageDialog extends Dialog {
                     } else {
                         opendssParam.value = attributeValue;
                     }
-                    console.log(`  Updated OpenDSS ${attributeName}: ${oldValue} → ${opendssParam.value}`);
+                    devLog(`  Updated OpenDSS ${attributeName}: ${oldValue} → ${opendssParam.value}`);
                 }
 
                 const inverterParam = this.inverterControlParameters.find(p => p.id === attributeName);
@@ -1195,7 +1196,7 @@ export class StorageDialog extends Dialog {
                     } else {
                         inverterParam.value = attributeValue;
                     }
-                    console.log(`  Updated Inverter ${attributeName}: ${oldValue} → ${inverterParam.value}`);
+                    devLog(`  Updated Inverter ${attributeName}: ${oldValue} → ${inverterParam.value}`);
                 }
                 
                 const qCapParam = (this.qCapabilityParameters || []).find(p => p.id === attributeName);
@@ -1206,7 +1207,7 @@ export class StorageDialog extends Dialog {
                     } else {
                         qCapParam.value = attributeValue;
                     }
-                    console.log(`  Updated Q capability ${attributeName}: ${oldValue} → ${qCapParam.value}`);
+                    devLog(`  Updated Q capability ${attributeName}: ${oldValue} → ${qCapParam.value}`);
                 }
 
                 const economicParam = (this.economicParameters || []).find(p => p.id === attributeName);
@@ -1216,20 +1217,20 @@ export class StorageDialog extends Dialog {
                 }
                 
                 if (!powerParam && !energyParam && !configParam && !optimizationParam && !qCapParam && !opendssParam && !inverterParam && !economicParam) {
-                    console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
+                    devLog(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
             }
         } else {
-            console.log('No cell data or attributes found');
+            devLog('No cell data or attributes found');
         }
         
         // Log final parameter values
-        console.log('Final parameter values:');
+        devLog('Final parameter values:');
         [...this.powerParameters, ...this.energyParameters, ...this.configParameters, ...this.optimizationParameters, ...this.opendssParameters].forEach(param => {
-            console.log(`  ${param.id}: ${param.value} (${param.type})`);
+            devLog(`  ${param.id}: ${param.value} (${param.type})`);
         });
         
-        console.log('=== StorageDialog.populateDialog completed ===');
+        devLog('=== StorageDialog.populateDialog completed ===');
         if (this.inputs && this.inputs.size) {
             this._maybeReplaceLegacyWtgCurve();
         }

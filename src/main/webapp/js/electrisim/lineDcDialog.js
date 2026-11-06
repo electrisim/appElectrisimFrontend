@@ -1,3 +1,4 @@
+import { devLog } from './utils/devLog.js';
 import { Dialog } from './Dialog.js';
 
 // Default values for Line DC parameters (based on pandapower documentation)
@@ -191,7 +192,7 @@ export class LineDcDialog extends Dialog {
         applyButton.onclick = (e) => {
             e.preventDefault();
             const values = this.getFormValues();
-            console.log('Line DC values:', values);
+            devLog('Line DC values:', values);
             
             if (this.callback) {
                 this.callback(values);

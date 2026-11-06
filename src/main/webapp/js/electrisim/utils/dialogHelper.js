@@ -1,3 +1,4 @@
+import { devLog } from './devLog.js';
 // Dialog Helper - Optimized dialog utilities with DOM caching
 // Use this to create performant dialogs
 
@@ -383,5 +384,5 @@ window.dialogHelper = dialogHelper;
 export { DialogHelper, dialogHelper };
 export default dialogHelper;
 
-console.log('✅ Dialog Helper initialized with performance optimizations');
+devLog('✅ Dialog Helper initialized with performance optimizations');
 

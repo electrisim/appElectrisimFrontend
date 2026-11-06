@@ -1,3 +1,4 @@
+import { devLog } from './utils/devLog.js';
 import { prepareNetworkData, getEconomicProfileRelevance } from './utils/networkDataPreparation.js';
 import { EconomicAnalysisDialog } from './dialogs/EconomicAnalysisDialog.js';
 import { EconomicAnalysisResultsDialog } from './dialogs/EconomicAnalysisResultsDialog.js';
@@ -109,7 +110,7 @@ export async function economicAnalysisPandaPower(app, graph, editor) {
             }
             overlay.append('Done.', { time: true });
             await settleSimulationProgress(overlay, null, simProgress.abortController);
-            console.log('Economic Analysis results received:', results);
+            devLog('Economic Analysis results received:', results);
 
             const resultsDialog = new EconomicAnalysisResultsDialog(results, editorUi, { hasLoads, hasGenerators });
             resultsDialog.show();

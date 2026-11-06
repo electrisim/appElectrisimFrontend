@@ -1,3 +1,4 @@
+import { devLog } from './devLog.js';
 /**
  * Apply enabled Wind Turbine Controllers to Wind Turbine payloads (snapshot Pref from P(v)).
  */
@@ -152,7 +153,7 @@ export function applyWindTurbineControllerPrefs(windLikePayloads, controllers) {
         // Keep payload wind speed aligned with Pref so backend curve recompute matches
         turbine.wind_speed_ms = windSpeed;
         if (typeof console !== 'undefined' && console.log) {
-            console.log(
+            devLog(
                 `[WindTurbineController] '${ctrl.name || ''}': '${target}' Pref=${pref} MW at v=${windSpeed} m/s` +
                     (useTurbineSpeed ? ' (turbine wind speed)' : ' (controller override)')
             );

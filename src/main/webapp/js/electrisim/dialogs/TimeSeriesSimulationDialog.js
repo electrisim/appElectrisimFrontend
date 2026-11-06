@@ -1,3 +1,4 @@
+import { escapeHtml } from '../utils/htmlEscape.js';
 // TimeSeriesSimulationDialog.js
 import {
     buildLoadPresetProfile,
@@ -387,8 +388,8 @@ class TimeSeriesSimulationDialog {
         const titleWrap = document.createElement('div');
         const badge = el.elementType === 'load' ? 'Load' : 'Generation';
         const badgeColor = el.elementType === 'load' ? '#1565c0' : '#2e7d32';
-        titleWrap.innerHTML = `<strong style="font-size:14px;">${el.label}</strong>
-            <span style="margin-left:6px;font-size:11px;padding:2px 6px;border-radius:3px;background:${badgeColor}18;color:${badgeColor};">${badge}</span>`;
+        titleWrap.innerHTML = `<strong style="font-size:14px;">${escapeHtml(el.label)}</strong>
+            <span style="margin-left:6px;font-size:11px;padding:2px 6px;border-radius:3px;background:${badgeColor}18;color:${badgeColor};">${escapeHtml(badge)}</span>`;
         header.appendChild(titleWrap);
 
         const modeSelect = document.createElement('select');

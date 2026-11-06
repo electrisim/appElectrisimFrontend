@@ -1,3 +1,6 @@
+function escapeHtmlText(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
 // TimeSeriesSimulationResultsDialog.js
 (function() {
     class TimeSeriesSimulationResultsDialog {
@@ -184,7 +187,7 @@
                 `;
                 const shown = failedSteps.slice(0, 12);
                 const suffix = failedSteps.length > 12 ? ` … (+${failedSteps.length - 12} more)` : '';
-                warn.innerHTML = `<strong>Non-converged steps:</strong> ${shown.join(', ')}${suffix}. ` +
+                warn.innerHTML = `<strong>Non-converged steps:</strong> ${escapeHtmlText(shown.join(', '))}${escapeHtmlText(suffix)}. ` +
                     'Try running Load Flow first, use <em>Absolute P (MW)</em> profiles, or adjust initialization under Advanced settings.';
                 card.appendChild(warn);
             }
@@ -477,7 +480,7 @@
                 this.charts.push(chart);
             } catch (err) {
                 console.error('Failed to render chart:', title, err);
-                wrap.innerHTML += `<p style="color:#856404;font-size:12px;">Could not render chart: ${err.message || err}</p>`;
+                wrap.innerHTML += `<p style="color:#856404;font-size:12px;">Could not render chart: ${escapeHtmlText(err.message || err)}</p>`;
             }
         }
 

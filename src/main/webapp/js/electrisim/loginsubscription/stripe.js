@@ -1,3 +1,4 @@
+import { devLog } from '../utils/devLog.js';
 import config from '../config/environment.js';
 
 // Initialize Stripe only when the Stripe script has loaded (avoids "Stripe is not defined" when script fails)
@@ -7,7 +8,7 @@ if (typeof window.Stripe === 'function') {
         stripe = window.Stripe(config.stripePublishableKey, {
             apiVersion: '2023-10-16'
         });
-        console.log('Stripe initialized in', config.isDevelopment ? 'development' : 'production', 'mode');
+        devLog('Stripe initialized in', config.isDevelopment ? 'development' : 'production', 'mode');
     } catch (e) {
         console.warn('Stripe initialization failed:', e);
     }

@@ -1,3 +1,4 @@
+import { devLog } from './utils/devLog.js';
 // editorExtensions.js - Extends EditorUi with modern dialog implementations
 import { LoadFlowDialog } from './dialogs/LoadFlowDialog.js';
 
@@ -31,7 +32,7 @@ function initializeEditorExtensions() {
             dialog.show(callback);
         };
 
-        console.log('Modern dialog extensions initialized successfully');
+        devLog('Modern dialog extensions initialized successfully');
     } catch (error) {
         console.error('Error initializing editor extensions:', error);
     }

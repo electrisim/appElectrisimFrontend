@@ -1,3 +1,4 @@
+import { escapeHtml } from '../utils/htmlEscape.js';
 import { attachBackdropCloseHandler } from '../utils/dialogStyles.js';
 
 function fmt(num, decimals = 3) {
@@ -43,7 +44,7 @@ export class PoiFaultStudyResultsDialog {
         const meta = document.createElement('div');
         meta.style.cssText = 'padding:10px 20px;background:#f8f9fa;font-size:13px;';
         const poi = this.results.poi_bus || {};
-        meta.innerHTML = `<strong>POI:</strong> ${poi.userFriendlyName || poi.name || '—'} · ${fmt(this.results.frequency_hz, 0)} Hz`;
+        meta.innerHTML = `<strong>POI:</strong> ${escapeHtml(poi.userFriendlyName || poi.name || '—')} · ${fmt(this.results.frequency_hz, 0)} Hz`;
         shell.appendChild(meta);
 
         const toolbar = document.createElement('div');

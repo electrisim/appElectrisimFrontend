@@ -1,3 +1,4 @@
+import { escapeHtml } from '../utils/htmlEscape.js';
 import { attachBackdropCloseHandler } from '../utils/dialogStyles.js';
 
 /** Displays the statistical results returned by native OpenDSS M1/M2/M3 solves. */
@@ -44,7 +45,7 @@ export class MonteCarloResultsDialog {
         const header = columns.map(([, label]) => `<th style="padding:7px;text-align:left;border-bottom:1px solid #ddd;">${label}</th>`).join('');
         const body = rows.length ? rows.map(row => `<tr>${columns.map(([key]) => `<td style="padding:6px 7px;border-bottom:1px solid #eee;">${key === 'name' ? this._escape(row[key]) : this._number(row[key])}</td>`).join('')}</tr>`).join('') :
             `<tr><td colspan="${columns.length}" style="padding:8px;">No converged samples available.</td></tr>`;
-        section.innerHTML = `<h3 style="margin:20px 0 8px;">${title}</h3><div style="overflow:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="background:#f5f5f5;">${header}</tr></thead><tbody>${body}</tbody></table></div>`;
+        section.innerHTML = `<h3 style="margin:20px 0 8px;">${escapeHtml(title)}</h3><div style="overflow:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="background:#f5f5f5;">${header}</tr></thead><tbody>${body}</tbody></table></div>`;
         dialog.appendChild(section);
     }
 

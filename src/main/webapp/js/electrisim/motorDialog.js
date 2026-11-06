@@ -1,3 +1,4 @@
+import { devLog } from './utils/devLog.js';
 import { Dialog } from './Dialog.js';
 import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
 
@@ -318,7 +319,7 @@ export class MotorDialog extends Dialog {
         applyButton.onclick = (e) => {
             e.preventDefault();
             const values = this.getFormValues();
-            console.log('Motor values:', values);
+            devLog('Motor values:', values);
             
             if (this.callback) {
                 this.callback(values);
@@ -633,29 +634,29 @@ export class MotorDialog extends Dialog {
             delete window._globalDialogShowing;
         }
         
-        console.log('Motor dialog destroyed and flags cleared');
+        devLog('Motor dialog destroyed and flags cleared');
     }
     
     populateDialog(cellData) {
-        console.log('=== MotorDialog.populateDialog called ===');
-        console.log('Cell data:', cellData);
+        devLog('=== MotorDialog.populateDialog called ===');
+        devLog('Cell data:', cellData);
         
         // Log initial parameter values
-        console.log('Initial parameter values:');
+        devLog('Initial parameter values:');
         [...this.mechanicalParameters, ...this.electricalParameters, ...this.performanceParameters, ...this.shortCircuitParameters].forEach(param => {
-            console.log(`  ${param.id}: ${param.value} (${param.type})`);
+            devLog(`  ${param.id}: ${param.value} (${param.type})`);
         });
         
         // Update parameter values based on cell data
         if (cellData && cellData.attributes) {
-            console.log(`Found ${cellData.attributes.length} attributes to process`);
+            devLog(`Found ${cellData.attributes.length} attributes to process`);
             
             for (let i = 0; i < cellData.attributes.length; i++) {
                 const attribute = cellData.attributes[i];
                 const attributeName = attribute.name;
                 const attributeValue = attribute.value;
                 
-                console.log(`Processing attribute: ${attributeName} = ${attributeValue}`);
+                devLog(`Processing attribute: ${attributeName} = ${attributeValue}`);
                 
                 // Update the dialog's parameter values (not DOM inputs)
                 const mechanicalParam = this.mechanicalParameters.find(p => p.id === attributeName);
@@ -666,7 +667,7 @@ export class MotorDialog extends Dialog {
                     } else {
                         mechanicalParam.value = attributeValue;
                     }
-                    console.log(`  Updated mechanical ${attributeName}: ${oldValue} → ${mechanicalParam.value}`);
+                    devLog(`  Updated mechanical ${attributeName}: ${oldValue} → ${mechanicalParam.value}`);
                 }
                 
                 const electricalParam = this.electricalParameters.find(p => p.id === attributeName);
@@ -677,7 +678,7 @@ export class MotorDialog extends Dialog {
                     } else {
                         electricalParam.value = attributeValue;
                     }
-                    console.log(`  Updated electrical ${attributeName}: ${oldValue} → ${electricalParam.value}`);
+                    devLog(`  Updated electrical ${attributeName}: ${oldValue} → ${electricalParam.value}`);
                 }
                 
                 const performanceParam = this.performanceParameters.find(p => p.id === attributeName);
@@ -688,7 +689,7 @@ export class MotorDialog extends Dialog {
                     } else {
                         performanceParam.value = attributeValue;
                     }
-                    console.log(`  Updated performance ${attributeName}: ${oldValue} → ${performanceParam.value}`);
+                    devLog(`  Updated performance ${attributeName}: ${oldValue} → ${performanceParam.value}`);
                 }
                 
                 const shortCircuitParam = this.shortCircuitParameters.find(p => p.id === attributeName);
@@ -699,14 +700,14 @@ export class MotorDialog extends Dialog {
                     } else {
                         shortCircuitParam.value = attributeValue;
                     }
-                    console.log(`  Updated shortCircuit ${attributeName}: ${oldValue} → ${shortCircuitParam.value}`);
+                    devLog(`  Updated shortCircuit ${attributeName}: ${oldValue} → ${shortCircuitParam.value}`);
                 }
 
                 const dynamicsParam = (this.dynamicsParameters || []).find(p => p.id === attributeName);
                 if (dynamicsParam) {
                     const oldValue = dynamicsParam.value;
                     dynamicsParam.value = attributeValue;
-                    console.log(`  Updated dynamics ${attributeName}: ${oldValue} → ${dynamicsParam.value}`);
+                    devLog(`  Updated dynamics ${attributeName}: ${oldValue} → ${dynamicsParam.value}`);
                 }
                 
                 const economicParam = (this.economicParameters || []).find(p => p.id === attributeName);
@@ -716,20 +717,20 @@ export class MotorDialog extends Dialog {
                 }
                 
                 if (!mechanicalParam && !electricalParam && !performanceParam && !shortCircuitParam && !dynamicsParam && !economicParam) {
-                    console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
+                    devLog(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
             }
         } else {
-            console.log('No cell data or attributes found');
+            devLog('No cell data or attributes found');
         }
         
         // Log final parameter values
-        console.log('Final parameter values:');
+        devLog('Final parameter values:');
         [...this.mechanicalParameters, ...this.electricalParameters, ...this.performanceParameters, ...this.shortCircuitParameters].forEach(param => {
-            console.log(`  ${param.id}: ${param.value} (${param.type})`);
+            devLog(`  ${param.id}: ${param.value} (${param.type})`);
         });
         
-        console.log('=== MotorDialog.populateDialog completed ===');
+        devLog('=== MotorDialog.populateDialog completed ===');
     }
 }
 

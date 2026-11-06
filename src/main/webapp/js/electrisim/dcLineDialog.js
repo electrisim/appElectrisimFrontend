@@ -1,3 +1,4 @@
+import { devLog } from './utils/devLog.js';
 import { Dialog } from './Dialog.js';
 import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
 import { OPF_COST_CURRENCY_OPTIONS } from './utils/opfCostCurrency.js';
@@ -332,7 +333,7 @@ export class DCLineDialog extends Dialog {
         applyButton.onclick = (e) => {
             e.preventDefault();
             const values = this.getFormValues();
-            console.log('DC Line values:', values);
+            devLog('DC Line values:', values);
             
             if (this.callback) {
                 this.callback(values);
@@ -701,29 +702,29 @@ export class DCLineDialog extends Dialog {
             delete window._globalDialogShowing;
         }
         
-        console.log('DC Line dialog destroyed and flags cleared');
+        devLog('DC Line dialog destroyed and flags cleared');
     }
     
     populateDialog(cellData) {
-        console.log('=== DCLineDialog.populateDialog called ===');
-        console.log('Cell data:', cellData);
+        devLog('=== DCLineDialog.populateDialog called ===');
+        devLog('Cell data:', cellData);
         
         // Log initial parameter values
-        console.log('Initial parameter values:');
+        devLog('Initial parameter values:');
         [...this.powerParameters, ...this.lossParameters, ...this.voltageParameters].forEach(param => {
-            console.log(`  ${param.id}: ${param.value} (${param.type})`);
+            devLog(`  ${param.id}: ${param.value} (${param.type})`);
         });
         
         // Update parameter values based on cell data
         if (cellData && cellData.attributes) {
-            console.log(`Found ${cellData.attributes.length} attributes to process`);
+            devLog(`Found ${cellData.attributes.length} attributes to process`);
             
             for (let i = 0; i < cellData.attributes.length; i++) {
                 const attribute = cellData.attributes[i];
                 const attributeName = attribute.name;
                 const attributeValue = attribute.value;
                 
-                console.log(`Processing attribute: ${attributeName} = ${attributeValue}`);
+                devLog(`Processing attribute: ${attributeName} = ${attributeValue}`);
                 
                 if (attributeName === 'cost_per_unit_by_currency') {
                     this.data[attributeName] = attributeValue;
@@ -740,7 +741,7 @@ export class DCLineDialog extends Dialog {
                     } else {
                         powerParam.value = attributeValue;
                     }
-                    console.log(`  Updated power ${attributeName}: ${oldValue} → ${powerParam.value}`);
+                    devLog(`  Updated power ${attributeName}: ${oldValue} → ${powerParam.value}`);
                 }
                 
                 const lossParam = this.lossParameters.find(p => p.id === attributeName);
@@ -751,7 +752,7 @@ export class DCLineDialog extends Dialog {
                     } else {
                         lossParam.value = attributeValue;
                     }
-                    console.log(`  Updated loss ${attributeName}: ${oldValue} → ${lossParam.value}`);
+                    devLog(`  Updated loss ${attributeName}: ${oldValue} → ${lossParam.value}`);
                 }
                 
                 const voltageParam = this.voltageParameters.find(p => p.id === attributeName);
@@ -762,7 +763,7 @@ export class DCLineDialog extends Dialog {
                     } else {
                         voltageParam.value = attributeValue;
                     }
-                    console.log(`  Updated voltage ${attributeName}: ${oldValue} → ${voltageParam.value}`);
+                    devLog(`  Updated voltage ${attributeName}: ${oldValue} → ${voltageParam.value}`);
                 }
 
                 const opfParam = this.opfParameters?.find(p => p.id === attributeName);
@@ -779,22 +780,22 @@ export class DCLineDialog extends Dialog {
                 
                 const economicParam = this.economicParameters?.find(p => p.id === attributeName);
                 if (!powerParam && !lossParam && !voltageParam && !opfParam && !economicParam) {
-                    console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
+                    devLog(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
             }
         } else {
-            console.log('No cell data or attributes found');
+            devLog('No cell data or attributes found');
         }
         
         this._finalizeDclineOpfParametersFromPowerTab();
 
         // Log final parameter values
-        console.log('Final parameter values:');
+        devLog('Final parameter values:');
         [...this.powerParameters, ...this.lossParameters, ...this.voltageParameters].forEach(param => {
-            console.log(`  ${param.id}: ${param.value} (${param.type})`);
+            devLog(`  ${param.id}: ${param.value} (${param.type})`);
         });
         
-        console.log('=== DCLineDialog.populateDialog completed ===');
+        devLog('=== DCLineDialog.populateDialog completed ===');
     }
 }
 

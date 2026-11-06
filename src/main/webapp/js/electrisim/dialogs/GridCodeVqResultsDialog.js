@@ -1,3 +1,4 @@
+import { devLog } from '../utils/devLog.js';
 import {
     GridCodePqResultsDialog,
     _aggregateContribution, _chartOperatingQ, _contributionLabel, _operatingWords, _pccQDirection, _fmt,
@@ -5,7 +6,7 @@ import {
 } from './GridCodePqResultsDialog.js?v=pq20261105e';
 import { attachBackdropCloseHandler } from '../utils/dialogStyles.js';
 
-console.log('GridCodeVqResultsDialog.js LOADED');
+devLog('GridCodeVqResultsDialog.js LOADED');
 
 /**
  * U-Q/Pmax results. Built on the P-Q results dialog so it shares its maximized window,

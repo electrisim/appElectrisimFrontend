@@ -1,3 +1,4 @@
+import { devLog } from './devLog.js';
 /**
  * Shared network data preparation utility
  * Extracts network components from the graph model for backend processing
@@ -14,13 +15,15 @@ import {
     updateThreeWindingTransformerConnections,
     getThreeWindingConnections,
     getImpedanceConnections,
+    getConnectedDcBusId,
+    getTwoTerminalBuses,
     getConnectedBuses,
     getLineBusEndpointsForPayload,
     validateLineBusTopology,
     validateBusConnections,
     COMPONENT_TYPES,
     isSwitchClosedForPowerFlow
-} from '../loadFlow.js?v=11';
+} from '../loadFlow.js?v=12';
 import { computeWindTurbinePMw, WIND_SC_DEFAULTS } from '../windTurbineDialog.js';
 import { resolveStorageFixedPf } from '../storageDialog.js';
 import { resolveStorageQSetpoint } from './storageQCapability.js';
@@ -191,6 +194,17 @@ function expandGenStubSwitches(componentArrays, counters) {
         componentArrays.switch = componentArrays.switch.filter((s) => !dropStubSwitchIds.has(s.id));
     }
 }
+
+// Converter fields stored by the VSC and B2B VSC dialogs (pandapower create_vsc).
+const VSC_FIELDS = (cell) => getAttributesAsObject(cell, {
+    r_ohm: 'r_ohm',
+    x_ohm: 'x_ohm',
+    r_dc_ohm: 'r_dc_ohm',
+    control_mode_ac: 'control_mode_ac',
+    control_value_ac: 'control_value_ac',
+    control_mode_dc: 'control_mode_dc',
+    control_value_dc: 'control_value_dc'
+});
 
 // Cache for prepareNetworkData - speeds up repeated analyses when graph unchanged
 const _networkDataCache = new WeakMap();
@@ -708,6 +722,7 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         dyn_reg_Tg: { name: 'dyn_reg_Tg', optional: true },
                         dyn_ree_Vref0: { name: 'dyn_ree_Vref0', optional: true },
                         dyn_repca_Kp: { name: 'dyn_repca_Kp', optional: true },
+                        dyn_repca_line: { name: 'dyn_repca_line', optional: true },
                         dyn_wt_H: { name: 'dyn_wt_H', optional: true },
                         dyn_wt_DAMP: { name: 'dyn_wt_DAMP', optional: true },
                         dyn_dg_Tg: { name: 'dyn_dg_Tg', optional: true },
@@ -771,6 +786,7 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                     dyn_reg_Tg: { name: 'dyn_reg_Tg', optional: true },
                     dyn_ree_Vref0: { name: 'dyn_ree_Vref0', optional: true },
                     dyn_repca_Kp: { name: 'dyn_repca_Kp', optional: true },
+                    dyn_repca_line: { name: 'dyn_repca_line', optional: true },
                     dyn_wt_H: { name: 'dyn_wt_H', optional: true },
                     dyn_wt_DAMP: { name: 'dyn_wt_DAMP', optional: true },
                     dyn_dg_Tg: { name: 'dyn_dg_Tg', optional: true },
@@ -1447,9 +1463,10 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                     typ: `DC Bus${counters.dcBus++}`,
                     name: cell.mxObjectId.replace('#', '_'),
                     id: cell.id,
-                    vn_kv: cell.value.attributes[2]?.nodeValue || "0",
                     userFriendlyName: baseData.userFriendlyName,
                     ...getAttributesAsObject(cell, {
+                        vn_kv: 'vn_kv',
+                        in_service: { name: 'in_service', optional: true },
                         cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
                     })
                 };
@@ -1562,12 +1579,9 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         return cell.mxObjectId.replace('#', '_');
                     })(),
                     bus: getConnectedBusId(cell),
+                    bus_dc: getConnectedDcBusId(cell, graph),
+                    ...VSC_FIELDS(cell),
                     ...getAttributesAsObject(cell, {
-                        p_mw: 'p_mw',
-                        vm_pu: 'vm_pu',
-                        sn_mva: 'sn_mva',
-                        rx: 'rx',
-                        max_ik_ka: 'max_ik_ka',
                         in_service: { name: 'in_service', optional: true },
                         cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
                     })
@@ -1590,15 +1604,11 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         }
                         return cell.mxObjectId.replace('#', '_');
                     })(),
+                    // Drawn between an AC bus and a DC bus; the backend solves it as a VSC.
+                    bus: getConnectedBusId(cell),
+                    bus_dc: getConnectedDcBusId(cell, graph),
+                    ...VSC_FIELDS(cell),
                     ...getAttributesAsObject(cell, {
-                        bus1: 'bus1',
-                        bus2: 'bus2',
-                        p_mw: 'p_mw',
-                        vm1_pu: 'vm1_pu',
-                        vm2_pu: 'vm2_pu',
-                        sn_mva: 'sn_mva',
-                        rx: 'rx',
-                        max_ik_ka: 'max_ik_ka',
                         in_service: { name: 'in_service', optional: true },
                         cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
                     })
@@ -1622,6 +1632,7 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         return cell.mxObjectId.replace('#', '_');
                     })(),
                     bus: getConnectedBusId(cell),
+                    ...getTwoTerminalBuses(cell, graph),
                     ...getAttributesAsObject(cell, {
                         p_mw: 'p_mw',
                         loss_percent: 'loss_percent',
@@ -1782,8 +1793,8 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
     const obj = Object.assign({}, array);
     
     const dataProcessingTime = performance.now() - startTime;
-    console.log(`Network data preparation completed in ${dataProcessingTime.toFixed(2)}ms`);
-    console.log(`Processed ${processedComponents} components`);
+    devLog(`Network data preparation completed in ${dataProcessingTime.toFixed(2)}ms`);
+    devLog(`Processed ${processedComponents} components`);
     
     // Clean up caches
     cellCache.clear();

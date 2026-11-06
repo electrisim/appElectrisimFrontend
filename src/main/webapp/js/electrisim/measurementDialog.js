@@ -1,3 +1,4 @@
+import { devLog } from './utils/devLog.js';
 import { Dialog } from './Dialog.js';
 
 // Default values for Measurement parameters (based on pandapower documentation)
@@ -164,7 +165,7 @@ export class MeasurementDialog extends Dialog {
         applyButton.onclick = (e) => {
             e.preventDefault();
             const values = this.getFormValues();
-            console.log('Measurement values:', values);
+            devLog('Measurement values:', values);
             
             if (this.callback) {
                 this.callback(values);

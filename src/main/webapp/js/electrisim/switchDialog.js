@@ -1,3 +1,4 @@
+import { devLog } from './utils/devLog.js';
 import { Dialog } from './Dialog.js';
 import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
 import ENV from './config/environment.js';
@@ -537,7 +538,7 @@ export class SwitchDialog extends Dialog {
             }
 
             const values = this.getFormValues();
-            console.log('Switch values:', values);
+            devLog('Switch values:', values);
             
             if (this.callback) {
                 this.callback(values);

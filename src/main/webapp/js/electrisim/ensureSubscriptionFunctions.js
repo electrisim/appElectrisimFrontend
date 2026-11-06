@@ -1,3 +1,4 @@
+import { devLog } from './utils/devLog.js';
 // ensureSubscriptionFunctions.js - Ensures subscription functions are available globally
 
 // Function to wait for subscription functions to be loaded
@@ -11,7 +12,7 @@ function waitForSubscriptionFunctions(maxWaitTime = 10000) {
             const hasSubscriptionManager = window.SubscriptionManager && 
                                          typeof window.SubscriptionManager.checkSubscriptionStatus === 'function';
             
-            console.log('Subscription functions check:', {
+            devLog('Subscription functions check:', {
                 checkSubscriptionStatus: hasCheckFunction,
                 showSubscriptionModal: hasShowFunction,
                 SubscriptionManager: hasSubscriptionManager,
@@ -19,7 +20,7 @@ function waitForSubscriptionFunctions(maxWaitTime = 10000) {
             });
             
             if (hasCheckFunction && hasShowFunction) {
-                console.log('All subscription functions are available');
+                devLog('All subscription functions are available');
                 resolve(true);
                 return;
             }
@@ -40,7 +41,7 @@ function waitForSubscriptionFunctions(maxWaitTime = 10000) {
 
 // Function to manually load subscription functions if needed
 async function ensureSubscriptionFunctions() {
-    console.log('Ensuring subscription functions are available...');
+    devLog('Ensuring subscription functions are available...');
     
     // Wait for functions to be loaded
     const functionsAvailable = await waitForSubscriptionFunctions();
@@ -55,11 +56,11 @@ async function ensureSubscriptionFunctions() {
             // If checkSubscriptionStatus is not available, create a fallback
             if (typeof window.checkSubscriptionStatus !== 'function') {
                 window.checkSubscriptionStatus = async function() {
-                    console.log('Using fallback checkSubscriptionStatus');
+                    devLog('Using fallback checkSubscriptionStatus');
                     try {
                         const token = localStorage.getItem('token') || localStorage.getItem('jwt');
                         if (!token) {
-                            console.log('No auth token found');
+                            devLog('No auth token found');
                             return false;
                         }
                         
@@ -83,16 +84,16 @@ async function ensureSubscriptionFunctions() {
                         return false;
                     }
                 };
-                console.log('Created fallback checkSubscriptionStatus function');
+                devLog('Created fallback checkSubscriptionStatus function');
             }
             
             // If showSubscriptionModal is not available, create a simple fallback
             if (typeof window.showSubscriptionModal !== 'function') {
                 window.showSubscriptionModal = function() {
-                    console.log('Using fallback showSubscriptionModal');
+                    devLog('Using fallback showSubscriptionModal');
                     alert('A subscription is required to use this feature. Please contact support.');
                 };
-                console.log('Created fallback showSubscriptionModal function');
+                devLog('Created fallback showSubscriptionModal function');
             }
             
         } catch (error) {

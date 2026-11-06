@@ -1,3 +1,4 @@
+import { devLog } from './utils/devLog.js';
 import { Dialog } from './Dialog.js';
 import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
 
@@ -160,7 +161,7 @@ export class SourceDcDialog extends Dialog {
         applyButton.onclick = (e) => {
             e.preventDefault();
             const values = this.getFormValues();
-            console.log('Source DC values:', values);
+            devLog('Source DC values:', values);
             
             if (this.callback) {
                 this.callback(values);

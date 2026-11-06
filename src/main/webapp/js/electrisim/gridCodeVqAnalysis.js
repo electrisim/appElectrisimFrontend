@@ -1,3 +1,4 @@
+import { devLog } from './utils/devLog.js';
 import { parseVoltageLevels, voltageLevelsErrorMessage } from './utils/voltageLevelsInput.js';
 import {
     getUqGridTemplateRequirementsMw,
@@ -14,7 +15,7 @@ import {
     readNdjsonStream
 } from './utils/simulationProgressOverlay.js';
 
-console.log('gridCodeVqAnalysis.js LOADED');
+devLog('gridCodeVqAnalysis.js LOADED');
 
 const getBackendUrl = () => {
     if (window.ENV && window.ENV.backendUrl) {
@@ -139,7 +140,7 @@ function _mergeVoltageLevels(voltageLevels, extraU) {
 }
 
 function gridCodeVqAnalysis(a, b, c) {
-    console.log('Grid Code Compliance (V-Q) started');
+    devLog('Grid Code Compliance (V-Q) started');
 
     const editorUi = a || window.App?.main?.editor?.editorUi;
     if (!editorUi) {
@@ -156,7 +157,7 @@ function gridCodeVqAnalysis(a, b, c) {
 
     dialog.show(async (values) => {
         if (!values) {
-            console.log('V-Q dialog cancelled');
+            devLog('V-Q dialog cancelled');
             return;
         }
 
@@ -368,7 +369,7 @@ function gridCodeVqAnalysis(a, b, c) {
         } catch (error) {
             if (isAbortError(error) || (typeof abortController !== 'undefined' && abortController.signal.aborted)) {
                 if (overlay) overlay.remove();
-                console.log('Grid Code Compliance (V-Q) stopped by user');
+                devLog('Grid Code Compliance (V-Q) stopped by user');
                 return;
             }
             console.error('Grid Code Compliance (V-Q) failed:', error);

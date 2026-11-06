@@ -1,3 +1,4 @@
+import { devLog } from './utils/devLog.js';
 import { parseVoltageLevels, voltageLevelsErrorMessage } from './utils/voltageLevelsInput.js';
 import {
     RPCDialog,
@@ -17,7 +18,7 @@ import {
     readNdjsonStream
 } from './utils/simulationProgressOverlay.js';
 
-console.log('rpcAnalysis.js LOADED');
+devLog('rpcAnalysis.js LOADED');
 
 const getBackendUrl = () => {
     if (window.ENV && window.ENV.backendUrl) {
@@ -116,7 +117,7 @@ function _mergeRpcVoltageLevels(voltageLevels, extraU) {
 }
 
 function rpcAnalysis(a, b, c) {
-    console.log('RPC Analysis started');
+    devLog('RPC Analysis started');
 
     const editorUi = a || window.App?.main?.editor?.editorUi;
     if (!editorUi) {
@@ -133,11 +134,11 @@ function rpcAnalysis(a, b, c) {
 
     dialog.show(async (values) => {
         if (!values) {
-            console.log('RPC dialog cancelled');
+            devLog('RPC dialog cancelled');
             return;
         }
 
-        console.log('RPC parameters:', values);
+        devLog('RPC parameters:', values);
 
         if (!values.pccBusId) {
             alert('Please select a PCC Bus');
@@ -326,9 +327,9 @@ function rpcAnalysis(a, b, c) {
             }
 
             const backendUrl = getBackendUrl();
-            console.log('RPC Analysis - Sending to backend:', backendUrl);
-            console.log('RPC Analysis - Generator names:', generatorNames);
-            console.log('RPC Analysis - PCC bus name:', pccBusName);
+            devLog('RPC Analysis - Sending to backend:', backendUrl);
+            devLog('RPC Analysis - Generator names:', generatorNames);
+            devLog('RPC Analysis - PCC bus name:', pccBusName);
 
             overlay = createSimulationProgressOverlay({
                 title: 'RPC progress',
@@ -356,7 +357,7 @@ function rpcAnalysis(a, b, c) {
             }
 
             overlay.remove();
-            console.log('RPC Analysis response:', dataJson);
+            devLog('RPC Analysis response:', dataJson);
 
             const resultsDialog = new RPCResultsDialog(editorUi);
             resultsDialog.show(dataJson);
@@ -364,7 +365,7 @@ function rpcAnalysis(a, b, c) {
         } catch (error) {
             if (isAbortError(error) || abortController.signal.aborted) {
                 if (overlay) overlay.remove();
-                console.log('RPC analysis stopped by user');
+                devLog('RPC analysis stopped by user');
                 return;
             }
             console.error('RPC Analysis failed:', error);

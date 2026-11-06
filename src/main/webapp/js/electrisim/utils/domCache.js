@@ -1,3 +1,4 @@
+import { devLog } from './devLog.js';
 // DOM Cache Utility - Eliminates repeated querySelector calls
 // This utility caches DOM queries to improve performance significantly
 
@@ -157,7 +158,7 @@ class DOMCache {
     clear() {
         this.cache.clear();
         this.stats.cacheSize = 0;
-        console.log('🧹 DOM cache cleared');
+        devLog('🧹 DOM cache cleared');
     }
 
     /**
@@ -173,7 +174,7 @@ class DOMCache {
         }
         this.stats.cacheSize = this.cache.size;
         if (removed > 0) {
-            console.log(`🧹 Cleared ${removed} stale cache entries`);
+            devLog(`🧹 Cleared ${removed} stale cache entries`);
         }
     }
 

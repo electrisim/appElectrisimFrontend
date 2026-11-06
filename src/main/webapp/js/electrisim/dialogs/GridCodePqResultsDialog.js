@@ -1,3 +1,5 @@
+import { escapeHtml } from '../utils/htmlEscape.js';
+import { devLog } from '../utils/devLog.js';
 import { attachBackdropCloseHandler } from '../utils/dialogStyles.js';
 import { RPCResultsDialog } from './RPCResultsDialog.js?v=uq20261104';
 import {
@@ -46,7 +48,7 @@ function _pqGuardPlotlyErrors() {
     };
 }
 
-console.log('GridCodePqResultsDialog.js LOADED');
+devLog('GridCodePqResultsDialog.js LOADED');
 
 const PQ_Q_ELEMENT_SOURCES = [
     { key: 'staticgenerators', type: 'Static generator', wind: true },
@@ -1019,7 +1021,7 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         else extra.push(['P-Q compliance', 'Not assessed']);
         extra.forEach(([label, val]) => {
             const span = document.createElement('span');
-            span.innerHTML = `<strong>${label}:</strong> ${val}`;
+            span.innerHTML = `<strong>${escapeHtml(label)}:</strong> ${escapeHtml(val)}`;
             bar.appendChild(span);
         });
         return bar;

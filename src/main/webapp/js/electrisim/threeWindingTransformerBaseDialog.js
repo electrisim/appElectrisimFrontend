@@ -1,3 +1,4 @@
+import { devLog } from './utils/devLog.js';
 import { Dialog } from './Dialog.js';
 import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
 import { createDialogBracketGroup } from './utils/dialogBracketGroup.js';
@@ -629,7 +630,7 @@ export class ThreeWindingTransformerDialog extends Dialog {
         applyButton.onclick = (e) => {
             e.preventDefault();
             const values = this.getFormValues();
-            console.log('Three Winding Transformer values:', values);
+            devLog('Three Winding Transformer values:', values);
             
             if (this.callback) {
                 this.callback(values);
@@ -1015,7 +1016,7 @@ export class ThreeWindingTransformerDialog extends Dialog {
             delete window._globalDialogShowing;
         }
         
-        console.log('Three Winding Transformer dialog destroyed and flags cleared');
+        devLog('Three Winding Transformer dialog destroyed and flags cleared');
     }
     
     showLibrary() {
@@ -1118,7 +1119,7 @@ export class ThreeWindingTransformerDialog extends Dialog {
             }
         });
 
-        console.log('Loaded three winding transformer data:', mappings);
+        devLog('Loaded three winding transformer data:', mappings);
     }
     
     populateDialog(cellData) {
@@ -1171,7 +1172,7 @@ export class ThreeWindingTransformerDialog extends Dialog {
         }
         
         this.refreshWindingSideSelectOptions();
-        console.log('Populated Three Winding Transformer dialog parameters with cell data');
+        devLog('Populated Three Winding Transformer dialog parameters with cell data');
     }
 }
 

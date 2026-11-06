@@ -1,3 +1,4 @@
+import { devLog } from './devLog.js';
 /**
  * Performance Monitoring Dashboard
  * Provides real-time performance monitoring and diagnostics
@@ -200,7 +201,7 @@ class PerformanceDashboard {
             () => this.trackFPS()
         );
         
-        console.log('✅ Performance monitoring started (visibility-aware)');
+        devLog('✅ Performance monitoring started (visibility-aware)');
     }
     
     /**
@@ -217,7 +218,7 @@ class PerformanceDashboard {
             this.animationLoop = null;
         }
         
-        console.log('⏹️  Performance monitoring stopped');
+        devLog('⏹️  Performance monitoring stopped');
     }
     
     /**
@@ -381,7 +382,7 @@ if (typeof window !== 'undefined') {
     // Make it globally accessible
     window.performanceDashboard = performanceDashboard;
     
-    console.log('✅ Performance dashboard loaded. Press Ctrl+Shift+P to toggle.');
+    devLog('✅ Performance dashboard loaded. Press Ctrl+Shift+P to toggle.');
 }
 
 export default performanceDashboard;

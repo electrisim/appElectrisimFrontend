@@ -1,9 +1,10 @@
+import { devLog } from '../utils/devLog.js';
 // BessSizingDialog.js - Dialog for BESS Sizing parameters
 import { Dialog } from '../Dialog.js';
 import { ensureSubscriptionFunctions } from '../ensureSubscriptionFunctions.js';
 import { SIMULATION_FORM_SCROLL_STYLE, SIMULATION_INFO_BANNER_STYLE, preventAccidentalFormSubmit } from '../utils/dialogStyles.js';
 
-console.log('BessSizingDialog.js LOADED');
+devLog('BessSizingDialog.js LOADED');
 
 export class BessSizingDialog extends Dialog {
     constructor(editorUi) {
@@ -276,8 +277,8 @@ export class BessSizingDialog extends Dialog {
 
     updateFormVisibility() {
         const calculationModeInput = this.inputs.get('calculationMode');
-        console.log('[BessSizingDialog] updateFormVisibility called');
-        console.log('[BessSizingDialog] calculationModeInput:', calculationModeInput);
+        devLog('[BessSizingDialog] updateFormVisibility called');
+        devLog('[BessSizingDialog] calculationModeInput:', calculationModeInput);
         
         if (!calculationModeInput) {
             console.warn('[BessSizingDialog] calculationModeInput not found');
@@ -286,7 +287,7 @@ export class BessSizingDialog extends Dialog {
 
         const mode = calculationModeInput.value;
         const isMultiple = mode === 'multiple';
-        console.log('[BessSizingDialog] mode:', mode, 'isMultiple:', isMultiple);
+        devLog('[BessSizingDialog] mode:', mode, 'isMultiple:', isMultiple);
 
         // Show/hide conditional fields using stored form groups
         if (this.formGroups) {
@@ -300,7 +301,7 @@ export class BessSizingDialog extends Dialog {
 
         // Show/hide scenarios section using stored reference
         if (this.scenariosSection) {
-            console.log('[BessSizingDialog] Setting scenarios section display to:', isMultiple ? 'block' : 'none');
+            devLog('[BessSizingDialog] Setting scenarios section display to:', isMultiple ? 'block' : 'none');
             this.scenariosSection.style.display = isMultiple ? 'block' : 'none';
         } else {
             console.warn('[BessSizingDialog] scenariosSection not found');
@@ -482,28 +483,28 @@ export class BessSizingDialog extends Dialog {
 
     // Function to check subscription status (same pattern as other subscription-gated dialogs)
     async checkSubscriptionStatus() {
-        console.log('BessSizingDialog.checkSubscriptionStatus() called');
+        devLog('BessSizingDialog.checkSubscriptionStatus() called');
         try {
             // First ensure subscription functions are available
-            console.log('BessSizingDialog: Ensuring subscription functions are available...');
+            devLog('BessSizingDialog: Ensuring subscription functions are available...');
             if (window.ensureSubscriptionFunctions) {
                 const functionsStatus = await window.ensureSubscriptionFunctions();
-                console.log('BessSizingDialog: Functions status:', functionsStatus);
+                devLog('BessSizingDialog: Functions status:', functionsStatus);
             }
             
             // Use the global subscription check function
             if (window.checkSubscriptionStatus) {
-                console.log('BessSizingDialog: Using window.checkSubscriptionStatus');
+                devLog('BessSizingDialog: Using window.checkSubscriptionStatus');
                 const result = await window.checkSubscriptionStatus();
-                console.log('BessSizingDialog: window.checkSubscriptionStatus result:', result);
+                devLog('BessSizingDialog: window.checkSubscriptionStatus result:', result);
                 return result;
             }
             
             // Fallback: check if subscription manager exists
             if (window.SubscriptionManager && window.SubscriptionManager.checkSubscriptionStatus) {
-                console.log('BessSizingDialog: Using SubscriptionManager.checkSubscriptionStatus');
+                devLog('BessSizingDialog: Using SubscriptionManager.checkSubscriptionStatus');
                 const result = await window.SubscriptionManager.checkSubscriptionStatus();
-                console.log('BessSizingDialog: SubscriptionManager result:', result);
+                devLog('BessSizingDialog: SubscriptionManager result:', result);
                 return result;
             }
             
@@ -697,18 +698,18 @@ export class BessSizingDialog extends Dialog {
             
             // Check subscription status before proceeding (same pattern as other subscription-gated dialogs)
             try {
-                console.log('BessSizingDialog: Starting subscription check...');
+                devLog('BessSizingDialog: Starting subscription check...');
                 const hasSubscription = await this.checkSubscriptionStatus();
-                console.log('BessSizingDialog: Subscription check result:', hasSubscription);
+                devLog('BessSizingDialog: Subscription check result:', hasSubscription);
                 
                 if (!hasSubscription) {
-                    console.log('BessSizingDialog: No subscription, showing modal...');
+                    devLog('BessSizingDialog: No subscription, showing modal...');
                     // Close the dialog first
                     this.closeDialog();
                     
                     // Show subscription modal if no active subscription
                     if (window.showSubscriptionModal) {
-                        console.log('BessSizingDialog: Calling showSubscriptionModal');
+                        devLog('BessSizingDialog: Calling showSubscriptionModal');
                         window.showSubscriptionModal();
                     } else {
                         console.error('BessSizingDialog: Subscription modal not available');
@@ -717,10 +718,10 @@ export class BessSizingDialog extends Dialog {
                     return;
                 }
                 
-                console.log('BessSizingDialog: Subscription check passed, proceeding with calculation...');
+                devLog('BessSizingDialog: Subscription check passed, proceeding with calculation...');
                 
                 const values = this.getFormValues();
-                console.log(`${this.title} values:`, values);
+                devLog(`${this.title} values:`, values);
                 
                 // Validate scenarios if multiple mode
                 if (values.calculationMode === 'multiple' && values.scenarios) {

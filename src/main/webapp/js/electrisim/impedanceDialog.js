@@ -1,3 +1,4 @@
+import { devLog } from './utils/devLog.js';
 import { Dialog } from './Dialog.js';
 import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
 
@@ -182,7 +183,7 @@ export class ImpedanceDialog extends Dialog {
         applyButton.onclick = (e) => {
             e.preventDefault();
             const values = this.getFormValues();
-            console.log('Impedance values:', values);
+            devLog('Impedance values:', values);
             
             if (this.callback) {
                 this.callback(values);
@@ -494,29 +495,29 @@ export class ImpedanceDialog extends Dialog {
             delete window._globalDialogShowing;
         }
         
-        console.log('Impedance dialog destroyed and flags cleared');
+        devLog('Impedance dialog destroyed and flags cleared');
     }
     
     populateDialog(cellData) {
-        console.log('=== ImpedanceDialog.populateDialog called ===');
-        console.log('Cell data:', cellData);
+        devLog('=== ImpedanceDialog.populateDialog called ===');
+        devLog('Cell data:', cellData);
         
         // Log initial parameter values
-        console.log('Initial parameter values:');
+        devLog('Initial parameter values:');
         [...this.electricalParameters, ...this.ratingParameters].forEach(param => {
-            console.log(`  ${param.id}: ${param.value} (${param.type})`);
+            devLog(`  ${param.id}: ${param.value} (${param.type})`);
         });
         
         // Update parameter values based on cell data
         if (cellData && cellData.attributes) {
-            console.log(`Found ${cellData.attributes.length} attributes to process`);
+            devLog(`Found ${cellData.attributes.length} attributes to process`);
             
             for (let i = 0; i < cellData.attributes.length; i++) {
                 const attribute = cellData.attributes[i];
                 const attributeName = attribute.name;
                 const attributeValue = attribute.value;
                 
-                console.log(`Processing attribute: ${attributeName} = ${attributeValue}`);
+                devLog(`Processing attribute: ${attributeName} = ${attributeValue}`);
                 
                 // Update the dialog's parameter values (not DOM inputs)
                 const electricalParam = this.electricalParameters.find(p => p.id === attributeName);
@@ -527,7 +528,7 @@ export class ImpedanceDialog extends Dialog {
                     } else {
                         electricalParam.value = attributeValue;
                     }
-                    console.log(`  Updated electrical ${attributeName}: ${oldValue} → ${electricalParam.value}`);
+                    devLog(`  Updated electrical ${attributeName}: ${oldValue} → ${electricalParam.value}`);
                 }
                 
                 const ratingParam = this.ratingParameters.find(p => p.id === attributeName);
@@ -538,7 +539,7 @@ export class ImpedanceDialog extends Dialog {
                     } else {
                         ratingParam.value = attributeValue;
                     }
-                    console.log(`  Updated rating ${attributeName}: ${oldValue} → ${ratingParam.value}`);
+                    devLog(`  Updated rating ${attributeName}: ${oldValue} → ${ratingParam.value}`);
                 }
                 
                 const economicParam = (this.economicParameters || []).find(p => p.id === attributeName);
@@ -548,20 +549,20 @@ export class ImpedanceDialog extends Dialog {
                 }
                 
                 if (!electricalParam && !ratingParam && !economicParam) {
-                    console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
+                    devLog(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
             }
         } else {
-            console.log('No cell data or attributes found');
+            devLog('No cell data or attributes found');
         }
         
         // Log final parameter values
-        console.log('Final parameter values:');
+        devLog('Final parameter values:');
         [...this.electricalParameters, ...this.ratingParameters].forEach(param => {
-            console.log(`  ${param.id}: ${param.value} (${param.type})`);
+            devLog(`  ${param.id}: ${param.value} (${param.type})`);
         });
         
-        console.log('=== ImpedanceDialog.populateDialog completed ===');
+        devLog('=== ImpedanceDialog.populateDialog completed ===');
     }
 }
 

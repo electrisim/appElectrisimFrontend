@@ -1,3 +1,4 @@
+import { devLog } from './utils/devLog.js';
 import { Dialog } from './Dialog.js';
 import { createEconomicTabContent, buildCostPerUnitByCurrency } from './utils/economicTabHelper.js';
 
@@ -248,7 +249,7 @@ export class AsymmetricLoadDialog extends Dialog {
         applyButton.onclick = (e) => {
             e.preventDefault();
             const values = this.getFormValues();
-            console.log('Asymmetric Load values:', values);
+            devLog('Asymmetric Load values:', values);
             
             if (this.callback) {
                 this.callback(values);
@@ -588,23 +589,23 @@ export class AsymmetricLoadDialog extends Dialog {
             delete window._globalDialogShowing;
         }
         
-        console.log('Asymmetric Load dialog destroyed and flags cleared');
+        devLog('Asymmetric Load dialog destroyed and flags cleared');
     }
     
     populateDialog(cellData) {
-        console.log('=== AsymmetricLoadDialog.populateDialog called ===');
-        console.log('Cell data:', cellData);
+        devLog('=== AsymmetricLoadDialog.populateDialog called ===');
+        devLog('Cell data:', cellData);
         
         // Update parameter values based on cell data
         if (cellData && cellData.attributes) {
-            console.log(`Found ${cellData.attributes.length} attributes to process`);
+            devLog(`Found ${cellData.attributes.length} attributes to process`);
             
             for (let i = 0; i < cellData.attributes.length; i++) {
                 const attribute = cellData.attributes[i];
                 const attributeName = attribute.name;
                 const attributeValue = attribute.value;
                 
-                console.log(`Processing attribute: ${attributeName} = ${attributeValue}`);
+                devLog(`Processing attribute: ${attributeName} = ${attributeValue}`);
                 
                 // Update the dialog's parameter values (not DOM inputs)
                 const powerParam = this.powerParameters.find(p => p.id === attributeName);
@@ -615,7 +616,7 @@ export class AsymmetricLoadDialog extends Dialog {
                     } else {
                         powerParam.value = attributeValue;
                     }
-                    console.log(`  Updated power ${attributeName}: ${oldValue} → ${powerParam.value}`);
+                    devLog(`  Updated power ${attributeName}: ${oldValue} → ${powerParam.value}`);
                 }
                 
                 const reactiveParam = this.reactivePowerParameters.find(p => p.id === attributeName);
@@ -626,7 +627,7 @@ export class AsymmetricLoadDialog extends Dialog {
                     } else {
                         reactiveParam.value = attributeValue;
                     }
-                    console.log(`  Updated reactive ${attributeName}: ${oldValue} → ${reactiveParam.value}`);
+                    devLog(`  Updated reactive ${attributeName}: ${oldValue} → ${reactiveParam.value}`);
                 }
                 
                 const configParam = this.configParameters.find(p => p.id === attributeName);
@@ -637,25 +638,25 @@ export class AsymmetricLoadDialog extends Dialog {
                     } else {
                         configParam.value = attributeValue;
                     }
-                    console.log(`  Updated config ${attributeName}: ${oldValue} → ${configParam.value}`);
+                    devLog(`  Updated config ${attributeName}: ${oldValue} → ${configParam.value}`);
                 }
                 
                 const economicParam = (this.economicParameters || []).find(p => p.id === attributeName);
                 if (economicParam) {
                     economicParam.value = attributeValue;
                     this.data[attributeName] = attributeValue;
-                    console.log(`  Updated economic ${attributeName}: → ${attributeValue}`);
+                    devLog(`  Updated economic ${attributeName}: → ${attributeValue}`);
                 }
                 
                 if (!powerParam && !reactiveParam && !configParam && !economicParam) {
-                    console.log(`  WARNING: No parameter found for attribute ${attributeName}`);
+                    devLog(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
             }
         } else {
-            console.log('No cell data or attributes found');
+            devLog('No cell data or attributes found');
         }
         
-        console.log('=== AsymmetricLoadDialog.populateDialog completed ===');
+        devLog('=== AsymmetricLoadDialog.populateDialog completed ===');
     }
 }
 

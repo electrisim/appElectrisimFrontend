@@ -1,3 +1,4 @@
+import { escapeHtml } from '../utils/htmlEscape.js';
 // BessDispatchReversalResultsDialog.js - V(t), P(t), Q(t) for BESS P-step study
 function loadChartJs() {
     return new Promise((resolve, reject) => {
@@ -157,8 +158,8 @@ export class BessDispatchReversalResultsDialog {
 
             const addChart = (title, datasets, yLabel, extraY, limitLines, note) => {
                 const section = document.createElement('div');
-                section.innerHTML = `<h3 style="margin:16px 0 8px;font-size:15px;">${title}</h3>` +
-                    (note ? `<p style="margin:-4px 0 8px;font-size:12px;color:#666;">${note}</p>` : '');
+                section.innerHTML = `<h3 style="margin:16px 0 8px;font-size:15px;">${escapeHtml(title)}</h3>` +
+                    (note ? `<p style="margin:-4px 0 8px;font-size:12px;color:#666;">${escapeHtml(note)}</p>` : '');
                 const canvas = document.createElement('canvas');
                 canvas.height = 200;
                 section.appendChild(canvas);

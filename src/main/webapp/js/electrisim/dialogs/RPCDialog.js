@@ -1,8 +1,9 @@
+import { devLog } from '../utils/devLog.js';
 import { Dialog } from '../Dialog.js';
 import { ensureSubscriptionFunctions } from '../ensureSubscriptionFunctions.js';
 import { SIMULATION_FORM_SCROLL_STYLE, SIMULATION_INFO_BANNER_STYLE } from '../utils/dialogStyles.js';
 
-console.log('RPCDialog.js LOADED');
+devLog('RPCDialog.js LOADED');
 
 const GRID_CODE_TEMPLATES = {
     'none': {

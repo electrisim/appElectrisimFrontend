@@ -1,3 +1,4 @@
+import { escapeHtml } from '../utils/htmlEscape.js';
 /**
  * MapEditorDialog - Dialog with embedded map for placing nodes and drawing cables
  * Generates electrical model with real cable lengths from geographic coordinates
@@ -470,7 +471,7 @@ export class MapEditorDialog extends Dialog {
         overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:10001;';
         const box = document.createElement('div');
         box.style.cssText = 'background:#fff;border-radius:8px;padding:16px;min-width:280px;box-shadow:0 4px 20px rgba(0,0,0,0.2);';
-        box.innerHTML = `<div style="font-weight:600;margin-bottom:12px;color:#1565c0;">Place wind turbines in ${area.id}</div>`;
+        box.innerHTML = `<div style="font-weight:600;margin-bottom:12px;color:#1565c0;">Place wind turbines in ${escapeHtml(area.id)}</div>`;
         const countLabel = document.createElement('label');
         countLabel.style.cssText = 'display:block;margin-bottom:4px;font-size:12px;';
         countLabel.textContent = 'Number of turbines:';

@@ -1,3 +1,4 @@
+import { devLog } from './utils/devLog.js';
 // bessSizing.js - BESS Sizing calculation function
 import { BessSizingDialog } from './dialogs/BessSizingDialog.js';
 import { prepareNetworkData } from './utils/networkDataPreparation.js';
@@ -7,7 +8,7 @@ import {
     formatDurationMs
 } from './utils/simulationProgressOverlay.js';
 
-console.log('bessSizing.js LOADED');
+devLog('bessSizing.js LOADED');
 
 // Import ENV for backend URL (same as loadFlow.js)
 // ENV is set globally by environment.js, but we'll access it via window.ENV
@@ -26,7 +27,7 @@ const getBackendUrl = () => {
  */
 function bessSizing(a, b, c) {
     const startTime = performance.now();
-    console.log('BESS Sizing calculation started');
+    devLog('BESS Sizing calculation started');
 
     // Get editor UI
     const editorUi = a || window.App?.main?.editor?.editorUi;
@@ -46,11 +47,11 @@ function bessSizing(a, b, c) {
     
     dialog.show(async (values) => {
         if (!values) {
-            console.log('BESS Sizing dialog cancelled');
+            devLog('BESS Sizing dialog cancelled');
             return;
         }
 
-        console.log('BESS Sizing parameters:', values);
+        devLog('BESS Sizing parameters:', values);
 
         // Validate required parameters
         if (!values.storageId || !values.pocBusbarId) {
@@ -156,9 +157,9 @@ function bessSizing(a, b, c) {
             // Get backend URL from ENV (same as loadFlow.js)
             const backendUrl = getBackendUrl();
             
-            console.log('BESS Sizing - Using backend URL:', backendUrl);
-            console.log('BESS Sizing - Network data prepared:', Object.keys(in_data).length, 'components');
-            console.log('BESS Sizing - bess_sizing_params:', in_data['bess_sizing_params']);
+            devLog('BESS Sizing - Using backend URL:', backendUrl);
+            devLog('BESS Sizing - Network data prepared:', Object.keys(in_data).length, 'components');
+            devLog('BESS Sizing - bess_sizing_params:', in_data['bess_sizing_params']);
             
             // Send request to backend
             overlay.append('Sending request…', { time: true });
@@ -506,7 +507,7 @@ function drawScatterPlot(canvas, scenarios, plotType) {
  * Process and display BESS sizing results
  */
 function processBessSizingResults(dataJson, graph, editorUi, values) {
-    console.log('Processing BESS sizing results:', dataJson);
+    devLog('Processing BESS sizing results:', dataJson);
 
     if (dataJson.error) {
         alert('BESS Sizing Error: ' + dataJson.error);
@@ -712,7 +713,7 @@ function processBessSizingResults(dataJson, graph, editorUi, values) {
         // showDialog(container, width, height, resizable, modal, closeCallback)
         editorUi.showDialog(container, screenWidth, screenHeight, true, false, () => {
             // Close callback - dialog can be closed
-            console.log('BESS Sizing results dialog closed');
+            devLog('BESS Sizing results dialog closed');
         });
     } else {
         // Fallback: use alert if showDialog is not available

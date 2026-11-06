@@ -1,3 +1,4 @@
+import { devLog } from '../utils/devLog.js';
 // stripe-subscription.js - Manages subscription-related functionality
 
 import config from '../config/environment.js';
@@ -18,7 +19,7 @@ function getAuthToken() {
     const token = localToken || localJwt || localAuthToken || sessionToken || sessionJwt;
     
     if (!token) {
-        console.log('No authentication token found');
+        devLog('No authentication token found');
         return null;
     }
     
@@ -27,7 +28,7 @@ function getAuthToken() {
 
 // Function to handle unauthenticated users
 function handleUnauthenticated() {
-    console.log('User not authenticated. Showing login modal...');
+    devLog('User not authenticated. Showing login modal...');
     
     // Clear any existing tokens
     localStorage.removeItem('token');
@@ -57,7 +58,7 @@ async function checkSubscriptionStatus() {
         });
 
         if (response.status === 401) {
-            console.log('Token expired or invalid');
+            devLog('Token expired or invalid');
             throw new Error('Token expired');
         }
 
@@ -136,7 +137,7 @@ async function redirectToStripeCheckout(priceIdOrPlan, options = {}) {
             requestBody.quantity = Number.isInteger(quantity) && quantity >= 1 ? quantity : 1;
         }
 
-        console.log('Creating checkout session:', {
+        devLog('Creating checkout session:', {
             priceId,
             isCompany,
             quantity: requestBody.quantity,
@@ -175,7 +176,7 @@ async function redirectToStripeCheckout(priceIdOrPlan, options = {}) {
         
         // Check if token was updated due to customer ID fix
         if (data.tokenUpdated && data.newToken) {
-            console.log('✅ Token updated automatically during checkout (customer ID fix)');
+            devLog('✅ Token updated automatically during checkout (customer ID fix)');
             localStorage.setItem('token', data.newToken);
             
             // Update user data if available
@@ -188,7 +189,7 @@ async function redirectToStripeCheckout(priceIdOrPlan, options = {}) {
                         stripeCustomerId: payload.stripeCustomerId
                     };
                     localStorage.setItem('user', JSON.stringify(userData));
-                    console.log('✅ User data updated with new customer ID');
+                    devLog('✅ User data updated with new customer ID');
                 }
             } catch (e) {
                 console.warn('Could not parse new token:', e);
@@ -200,7 +201,7 @@ async function redirectToStripeCheckout(priceIdOrPlan, options = {}) {
             throw new Error('No checkout URL received');
         }
 
-        console.log('Redirecting to checkout URL:', data.url);
+        devLog('Redirecting to checkout URL:', data.url);
         
         // Disable beforeunload handler to prevent "Leave page?" dialog when subscribing
         window.onbeforeunload = null;
@@ -513,7 +514,7 @@ window.addEventListener('message', function(event) {
                 }
                 break;
             case 'subscription_canceled':
-                console.log('Subscription process was canceled');
+                devLog('Subscription process was canceled');
                 break;
         }
     }
@@ -843,7 +844,7 @@ window.checkSubscriptionStatus = async function() {
 
             // If it's a 401, the token might be expired
             if (response.status === 401) {
-                console.log('Token expired or invalid, redirecting to login');
+                devLog('Token expired or invalid, redirecting to login');
                 // Throw error so dialog can show appropriate message before redirect
                 throw new Error('Token expired');
             }
@@ -856,7 +857,7 @@ window.checkSubscriptionStatus = async function() {
 
         // Check if token was updated due to customer ID fix
         if (data.tokenUpdated && data.newToken) {
-            console.log('✅ Token updated automatically due to customer ID fix');
+            devLog('✅ Token updated automatically due to customer ID fix');
             localStorage.setItem('token', data.newToken);
             
             // Update user data if available
@@ -869,7 +870,7 @@ window.checkSubscriptionStatus = async function() {
                         stripeCustomerId: payload.stripeCustomerId
                     };
                     localStorage.setItem('user', JSON.stringify(userData));
-                    console.log('✅ User data updated with new customer ID');
+                    devLog('✅ User data updated with new customer ID');
                 }
             } catch (e) {
                 console.warn('Could not parse new token:', e);
@@ -904,7 +905,7 @@ async function fixCustomerIdMismatch() {
             return false;
         }
 
-        console.log('🔧 Fixing customer ID mismatch...');
+        devLog('🔧 Fixing customer ID mismatch...');
 
         const response = await fetch(`${API_BASE_URL}/stripe/fix-customer-id`, {
             method: 'POST',
@@ -920,18 +921,18 @@ async function fixCustomerIdMismatch() {
         }
 
         const data = await response.json();
-        console.log('✅ Customer ID fixed:', data);
+        devLog('✅ Customer ID fixed:', data);
 
         // Update stored token with the new one
         if (data.newToken) {
             localStorage.setItem('token', data.newToken);
-            console.log('🔄 Updated authentication token');
+            devLog('🔄 Updated authentication token');
         }
 
         // Update stored user data
         if (data.user) {
             localStorage.setItem('user', JSON.stringify(data.user));
-            console.log('🔄 Updated user data');
+            devLog('🔄 Updated user data');
         }
 
         alert('Customer ID fixed! You can now use Stripe subscriptions.');
@@ -954,7 +955,7 @@ async function updateCustomerIdToTest(testCustomerId) {
             return false;
         }
 
-        console.log('🔄 Updating customer ID to test mode customer:', testCustomerId);
+        devLog('🔄 Updating customer ID to test mode customer:', testCustomerId);
 
         const response = await fetch(`${API_BASE_URL}/stripe/update-customer-id`, {
             method: 'POST',
@@ -973,18 +974,18 @@ async function updateCustomerIdToTest(testCustomerId) {
         }
 
         const data = await response.json();
-        console.log('✅ Customer ID updated:', data);
+        devLog('✅ Customer ID updated:', data);
 
         // Update stored token with the new one
         if (data.newToken) {
             localStorage.setItem('token', data.newToken);
-            console.log('🔄 Updated authentication token');
+            devLog('🔄 Updated authentication token');
         }
 
         // Update stored user data
         if (data.user) {
             localStorage.setItem('user', JSON.stringify(data.user));
-            console.log('🔄 Updated user data');
+            devLog('🔄 Updated user data');
         }
 
         alert(`Customer ID updated successfully!\nOld: ${data.oldCustomerId}\nNew: ${data.newCustomerId}`);
