@@ -34,13 +34,13 @@ export function configureExternalGridAttributes(grafka, vertex, options = {}) {
     //Short-circuit 
     g.setAttribute("Short_circuit_parameters", "");
     g.setAttribute("s_sc_max_mva", options.s_sc_max_mva != null ? String(options.s_sc_max_mva) : "1000000.0");    
-    g.setAttribute("s_sc_min_mva", options.s_sc_min_mva != null ? String(options.s_sc_min_mva) : "0");
-    g.setAttribute("rx_max", options.rx_max != null ? String(options.rx_max) : "0");
-    g.setAttribute("rx_min", options.rx_min != null ? String(options.rx_min) : "0");
-    g.setAttribute("r0x0_max", options.r0x0_max != null ? String(options.r0x0_max) : "0");
-    g.setAttribute("x0x_max", options.x0x_max != null ? String(options.x0x_max) : "0");
-    g.setAttribute("r0x0_min", options.r0x0_min != null ? String(options.r0x0_min) : (options.r0x0_max != null ? String(options.r0x0_max) : "0"));
-    g.setAttribute("x0x_min", options.x0x_min != null ? String(options.x0x_min) : (options.x0x_max != null ? String(options.x0x_max) : "0"));
+    g.setAttribute("s_sc_min_mva", options.s_sc_min_mva != null ? String(options.s_sc_min_mva) : "800000.0");
+    g.setAttribute("rx_max", options.rx_max != null ? String(options.rx_max) : "0.1");
+    g.setAttribute("rx_min", options.rx_min != null ? String(options.rx_min) : "0.1");
+    g.setAttribute("r0x0_max", options.r0x0_max != null ? String(options.r0x0_max) : "0.1");
+    g.setAttribute("x0x_max", options.x0x_max != null ? String(options.x0x_max) : "1.0");
+    g.setAttribute("r0x0_min", options.r0x0_min != null ? String(options.r0x0_min) : (options.r0x0_max != null ? String(options.r0x0_max) : "0.1"));
+    g.setAttribute("x0x_min", options.x0x_min != null ? String(options.x0x_min) : (options.x0x_max != null ? String(options.x0x_max) : "1.0"));
 
     // Harmonic analysis parameters (OpenDSS Vsource)
     g.setAttribute("Harmonic_parameters", "");
@@ -179,7 +179,7 @@ export function configureStaticGeneratorAttributes(grafka, vertex, options = {})
     g.setAttribute("Short_circuit_parameters", "");
     g.setAttribute("k", options.k ||  "0");
     g.setAttribute("rx", options.rx ||  "0");
-    g.setAttribute("generator_type", options.generator_type ||  "async");
+    g.setAttribute("generator_type", options.generator_type || "current_source");
     g.setAttribute("lrc_pu", options.lrc_pu ||  "0.0");
     g.setAttribute("max_ik_ka", options.max_ik_ka ||  "0.0");
     g.setAttribute("kappa", options.kappa ||  "0.0");
@@ -753,13 +753,13 @@ export function configureMotorAttributes(grafka, vertex, options = {}) {
     //INPUT
     g.setAttribute("Load_flow_parameters", "");
     g.setAttribute("pn_mech_mw", options.pn_mech_mw || "0");
-    g.setAttribute("cos_phi", options.cos_phi ||"0");
+    g.setAttribute("cos_phi", options.cos_phi || "0.85");
 
     //Short-circuit
     g.setAttribute("Short_circuit_parameters", "");
-    g.setAttribute("cos_phi_n", options.cos_phi_n || "0");
-    g.setAttribute("efficiency_n_percent", options.efficiency_n_percent || "0");
-    g.setAttribute("lrc_pu", options.lrc_pu || "0");
+    g.setAttribute("cos_phi_n", options.cos_phi_n || "0.85");
+    g.setAttribute("efficiency_n_percent", options.efficiency_n_percent || "90");
+    g.setAttribute("lrc_pu", options.lrc_pu || "6");
     g.setAttribute("rx", options.rx ||"0");
     g.setAttribute("vn_kv", options.vn_kv || "0");
 
@@ -772,8 +772,8 @@ export function configureMotorAttributes(grafka, vertex, options = {}) {
 
     //OPTIONAL
     g.setAttribute("Optional_parameters", "");
-    g.setAttribute("efficiency_percent", options.efficiency_percent ||"0");
-    g.setAttribute("loading_percent", options.loading_percent || "0");
+    g.setAttribute("efficiency_percent", options.efficiency_percent || "90");
+    g.setAttribute("loading_percent", options.loading_percent || "100");
     g.setAttribute("scaling", defaultScaling(options.scaling));
     // g.setAttribute("in_service", "True");  //in_service nie działa                
 

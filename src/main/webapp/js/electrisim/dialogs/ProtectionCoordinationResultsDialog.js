@@ -162,6 +162,20 @@ export class ProtectionCoordinationResultsDialog {
         const scenarios = this.results.scenarios || [];
         const section = document.createElement('div');
         section.innerHTML = '<h3 style="margin:8px 0 12px 0;">Tripping table</h3>';
+        // Assumptions the backend made (e.g. typical data for a Generator left without short-circuit data).
+        const notes = Array.isArray(this.results.warnings) ? this.results.warnings : [];
+        if (notes.length) {
+            const box = document.createElement('div');
+            box.style.cssText = 'padding:10px 12px;border:1px solid #ffecb5;background:#fff3cd;color:#664d03;border-radius:6px;font-size:12px;line-height:1.5;margin-bottom:12px;';
+            const title = document.createElement('strong');
+            title.textContent = 'Assumptions';
+            const list = document.createElement('ul');
+            list.style.cssText = 'margin:4px 0 0 18px;padding:0;max-height:140px;overflow:auto;';
+            notes.forEach(n => { const li = document.createElement('li'); li.textContent = String(n); list.appendChild(li); });
+            box.appendChild(title);
+            box.appendChild(list);
+            section.appendChild(box);
+        }
         if (!scenarios.length) {
             const empty = document.createElement('div');
             empty.style.cssText = 'padding:12px;border:1px solid #ffecb5;background:#fff3cd;color:#664d03;border-radius:6px;font-size:13px;line-height:1.5;margin-bottom:12px;';

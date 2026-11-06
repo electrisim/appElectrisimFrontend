@@ -47,6 +47,16 @@ export class PoiFaultStudyResultsDialog {
         meta.innerHTML = `<strong>POI:</strong> ${escapeHtml(poi.userFriendlyName || poi.name || '—')} · ${fmt(this.results.frequency_hz, 0)} Hz`;
         shell.appendChild(meta);
 
+        // Assumptions the backend made (e.g. typical data for a Generator left without short-circuit data).
+        const notes = Array.isArray(this.results.warnings) ? this.results.warnings : [];
+        if (notes.length) {
+            const box = document.createElement('div');
+            box.style.cssText = 'margin:8px 20px 0;padding:10px 12px;border:1px solid #ffecb5;background:#fff3cd;color:#664d03;border-radius:6px;font-size:12px;line-height:1.5;';
+            box.innerHTML = '<strong>Assumptions</strong><ul style="margin:4px 0 0 18px;padding:0;max-height:140px;overflow:auto;">'
+                + notes.map(n => `<li>${escapeHtml(n)}</li>`).join('') + '</ul>';
+            shell.appendChild(box);
+        }
+
         const toolbar = document.createElement('div');
         toolbar.style.cssText = 'padding:8px 20px;display:flex;gap:8px;';
         const csvBtn = document.createElement('button');

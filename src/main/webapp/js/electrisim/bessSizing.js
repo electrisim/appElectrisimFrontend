@@ -178,7 +178,13 @@ function bessSizing(a, b, c) {
             if (!response.ok) {
                 const errorText = await response.text();
                 console.error('Server error response:', errorText);
-                throw new Error(`HTTP error! status: ${response.status}`);
+                // Show the backend's own message (it says which field or element is wrong).
+                let detail = '';
+                try {
+                    const body = JSON.parse(errorText);
+                    detail = typeof body.error === 'string' ? body.error : (body.message || '');
+                } catch (_) { /* not JSON */ }
+                throw new Error(detail || `HTTP error! status: ${response.status}`);
             }
 
             overlay.append(`Response ${response.status} in ${formatDurationMs(performance.now() - requestStart)}`, { time: true });
