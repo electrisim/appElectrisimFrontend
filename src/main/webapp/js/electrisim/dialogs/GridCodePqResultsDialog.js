@@ -17,6 +17,15 @@ import { collectPqScenarios, findPqOverloads } from '../utils/pqOverloadCheck.js
 import { collectLineCurrents } from '../utils/pqLineCurrent.js?v=lc20261105';
 
 // Marker shapes for the line-current 3D chart, one per selected line.
+// Image sizes for "Save image": logical px (text is laid out at this size) drawn at `scale`.
+const PQ_IMAGE_PRESETS = [
+    { key: 'report', label: 'Report / document (16:10)', w: 1600, h: 1000, scale: 2 },
+    { key: 'print', label: 'Print, extra sharp (16:10)', w: 1600, h: 1000, scale: 3 },
+    { key: 'linkedin_landscape', label: 'LinkedIn post, landscape (1.91:1)', w: 1000, h: 523, scale: 2.4 },
+    { key: 'linkedin_square', label: 'LinkedIn post, square (1:1)', w: 900, h: 900, scale: 2.4 },
+    { key: 'linkedin_portrait', label: 'LinkedIn post, portrait (4:5)', w: 900, h: 1125, scale: 2.4 }
+];
+
 const PQ_LC_SYMBOLS = ['circle', 'diamond', 'square', 'cross', 'x', 'circle-open', 'diamond-open', 'square-open'];
 
 // Loading colour scale (cmin 0 %, cmax 100 %): green → yellow → orange below the rating, red at and above it.
@@ -506,6 +515,9 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         this._lineCurrentSection = null;
         this._lcRedraw = null;
         this._lcRange = null;
+        this._lcHiddenV = null;
+        this._lcHiddenCurve = null;
+        this._lcBannerEl = null;
         this._pn = Number(data.pn_mw || data.total_installed_mw) || 0;
         this._plotPuP = false;
         this._plotPuQ = false;
@@ -670,7 +682,7 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
             display: 'flex', justifyContent: 'flex-end', gap: '8px'
         });
         const lineCurrentBtn = this._styledButton('Line current 3D', '#6f42c1', '#59359a');
-        lineCurrentBtn.title = 'Highest current in selected lines over every load flow of this study, as a 3D chart of Q, P and PCC voltage (reads the stored load flows; runs no new calculation).';
+        lineCurrentBtn.title = 'Highest current in selected lines over every load flow of this study, as a 3D chart of Q, P and line current (reads the stored load flows; runs no new calculation).';
         lineCurrentBtn.onclick = () => this._openLineCurrent3d(data);
         footerBar.appendChild(lineCurrentBtn);
 
@@ -689,8 +701,8 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         footerBar.appendChild(copyBtn);
 
         const imageBtn = this._styledButton('Save image', '#0d6efd', '#0b5ed7');
-        imageBtn.title = 'Save a report-quality PNG (1600 px wide at 2x, large fonts and legend) of the visible P-Q chart.';
-        imageBtn.onclick = () => this._saveChartImage();
+        imageBtn.title = 'Save the visible P-Q chart as a high-resolution PNG: choose a report, print or LinkedIn size.';
+        imageBtn.onclick = () => this._openImageSizeMenu(imageBtn, (preset) => this._saveChartImage(preset));
         footerBar.appendChild(imageBtn);
 
         const downloadBtn = this._styledButton('Download CSV', '#28a745', '#218838');
@@ -1552,19 +1564,62 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         };
     }
 
-    async _renderReportCanvas() {
+    /**
+     * Report image of the visible chart at a preset size (logical w x h px, drawn at preset.scale):
+     * title, PCC voltage and verdict on top, the chart, Element Q notes and a credit below.
+     */
+    async _renderReportCanvas(preset = PQ_IMAGE_PRESETS[0]) {
         const rc = this._reportContext();
         const chart = rc?.chart;
         const Chart = window.Chart;
         if (!chart || !Chart) throw new Error('The diagram is not ready yet.');
 
-        const W = 1600, H = 900, SCALE = 2;          // logical px; drawn at 2x for sharp text
+        const W = preset.w;
+        const SCALE = preset.scale;
+        const compact = W < 1200;   // social-media sizes: tighter margins, slightly smaller text
+        const pad = compact ? 28 : 40;
+        const maxW = W - 2 * pad;
+        const fs = compact
+            ? { title: 26, sub: 17, note: 14, tick: 15, legend: 15, axis: 17, side: 16 }
+            : { title: 30, sub: 19, note: 15, tick: 16, legend: 17, axis: 19, side: 18 };
+
+        // Header and footer text, wrapped to the image width (logical px).
+        const measure = document.createElement('canvas').getContext('2d');
+        const wrap = (text, font, width) => {
+            measure.font = font;
+            const rows = [];
+            let cur = '';
+            String(text || '').split(' ').forEach((w) => {
+                const next = cur ? `${cur} ${w}` : w;
+                if (measure.measureText(next).width > width && cur) { rows.push(cur); cur = w; } else cur = next;
+            });
+            if (cur) rows.push(cur);
+            return rows;
+        };
+        const compliance = rc.compliance;
+        const verdict = compliance === true ? 'COMPLIANT' : compliance === false ? 'NON-COMPLIANT' : '';
+        const titleFont = `700 ${fs.title}px Arial, sans-serif`;
+        const subFont = `${fs.sub}px Arial, sans-serif`;
+        const badgeFont = `700 ${fs.sub}px Arial, sans-serif`;
+        const noteFont = `${fs.note}px Arial, sans-serif`;
+        measure.font = badgeFont;
+        const badgeW = verdict ? measure.measureText(verdict).width + 28 : 0;
+        const titleRows = wrap(rc.title, titleFont, maxW - (badgeW ? badgeW + 18 : 0));
+        const subRows = wrap(rc.subtitle || '', subFont, maxW);
+        const noteRows = (rc.notes || []).flatMap((n) => wrap(n, noteFont, maxW));
+        const titleLH = Math.round(fs.title * 1.3);
+        const subLH = Math.round(fs.sub * 1.45);
+        const noteLH = Math.round(fs.note * 1.45);
+        const headH = 24 + titleRows.length * titleLH + (subRows.length ? 8 + subRows.length * subLH : 0) + 14;
+        const footH = (noteRows.length ? noteRows.length * noteLH + 18 : 0) + 34;
+        const chartH = Math.max(300, Math.round(preset.h - headH - footH));
+
         const host = document.createElement('div');
-        Object.assign(host.style, { position: 'fixed', left: '-10000px', top: '0', width: `${W}px`, height: `${H}px` });
+        Object.assign(host.style, { position: 'fixed', left: '-10000px', top: '0', width: `${W}px`, height: `${chartH}px` });
         const canvas = document.createElement('canvas');
         canvas.width = W;      // Chart.js multiplies by devicePixelRatio (SCALE)
-        canvas.height = H;
-        Object.assign(canvas.style, { width: `${W}px`, height: `${H}px` });
+        canvas.height = chartH;
+        Object.assign(canvas.style, { width: `${W}px`, height: `${chartH}px` });
         host.appendChild(canvas);
         document.body.appendChild(host);
 
@@ -1593,7 +1648,7 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
                 if (!x) return;
                 const g = c.ctx;
                 g.save();
-                g.font = '600 18px Arial, sans-serif';
+                g.font = `600 ${fs.side}px Arial, sans-serif`;
                 g.fillStyle = '#212529';
                 g.textBaseline = 'middle';
                 g.textAlign = 'left';
@@ -1622,7 +1677,7 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
                 responsive: false,
                 animation: false,
                 devicePixelRatio: SCALE,
-                layout: { padding: { top: 10, right: 28, bottom: 6, left: 10 } },
+                layout: { padding: { top: 10, right: compact ? 18 : 28, bottom: 6, left: 10 } },
                 plugins: {
                     title: { display: false },
                     tooltip: { enabled: false },
@@ -1630,25 +1685,25 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
                         position: 'bottom',
                         labels: {
                             filter: legendFilter,
-                            font: { size: 17 },
+                            font: { size: fs.legend },
                             color: '#212529',
-                            boxWidth: 34,
-                            boxHeight: 14,
-                            padding: 16
+                            boxWidth: compact ? 26 : 34,
+                            boxHeight: compact ? 12 : 14,
+                            padding: compact ? 12 : 16
                         }
                     }
                 },
                 scales: {
                     x: {
                         type: xs.type, min: xs.min, max: xs.max, grace: xs.grace,
-                        title: { display: true, text: rc.xLabel, font: { size: 19, weight: '600' }, color: '#212529', padding: { top: 8 } },
-                        ticks: { font: { size: 16 }, color: '#343a40' },
+                        title: { display: true, text: rc.xLabel, font: { size: fs.axis, weight: '600' }, color: '#212529', padding: { top: 8 } },
+                        ticks: { font: { size: fs.tick }, color: '#343a40' },
                         grid: { color: 'rgba(0,0,0,0.08)' }
                     },
                     y: {
                         type: ys.type, min: ys.min, max: ys.max, grace: ys.grace,
-                        title: { display: true, text: rc.yLabel, font: { size: 19, weight: '600' }, color: '#212529' },
-                        ticks: { font: { size: 16 }, color: '#343a40' },
+                        title: { display: true, text: rc.yLabel, font: { size: fs.axis, weight: '600' }, color: '#212529' },
+                        ticks: { font: { size: fs.tick }, color: '#343a40' },
                         grid: { color: 'rgba(0,0,0,0.08)' }
                     }
                 }
@@ -1665,75 +1720,207 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
             im.src = chartImg;
         });
 
-        // Header: study, grid code, PCC voltage, verdict. Footer: Element Q notes when shown.
-        const compliance = rc.compliance;
-        const verdict = compliance === true ? 'COMPLIANT' : compliance === false ? 'NON-COMPLIANT' : '';
-        const subtitle = rc.subtitle || '';
-        const notes = rc.notes || [];
-
-        const pad = 40 * SCALE;
-        const measure = document.createElement('canvas').getContext('2d');
-        const maxW = img.width - 2 * pad;
-        const wrap = (text, font) => {
-            measure.font = font;
-            const rows = [];
-            let cur = '';
-            String(text).split(' ').forEach((w) => {
-                const next = cur ? `${cur} ${w}` : w;
-                if (measure.measureText(next).width > maxW && cur) { rows.push(cur); cur = w; } else cur = next;
-            });
-            if (cur) rows.push(cur);
-            return rows;
-        };
-        const noteFont = `${15 * SCALE}px Arial, sans-serif`;
-        const noteRows = notes.flatMap((n) => wrap(n, noteFont));
-        const headH = 112 * SCALE;
-        const footH = (noteRows.length ? noteRows.length * 22 * SCALE + 24 * SCALE : 0) + 34 * SCALE;
+        // Compose in logical px on a canvas scaled to the output resolution.
+        const totalH = headH + chartH + footH;
         const out = document.createElement('canvas');
-        out.width = img.width;
-        out.height = headH + img.height + footH;
+        out.width = Math.round(W * SCALE);
+        out.height = Math.round(totalH * SCALE);
         const ctx = out.getContext('2d');
+        ctx.scale(SCALE, SCALE);
         ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, out.width, out.height);
+        ctx.fillRect(0, 0, W, totalH);
         ctx.textBaseline = 'top';
+        let y = 24;
         ctx.fillStyle = '#212529';
-        ctx.font = `700 ${30 * SCALE}px Arial, sans-serif`;
-        ctx.fillText(rc.title, pad, 26 * SCALE);
-        ctx.font = `${19 * SCALE}px Arial, sans-serif`;
-        ctx.fillStyle = '#495057';
-        ctx.fillText(subtitle, pad, 70 * SCALE);
+        ctx.font = titleFont;
+        titleRows.forEach((row) => { ctx.fillText(row, pad, y); y += titleLH; });
         if (verdict) {
-            ctx.font = `700 ${19 * SCALE}px Arial, sans-serif`;
-            const tw = ctx.measureText(verdict).width;
-            const bx = img.width - pad - tw - 28 * SCALE;
+            ctx.font = badgeFont;
+            const bx = W - pad - badgeW;
+            const bh = Math.round(fs.sub * 2.1);
             ctx.fillStyle = compliance ? '#d1e7dd' : '#f8d7da';
-            ctx.fillRect(bx, 24 * SCALE, tw + 28 * SCALE, 40 * SCALE);
+            ctx.fillRect(bx, 20, badgeW, bh);
             ctx.fillStyle = compliance ? '#0f5132' : '#842029';
-            ctx.fillText(verdict, bx + 14 * SCALE, 34 * SCALE);
+            ctx.fillText(verdict, bx + 14, 20 + (bh - fs.sub) / 2);
         }
-        ctx.drawImage(img, 0, headH);
-        let y = headH + img.height + 12 * SCALE;
+        if (subRows.length) {
+            y += 8;
+            ctx.font = subFont;
+            ctx.fillStyle = '#495057';
+            subRows.forEach((row) => { ctx.fillText(row, pad, y); y += subLH; });
+        }
+        ctx.drawImage(img, 0, headH, W, chartH);
+        y = headH + chartH + 12;
         ctx.font = noteFont;
         ctx.fillStyle = '#343a40';
-        noteRows.forEach((row) => { ctx.fillText(row, pad, y); y += 22 * SCALE; });
-        ctx.font = `${13 * SCALE}px Arial, sans-serif`;
+        noteRows.forEach((row) => { ctx.fillText(row, pad, y); y += noteLH; });
+        ctx.font = `${compact ? 12 : 13}px Arial, sans-serif`;
         ctx.fillStyle = '#868e96';
         ctx.textAlign = 'right';
-        ctx.fillText('Electrisim · pandapower load flow', img.width - pad, out.height - 26 * SCALE);
+        ctx.fillText('Electrisim · pandapower load flow', W - pad, totalH - 26);
         return out;
     }
 
-    async _saveChartImage() {
+    /** Small menu of image sizes above `anchor`; calls onPick(preset). */
+    _openImageSizeMenu(anchor, onPick) {
+        document.querySelector('.pq-image-size-menu')?.remove();
+        const menu = document.createElement('div');
+        menu.className = 'pq-image-size-menu';
+        Object.assign(menu.style, {
+            position: 'fixed', zIndex: '100004', backgroundColor: '#fff', border: '1px solid #ced4da',
+            borderRadius: '8px', boxShadow: '0 6px 24px rgba(0,0,0,0.18)', padding: '6px', minWidth: '300px',
+            fontSize: '13px', fontFamily: 'Arial, sans-serif'
+        });
+        const head = document.createElement('div');
+        head.textContent = 'Save image as PNG';
+        Object.assign(head.style, { fontWeight: '700', color: '#495057', padding: '4px 8px 6px' });
+        menu.appendChild(head);
+        const close = () => {
+            menu.remove();
+            document.removeEventListener('mousedown', onDown, true);
+            document.removeEventListener('keydown', onKey, true);
+        };
+        const onDown = (e) => { if (!menu.contains(e.target)) close(); };
+        const onKey = (e) => {
+            if (e.key !== 'Escape') return;
+            e.stopPropagation();
+            close();
+        };
+        PQ_IMAGE_PRESETS.forEach((preset) => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            Object.assign(b.style, {
+                display: 'flex', justifyContent: 'space-between', gap: '14px', width: '100%', textAlign: 'left',
+                border: 'none', background: 'none', padding: '7px 8px', borderRadius: '5px', cursor: 'pointer',
+                fontSize: '13px', color: '#212529'
+            });
+            const name = document.createElement('span');
+            name.textContent = preset.label;
+            const px = document.createElement('span');
+            px.textContent = `${Math.round(preset.w * preset.scale)} × ${Math.round(preset.h * preset.scale)} px`;
+            Object.assign(px.style, { color: '#868e96', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' });
+            b.append(name, px);
+            b.onmouseenter = () => { b.style.backgroundColor = '#f1f3f5'; };
+            b.onmouseleave = () => { b.style.backgroundColor = 'transparent'; };
+            b.onclick = () => {
+                close();
+                onPick(preset);
+            };
+            menu.appendChild(b);
+        });
+        document.body.appendChild(menu);
+        const r = anchor.getBoundingClientRect();
+        const mw = menu.offsetWidth;
+        const mh = menu.offsetHeight;
+        menu.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - mw - 8))}px`;
+        menu.style.top = `${r.top - mh - 6 >= 8 ? r.top - mh - 6 : r.bottom + 6}px`;
+        setTimeout(() => {
+            document.addEventListener('mousedown', onDown, true);
+            document.addEventListener('keydown', onKey, true);
+        }, 0);
+    }
+
+    /** Download a PNG data URL as a file. A blob link is used because browsers may refuse long data URLs. */
+    async _downloadDataUrl(url, name) {
+        let href = url;
+        let blobUrl = null;
         try {
-            const out = await this._renderReportCanvas();
-            const a = document.createElement('a');
-            a.href = out.toDataURL('image/png');
-            a.download = `${this._reportFilePrefix ? this._reportFilePrefix() : 'GridCode_PQ'}_diagram_${new Date().toISOString().slice(0, 16).replace(/[:.]/g, '-')}.png`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+            blobUrl = URL.createObjectURL(await (await fetch(url)).blob());
+            href = blobUrl;
+        } catch (e) { /* fall back to the data URL */ }
+        const a = document.createElement('a');
+        a.href = href;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        if (blobUrl) setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+    }
+
+    _imageFileName(kind, preset) {
+        const prefix = this._reportFilePrefix ? this._reportFilePrefix() : 'GridCode_PQ';
+        return `${prefix}_${kind}_${preset.key}_${new Date().toISOString().slice(0, 16).replace(/[:.]/g, '-')}.png`;
+    }
+
+    async _saveChartImage(preset = PQ_IMAGE_PRESETS[0]) {
+        try {
+            const out = await this._renderReportCanvas(preset);
+            this._downloadDataUrl(out.toDataURL('image/png'), this._imageFileName('diagram', preset));
         } catch (e) {
             alert(e.message || String(e));
+        }
+    }
+
+    /**
+     * The Line current 3D chart as a PNG: the current view (rotation and zoom), a title naming the
+     * highest current, larger text for the export size, and the WebGL scene rendered at full resolution.
+     */
+    async _saveLineCurrentImage(preset = PQ_IMAGE_PRESETS[0]) {
+        const gd = this._lineCurrentSection?.querySelector('.js-plotly-plot');
+        if (!gd || !gd._fullLayout || !window.Plotly) {
+            alert('Tick one or more lines to draw the 3D chart first.');
+            return;
+        }
+        try {
+            const clone = (v) => JSON.parse(JSON.stringify(v));
+            const compact = preset.w < 1200;
+            const k = compact ? 1.2 : 1.4;   // text and marker growth over the on-screen chart
+            const big = (n, base) => Math.round((Number(n) || base) * k);
+            const data = gd.data.map((t) => {
+                const c = clone(t);
+                if (c.marker) {
+                    if (Array.isArray(c.marker.size)) c.marker.size = c.marker.size.map((s) => s * k);
+                    else if (typeof c.marker.size === 'number') c.marker.size *= k;
+                    if (c.marker.colorbar) {
+                        c.marker.colorbar = {
+                            ...c.marker.colorbar, thickness: big(c.marker.colorbar.thickness, 14),
+                            tickfont: { size: big(12, 12) }, title: { ...(c.marker.colorbar.title || {}), font: { size: big(13, 13) } }
+                        };
+                    }
+                }
+                if (c.textfont) c.textfont = { ...c.textfont, size: big(c.textfont.size, 11) };
+                if (c.line && typeof c.line.width === 'number') c.line.width *= k;
+                return c;
+            });
+            const layout = clone(gd.layout);
+            const cam = gd._fullLayout.scene?.camera;
+            if (cam) layout.scene.camera = clone(cam);
+            (layout.scene.annotations || []).forEach((a) => {
+                a.font = { ...(a.font || {}), size: big(a.font?.size, 11) };
+                a.ax = (a.ax || 0) * k;
+                a.ay = (a.ay || 0) * k;
+                a.borderpad = big(a.borderpad, 4);
+            });
+            ['xaxis', 'yaxis', 'zaxis'].forEach((ax) => {
+                const axis = layout.scene[ax] || {};
+                axis.title = { ...(axis.title || {}), font: { size: big(13, 13) } };
+                axis.tickfont = { size: big(11, 11) };
+                layout.scene[ax] = axis;
+            });
+            const info = this._lcExportInfo || {};
+            const titleSize = big(compact ? 15 : 17, 17);
+            layout.title = {
+                text: `<b>${escapeHtml(info.title || 'Line current 3D')}</b>`
+                    + (info.sub ? `<br><span style="font-size:${big(12, 12)}px;color:#495057">${escapeHtml(info.sub)}</span>` : ''),
+                x: 0.015, xanchor: 'left', y: 0.985, yanchor: 'top', font: { size: titleSize, color: '#212529' }
+            };
+            layout.font = { family: 'Arial, sans-serif', size: big(12, 12), color: '#212529' };
+            layout.legend = { orientation: 'h', x: 0, xanchor: 'left', y: 0, yanchor: 'top', font: { size: big(11, 11) } };
+            layout.margin = { l: 10, r: 10, t: Math.round(titleSize * (info.sub ? 3.4 : 2.2)), b: big(compact ? 64 : 48, 48) };
+            layout.annotations = [{
+                text: 'Electrisim · pandapower load flow', xref: 'paper', yref: 'paper', x: 1, y: 1,
+                xanchor: 'right', yanchor: 'bottom', showarrow: false, font: { size: big(10, 10), color: '#868e96' }
+            }];
+            layout.paper_bgcolor = '#fff';
+            delete layout.width;
+            delete layout.height;
+            const url = await window.Plotly.toImage(
+                { data, layout, config: { plotGlPixelRatio: preset.scale } },
+                { format: 'png', width: preset.w, height: preset.h, scale: preset.scale }
+            );
+            this._downloadDataUrl(url, this._imageFileName('line_current_3d', preset));
+        } catch (e) {
+            alert(`Could not save the 3D chart: ${e.message || e}`);
         }
     }
 
@@ -2559,6 +2746,7 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
     // ---- Line current 3D: every stored load flow of the study, per selected line ----
 
     destroy() {
+        this._lcExitFull?.();
         try {
             const gd = this._lineCurrentSection?.querySelector('.js-plotly-plot');
             if (gd && window.Plotly) window.Plotly.purge(gd);
@@ -2618,6 +2806,8 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
             if (host && anchor && anchor.parentNode === host) host.insertBefore(section, anchor);
             else if (host) host.appendChild(section);
         }
+        this._lcExitFull?.();
+        this._lcExitFull = null;
         section.replaceChildren();
 
         const head = document.createElement('div');
@@ -2628,18 +2818,27 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         const csvBtn = this._styledButton('Download CSV', '#28a745', '#218838');
         Object.assign(csvBtn.style, { padding: '4px 12px', fontSize: '12px' });
         csvBtn.onclick = () => this._downloadLineCurrentCsv();
-        head.append(title, csvBtn);
+        const fullBtn = this._styledButton('Full screen', '#6f42c1', '#59359a');
+        Object.assign(fullBtn.style, { padding: '4px 12px', fontSize: '12px' });
+        fullBtn.title = 'Show the chart on the whole screen (Esc to leave)';
+        const lcImageBtn = this._styledButton('Save image', '#0d6efd', '#0b5ed7');
+        Object.assign(lcImageBtn.style, { padding: '4px 12px', fontSize: '12px' });
+        lcImageBtn.title = 'Save the 3D chart, as you have rotated it, as a high-resolution PNG: report, print or LinkedIn size.';
+        lcImageBtn.onclick = () => this._openImageSizeMenu(lcImageBtn, (preset) => this._saveLineCurrentImage(preset));
+        head.append(title, fullBtn, lcImageBtn, csvBtn);
         section.appendChild(head);
 
         const hint = document.createElement('div');
         Object.assign(hint.style, { fontSize: '12px', color: '#6c757d', margin: '6px 0 10px', lineHeight: '1.45' });
-        hint.textContent = 'Each point is one stored load flow of the study: X = Q at the PCC, Y = P at the PCC, '
-            + 'vertical axis = PCC voltage (or loading / current, see below). Colour shows the loading against the '
-            + 'line rating (green to orange below it, red above 100 %) or the current; size shows the current. One '
-            + 'line gives several rows of points: one row per curve (Q max, Q min, operating point) at each PCC '
-            + 'voltage, along the active-power sweep. Each selected line has its own marker shape and its highest '
-            + 'current is circled and labelled. Drag to rotate, '
-            + 'scroll to zoom, click a point to show that load flow on the diagram. Reads the stored results only.';
+        hint.textContent = 'Each point is one stored load flow of the study. Floor: X = Q at the PCC, Y = '
+            + (this._lcYQuantity() === 'u' ? 'PCC voltage' : 'P at the PCC')
+            + '. Vertical axis = line current (or loading, see below). Colour = loading against the line rating '
+            + '(green to orange below it, red above 100 %) or the current. The red plane is the rated current of '
+            + 'each line that reaches 90 % of it: points above it exceed the rating. The highest current of each line is ringed, dropped to the floor '
+            + 'and labelled, the highest of all in red, and named in the box above the chart. One line gives a row '
+            + 'of points per curve (Q max, Q min, operating point) and PCC voltage; hide rows with the Show '
+            + 'buttons. Drag to rotate, scroll to zoom, click a point to show that load flow on the diagram. '
+            + 'Reads the stored results only.';
         section.appendChild(hint);
 
         const controls = document.createElement('div');
@@ -2680,8 +2879,71 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
             controls.appendChild(wrap);
         };
         choice('Colour', '_lcColour', [['loading', 'Loading (%)'], ['current', 'Current (kA)']]);
-        choice('Vertical axis', '_lcZ', [['u', 'U at PCC (pu)'], ['loading', 'Loading (%)'], ['current', 'Current (kA)']]);
+        choice('Vertical axis', '_lcZ', this._lcYQuantity() === 'u'
+            ? [['current', 'Current (kA)'], ['loading', 'Loading (%)']]
+            : [['current', 'Current (kA)'], ['loading', 'Loading (%)'], ['u', 'U at PCC (pu)']]);
+        const ratingWrap = document.createElement('label');
+        Object.assign(ratingWrap.style, { display: 'inline-flex', alignItems: 'center', gap: '5px', cursor: 'pointer', color: '#495057' });
+        ratingWrap.title = 'Red plane at the rated current of each line that reaches 90 % of it (current axis), or at 100 % (loading axis). Points above it exceed the rating.';
+        const ratingCb = document.createElement('input');
+        ratingCb.type = 'checkbox';
+        ratingCb.checked = this._lcShowRating !== false;
+        ratingCb.onchange = () => {
+            this._lcShowRating = ratingCb.checked;
+            this._lcRedraw?.();
+        };
+        ratingWrap.append(ratingCb, document.createTextNode('Rating plane'));
+        controls.appendChild(ratingWrap);
         section.appendChild(controls);
+
+        // Show filters: PCC voltages (P-Q only: the U-Q chart has the voltage on an axis) and curves.
+        const allSamples = lines.flatMap((l) => l.samples);
+        if (!this._lcHiddenV) this._lcHiddenV = new Set();
+        if (!this._lcHiddenCurve) this._lcHiddenCurve = new Set();
+        const filters = document.createElement('div');
+        Object.assign(filters.style, { display: 'flex', gap: '18px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '10px', fontSize: '12px' });
+        const chips = (title, items, hidden) => {
+            if (items.length < 2) return;
+            const wrap = document.createElement('div');
+            Object.assign(wrap.style, { display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' });
+            const label = document.createElement('span');
+            label.textContent = title;
+            Object.assign(label.style, { fontWeight: '600', color: '#495057' });
+            wrap.appendChild(label);
+            items.forEach(([key, text]) => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.textContent = text;
+                b.title = 'Hide or show these load flows in the chart';
+                const paint = () => {
+                    const on = !hidden.has(key);
+                    Object.assign(b.style, {
+                        padding: '3px 9px', fontSize: '12px', borderRadius: '12px', cursor: 'pointer',
+                        border: `1px solid ${on ? '#6f42c1' : '#ced4da'}`, backgroundColor: on ? '#efe9fb' : '#fff',
+                        color: on ? '#59359a' : '#adb5bd', fontWeight: on ? '600' : '500',
+                        textDecoration: on ? 'none' : 'line-through'
+                    });
+                };
+                b.onclick = () => {
+                    if (hidden.has(key)) hidden.delete(key);
+                    else if (items.some(([k]) => k !== key && !hidden.has(k))) hidden.add(key);
+                    else return;  // keep at least one shown
+                    paint();
+                    this._lcRedraw?.();
+                };
+                paint();
+                wrap.appendChild(b);
+            });
+            filters.appendChild(wrap);
+        };
+        if (this._lcYQuantity() !== 'u') {
+            const volts = new Map();
+            allSamples.forEach((smp) => volts.set(smp.scenario.vKey, Number(smp.scenario.voltage)));
+            chips('Show U at PCC', [...volts].sort((a, b) => a[1] - b[1]).map(([k, v]) => [k, `${v} pu`]), this._lcHiddenV);
+        }
+        const curves = [...new Set(allSamples.map((smp) => this._overloadSideLabel(smp.scenario.side)))];
+        chips('Curves', curves.map((c) => [c, c]), this._lcHiddenCurve);
+        if (filters.childNodes.length) section.appendChild(filters);
 
         // Axis ranges: empty = automatic. Changing the vertical-axis quantity clears its range.
         if (!this._lcRange) this._lcRange = { x: [null, null], y: [null, null], z: [null, null] };
@@ -2696,7 +2958,7 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
             const n = parseFloat(String(v).replace(',', '.'));
             return Number.isFinite(n) ? n : null;
         };
-        [['x', 'Q (Mvar)'], ['y', 'P (MW)'], ['z', 'Vertical']].forEach(([axisKey, text]) => {
+        [['x', 'Q (Mvar)'], ['y', this._lcYQuantity() === 'u' ? 'U (pu)' : 'P (MW)'], ['z', 'Vertical']].forEach(([axisKey, text]) => {
             const wrap = document.createElement('span');
             Object.assign(wrap.style, { display: 'inline-flex', alignItems: 'center', gap: '4px' });
             const lab = document.createElement('span');
@@ -2749,17 +3011,31 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         this._lcRangeInputs = inputs;
         section.appendChild(ranges);
 
+        // Highest current (and highest loading, if elsewhere) in words, filled by the draw.
+        const banner = document.createElement('div');
+        Object.assign(banner.style, {
+            display: 'none', padding: '8px 12px', marginBottom: '10px', border: '1px solid #d9cdf3',
+            borderLeft: '4px solid #6f42c1', borderRadius: '6px', backgroundColor: '#f8f5fd', fontSize: '12px'
+        });
+        this._lcBannerEl = banner;
+        // The banner, line picker and chart share one block that can go full screen.
+        const stage = document.createElement('div');
+        stage.style.backgroundColor = '#fff';
+        stage.appendChild(banner);
+        section.appendChild(stage);
+
         if (!lines.length) {
             const empty = document.createElement('div');
             empty.textContent = 'No line results are stored with this study. Run it again to refresh the point data.';
             Object.assign(empty.style, { fontSize: '13px', color: '#856404' });
             section.appendChild(empty);
+            fullBtn.style.display = 'none';
             return;
         }
 
         const body = document.createElement('div');
         Object.assign(body.style, { display: 'flex', gap: '14px', alignItems: 'stretch', flexWrap: 'wrap' });
-        section.appendChild(body);
+        stage.appendChild(body);
 
         // Line picker: sorted by highest current, with a filter box.
         const picker = document.createElement('div');
@@ -2812,26 +3088,165 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
             rows.forEach((r) => { r.label.style.display = !f || r.text.includes(f) ? 'flex' : 'none'; });
         };
 
+        const plotWrap = document.createElement('div');
+        Object.assign(plotWrap.style, { flex: '1 1 600px', minWidth: '420px', position: 'relative' });
         const plotDiv = document.createElement('div');
-        Object.assign(plotDiv.style, { flex: '1 1 600px', minWidth: '420px', height: '560px' });
-        body.appendChild(plotDiv);
+        Object.assign(plotDiv.style, { width: '100%', height: '560px' });
+        // Values of the hovered point in a fixed corner box, not a tooltip at the cursor, so a large
+        // mouse pointer never covers them. The last point stays shown after the mouse moves away.
+        const details = document.createElement('div');
+        Object.assign(details.style, {
+            position: 'absolute', left: '8px', bottom: '8px', maxWidth: '380px', padding: '7px 10px',
+            backgroundColor: 'rgba(255,255,255,0.96)', border: '1px solid #ced4da', borderRadius: '6px',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.12)', fontSize: '12px', lineHeight: '1.5', color: '#6c757d',
+            pointerEvents: 'none', zIndex: '5'
+        });
+        details.textContent = 'Point over a marker: its values appear here.';
+        this._lcDetailsEl = details;
+        plotWrap.append(plotDiv, details);
+        body.appendChild(plotWrap);
 
         const table = document.createElement('div');
         table.style.marginTop = '10px';
         section.appendChild(table);
 
+        // Full screen: the stage covers the whole window. An in-page overlay works everywhere, unlike the
+        // browser's Fullscreen API, which embedded pages may block. Esc or the button leaves it.
+        const fullBar = document.createElement('div');
+        Object.assign(fullBar.style, { display: 'none', alignItems: 'center', gap: '10px', marginBottom: '10px' });
+        const fullTitle = document.createElement('div');
+        fullTitle.textContent = 'Line current 3D — every load flow of this study';
+        Object.assign(fullTitle.style, { fontWeight: '700', fontSize: '14px', color: '#212529', marginRight: 'auto' });
+        const exitBtn = this._styledButton('Exit full screen', '#6f42c1', '#59359a');
+        Object.assign(exitBtn.style, { padding: '4px 12px', fontSize: '12px' });
+        exitBtn.title = 'Back to the results (Esc)';
+        const fullImageBtn = this._styledButton('Save image', '#0d6efd', '#0b5ed7');
+        Object.assign(fullImageBtn.style, { padding: '4px 12px', fontSize: '12px' });
+        fullImageBtn.onclick = () => this._openImageSizeMenu(fullImageBtn, (preset) => this._saveLineCurrentImage(preset));
+        fullBar.append(fullTitle, fullImageBtn, exitBtn);
+        stage.insertBefore(fullBar, stage.firstChild);
+        const onKey = (e) => {
+            if (e.key !== 'Escape') return;
+            e.stopPropagation();
+            setFull(false);
+        };
+        const setFull = (full) => {
+            Object.assign(stage.style, full
+                ? {
+                    position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh', zIndex: '100002',
+                    padding: '14px 18px', overflow: 'auto', boxSizing: 'border-box'
+                }
+                : { position: '', top: '', left: '', width: '', height: '', zIndex: '', padding: '0', overflow: '', boxSizing: '' });
+            fullBar.style.display = full ? 'flex' : 'none';
+            const h = full ? 'calc(100vh - 150px)' : '560px';
+            plotDiv.style.height = h;
+            picker.style.maxHeight = h;
+            if (full) document.addEventListener('keydown', onKey, true);
+            else document.removeEventListener('keydown', onKey, true);
+            if (window.Plotly && plotDiv._fullLayout) window.Plotly.Plots.resize(plotDiv);
+        };
+        fullBtn.onclick = () => setFull(true);
+        exitBtn.onclick = () => setFull(false);
+        this._lcExitFull = () => setFull(false);
+
         this._lcRedraw = () => this._drawLineCurrent3d(plotDiv, table);
         this._lcRedraw();
+    }
+
+    /** Second floor axis of the line-current chart: 'p' (P at the PCC) here, 'u' in the U-Q results. */
+    _lcYQuantity() {
+        return 'p';
+    }
+
+    /** Vertical axis of the line-current chart: 'current' (default), 'loading' or 'u'. */
+    _lcZQuantity() {
+        const z = this._lcZ || 'current';
+        return z === 'u' && this._lcYQuantity() === 'u' ? 'current' : z;
+    }
+
+    /** Text box above the chart: the highest current shown and, if elsewhere, the highest loading. */
+    _renderLineCurrentBanner(host, shown, filtered) {
+        if (!host) return;
+        host.replaceChildren();
+        if (!shown.length) {
+            host.style.display = 'none';
+            return;
+        }
+        host.style.display = 'block';
+        const best = shown.reduce((a, e) => (!a || e.top.currentA > a.top.currentA ? e : a), null);
+        const byLoading = shown.flatMap((e) => e.pts.map((s) => ({ e, s })))
+            .filter((o) => Number.isFinite(o.s.loading))
+            .reduce((a, o) => (!a || o.s.loading > a.s.loading ? o : a), null);
+        const row = (label, e, s, value, accent) => {
+            const div = document.createElement('div');
+            Object.assign(div.style, { display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', padding: '3px 0' });
+            const lab = document.createElement('span');
+            lab.textContent = label;
+            Object.assign(lab.style, { fontWeight: '700', color: '#495057', minWidth: '118px' });
+            const val = document.createElement('span');
+            val.textContent = value;
+            Object.assign(val.style, { fontWeight: '800', fontSize: '15px', color: accent, fontVariantNumeric: 'tabular-nums' });
+            const name = document.createElement('span');
+            name.textContent = e.line.name;
+            Object.assign(name.style, { fontWeight: '600', color: '#212529' });
+            const rated = _lcRatedA(s);
+            const detail = document.createElement('span');
+            detail.textContent = (label === 'Highest current'
+                ? (Number.isFinite(s.loading) ? `${_fmt(s.loading, 1)} % of ${_fmt(rated / 1000, 3)} kA rated · ` : '')
+                : `${_fmt(s.currentA / 1000, 3)} kA of ${_fmt(rated / 1000, 3)} kA rated · `)
+                + this._overloadScenarioText(s.scenario);
+            Object.assign(detail.style, { color: '#6c757d', marginRight: 'auto' });
+            div.append(lab, val, name, detail, this._overloadShowButton(s.scenario));
+            return div;
+        };
+        const tone = (loading) => (loading > 100 ? '#dc3545' : '#212529');
+        host.appendChild(row('Highest current', best, best.top, `${_fmt(best.top.currentA / 1000, 3)} kA`, tone(best.top.loading)));
+        if (byLoading && byLoading.s !== best.top) {
+            host.appendChild(row('Highest loading', byLoading.e, byLoading.s, `${_fmt(byLoading.s.loading, 1)} %`, tone(byLoading.s.loading)));
+        }
+        if (filtered) {
+            const note = document.createElement('div');
+            note.textContent = 'Among the load flows shown (some voltages or curves are hidden). The table below covers all of them.';
+            Object.assign(note.style, { fontSize: '11px', color: '#6c757d', marginTop: '2px' });
+            host.appendChild(note);
+        }
     }
 
     async _drawLineCurrent3d(plotDiv, tableHost) {
         const lines = (this._lineCurrents || []).filter((l) => this._lineCurrentSel.has(l.key));
         this._renderLineCurrentTable(tableHost, lines);
         const hasPlot = !!plotDiv._fullLayout;
-        if (!lines.length) {
+        const showText = (msg) => {
             if (window.Plotly && hasPlot) window.Plotly.purge(plotDiv);
-            plotDiv.textContent = 'Tick one or more lines to draw them.';
+            plotDiv.textContent = msg;
             Object.assign(plotDiv.style, { display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6c757d', fontSize: '13px' });
+            if (this._lcDetailsEl) this._lcDetailsEl.style.display = 'none';
+        };
+
+        const yBy = this._lcYQuantity();                 // 'p' | 'u'
+        const zBy = this._lcZQuantity();                 // 'current' | 'loading' | 'u'
+        const hiddenV = this._lcHiddenV || new Set();
+        const hiddenCurve = this._lcHiddenCurve || new Set();
+        const filtered = hiddenV.size > 0 || hiddenCurve.size > 0;
+        const yOf = (s) => (yBy === 'u' ? Number(s.scenario.voltage) : s.scenario.p);
+        const zOf = (s) => (zBy === 'loading' ? s.loading : zBy === 'current' ? s.currentA / 1000 : Number(s.scenario.voltage));
+        const ok = (s) => !hiddenV.has(s.scenario.vKey) && !hiddenCurve.has(this._overloadSideLabel(s.scenario.side))
+            && [s.scenario.q, yOf(s), zOf(s), s.currentA].every(Number.isFinite);
+        // Per selected line: the points shown, the highest current among them and the rated current.
+        const shown = lines.map((line) => {
+            const pts = line.samples.filter(ok);
+            const top = pts.reduce((a, s) => (!a || s.currentA > a.currentA ? s : a), null);
+            const ratedA = line.samples.map(_lcRatedA).find(Number.isFinite);
+            const maxLoading = Math.max(...pts.map((s) => (Number.isFinite(s.loading) ? s.loading : 0)));
+            return { line, pts, top, ratedA, maxLoading };
+        }).filter((e) => e.pts.length);
+        this._renderLineCurrentBanner(this._lcBannerEl, shown, filtered);
+        if (!lines.length) {
+            showText('Tick one or more lines to draw them.');
+            return;
+        }
+        if (!shown.length) {
+            showText('No load flow matches the Show filters.');
             return;
         }
         if (!window.Plotly) {
@@ -2844,16 +3259,17 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
             }
         }
         // Never clear the text of a live chart: that removes Plotly's canvas and the update draws nothing.
-        if (!hasPlot) plotDiv.textContent = '';
+        if (!plotDiv._fullLayout) plotDiv.textContent = '';
         plotDiv.style.display = 'block';
+        if (this._lcDetailsEl) {
+            this._lcDetailsEl.style.display = '';
+            this._lcDetailsEl.textContent = 'Point over a marker: its values appear here.';
+        }
 
         const colourBy = this._lcColour || 'loading';   // 'loading' | 'current'
-        const zBy = this._lcZ || 'u';                    // 'u' | 'loading' | 'current'
-        const zOf = (s) => (zBy === 'loading' ? s.loading : zBy === 'current' ? s.currentA / 1000 : s.scenario.voltage);
-        const ok = (s) => [s.scenario.q, s.scenario.p, zOf(s), s.currentA].every(Number.isFinite);
-        const all = lines.flatMap((l) => l.samples.filter(ok).map((s) => s.currentA));
-        const cmin = Math.min(...all);
-        const cmaxA = Math.max(...all);
+        const allPts = shown.flatMap((e) => e.pts);
+        const cmin = Math.min(...allPts.map((s) => s.currentA));
+        const cmaxA = Math.max(...allPts.map((s) => s.currentA));
         const span = (cmaxA - cmin) || 1;
         const scenarios = [];
         const traces = [];
@@ -2865,34 +3281,103 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
             : (Number.isFinite(s.loading) ? Math.max(0, s.loading) : 0));
         const colourRange = colourBy === 'current' ? [0, cmaxA / 1000] : [0, 100];
         const colorbar = colourBy === 'current'
-            ? { title: { text: 'Line current (kA)' }, thickness: 14, len: 0.75 }
+            ? { title: { text: 'Line current (kA)' }, thickness: 14, len: 0.7, x: 1.0 }
             : {
-                title: { text: 'Loading (% of rated current)' }, thickness: 14, len: 0.75,
+                title: { text: 'Loading (%)' }, thickness: 14, len: 0.7, x: 1.0,
                 tickvals: [0, 25, 50, 75, 100], ticktext: ['0', '25', '50', '75', '≥ 100']
             };
+        const details = [];  // HTML for the point-details box, indexed like scenarios
         const hoverOf = (line, s, lead = '') => {
             const rated = _lcRatedA(s);
-            return `${lead}${line.name}<br>I = ${_fmt(s.currentA / 1000, 3)} kA`
+            const sc = s.scenario;
+            const over = s.loading > 100;
+            return (lead ? `<span style="color:#dc3545;font-weight:700">${lead}</span><br>` : '')
+                + `<b style="color:#212529">${escapeHtml(line.name)}</b>`
+                + `<br>U at PCC <b style="color:#212529;font-size:13px">${sc.voltage} pu</b> · ${escapeHtml(this._overloadSideLabel(sc.side))}`
+                + `<br>P ${_fmt(sc.p, 1)} MW · Q ${_fmt(sc.q, 1)} Mvar`
+                + `<br>I = <b style="color:${over ? '#dc3545' : '#212529'};font-size:13px">${_fmt(s.currentA / 1000, 3)} kA</b>`
                 + (Number.isFinite(rated) ? ` of ${_fmt(rated / 1000, 3)} kA rated` : '')
-                + (Number.isFinite(s.loading) ? ` (${_fmt(s.loading, 1)} %${s.loading > 100 ? ', ABOVE RATING' : ''})` : '')
-                + `<br>${this._overloadScenarioText(s.scenario)}`;
+                + (Number.isFinite(s.loading) ? ` (${_fmt(s.loading, 1)} %${over ? ', ABOVE RATING' : ''})` : '');
         };
-        lines.forEach((line, i) => {
-            const pts = line.samples.filter(ok);
-            const custom = pts.map((s) => scenarios.push(s.scenario) - 1);
+        const point = (line, s, lead) => {
+            details.push(hoverOf(line, s, lead));
+            return scenarios.push(s.scenario) - 1;
+        };
+
+        // Axis ranges: the user's min / max where given; otherwise automatic, except that a (nearly)
+        // flat set of values gets a narrow band around it instead of Plotly's 0..2x default.
+        const rangeFor = (key, values, pad) => {
+            const user = this._lcRange?.[key] || [null, null];
+            const lo = Math.min(...values);
+            const hi = Math.max(...values);
+            const flat = !(hi - lo > pad);
+            const r0 = user[0] != null ? user[0] : (flat ? lo - pad : null);
+            const r1 = user[1] != null ? user[1] : (flat ? hi + pad : null);
+            if (r0 == null && r1 == null) return { autorange: true };
+            const a = r0 != null ? r0 : lo - (hi - lo) * 0.05;
+            const b = r1 != null ? r1 : hi + (hi - lo) * 0.05;
+            return a < b ? { range: [a, b], autorange: false } : { autorange: true };
+        };
+        const xVals = allPts.map((s) => s.scenario.q);
+        const yVals = allPts.map(yOf);
+        const zVals = allPts.map(zOf);
+        const xr = rangeFor('x', xVals, 1);
+        const yr = rangeFor('y', yVals, yBy === 'u' ? 0.01 : 1);
+
+        // Rated-current planes: on the current axis one per line that reaches 90 % of its rating (lines
+        // with the same rating share one; a plane far above the points only squeezes the chart), on the
+        // loading axis one at 100 %. Points above a plane exceed that rating.
+        const planes = [];
+        if (this._lcShowRating !== false && zBy !== 'u') {
+            if (zBy === 'loading') {
+                planes.push({ z: 100, label: '100 % of rated current' });
+            } else {
+                const byRating = new Map();
+                shown.filter((e) => Number.isFinite(e.ratedA) && e.maxLoading >= 90).forEach((e) => {
+                    const k = (e.ratedA / 1000).toFixed(4);
+                    if (!byRating.has(k)) byRating.set(k, { z: e.ratedA / 1000, names: [] });
+                    byRating.get(k).names.push(e.line.name);
+                });
+                byRating.forEach((pl) => planes.push({
+                    z: pl.z, label: `Rated ${_fmt(pl.z, 3)} kA: ${pl.names.join(', ')}`
+                }));
+            }
+        }
+        // The current and loading axes start at 0 so heights compare honestly; U keeps its own range.
+        let zr;
+        if (zBy === 'u') {
+            zr = rangeFor('z', zVals, 0.05);
+        } else {
+            const user = this._lcRange?.z || [null, null];
+            const top = Math.max(...zVals, ...planes.map((pl) => pl.z));
+            const lo = user[0] != null ? user[0] : 0;
+            const hi = user[1] != null ? user[1] : top * 1.08;
+            zr = lo < hi ? { range: [lo, hi], autorange: false } : { autorange: true };
+        }
+        const zFloor = zr.range ? zr.range[0] : Math.min(...zVals);
+        const extent = (r, values, pad) => {
+            let [a, b] = r.range || [Math.min(...values), Math.max(...values)];
+            if (!(b - a > pad)) { a -= pad; b += pad; }
+            return [a, b];
+        };
+        const [x0, x1] = extent(xr, xVals, 1);
+        const [y0, y1] = extent(yr, yVals, yBy === 'u' ? 0.01 : 1);
+
+        shown.forEach((e, i) => {
+            const { line, pts } = e;
+            const custom = pts.map((s) => point(line, s));
             traces.push({
                 type: 'scatter3d',
                 mode: 'markers',
-                name: `${line.name} (max ${_fmt(line.maxA / 1000, 3)} kA)`,
+                name: `${line.name} (max ${_fmt(e.top.currentA / 1000, 3)} kA)`,
                 x: pts.map((s) => s.scenario.q),
-                y: pts.map((s) => s.scenario.p),
+                y: pts.map(yOf),
                 z: pts.map(zOf),
                 customdata: custom,
-                text: pts.map((s) => hoverOf(line, s)),
-                hovertemplate: '%{text}<extra></extra>',
+                hoverinfo: 'none',
                 marker: {
-                    symbol: PQ_LC_SYMBOLS[i % PQ_LC_SYMBOLS.length],
-                    size: pts.map((s) => 4 + 8 * (s.currentA - cmin) / span),
+                    symbol: PQ_LC_SYMBOLS[lines.indexOf(line) % PQ_LC_SYMBOLS.length],
+                    size: pts.map((s) => 4 + 7 * (s.currentA - cmin) / span),
                     color: pts.map(colourOf),
                     colorscale: PQ_LC_COLORSCALE,
                     cmin: colourRange[0],
@@ -2902,58 +3387,132 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
                     line: { width: pts.map((s) => (s.loading > 100 ? 2 : 0.5)), color: '#343a40' }
                 }
             });
-            const w = line.samples.find((s) => s.scenario === line.worst);
-            if (w && ok(w)) {
-                traces.push({
-                    type: 'scatter3d',
-                    mode: 'markers+text',
-                    showlegend: false,
-                    x: [w.scenario.q],
-                    y: [w.scenario.p],
-                    z: [zOf(w)],
-                    customdata: [scenarios.push(w.scenario) - 1],
-                    text: [`${line.name}: ${_fmt(line.maxA / 1000, 3)} kA`],
-                    textposition: 'top center',
-                    textfont: { size: 11, color: '#212529' },
-                    hovertemplate: `${hoverOf(line, w, 'Highest current<br>')}<extra></extra>`,
-                    marker: { symbol: 'circle-open', size: 14, color: '#212529', line: { width: 3, color: '#212529' } }
-                });
-            }
         });
-        // Range of one axis: the user's min / max where given; otherwise automatic, except that a
-        // (nearly) flat set of values gets a narrow band around it instead of Plotly's 0..2x default.
-        const vals = (fn) => lines.flatMap((l) => l.samples.filter(ok).map(fn)).filter(Number.isFinite);
-        const rangeFor = (key, values, pad) => {
-            const user = this._lcRange?.[key] || [null, null];
-            const lo = Math.min(...values);
-            const hi = Math.max(...values);
-            const flat = !(hi - lo > pad);
-            const autoLo = flat ? lo - pad : null;
-            const autoHi = flat ? hi + pad : null;
-            const r0 = user[0] != null ? user[0] : autoLo;
-            const r1 = user[1] != null ? user[1] : autoHi;
-            if (r0 == null && r1 == null) return { autorange: true };
-            const a = r0 != null ? r0 : lo - (hi - lo) * 0.05;
-            const b = r1 != null ? r1 : hi + (hi - lo) * 0.05;
-            return a < b ? { range: [a, b], autorange: false } : { autorange: true };
-        };
-        const zPad = zBy === 'loading' ? 5 : zBy === 'current' ? 0.05 : 0.05;
+
+        // Highest current of each line: a ring, a dashed drop line to the floor and a label box.
+        // The highest of all is red; label boxes are spread around their points so they don't overlap.
+        const ranked = [...shown].sort((a, b) => b.top.currentA - a.top.currentA);
+        {
+            const t = ranked[0].top;
+            const rated = _lcRatedA(t);
+            this._lcExportInfo = {
+                title: `Highest line current over every ${yBy === 'u' ? 'U-Q' : 'P-Q'} load flow: `
+                    + `${_fmt(t.currentA / 1000, 3)} kA in ${ranked[0].line.name}`,
+                sub: (Number.isFinite(t.loading) ? `${_fmt(t.loading, 1)} % of ${_fmt(rated / 1000, 3)} kA rated · ` : '')
+                    + `${this._overloadScenarioText(t.scenario)} · ${allPts.length} load-flow points`
+                    + (filtered ? ' (filtered)' : '')
+            };
+        }
+        const spots = [[0, -75], [-165, -10], [165, -10], [-165, 50], [165, 50], [0, 90], [-165, 110], [165, 110]];
+        const annotations = [];
+        ranked.forEach((e, rank) => {
+            const t = e.top;
+            const first = rank === 0;
+            const colour = first ? '#dc3545' : '#343a40';
+            const [q, y, z] = [t.scenario.q, yOf(t), zOf(t)];
+            traces.push({
+                type: 'scatter3d',
+                mode: 'lines',
+                showlegend: false,
+                hoverinfo: 'skip',
+                x: [q, q],
+                y: [y, y],
+                z: [zFloor, z],
+                line: { color: colour, width: first ? 5 : 3, dash: 'dash' }
+            });
+            traces.push({
+                type: 'scatter3d',
+                mode: 'markers',
+                showlegend: false,
+                x: [q],
+                y: [y],
+                z: [z],
+                customdata: [point(e.line, t, first ? 'Highest current of all lines shown' : 'Highest current of this line')],
+                hoverinfo: 'none',
+                marker: { symbol: 'circle-open', size: first ? 20 : 15, color: colour, line: { width: first ? 4 : 3, color: colour } }
+            });
+            const [ax, ay] = spots[rank % spots.length];
+            annotations.push({
+                x: q,
+                y,
+                z,
+                text: `${first ? 'HIGHEST  ' : ''}<b>${_fmt(t.currentA / 1000, 3)} kA</b>`
+                    + (Number.isFinite(t.loading) ? `  ·  ${_fmt(t.loading, 1)} %` : '')
+                    + `<br>${escapeHtml(e.line.name)}`,
+                showarrow: true,
+                arrowhead: 0,
+                arrowwidth: first ? 2 : 1.2,
+                arrowcolor: colour,
+                ax,
+                ay,
+                bgcolor: 'rgba(255,255,255,0.95)',
+                bordercolor: colour,
+                borderwidth: first ? 2 : 1,
+                borderpad: 4,
+                align: 'left',
+                font: { size: first ? 12 : 11, color: t.loading > 100 ? '#b02a37' : '#212529' }
+            });
+        });
+
+        planes.forEach((pl, k) => {
+            traces.push({
+                type: 'mesh3d',
+                name: pl.label,
+                showlegend: false,
+                showscale: false,
+                hoverinfo: 'skip',
+                x: [x0, x1, x1, x0],
+                y: [y0, y0, y1, y1],
+                z: [pl.z, pl.z, pl.z, pl.z],
+                i: [0, 0],
+                j: [1, 2],
+                k: [2, 3],
+                color: '#dc3545',
+                opacity: 0.13,
+                flatshading: true,
+                lighting: { ambient: 1, diffuse: 0, specular: 0 }
+            });
+            traces.push({
+                type: 'scatter3d',
+                mode: 'text',
+                showlegend: false,
+                hoverinfo: 'skip',
+                x: [x1],
+                y: [y0],
+                z: [pl.z],
+                text: [escapeHtml(pl.label)],
+                textposition: k % 2 ? 'bottom left' : 'top left',
+                textfont: { size: 10, color: '#b02a37' }
+            });
+        });
+
         const axis = (text, extra = {}) => ({ title: { text }, gridcolor: '#e9ecef', zerolinecolor: '#adb5bd', backgroundcolor: '#fff', ...extra });
-        const zTitle = zBy === 'loading' ? 'Loading (% of rated current)' : zBy === 'current' ? 'Line current (kA)' : 'U at PCC (pu)';
+        const yTitle = yBy === 'u' ? 'U at PCC (pu)' : 'P at PCC (MW)';
+        const zTitle = zBy === 'loading' ? 'Loading (%)' : zBy === 'current' ? 'Line current (kA)' : 'U at PCC (pu)';
         const layout = {
             margin: { l: 0, r: 0, t: 10, b: 0 },
             legend: { orientation: 'h', y: 1.02, x: 0, font: { size: 11 } },
             uirevision: 'line-current-3d',  // keep the user's rotation and zoom between updates
             scene: {
-                xaxis: axis('Q at PCC (Mvar): − inductive / + capacitive', rangeFor('x', vals((s) => s.scenario.q), 1)),
-                yaxis: axis('P at PCC (MW)', rangeFor('y', vals((s) => s.scenario.p), 1)),
-                zaxis: axis(zTitle, rangeFor('z', vals(zOf), zPad)),
-                camera: { eye: { x: 1.6, y: -1.6, z: 0.9 } }
+                xaxis: axis('Q at PCC (Mvar): − inductive / + capacitive', xr),
+                yaxis: axis(yTitle, yr),
+                zaxis: axis(zTitle, zr),
+                aspectmode: 'manual',
+                aspectratio: { x: 1, y: 1, z: 0.85 },
+                camera: { eye: { x: 1.55, y: -1.65, z: 0.85 } },
+                annotations
             },
             paper_bgcolor: '#fff'
         };
         await window.Plotly.react(plotDiv, traces, layout, { responsive: true, displaylogo: false });
         plotDiv.removeAllListeners?.('plotly_click');
+        plotDiv.removeAllListeners?.('plotly_hover');
+        plotDiv.on('plotly_hover', (ev) => {
+            const idx = ev?.points?.[0]?.customdata;
+            const box = this._lcDetailsEl;
+            if (!box || !Number.isInteger(idx) || !details[idx]) return;
+            box.innerHTML = details[idx] + '<br><span style="font-size:11px">Click the point to show this load flow on the diagram.</span>';
+        });
         plotDiv.on('plotly_click', (ev) => {
             const idx = ev?.points?.[0]?.customdata;
             const scenario = Number.isInteger(idx) ? scenarios[idx] : null;
@@ -2965,7 +3524,7 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         host.replaceChildren();
         if (!lines.length) return;
         const sub = document.createElement('div');
-        sub.textContent = 'Highest current of each selected line';
+        sub.textContent = 'Highest current of each selected line (all load flows of the study)';
         Object.assign(sub.style, { fontWeight: '600', fontSize: '12px', color: '#495057' });
         host.appendChild(sub);
         host.appendChild(this._overloadTable(

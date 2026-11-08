@@ -6,7 +6,7 @@
     <link rel="preconnect" href="https://js.stripe.com" crossorigin>
     <link rel="preconnect" href="https://unpkg.com" crossorigin>
     <link rel="dns-prefetch" href="https://web-sdk.smartlook.com">
-    <link rel="preload" href="js/app.min.js?v=psc-sidebar10" as="script">
+    <link rel="preload" href="js/app.min.js?v=psc-sidebar12" as="script">
     <link rel="preload" href="https://unpkg.com/ag-grid-community@31.3.2/dist/ag-grid-community.min.js" as="script">
 
     <!-- Module preload hints for analysis engines: makes browser fetch them earlier (HTTP/2 prioritized)
@@ -354,7 +354,7 @@
         // Define application scripts (ES modules)
         const appScripts = [
             { src: 'js/electrisim/auth-globals.js' },
-            { src: 'js/app.min.js?v=psc-sidebar10' },
+            { src: 'js/app.min.js?v=psc-sidebar12' },
            // { src: 'js/extensions.min.js' },
            // { src: 'js/shapes.min.js' },
             { src: 'js/electrisim/dialogs/EditDataDialog.js', type: 'module', async: true },
@@ -412,8 +412,8 @@
             { src: 'js/electrisim/loadFlow.js?v=13', type: 'module', async: true },
             { src: 'js/electrisim/loadflowOpenDss.js?v=4', type: 'module', async: true },
             { src: 'js/electrisim/bessSizing.js', type: 'module', async: true },
-            { src: 'js/electrisim/gridCodePqAnalysis.js?v=pq20261105e', type: 'module', async: true },
-            { src: 'js/electrisim/gridCodeVqAnalysis.js?v=vq20261105e', type: 'module', async: true },
+            { src: 'js/electrisim/gridCodePqAnalysis.js?v=pq20261108b', type: 'module', async: true },
+            { src: 'js/electrisim/gridCodeVqAnalysis.js?v=vq20261108b', type: 'module', async: true },
             { src: 'js/electrisim/optimalPowerFlow.js', type: 'module', async: true },
             { src: 'js/electrisim/shortCircuit.js?v=5', type: 'module', async: true },
             { src: 'js/electrisim/contingencyAnalysis.js', type: 'module', async: true },
@@ -658,7 +658,7 @@
 							
 							// Use async loading for app.min.js to prevent blocking
 							var appScript = document.createElement('script');
-							appScript.src = 'js/app.min.js?v=psc-sidebar10';
+							appScript.src = 'js/app.min.js?v=psc-sidebar12';
 							appScript.async = false; // Maintain execution order but don't block parsing
 							appScript.defer = true;
 							appScript.onload = function() {
@@ -771,9 +771,9 @@
 								'js/electrisim/dialogs/RPCDialog.js',
 								'js/electrisim/dialogs/RPCResultsDialog.js',
 								'js/electrisim/dialogs/GridCodePqDialog.js?v=pq20261102',
-								'js/electrisim/dialogs/GridCodePqResultsDialog.js?v=pq20261105e',
+								'js/electrisim/dialogs/GridCodePqResultsDialog.js?v=pq20261108b',
 								'js/electrisim/dialogs/GridCodeVqDialog.js',
-								'js/electrisim/dialogs/GridCodeVqResultsDialog.js?v=vq20261105e',
+								'js/electrisim/dialogs/GridCodeVqResultsDialog.js?v=vq20261108b',
 								'js/electrisim/dialogs/DiagnosticReportDialog.js',
 								'js/electrisim/dialogs/OptimalPowerFlowDialog.js',
 								'js/electrisim/dialogs/OptimalPowerFlowResultsDialog.js',

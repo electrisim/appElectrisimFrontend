@@ -1,28 +1,24 @@
-⚡ New in Electrisim: see the highest current in every cable across your whole Grid Code P-Q and U-Q study — in 3D
+⚡ Which operating point drives your export cable to its highest current? New in Electrisim: Line current 3D
 
-A grid code compliance study runs hundreds of load flows: every active-power step, every PCC voltage, both edges of the reactive-power capability. The P-Q chart tells you whether the plant is compliant. It doesn't tell you which export cable carries the most current, or in which operating point it goes above its rating.
+A grid code P-Q or U-Q study is not one load flow. It is hundreds: every active-power step, every PCC voltage, both edges of the reactive-power capability. The compliance chart tells you whether the plant meets the grid code at the point of connection. It doesn't tell you what those operating points do to the equipment behind it.
 
-So I added two things to the Grid Code Compliance (P-Q) and (U-Q) results in Electrisim:
+Electrisim now reads every load flow the study has already solved and finds the highest current in each line, in zero extra simulation time.
 
-🔹 Line current 3D
-Pick one or more cables and see their current in every load flow of the study, on a rotatable 3D chart:
-• X = Q at the point of connection, Y = P at the point of connection, vertical = PCC voltage (or switch it to loading or current)
-• Colour = loading against the cable rating: green well inside it, orange close to it, red only above 100 % — or colour by current in kA
-• Each cable's highest current is circled and labelled, with the operating point where it happens
-• Click any point to open that exact load flow on the single-line diagram
-• Set your own axis ranges, export everything to CSV
+🔹 What you see
+• A 3D chart: Q and P at the point of connection on the floor, line current (kA) as the height
+• Colour = loading against the line's rating: green well inside it, orange close to it, red above 100 %
+• The rated current drawn as a red plane: every point above it is an operating point where the cable is overloaded
+• The highest current ringed, dropped to the floor and labelled, and named above the chart with its exact operating point (U, P, Q and which capability curve)
+• Click any point to load that exact case onto the single-line diagram
+• Also in U-Q studies (PCC voltage on the floor), with filters, full-screen view and CSV export
 
-🔹 Check overloads
-Every line and transformer in every analysed case, with the worst case of each element and how many cases exceed the limit — and a clear summary of what was checked.
+🔹 What it showed on the offshore wind farm model
+The plant passes the P-Q check. But the offshore 275 kV export cable reaches 1.146 kA against a 1.100 kA rating: 104 % loading, at full active power on the inductive edge of the capability. Only a handful of points sit above the red plane. Without plotting the whole study, that operating point is easy to miss.
 
-Both read the load flows the study has already solved, so they add zero simulation time. Run the study once, then explore.
+So compliance at the point of connection is only half of the answer. The other half: can the cables and transformers carry what the grid code asks for, at every operating point?
 
-In the video: the 450 MW offshore wind farm model (30 × 15 MW, 66 / 275 / 400 kV, STATCOM, Park Controller and Plant Supervisory Controller). The P-Q chart says compliant, but the 3D view shows the onshore 275 kV cable reaching about 1.17 kA against a 1.15 kA rating — just above 100 % — at 0.9 pu grid voltage. The offshore 275 kV cable carries even more current (1.20 kA) but stays at 75 % of its higher rating. Current and loading tell different stories, which is exactly why you want to see both.
-
-Compliance at the point of connection is only half of the answer. The other half is whether the equipment behind it can carry what compliance asks for.
-
-▶️ Short demo in the video below
-🌐 Try it in the browser, free and open source: https://electrisim.com
+▶️ Short demo below
+🌐 Free and open source, in the browser: https://electrisim.com
 📥 Offshore wind farm model: https://electrisim.com/model-offshorewind
 
 #PowerSystems #GridCode #OffshoreWind #ReactivePower #CableRating #LoadFlow #PowerSystemAnalysis #pandapower #OpenSource #Electrisim

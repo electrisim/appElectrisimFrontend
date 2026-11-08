@@ -3,7 +3,7 @@ import {
     GridCodePqResultsDialog,
     _aggregateContribution, _chartOperatingQ, _contributionLabel, _operatingWords, _pccQDirection, _fmt,
     PQ_Q_TYPE_ORDER, PQ_Q_TYPE_COLOR, PQ_Q_TYPE_PALETTE
-} from './GridCodePqResultsDialog.js?v=pq20261105e';
+} from './GridCodePqResultsDialog.js?v=pq20261108b';
 import { attachBackdropCloseHandler } from '../utils/dialogStyles.js';
 
 devLog('GridCodeVqResultsDialog.js LOADED');
@@ -39,6 +39,9 @@ export class GridCodeVqResultsDialog extends GridCodePqResultsDialog {
         this._lineCurrentSection = null;
         this._lcRedraw = null;
         this._lcRange = null;
+        this._lcHiddenV = null;
+        this._lcHiddenCurve = null;
+        this._lcBannerEl = null;
         this._showElementQ = false;
         this._elementQEdge = 'both';
         this._uqPanel = null;
@@ -267,6 +270,11 @@ export class GridCodeVqResultsDialog extends GridCodePqResultsDialog {
         return 'GridCode_UQ';
     }
 
+    /** Line current 3D: P is fixed in a U-Q study, so the PCC voltage takes the second floor axis. */
+    _lcYQuantity() {
+        return 'u';
+    }
+
     _reportContext() {
         const data = this._vqData || {};
         if (!this._uqChart) return null;
@@ -436,7 +444,7 @@ export class GridCodeVqResultsDialog extends GridCodePqResultsDialog {
             display: 'flex', justifyContent: 'flex-end', gap: '8px'
         });
         const lineCurrentBtn = this._styledButton('Line current 3D', '#6f42c1', '#59359a');
-        lineCurrentBtn.title = 'Highest current in selected lines over every load flow of this study, as a 3D chart of Q, P and PCC voltage (reads the stored load flows; runs no new calculation).';
+        lineCurrentBtn.title = 'Highest current in selected lines over every load flow of this study, as a 3D chart of Q, PCC voltage and line current (reads the stored load flows; runs no new calculation).';
         lineCurrentBtn.onclick = () => this._openLineCurrent3d(data);
         footer.appendChild(lineCurrentBtn);
 
@@ -455,8 +463,8 @@ export class GridCodeVqResultsDialog extends GridCodePqResultsDialog {
         footer.appendChild(copyBtn);
 
         const imageBtn = this._styledButton('Save image', '#0d6efd', '#0b5ed7');
-        imageBtn.title = 'Save a report-quality PNG (1600 px wide at 2x, large fonts and legend) of the U-Q chart.';
-        imageBtn.onclick = () => this._saveChartImage();
+        imageBtn.title = 'Save the U-Q chart as a high-resolution PNG: choose a report, print or LinkedIn size.';
+        imageBtn.onclick = () => this._openImageSizeMenu(imageBtn, (preset) => this._saveChartImage(preset));
         footer.appendChild(imageBtn);
 
         const csvBtn = this._styledButton('Download CSV', '#28a745', '#218838');
