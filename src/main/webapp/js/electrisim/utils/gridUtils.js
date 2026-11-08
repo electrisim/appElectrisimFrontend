@@ -168,9 +168,10 @@ function sideFromEdgeView(edge, cell) {
 export function resolveThreeWindingEdgeSides(cell) {
     if (!cell?.edges || cell.edges.length !== 3) return null;
     const style = typeof cell.getStyle === 'function' ? cell.getStyle() : cell.style;
-    // The stencil and the sym-3w-transformer.svg image share these ports. The vertical image used
-    // by the BESS builder has its own pins and adds edges in [LV, MV, HV] order.
-    if (/sym-3w-transformer-v/.test(style || '')) return null;
+    // Only the stencil and the sym-3w-transformer.svg image have these ports. Other symbols (the
+    // vertical BESS-builder image, draw.io's pot_trans_3_windings, ...) have their own pins, so the
+    // nearest-port guess would be wrong there.
+    if (!/three_winding_transformer|sym-3w-transformer\.svg/.test(style || '')) return null;
 
     const sides = {};
     const unmatched = [];
@@ -188,11 +189,28 @@ export function resolveThreeWindingEdgeSides(cell) {
     return sides;
 }
 
-/** Edges for HV / MV / LV: by port when known, else the legacy [LV, MV, HV] edge order. */
+function edgeBusVnKv(edge, cell) {
+    const bus = getOtherTerminalCell(edge, cell);
+    const v = parseFloat(readCellAttribute(bus, 'vn_kv'));
+    return Number.isFinite(v) ? v : Number.NaN;
+}
+
+/**
+ * Edges for [LV, MV, HV]: by port when the symbol's ports are known, else by the connected busbars'
+ * rated voltage (lowest first). Equal or missing voltages keep the legacy [LV, MV, HV] edge order,
+ * which the BESS builder relies on for its vertical symbol.
+ */
 function getThreeWindingEdges(cell) {
     const bySide = resolveThreeWindingEdgeSides(cell);
     if (bySide) return [bySide.lv, bySide.mv, bySide.hv];
-    return cell.edges;
+    const edges = Array.from(cell.edges);
+    if (edges.length !== 3) return edges;
+    const vn = edges.map((e) => edgeBusVnKv(e, cell));
+    if (vn.some((v) => !Number.isFinite(v))) return edges;
+    return edges
+        .map((e, i) => ({ e, i, v: vn[i] }))
+        .sort((a, b) => (a.v - b.v) || (a.i - b.i))
+        .map((x) => x.e);
 }
 
 // Get three winding transformer connections (terminal → bus, see resolveThreeWindingEdgeSides).

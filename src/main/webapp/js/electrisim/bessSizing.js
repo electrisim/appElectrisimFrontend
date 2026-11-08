@@ -516,7 +516,7 @@ function processBessSizingResults(dataJson, graph, editorUi, values) {
     devLog('Processing BESS sizing results:', dataJson);
 
     if (dataJson.error) {
-        alert('BESS Sizing Error: ' + dataJson.error);
+        alert('BESS Sizing Error: ' + (typeof dataJson.error === 'string' ? dataJson.error : String(dataJson.message || dataJson.error)));
         return;
     }
 

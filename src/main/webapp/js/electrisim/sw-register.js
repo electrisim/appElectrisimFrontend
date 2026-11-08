@@ -57,10 +57,18 @@
                             console.log('✅ New ServiceWorker installed');
                             
                             // Optionally notify user about update
-                            if (window.confirm('A new version is available. Reload to update?')) {
-                                newWorker.postMessage({ type: 'SKIP_WAITING' });
-                                window.location.reload();
-                            }
+                            import('./utils/confirmDialog.js').then(({ showConfirmDialog }) => showConfirmDialog({
+                                title: 'A new version of Electrisim is available',
+                                message: 'Reload now to update. Save your diagram first if it has unsaved changes.',
+                                variant: 'info',
+                                confirmLabel: 'Reload',
+                                cancelLabel: 'Later'
+                            })).then((reload) => {
+                                if (reload) {
+                                    newWorker.postMessage({ type: 'SKIP_WAITING' });
+                                    window.location.reload();
+                                }
+                            }).catch(() => {});
                         }
                     });
                 });

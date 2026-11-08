@@ -11,7 +11,7 @@ import {
 import { attachBackdropCloseHandler } from '../utils/dialogStyles.js';
 
 const LOAD_TYPES = new Set(['Load', 'Asymmetric Load']);
-const GEN_TYPES = new Set(['Generator', 'Static Generator', 'Asymmetric Static Generator', 'PV System', 'PVSystem']);
+const GEN_TYPES = new Set(['Generator', 'Static Generator', 'Wind Turbine', 'Asymmetric Static Generator', 'PV System', 'PVSystem']);
 
 function parseCellStyle(style) {
     if (!style) return null;
@@ -194,7 +194,7 @@ class TimeSeriesSimulationDialog {
             customSection.innerHTML = `
                 <div style="color:#856404;background:#fff3cd;padding:12px;border-radius:6px;font-size:13px;line-height:1.45;border:1px solid #ffeeba;">
                     <strong>No profiled elements found.</strong> Add at least one <em>Load</em> or
-                    <em>Generator / Static Generator</em> to the diagram to run a time series simulation.
+                    <em>Generator / Static Generator / Wind Turbine</em> to the diagram to run a time series simulation.
                 </div>`;
         } else {
             const countLoads = this.profileElements.filter(e => e.elementType === 'load').length;
@@ -291,7 +291,7 @@ class TimeSeriesSimulationDialog {
                 }
 
                 if (this.profileElements.length === 0) {
-                    alert('Add at least one Load or Generator/Static Generator to the diagram.');
+                    alert('Add at least one Load, Generator, Static Generator or Wind Turbine to the diagram.');
                     return;
                 }
 

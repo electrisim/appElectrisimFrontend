@@ -397,9 +397,15 @@ export class LibraryDialogManager {
         }
     }
 
-    handleDelete(selectedItem) {
-        // Show confirmation dialog
-        const confirmed = confirm(`Are you sure you want to delete "${selectedItem.name}"?`);
+    async handleDelete(selectedItem) {
+        const { showConfirmDialog } = await import('./utils/confirmDialog.js');
+        const confirmed = await showConfirmDialog({
+            title: 'Delete library item?',
+            message: `"${selectedItem.name}" will be removed from this library.`,
+            variant: 'danger',
+            confirmLabel: 'Delete',
+            cancelLabel: 'Keep'
+        });
         if (confirmed && this.currentGrid && this.currentGrid.api) {
             const selectedNodes = this.currentGrid.api.getSelectedNodes();
             if (selectedNodes.length > 0) {

@@ -118,14 +118,14 @@ function envelopePocNoteHtml(pq, wizardParams, results) {
         + `${fleet.n} × ${fmt(fleet.unitP, 3)} MW = <b>${fmt(fleet.plantP, 2)} MW</b> at the converters`
         + ` (limited by <b>${escapeHtml(fleet.limiter)}</b>)`);
     if (poc > 0) {
-        bits.push(`the export tip on the chart is <b>${fmt(poc, 2)} MW</b> at the POC`);
+        bits.push(`The export tip on the chart is <b>${fmt(poc, 2)} MW</b> at the POC`);
         if (drop > 0.05) {
-            bits.push(`the ${fmt(drop, 2)} MW difference is auxiliary load plus transformer and cable losses, `
+            bits.push(`The ${fmt(drop, 2)} MW difference is auxiliary load plus transformer and cable losses, `
                 + `not Q “using up” active power on the MVA circle`);
         }
     }
     if (leftover > 0.2) {
-        bits.push(`leftover Q ≈ ${fmt(leftover, 1)} Mvar at that P is `
+        bits.push(`Leftover Q ≈ ${fmt(leftover, 1)} Mvar at that P is `
             + `<code>√(Sn² − Pmax²)</code> per unit because ${escapeHtml(fleet.limiter)} `
             + `(${fmt(fleet.unitP, 3)} MW) is below the ${fmt(fleet.sn, 3)} MVA rating. `
             + `Setting Q = 0 there only trims I²R (a few hundred kW), it does not recover the PCS–POC gap. `

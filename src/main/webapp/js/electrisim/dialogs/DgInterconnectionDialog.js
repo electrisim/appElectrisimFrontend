@@ -36,8 +36,8 @@ export class DgInterconnectionDialog extends Dialog {
                 if (shape === 'Bus' || shape === 'Busbar') {
                     buses.push({ value: String(id), label: `${label} (${id})` });
                 }
-                if (shape === 'PVSystem' || shape === 'Storage' || shape === 'Generator' || shape === 'Static Generator') {
-                    ders.push({ value: String(id), label: `${shape}: ${label}`, derType: shape === 'Static Generator' ? 'Generator' : shape });
+                if (shape === 'PVSystem' || shape === 'Storage' || shape === 'Generator' || shape === 'Static Generator' || shape === 'Wind Turbine') {
+                    ders.push({ value: String(id), label: `${shape}: ${label}`, derType: (shape === 'Static Generator' || shape === 'Wind Turbine') ? 'Generator' : shape });
                 }
             });
         } catch (e) {
@@ -55,9 +55,9 @@ export class DgInterconnectionDialog extends Dialog {
             },
             {
                 id: 'derId',
-                label: 'DER element (PVSystem / Storage / Generator)',
+                label: 'DER element (PVSystem / Storage / Generator / Wind Turbine)',
                 type: 'select',
-                options: ders.length ? ders : [{ value: '', label: '(no DER found — add PVSystem, Storage, or Generator)' }]
+                options: ders.length ? ders : [{ value: '', label: '(no DER found — add PVSystem, Storage, Generator or Wind Turbine)' }]
             },
             {
                 id: 'proposedKw',

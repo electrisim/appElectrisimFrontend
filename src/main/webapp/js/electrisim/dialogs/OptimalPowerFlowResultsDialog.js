@@ -379,6 +379,13 @@
 
             body.appendChild(summary);
 
+            (Array.isArray(this.results.warnings) ? this.results.warnings : []).forEach((text) => {
+                const note = document.createElement('p');
+                note.style.cssText = 'margin:0 0 12px;padding:8px 12px;background:#fff8e1;border-left:4px solid #f9a825;font-size:12px;color:#5d4037;';
+                note.textContent = String(text);
+                body.appendChild(note);
+            });
+
             const num = (d) => (v) => formatNumber(v, d);
 
             const busSpec = [

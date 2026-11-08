@@ -68,7 +68,7 @@ export class DgInterconnectionResultsDialog {
             <div style="margin-bottom:12px;padding:10px;background:#e3f2fd;border:1px solid #bbdefb;border-radius:4px;">
                 Overall: ${this._statusBadge(summary.overall || 'n/a')}<br>
                 Proposed: ${this._escape(summary.proposed_kw)} kW
-                (${this._escape(summary.der_type)} / ${this._escape(summary.der_id)})<br>
+                (${this._escape(summary.der_type)} / ${this._escape(summary.der_name || summary.der_id)})<br>
                 Limiting constraint: ${this._escape(summary.limiting_constraint || 'none')}
             </div>
             <h3 style="margin:16px 0 8px;">Baseline checks (InvControl off)</h3>

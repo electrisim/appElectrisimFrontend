@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "test": "node scripts/result-box-placement.test.js && node scripts/smoke-test-dashboard.js && node scripts/smoke-test-report.js && node scripts/smoke-test-compare.js && node scripts/html-escape.test.js",
+    "test": "node scripts/result-box-placement.test.js && node scripts/smoke-test-dashboard.js && node scripts/smoke-test-report.js && node scripts/smoke-test-compare.js && node scripts/html-escape.test.js && node scripts/dialog-form-values.test.js && node scripts/three-winding-sides.test.js",
     "prepare-deploy": "node scripts/prepare-deploy.js",
     "deploy:dev": "cross-env NODE_ENV=development npm run prepare-deploy",
     "deploy:prod": "npm run minify && cross-env NODE_ENV=production npm run prepare-deploy",

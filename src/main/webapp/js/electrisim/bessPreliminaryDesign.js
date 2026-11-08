@@ -195,7 +195,7 @@ function bessPreliminaryDesign(a, b, c) {
                 throw new Error('Empty study response from the server');
             }
             if (dataJson?.error) {
-                alert('Study error: ' + dataJson.error);
+                alert('Study error: ' + (typeof dataJson.error === 'string' ? dataJson.error : String(dataJson.message || dataJson.error)));
                 return;
             }
 

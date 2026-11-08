@@ -1,6 +1,10 @@
 function escapeHtmlText(value) {
     return String(value == null ? '' : value).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 }
+// Backend error text: escaped, with **bold** kept and line breaks preserved (pre-line).
+function formatErrorDetails(value) {
+    return escapeHtmlText(String(value == null ? '' : value).trim()).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+}
 // DiagnosticReportDialog.js - Dialog for displaying diagnostic reports
 (function() {
     class DiagnosticReportDialog {
@@ -229,7 +233,7 @@ function escapeHtmlText(value) {
             if (this.errorInfo && this.errorInfo.message) {
                 errorHtml += `
                     <p style="margin: 8px 0; padding: 12px; background: #fff; border-left: 4px solid #d32f2f; color: #000; font-weight: bold;">
-                        ${this.errorInfo.message}
+                        ${escapeHtmlText(this.errorInfo.message)}
                     </p>
                 `;
             }
@@ -238,7 +242,7 @@ function escapeHtmlText(value) {
             if (this.errorInfo && this.errorInfo.exception && this.errorInfo.exception !== this.errorInfo.message) {
                 errorHtml += `
                     <p style="margin: 8px 0 0 0; padding: 8px; background: #fff; border-left: 4px solid #ff9800; color: #333; font-size: 13px;">
-                        <strong>Details:</strong> ${this.errorInfo.exception}
+                        <strong>Details:</strong> <span style="white-space: pre-line;">${formatErrorDetails(this.errorInfo.exception)}</span>
                     </p>
                 `;
             }
@@ -259,7 +263,7 @@ function escapeHtmlText(value) {
                     <div style="margin-top: 12px; padding: 12px; background: #e3f2fd; border-left: 4px solid #1976d2; color: #0d47a1;">
                         <strong>What to change:</strong> The following parameters need to be corrected:
                         <ul style="margin: 8px 0 0 0; padding-left: 20px;">
-                            ${invalidParams.map(r => `<li><strong>${r.element_type}</strong> "${r.name}": parameter <strong>${r.param}</strong> — ${r.message}</li>`).join('')}
+                            ${invalidParams.map(r => `<li><strong>${escapeHtmlText(r.element_type)}</strong> "${escapeHtmlText(r.name)}": parameter <strong>${escapeHtmlText(r.param)}</strong> — ${escapeHtmlText(r.message)}</li>`).join('')}
                         </ul>
                     </div>
                 `;

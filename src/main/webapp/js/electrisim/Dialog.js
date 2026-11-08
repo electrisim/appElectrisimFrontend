@@ -511,9 +511,18 @@ export class Dialog {
 
     getFormValues() {
         if (!this.parameters) return [];
-        
-        return this.parameters
-            .filter(param => param.type !== 'section')
+        const fields = this.parameters.filter(param => param.type !== 'section');
+        const values = this.readFormValues(fields);
+        // Callers read the values by position; dialogs that read them by name
+        // (values.derId, values.mode) get the same values under each parameter id.
+        fields.forEach((param, i) => {
+            if (param.id && !(param.id in values) && !/^\d+$/.test(param.id)) values[param.id] = values[i];
+        });
+        return values;
+    }
+
+    readFormValues(fields) {
+        return fields
             .map(param => {
             if (param.type === 'radio') {
                 const selectedRadio = param.options.find(option => 

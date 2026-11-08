@@ -89,7 +89,7 @@ function dataCenterSiteScreeningPandaPower(a, b, c) {
             simProgress.overlay.append(`Response in ${formatDurationMs(performance.now() - t0)}`, { time: true });
 
             if (dataJson.error) {
-                alert('Site screening failed: ' + dataJson.error);
+                alert('Site screening failed: ' + (typeof dataJson.error === 'string' ? dataJson.error : String(dataJson.message || dataJson.error)));
                 await settleSimulationProgress(simProgress.overlay, null, simProgress.abortController);
                 return;
             }

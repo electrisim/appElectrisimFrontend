@@ -113,7 +113,17 @@ function escapeHtmlText(value) {
                 chip.innerHTML = `<strong>${escapeHtmlText(k)}:</strong> ${escapeHtmlText(v ?? '—')}`;
                 card.appendChild(chip);
             });
-            return card;
+            const notes = [...(r.notes || []), ...(r.warnings || [])];
+            if (!notes.length) return card;
+            const wrap = document.createElement('div');
+            wrap.appendChild(card);
+            notes.forEach((text) => {
+                const note = document.createElement('p');
+                note.style.cssText = 'margin:10px 0 0;padding:8px 12px;background:#fff8e1;border-left:4px solid #f9a825;font-size:12px;color:#5d4037;';
+                note.textContent = String(text);
+                wrap.appendChild(note);
+            });
+            return wrap;
         }
 
         buildTable() {

@@ -439,6 +439,10 @@ export class EconomicAnalysisResultsDialog extends Dialog {
             'External Grid': '#5d4037',
             Generator: '#0288d1',
             'Static Generator': '#0097a7',
+            'Wind Turbine': '#00838f',
+            Storage: '#ef6c00',
+            PVSystem: '#f9a825',
+            'PV System': '#f9a825',
             Load: '#c62828',
             'Shunt Reactor': '#6a1b9a',
             Capacitor: '#00695c'
