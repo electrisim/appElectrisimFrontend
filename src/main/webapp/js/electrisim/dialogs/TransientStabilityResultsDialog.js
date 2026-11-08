@@ -182,10 +182,11 @@ function escapeHtmlText(value) {
                 const chart = new ChartCtor(canvas, {
                     type: 'line',
                     data: {
-                        labels: t,
+                        // ANDES takes small steps around events, so plot against real time
+                        // (a category axis spaced the samples evenly and stretched the fault).
                         datasets: seriesArr.map((s, i) => ({
                             label: s.name || s.id,
-                            data: s.values,
+                            data: (s.values || []).map((y, k) => ({ x: t[k], y })),
                             borderColor: palette[i % palette.length],
                             backgroundColor: 'transparent',
                             borderWidth: 1.5,
@@ -198,7 +199,13 @@ function escapeHtmlText(value) {
                         maintainAspectRatio: false,
                         plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },
                         scales: {
-                            x: { title: { display: true, text: 'Time [s]' }, ticks: { maxTicksLimit: 10 } },
+                            x: {
+                                type: 'linear',
+                                min: t[0],
+                                max: t[t.length - 1],
+                                title: { display: true, text: 'Time [s]' },
+                                ticks: { maxTicksLimit: 11, callback: (v) => +Number(v).toFixed(2) }
+                            },
                             y: { title: { display: true, text: yLabel } }
                         }
                     }
