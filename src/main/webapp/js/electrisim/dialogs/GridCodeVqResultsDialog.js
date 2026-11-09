@@ -3,7 +3,7 @@ import {
     GridCodePqResultsDialog,
     _aggregateContribution, _chartOperatingQ, _contributionLabel, _operatingWords, _pccQDirection, _fmt,
     PQ_Q_TYPE_ORDER, PQ_Q_TYPE_COLOR, PQ_Q_TYPE_PALETTE
-} from './GridCodePqResultsDialog.js?v=pq20261108b';
+} from './GridCodePqResultsDialog.js?v=pq20261109a';
 import { attachBackdropCloseHandler } from '../utils/dialogStyles.js';
 
 devLog('GridCodeVqResultsDialog.js LOADED');
@@ -39,6 +39,7 @@ export class GridCodeVqResultsDialog extends GridCodePqResultsDialog {
         this._lineCurrentSection = null;
         this._lcRedraw = null;
         this._lcRange = null;
+        this._pqChartFull = false;
         this._lcHiddenV = null;
         this._lcHiddenCurve = null;
         this._lcBannerEl = null;
@@ -419,7 +420,11 @@ export class GridCodeVqResultsDialog extends GridCodePqResultsDialog {
             this._pqChartSpecs = [{ canvas, panel, fullData: data }];
             this._mountUqElementQSection(panel);
         }
-        content.appendChild(panel);
+        // The chart and its toolbar share one block, which can go full screen.
+        const stage = document.createElement('div');
+        stage.appendChild(panel);
+        content.appendChild(stage);
+        this._createChartToolbar(stage, 'U-Q capability chart', () => this._downloadVqCsv(data));
 
         const tail = document.createElement('div');
         if (data.pcc_q_convention) {
@@ -443,34 +448,6 @@ export class GridCodeVqResultsDialog extends GridCodePqResultsDialog {
             padding: '12px 24px', borderTop: '1px solid #e9ecef',
             display: 'flex', justifyContent: 'flex-end', gap: '8px'
         });
-        const lineCurrentBtn = this._styledButton('Line current 3D', '#6f42c1', '#59359a');
-        lineCurrentBtn.title = 'Highest current in selected lines over every load flow of this study, as a 3D chart of Q, PCC voltage and line current (reads the stored load flows; runs no new calculation).';
-        lineCurrentBtn.onclick = () => this._openLineCurrent3d(data);
-        footer.appendChild(lineCurrentBtn);
-
-        const overloadBtn = this._styledButton('Check overloads', '#fd7e14', '#e8590c');
-        overloadBtn.title = 'List lines and transformers above the loading limit in every analysed case (reads the stored load flows; runs no new calculation).';
-        overloadBtn.onclick = () => {
-            const limit = this._overloadResult ? this._overloadResult.limitPct : this._overloadDefaultLimit(data);
-            this._runOverloadCheck(data, limit);
-            this._overloadSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        };
-        footer.appendChild(overloadBtn);
-
-        const copyBtn = this._styledButton('Copy image', '#0d6efd', '#0b5ed7');
-        copyBtn.title = 'Copy a report-quality image of the U-Q chart, ready to paste into a document, article or post.';
-        copyBtn.onclick = () => this._copyReportImage(copyBtn);
-        footer.appendChild(copyBtn);
-
-        const imageBtn = this._styledButton('Save image', '#0d6efd', '#0b5ed7');
-        imageBtn.title = 'Save the U-Q chart as a high-resolution PNG: choose a report, print or LinkedIn size.';
-        imageBtn.onclick = () => this._openImageSizeMenu(imageBtn, (preset) => this._saveChartImage(preset));
-        footer.appendChild(imageBtn);
-
-        const csvBtn = this._styledButton('Download CSV', '#28a745', '#218838');
-        csvBtn.onclick = () => this._downloadVqCsv(data);
-        footer.appendChild(csvBtn);
-
         const closeFooter = this._styledButton('Close', '#6c757d', '#5a6268');
         closeFooter.onclick = () => this.destroy();
         footer.appendChild(closeFooter);
@@ -480,6 +457,7 @@ export class GridCodeVqResultsDialog extends GridCodePqResultsDialog {
         attachBackdropCloseHandler(this.overlay, dialog, () => this.destroy());
         document.body.appendChild(this.overlay);
         this._applyPqDialogSize();
+        this._showResultSections(data);
     }
 
     _createVqSummaryBar(data) {

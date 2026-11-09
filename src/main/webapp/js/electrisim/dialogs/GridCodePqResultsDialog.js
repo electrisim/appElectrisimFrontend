@@ -515,6 +515,7 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         this._lineCurrentSection = null;
         this._lcRedraw = null;
         this._lcRange = null;
+        this._pqChartFull = false;
         this._lcHiddenV = null;
         this._lcHiddenCurve = null;
         this._lcBannerEl = null;
@@ -652,8 +653,12 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
                 tabPanels.push(panel);
             });
 
-            content.appendChild(tabsHeader);
-            tabPanels.forEach((p) => content.appendChild(p));
+            // Tabs and charts share one block with its own toolbar, which can go full screen.
+            const stage = document.createElement('div');
+            stage.appendChild(tabsHeader);
+            tabPanels.forEach((p) => stage.appendChild(p));
+            content.appendChild(stage);
+            this._createChartToolbar(stage, 'P-Q capability chart', () => this._downloadCSV(data));
             this._redrawPqCharts();
         }
 
@@ -681,34 +686,6 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
             padding: '12px 24px', borderTop: '1px solid #e9ecef',
             display: 'flex', justifyContent: 'flex-end', gap: '8px'
         });
-        const lineCurrentBtn = this._styledButton('Line current 3D', '#6f42c1', '#59359a');
-        lineCurrentBtn.title = 'Highest current in selected lines over every load flow of this study, as a 3D chart of Q, P and line current (reads the stored load flows; runs no new calculation).';
-        lineCurrentBtn.onclick = () => this._openLineCurrent3d(data);
-        footerBar.appendChild(lineCurrentBtn);
-
-        const overloadBtn = this._styledButton('Check overloads', '#fd7e14', '#e8590c');
-        overloadBtn.title = 'List lines and transformers above the loading limit in every analysed case (reads the stored load flows; runs no new calculation).';
-        overloadBtn.onclick = () => {
-            const limit = this._overloadResult ? this._overloadResult.limitPct : this._overloadDefaultLimit(data);
-            this._runOverloadCheck(data, limit);
-            this._overloadSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        };
-        footerBar.appendChild(overloadBtn);
-
-        const copyBtn = this._styledButton('Copy image', '#0d6efd', '#0b5ed7');
-        copyBtn.title = 'Copy a report-quality image of the visible P-Q chart, ready to paste into a document, article or post.';
-        copyBtn.onclick = () => this._copyReportImage(copyBtn);
-        footerBar.appendChild(copyBtn);
-
-        const imageBtn = this._styledButton('Save image', '#0d6efd', '#0b5ed7');
-        imageBtn.title = 'Save the visible P-Q chart as a high-resolution PNG: choose a report, print or LinkedIn size.';
-        imageBtn.onclick = () => this._openImageSizeMenu(imageBtn, (preset) => this._saveChartImage(preset));
-        footerBar.appendChild(imageBtn);
-
-        const downloadBtn = this._styledButton('Download CSV', '#28a745', '#218838');
-        downloadBtn.onclick = () => this._downloadCSV(data);
-        footerBar.appendChild(downloadBtn);
-
         const closeBtn2 = this._styledButton('Close', '#6c757d', '#5a6268');
         closeBtn2.onclick = () => this.destroy();
         footerBar.appendChild(closeBtn2);
@@ -718,6 +695,80 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         attachBackdropCloseHandler(this.overlay, dialog, () => this.destroy());
         document.body.appendChild(this.overlay);
         this._applyPqDialogSize();
+        this._showResultSections(data);
+    }
+
+    /**
+     * Overload check and Line current 3D, shown under the chart as soon as the results open. Both read
+     * the stored load flows only, so they add no simulation time.
+     */
+    _showResultSections(data) {
+        try {
+            this._runOverloadCheck(data, this._overloadDefaultLimit(data));
+        } catch (e) {
+            console.warn('Overload check could not be shown:', e);
+        }
+        try {
+            this._openLineCurrent3d(data, false);
+        } catch (e) {
+            console.warn('Line current 3D could not be shown:', e);
+        }
+    }
+
+    /** Height of the capability chart canvas: full screen, maximized dialog or normal dialog. */
+    _pqChartHeight() {
+        if (this._pqChartFull) return 'calc(100vh - 260px)';
+        return this._pqMaximized ? 'max(56vh, calc(96vh - 330px))' : '450px';
+    }
+
+    /**
+     * Toolbar above the capability chart, as on the Line current 3D chart: Full screen, Copy image,
+     * Save image (size menu) and Download CSV. Full screen makes `stage` cover the window; Esc leaves it.
+     */
+    _createChartToolbar(stage, titleText, onCsv) {
+        const head = document.createElement('div');
+        Object.assign(head.style, { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' });
+        const title = document.createElement('div');
+        title.textContent = titleText;
+        Object.assign(title.style, { fontWeight: '700', fontSize: '14px', color: '#212529', marginRight: 'auto' });
+        const small = (b) => {
+            Object.assign(b.style, { padding: '4px 12px', fontSize: '12px' });
+            return b;
+        };
+        const fullBtn = small(this._styledButton('Full screen', '#6f42c1', '#59359a'));
+        fullBtn.title = 'Show the chart on the whole screen (Esc to leave)';
+        const copyBtn = small(this._styledButton('Copy image', '#0d6efd', '#0b5ed7'));
+        copyBtn.title = 'Copy a report-quality image of the visible chart, ready to paste into a document, article or post.';
+        copyBtn.onclick = () => this._copyReportImage(copyBtn);
+        const imageBtn = small(this._styledButton('Save image', '#0d6efd', '#0b5ed7'));
+        imageBtn.title = 'Save the visible chart as a high-resolution PNG: choose a report, print or LinkedIn size.';
+        imageBtn.onclick = () => this._openImageSizeMenu(imageBtn, (preset) => this._saveChartImage(preset));
+        const csvBtn = small(this._styledButton('Download CSV', '#28a745', '#218838'));
+        csvBtn.title = 'Curves, compliance, Element Q and overload results as CSV';
+        csvBtn.onclick = onCsv;
+        head.append(title, fullBtn, copyBtn, imageBtn, csvBtn);
+        stage.insertBefore(head, stage.firstChild);
+
+        const onKey = (e) => {
+            if (e.key !== 'Escape') return;
+            e.stopPropagation();
+            setFull(false);
+        };
+        const setFull = (full) => {
+            this._pqChartFull = full;
+            Object.assign(stage.style, full
+                ? {
+                    position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh', zIndex: '100002',
+                    padding: '14px 18px', overflow: 'auto', boxSizing: 'border-box', backgroundColor: '#fff'
+                }
+                : { position: '', top: '', left: '', width: '', height: '', zIndex: '', padding: '', overflow: '', boxSizing: '', backgroundColor: '' });
+            fullBtn.textContent = full ? 'Exit full screen' : 'Full screen';
+            if (full) document.addEventListener('keydown', onKey, true);
+            else document.removeEventListener('keydown', onKey, true);
+            this._applyPqDialogSize();
+        };
+        fullBtn.onclick = () => setFull(!this._pqChartFull);
+        this._pqExitChartFull = () => { if (this._pqChartFull) setFull(false); };
     }
 
     _createComplianceBanner(data) {
@@ -962,7 +1013,7 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         const canvas = document.createElement('canvas');
         canvas.width = 850;
         canvas.height = 450;
-        const chartH = this._pqMaximized ? 'max(56vh, calc(96vh - 330px))' : '450px';
+        const chartH = this._pqChartHeight();
         Object.assign(canvas.style, { width: '100%', height: chartH, maxHeight: chartH });
         panel.appendChild(canvas);
         this._pqChartSpecs.push({ canvas, curveData, reqData, voltageLevel, fullData, panel });
@@ -1300,7 +1351,7 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
                 width: '920px', height: '', maxWidth: '95vw', maxHeight: '90vh', borderRadius: '10px'
             });
         }
-        const chartH = this._pqMaximized ? 'max(56vh, calc(96vh - 330px))' : '450px';
+        const chartH = this._pqChartHeight();
         (this._pqChartSpecs || []).forEach((spec) => {
             spec.canvas.style.height = chartH;
             spec.canvas.style.maxHeight = chartH;
@@ -2747,6 +2798,7 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
 
     destroy() {
         this._lcExitFull?.();
+        this._pqExitChartFull?.();
         try {
             const gd = this._lineCurrentSection?.querySelector('.js-plotly-plot');
             if (gd && window.Plotly) window.Plotly.purge(gd);
@@ -2783,11 +2835,11 @@ export class GridCodePqResultsDialog extends RPCResultsDialog {
         return this._lineCurrents;
     }
 
-    async _openLineCurrent3d(data) {
+    async _openLineCurrent3d(data, scroll = true) {
         const lines = this._lineCurrentData(data);
         if (!this._lineCurrentSel) this._lineCurrentSel = new Set(lines.slice(0, 3).map((l) => l.key));
         this._renderLineCurrentSection(data);
-        this._lineCurrentSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (scroll) this._lineCurrentSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     _renderLineCurrentSection(data) {

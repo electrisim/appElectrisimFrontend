@@ -6,7 +6,7 @@ import {
     estimateRpcInstalledMw
 } from './dialogs/RPCDialog.js';
 import { GridCodePqDialog } from './dialogs/GridCodePqDialog.js?v=pq20261102';
-import { GridCodePqResultsDialog } from './dialogs/GridCodePqResultsDialog.js?v=pq20261108b';
+import { GridCodePqResultsDialog } from './dialogs/GridCodePqResultsDialog.js?v=pq20261109a';
 import { prepareNetworkData } from './utils/networkDataPreparation.js';
 import {
     createSimulationProgressOverlay,
