@@ -17,6 +17,7 @@
  *    clearBaselineSnapshot()                       -> Promise<void>
  *    getLatestSnapshotId()                         -> Promise<id | null>
  *    deleteSnapshot(id)                            -> Promise<void>
+ *    getResultEngine(dataJson)                     -> 'pandapower' | 'opendss' | null
  *
  *  Records:
  *    { id, label, ts, engine, counts, dataJson }
@@ -46,7 +47,10 @@
     }
 
     function autoLabel(engine, counts) {
-        const eng = engine ? engine[0].toUpperCase() + engine.slice(1) : 'Run';
+        const e = String(engine || '').toLowerCase();
+        const eng = e === 'opendss' ? 'OpenDSS'
+            : e === 'pandapower' ? 'pandapower'
+            : engine ? engine[0].toUpperCase() + engine.slice(1) : 'Run';
         const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         const size = counts ? `${counts.buses || 0}b·${counts.lines || 0}l` : '';
         return size ? `${eng} ${time} (${size})` : `${eng} ${time}`;
@@ -72,6 +76,16 @@
                 len(dataJson.asymmetricloads) +
                 len(dataJson.motors),
         };
+    }
+
+    // Engine of each live result object. The load-flow modules name it when they save a run;
+    // a later save of the same object (Save as Baseline in the dashboard) reuses it, because
+    // OpenDSS results carry no engine field of their own.
+    const _engineByResult = new WeakMap();
+
+    function getResultEngine(dataJson) {
+        if (!dataJson || typeof dataJson !== 'object') return null;
+        return _engineByResult.get(dataJson) || null;
     }
 
     function inferEngine(dataJson) {
@@ -258,7 +272,9 @@
             throw new Error('saveSnapshot: dataJson is required');
         }
         opts = opts || {};
-        const engine = (opts.engine || inferEngine(dataJson) || 'pandapower').toLowerCase();
+        const engine = String(opts.engine || _engineByResult.get(dataJson) || inferEngine(dataJson)
+            || 'pandapower').toLowerCase();
+        if (opts.engine) _engineByResult.set(dataJson, engine);
         const counts = summariseCounts(dataJson);
         const record = {
             id:       newId(engine),
@@ -407,6 +423,7 @@
     window.getBaselineSnapshot    = getBaselineSnapshot;
     window.clearBaselineSnapshot  = clearBaselineSnapshot;
     window.deleteSnapshot         = deleteSnapshot;
+    window.getResultEngine        = getResultEngine;
 
     // Internals exposed for tests
     window._snapshotStoreInternals = {

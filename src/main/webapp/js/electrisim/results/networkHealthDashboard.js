@@ -792,6 +792,15 @@
             #${PANEL_ID} .ehd-btn[disabled] {
                 opacity: 0.6; cursor: progress; transform: none !important;
             }
+            #${PANEL_ID} .ehd-btn.ehd-xcheck-btn {
+                flex-basis: 100%;
+                background: linear-gradient(135deg, #0f766e 0%, #059669 100%);
+                color: #fff; border-color: transparent;
+            }
+            #${PANEL_ID} .ehd-btn.ehd-xcheck-btn:hover { box-shadow: 0 6px 14px -4px rgba(5,150,105,0.45); }
+            #${PANEL_ID} .ehd-xcheck-hint {
+                flex-basis: 100%; font-size: 11px; color: ${COLOR_MUTED}; line-height: 1.4;
+            }
             #${PANEL_ID} .ehd-spinner {
                 width: 11px; height: 11px; border-radius: 50%;
                 border: 2px solid rgba(15,23,42,0.18); border-top-color: ${COLOR_TEXT};
@@ -1350,6 +1359,8 @@
                                 title="Pin this run as the Baseline so future runs can be compared against it">Save as Baseline</button>
                         <button class="ehd-btn primary ehd-compare-btn"
                                 title="Open Scenario Compare against the pinned Baseline">Compare to Baseline</button>
+                        <button class="ehd-btn ehd-xcheck-btn" style="display:none;">Cross-check engines</button>
+                        <div class="ehd-xcheck-hint" style="display:none;"></div>
                     </div>
                 </div>
             `;
@@ -1499,13 +1510,75 @@ Violations:  ${metrics.issues.length}`;
                     const base = await window.getBaselineSnapshot();
                     if (base) {
                         compareBtn.removeAttribute('disabled');
-                        compareBtn.title = `Compare to baseline: ${base.label || base.id}`;
+                        const eng = resultEngine();
+                        compareBtn.title = (eng && base.engine && base.engine !== eng)
+                            ? `Solver cross-check against the ${engineName(base.engine)} baseline: ${base.label || base.id}`
+                            : `Compare to baseline: ${base.label || base.id}`;
                     } else {
                         compareBtn.setAttribute('disabled', 'true');
                         compareBtn.title = 'No baseline pinned yet — click Save as Baseline first.';
                     }
                 } catch (e) { /* leave as-is */ }
+                refreshCrossCheck();
             };
+
+            // Solver cross-check: every load flow is saved as a snapshot, so the latest run of the
+            // same network with the other engine can be compared without pinning anything.
+            const xcheckBtn  = panel.querySelector('.ehd-xcheck-btn');
+            const xcheckHint = panel.querySelector('.ehd-xcheck-hint');
+            let xcheckPeer = null;
+            function engineName(eng) {
+                const e = String(eng || '').toLowerCase();
+                return e === 'opendss' ? 'OpenDSS' : e === 'pandapower' ? 'pandapower' : (eng || '');
+            }
+            function resultEngine() {
+                return typeof window.getResultEngine === 'function' ? window.getResultEngine(dataJson) : null;
+            }
+            async function refreshCrossCheck() {
+                if (!xcheckBtn || typeof window.listSnapshots !== 'function') return;
+                const eng = resultEngine();
+                if (eng !== 'pandapower' && eng !== 'opendss') return;
+                const other = eng === 'opendss' ? 'pandapower' : 'opendss';
+                const counts = window._snapshotStoreInternals && window._snapshotStoreInternals.summariseCounts
+                    ? window._snapshotStoreInternals.summariseCounts(dataJson) : null;
+                const sameNetwork = (c) => !!(counts && c && c.buses === counts.buses && c.buses > 0
+                    && c.lines === counts.lines && c.transformers === counts.transformers);
+                let list = [];
+                try { list = await window.listSnapshots(); } catch (e) { return; }
+                xcheckPeer = (list || []).find((r) => r && r.engine === other && sameNetwork(r.counts)
+                    && Date.now() - (r.ts || 0) < 24 * 3600 * 1000) || null;
+                if (xcheckPeer) {
+                    const at = new Date(xcheckPeer.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    xcheckBtn.textContent = `Cross-check vs ${engineName(other)} (${at})`;
+                    xcheckBtn.title = `Compare this ${engineName(eng)} run with the ${engineName(other)} run of the `
+                        + `same network from ${at}: voltage parity, per-bus gaps and loading gaps`;
+                    xcheckBtn.style.display = '';
+                    if (xcheckHint) xcheckHint.style.display = 'none';
+                } else {
+                    xcheckBtn.style.display = 'none';
+                    if (xcheckHint) {
+                        xcheckHint.textContent = `Tip: run this network with ${engineName(other)} too, `
+                            + 'then cross-check the two engines here.';
+                        xcheckHint.style.display = '';
+                    }
+                }
+            }
+            if (xcheckBtn) {
+                xcheckBtn.addEventListener('click', async () => {
+                    if (!xcheckPeer || typeof window.openScenarioCompare !== 'function'
+                        || typeof window.getSnapshot !== 'function') return;
+                    try {
+                        const record = await window.getSnapshot(xcheckPeer.id);
+                        if (!record) { refreshCrossCheck(); return; }
+                        const eng = resultEngine();
+                        await window.openScenarioCompare(dataJson, resolveLiveGraphForCompare(), {
+                            baseline: record, engine: eng, currentLabel: `${engineName(eng)} run`,
+                        });
+                    } catch (err) {
+                        console.error('[NetworkHealthDashboard] cross-check failed:', err);
+                    }
+                });
+            }
             refreshCompareState();
 
             if (baselineBtn) {
@@ -1548,7 +1621,8 @@ Violations:  ${metrics.issues.length}`;
                         console.warn('[NetworkHealthDashboard] openScenarioCompare is not loaded.');
                         return;
                     }
-                    Promise.resolve(window.openScenarioCompare(dataJson, resolveLiveGraphForCompare()))
+                    Promise.resolve(window.openScenarioCompare(dataJson, resolveLiveGraphForCompare(),
+                        { engine: resultEngine() || undefined }))
                         .catch((err) => console.error('[NetworkHealthDashboard] compare failed:', err));
                 });
             }
