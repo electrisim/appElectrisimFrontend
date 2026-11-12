@@ -109,6 +109,21 @@ function escapeHtmlText(value) {
                 document.body.removeChild(overlay);
             };
 
+            const playBtn = document.createElement('button');
+            playBtn.textContent = '▶ Play on diagram';
+            playBtn.title = 'Close this window and play the whole run on the single-line diagram, then export it as a video';
+            playBtn.style.cssText = 'background:linear-gradient(135deg,#0f766e,#0e7490);color:white;border:none;padding:10px 20px;border-radius:4px;cursor:pointer;font-size:13px;font-weight:600;';
+            playBtn.onclick = () => {
+                if (typeof window.startTimeSeriesPlayback !== 'function') {
+                    alert('Time Series Playback is still loading. Please try again in a moment.');
+                    return;
+                }
+                this.charts.forEach(c => c.destroy?.());
+                if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+                window.startTimeSeriesPlayback(null, this.results);
+            };
+
+            buttonRow.appendChild(playBtn);
             buttonRow.appendChild(exportBtn);
             buttonRow.appendChild(closeButton);
             dialog.appendChild(buttonRow);

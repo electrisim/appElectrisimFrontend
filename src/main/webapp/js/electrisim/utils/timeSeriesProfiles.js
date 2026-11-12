@@ -80,6 +80,25 @@ export function buildGenerationPresetProfile(preset, timeSteps) {
     return Array.from({ length: n }, () => 1);
 }
 
+/**
+ * Battery solar shifting in MW (positive = charging, negative = discharging):
+ * charge around the midday solar peak, discharge over the evening peak. About 85 % of the
+ * charged energy comes back out, a typical round-trip efficiency.
+ */
+export function buildBatteryShiftProfile(timeSteps, ratedMw) {
+    const n = Math.max(1, parseInt(timeSteps, 10) || 24);
+    const p = Math.max(0.001, Math.abs(parseFloat(ratedMw)) || 1);
+    const day = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.5, 0.8, 1, 1, 0.8, 0.5, 0, -0.6, -1, -1, -0.8, -0.5, 0, 0];
+    return Array.from({ length: n }, (_, i) => Math.round(day[i % 24] * p * 1000) / 1000);
+}
+
+/** Random battery set points between full discharge and full charge (MW). */
+export function buildRandomBatteryProfile(timeSteps, ratedMw) {
+    const n = Math.max(1, parseInt(timeSteps, 10) || 24);
+    const p = Math.max(0.001, Math.abs(parseFloat(ratedMw)) || 1);
+    return Array.from({ length: n }, () => Math.round((Math.random() * 2 - 1) * p * 1000) / 1000);
+}
+
 /** Notebook-style random absolute P profile (MW). */
 export function buildRandomAbsoluteProfile(timeSteps, maxMw) {
     const n = Math.max(1, parseInt(timeSteps, 10) || 24);
