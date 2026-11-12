@@ -4,10 +4,12 @@ import {
     buildLoadPresetProfile,
     buildGenerationPresetProfile,
     buildRandomAbsoluteProfile,
+    buildBatteryShiftProfile,
+    buildRandomBatteryProfile,
     parseProfileValues,
     formatProfileValues,
     normalizeProfileLength
-} from '../utils/timeSeriesProfiles.js';
+} from '../utils/timeSeriesProfiles.js?v=2';
 import { attachBackdropCloseHandler } from '../utils/dialogStyles.js';
 
 const LOAD_TYPES = new Set(['Load', 'Asymmetric Load']);
@@ -43,6 +45,7 @@ function collectProfileElements(graph) {
 
         let elementType = null;
         if (LOAD_TYPES.has(componentType)) elementType = 'load';
+        else if (componentType === 'Storage') elementType = 'storage';
         else if (GEN_TYPES.has(componentType) || componentType === 'Static Generator') {
             elementType = componentType === 'Generator' ? 'gen' : 'sgen';
         }
@@ -50,7 +53,12 @@ function collectProfileElements(graph) {
 
         const technicalName = cell.mxObjectId?.replace('#', '_') || cell.id;
         const userFriendlyName = getCellAttr(cell, 'name') || technicalName;
-        const basePMw = parseFloat(getCellAttr(cell, 'p_mw')) || (elementType === 'load' ? 15 : 20);
+        let basePMw = parseFloat(getCellAttr(cell, 'p_mw')) || (elementType === 'load' ? 15 : 20);
+        if (elementType === 'storage') {
+            // Rated power: max_p_mw when set, else the larger of sn_mva and |p_mw|.
+            const num = (k) => Math.abs(parseFloat(getCellAttr(cell, k)) || 0);
+            basePMw = num('max_p_mw') || Math.max(num('sn_mva'), num('p_mw')) || 1;
+        }
 
         elements.push({
             key: technicalName,
@@ -184,6 +192,16 @@ class TimeSeriesSimulationDialog {
         quickRow.appendChild(mkQuickBtn('Random MW (tutorial) → all', 'Notebook-style random absolute MW for every element', () => {
             this.applyRandomToAll();
         }));
+        if (this.profileElements.some(e => e.elementType === 'storage')) {
+            quickRow.appendChild(mkQuickBtn('Batteries: charge midday, discharge evening', 'Absolute MW for every battery: charge 10:00–15:00 around the solar peak, discharge 17:00–21:00 over the evening peak', () => {
+                const n = parseInt(this._timeStepsInput?.value, 10) || 24;
+                for (const editor of this.profileEditors) {
+                    if (editor.elementType !== 'storage') continue;
+                    editor.modeSelect.value = 'absolute';
+                    editor.textarea.value = formatProfileValues(buildBatteryShiftProfile(n, editor.basePMw));
+                }
+            }));
+        }
 
         quickFill.appendChild(quickRow);
         profileSection.appendChild(quickFill);
@@ -198,10 +216,12 @@ class TimeSeriesSimulationDialog {
                 </div>`;
         } else {
             const countLoads = this.profileElements.filter(e => e.elementType === 'load').length;
-            const countGens = this.profileElements.length - countLoads;
+            const countBatteries = this.profileElements.filter(e => e.elementType === 'storage').length;
+            const countGens = this.profileElements.length - countLoads - countBatteries;
             const summary = document.createElement('p');
             summary.style.cssText = 'margin:0 0 10px;font-size:12px;color:#666;';
-            summary.textContent = `${this.profileElements.length} element(s): ${countLoads} load(s), ${countGens} generator(s).`;
+            summary.textContent = `${this.profileElements.length} element(s): ${countLoads} load(s), ${countGens} generator(s)`
+                + (countBatteries ? `, ${countBatteries} batter${countBatteries === 1 ? 'y' : 'ies'} (positive MW charges, negative discharges).` : '.');
             customSection.appendChild(summary);
             this.profileElements.forEach(el => {
                 customSection.appendChild(this.createElementProfileEditor(el));
@@ -318,7 +338,9 @@ class TimeSeriesSimulationDialog {
                     let mode = editor.modeSelect.value;
                     const maxVal = Math.max(...values.map(v => Math.abs(Number(v))));
                     const baseP = editor.basePMw || 1;
-                    const looksLikeAbsolute = maxVal > 3 || (maxVal >= baseP * 0.2 && maxVal <= baseP * 1.05);
+                    // Scale factors above 3 are almost certainly MW. Values up to 3 are accepted as typed:
+                    // presets reach 1.1-1.4, which the old "close to base P" guess rejected for 1-6.5 MW units.
+                    const looksLikeAbsolute = maxVal > 3;
                     if (mode === 'scale' && looksLikeAbsolute) {
                         alert(
                             `"${editor.label}" is set to Scale factor but the values look like MW (max ${maxVal.toFixed(2)}, base P ${baseP} MW).\n\n` +
@@ -375,7 +397,9 @@ class TimeSeriesSimulationDialog {
         const n = parseInt(this._timeStepsInput?.value, 10) || 24;
         for (const editor of this.profileEditors) {
             editor.modeSelect.value = 'absolute';
-            editor.textarea.value = formatProfileValues(buildRandomAbsoluteProfile(n, editor.basePMw));
+            editor.textarea.value = formatProfileValues(editor.elementType === 'storage'
+                ? buildRandomBatteryProfile(n, editor.basePMw)
+                : buildRandomAbsoluteProfile(n, editor.basePMw));
         }
     }
 
@@ -386,8 +410,9 @@ class TimeSeriesSimulationDialog {
         const header = document.createElement('div');
         header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:8px;';
         const titleWrap = document.createElement('div');
-        const badge = el.elementType === 'load' ? 'Load' : 'Generation';
-        const badgeColor = el.elementType === 'load' ? '#1565c0' : '#2e7d32';
+        const isBattery = el.elementType === 'storage';
+        const badge = el.elementType === 'load' ? 'Load' : (isBattery ? 'Battery' : 'Generation');
+        const badgeColor = el.elementType === 'load' ? '#1565c0' : (isBattery ? '#7b1fa2' : '#2e7d32');
         titleWrap.innerHTML = `<strong style="font-size:14px;">${escapeHtml(el.label)}</strong>
             <span style="margin-left:6px;font-size:11px;padding:2px 6px;border-radius:3px;background:${badgeColor}18;color:${badgeColor};">${escapeHtml(badge)}</span>`;
         header.appendChild(titleWrap);
@@ -407,14 +432,16 @@ class TimeSeriesSimulationDialog {
         const hint = document.createElement('div');
         hint.style.cssText = 'font-size:11px;color:#666;margin-bottom:6px;';
         const initialSteps = parseInt(this._timeStepsInput?.value, 10) || 24;
-        hint.textContent = `Base P from diagram: ${el.basePMw} MW — enter ${initialSteps} values`;
+        hint.textContent = this.profileHintText(el, initialSteps);
         card.appendChild(hint);
 
         const textarea = document.createElement('textarea');
         textarea.rows = 3;
         textarea.placeholder = 'e.g. 10, 12, 8, 15, … (one value per hour)';
         textarea.style.cssText = 'width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:Consolas,monospace;font-size:12px;resize:vertical;';
-        const initial = buildRandomAbsoluteProfile(initialSteps, el.basePMw);
+        const initial = isBattery
+            ? buildBatteryShiftProfile(initialSteps, el.basePMw)
+            : buildRandomAbsoluteProfile(initialSteps, el.basePMw);
         textarea.value = formatProfileValues(initial);
         card.appendChild(textarea);
 
@@ -428,12 +455,26 @@ class TimeSeriesSimulationDialog {
             b.addEventListener('click', handler);
             return b;
         };
+        if (isBattery) {
+            btnRow.appendChild(mkBtn('Charge midday, discharge evening', () => {
+                const n = parseInt(this._timeStepsInput?.value, 10) || 24;
+                modeSelect.value = 'absolute';
+                textarea.value = formatProfileValues(buildBatteryShiftProfile(n, el.basePMw));
+            }));
+            btnRow.appendChild(mkBtn('Idle (0 MW)', () => {
+                const n = parseInt(this._timeStepsInput?.value, 10) || 24;
+                modeSelect.value = 'absolute';
+                textarea.value = formatProfileValues(Array.from({ length: n }, () => 0));
+            }));
+        }
         btnRow.appendChild(mkBtn('Random (tutorial)', () => {
             const n = parseInt(this._timeStepsInput?.value, 10) || 24;
             modeSelect.value = 'absolute';
-            textarea.value = formatProfileValues(buildRandomAbsoluteProfile(n, el.basePMw));
+            textarea.value = formatProfileValues(isBattery
+                ? buildRandomBatteryProfile(n, el.basePMw)
+                : buildRandomAbsoluteProfile(n, el.basePMw));
         }));
-        btnRow.appendChild(mkBtn('Fill preset (scale)', () => {
+        if (!isBattery) btnRow.appendChild(mkBtn('Fill preset (scale)', () => {
             const n = parseInt(this._timeStepsInput?.value, 10) || 24;
             const preset = el.elementType === 'load'
                 ? (this._loadPresetSelect?.value || 'constant')
@@ -469,8 +510,15 @@ class TimeSeriesSimulationDialog {
     syncAllProfileHints(timeSteps) {
         const n = parseInt(timeSteps, 10) || 24;
         for (const editor of this.profileEditors || []) {
-            editor.hint.textContent = `Base P from diagram: ${editor.basePMw} MW — enter ${n} values`;
+            editor.hint.textContent = this.profileHintText(editor, n);
         }
+    }
+
+    profileHintText(el, n) {
+        if (el.elementType === 'storage') {
+            return `Rated power ${el.basePMw} MW — enter ${n} values in MW: positive charges, negative discharges`;
+        }
+        return `Base P from diagram: ${el.basePMw} MW — enter ${n} values`;
     }
 
     async checkSubscriptionStatus() {
