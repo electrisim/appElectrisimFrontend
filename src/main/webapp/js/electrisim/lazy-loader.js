@@ -89,6 +89,7 @@
             'eigenvalueAnalysis',
             'contingencyAnalysis',
             'dataCenterSiteScreening',
+            'voltageStability',
             'timeSeriesSimulation'
         ],
         

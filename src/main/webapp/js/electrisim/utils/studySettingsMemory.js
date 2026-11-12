@@ -20,6 +20,7 @@ const STUDY_KEYS = {
     BessSizingDialog: 'bessSizing',
     BessPreliminaryDesignDialog: 'bessPreliminaryDesign',
     DataCenterSiteScreeningDialog: 'dataCenterSiteScreening',
+    VoltageStabilityDialog: 'voltageStability',
     ArcFlashDialog: 'arcFlash',
     MotorStartingDialog: 'motorStarting',
     TransientStabilityDialog: 'transientStability',
