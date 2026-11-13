@@ -2,6 +2,69 @@ import { Dialog } from '../Dialog.js';
 import { ensureSubscriptionFunctions } from '../ensureSubscriptionFunctions.js';
 import { SIMULATION_FORM_SCROLL_STYLE, SIMULATION_INFO_BANNER_STYLE, STUDY_MODAL_OVERLAY_STYLE, attachBackdropCloseHandler, getStudyModalDialogBoxStyle, preventAccidentalFormSubmit, STUDY_MODAL_CONTENT_WRAPPER_STYLE } from '../utils/dialogStyles.js';
 
+function cellAttribute(cell, name) {
+    const value = cell && cell.value;
+    return value && typeof value.getAttribute === 'function' ? (value.getAttribute(name) || '') : '';
+}
+
+function cellShape(cell) {
+    const style = (cell && typeof cell.getStyle === 'function' && cell.getStyle()) || '';
+    const match = String(style).match(/shapeELXXX=([^;]+)/);
+    return match ? match[1].trim() : '';
+}
+
+/**
+ * Buses of the diagram for the frequency-scan list, highest voltage first.
+ * The default selection is the bus of the External Grid (the point of connection).
+ */
+function collectBusOptions(graph) {
+    const options = [];
+    let defaults = [];
+    try {
+        const model = graph.getModel();
+        const cells = Object.values(model.cells || {});
+        const buses = cells.filter((cell) => cellShape(cell) === 'Bus');
+        const busIds = new Set(buses.map((cell) => cell.id));
+        const busOf = (cell) => {
+            // a connected terminal is the bus itself or a port drawn on it
+            for (let c = cell; c; c = c.parent) {
+                if (busIds.has(c.id)) return c.id;
+            }
+            return null;
+        };
+        buses
+            .map((cell) => ({
+                id: cell.id,
+                name: cellAttribute(cell, 'name') || cell.id,
+                vn: parseFloat(cellAttribute(cell, 'vn_kv'))
+            }))
+            .sort((a, b) => ((Number.isFinite(b.vn) ? b.vn : -1) - (Number.isFinite(a.vn) ? a.vn : -1))
+                || a.name.localeCompare(b.name, undefined, { numeric: true }))
+            .forEach((bus) => {
+                options.push({
+                    value: bus.id,
+                    label: Number.isFinite(bus.vn) ? `${bus.name.trim()} (${bus.vn} kV)` : bus.name.trim()
+                });
+            });
+        const grid = cells.find((cell) => cellShape(cell) === 'External Grid');
+        if (grid) {
+            const neighbours = [grid, ...(grid.children || [])];
+            for (const cell of neighbours) {
+                for (const edge of (cell.edges || [])) {
+                    const other = edge.source === cell ? edge.target : edge.source;
+                    const busId = busOf(other);
+                    if (busId) { defaults = [busId]; break; }
+                }
+                if (defaults.length) break;
+            }
+        }
+        if (!defaults.length && options.length) defaults = [options[0].value];
+    } catch (e) {
+        console.warn('HarmonicAnalysisDialog: could not list buses for the frequency scan', e);
+    }
+    return { options, defaults };
+}
+
 /**
  * HarmonicAnalysisDialog
  * ----------------------
@@ -16,11 +79,12 @@ export class HarmonicAnalysisDialog extends Dialog {
         super('OpenDSS Harmonic Analysis', 'Run Harmonic Analysis');
 
         this.ui = editorUi || window.App?.main?.editor?.editorUi;
-        this.graph = this.ui?.editor?.graph;
+        this.graph = this.ui?.editor?.graph || window.App?.main?.editor?.graph;
 
         // Single-Engine parameter set for OpenDSS harmonic analysis
         // Based on: https://opendss.epri.com/HarmonicFlowAnalysis.html
         //           https://opendss.epri.com/HarmonicsLoadModeling.html
+        const busOptions = collectBusOptions(this.graph);
         this.parameters = [
             {
                 id: 'frequency',
@@ -29,6 +93,18 @@ export class HarmonicAnalysisDialog extends Dialog {
                 options: [
                     { value: '50', label: '50 Hz', default: true },
                     { value: '60', label: '60 Hz' }
+                ]
+            },
+            {
+                id: 'operatingPoint',
+                label: 'Operating point (fundamental-frequency load flow)',
+                type: 'radio',
+                hint: 'OpenDSS has no park controller, plant supervisory controller, STATCOM or transformer tap ' +
+                      'control. The controlled load flow applies them (with your Load Flow settings) and the ' +
+                      'harmonic study starts from that result.',
+                options: [
+                    { value: 'controlled', label: 'Controlled load flow (controllers, STATCOM, tap and reactor steps applied)', default: true },
+                    { value: 'opendss', label: 'OpenDSS load flow only' }
                 ]
             },
             {
@@ -62,9 +138,46 @@ export class HarmonicAnalysisDialog extends Dialog {
             },
             {
                 id: 'harmonics',
-                label: 'Harmonic Orders (comma-separated, e.g. 3,5,7,11,13)',
+                label: 'Harmonic Orders (list and ranges, e.g. 3,5,7,11,13 or 2-50)',
                 type: 'text',
-                value: '3,5,7,11,13'
+                value: '3,5,7,11,13',
+                presets: [
+                    { label: 'Characteristic (5-25)', value: '5,7,11,13,17,19,23,25' },
+                    { label: 'Odd 3-25', value: '3,5,7,9,11,13,15,17,19,21,23,25' },
+                    { label: 'All 2-25', value: '2-25' },
+                    { label: 'All 2-50', value: '2-50' }
+                ]
+            },
+            {
+                id: 'frequencyScan',
+                label: 'Frequency scan: impedance seen from a bus over frequency, to find resonances',
+                type: 'checkbox',
+                value: true
+            },
+            {
+                id: 'scanBusIds',
+                label: 'Frequency scan buses (up to 6; Ctrl+click for several)',
+                type: 'multiselect',
+                options: busOptions.options,
+                value: busOptions.defaults
+            },
+            {
+                id: 'scanMaxOrder',
+                label: 'Frequency scan up to harmonic order',
+                type: 'number',
+                value: '50'
+            },
+            {
+                id: 'scanStep',
+                label: 'Frequency scan step (harmonic order)',
+                type: 'select',
+                options: [
+                    { value: '0.05', label: '0.05 (2.5 Hz at 50 Hz)' },
+                    { value: '0.1', label: '0.1 (5 Hz at 50 Hz)' },
+                    { value: '0.2', label: '0.2 (10 Hz at 50 Hz)' },
+                    { value: '0.5', label: '0.5 (25 Hz at 50 Hz)' }
+                ],
+                value: '0.1'
             },
             {
                 id: 'neglectLoadY',
@@ -111,8 +224,10 @@ export class HarmonicAnalysisDialog extends Dialog {
 
     getDescription() {
         return '<strong>Configure OpenDSS harmonic analysis parameters.</strong><br>' +
-               'A snapshot power flow will be solved first, then <code>Solve mode=harmonics</code> ' +
-               'will be executed for the selected harmonic orders. ' +
+               'A load flow fixes the operating point, then every selected harmonic order is solved ' +
+               '(<code>Solve mode=harmonics</code>) and, if selected, the impedance at the chosen buses is ' +
+               'scanned over frequency. Harmonic sources are the spectra set on loads, generators and ' +
+               'inverters (Harmonic parameters of each element). ' +
                'See the <a href="https://electrisim.com/documentation.html#harmonic-analysis" target="_blank" rel="noopener noreferrer">Electrisim documentation</a>.';
     }
 
@@ -142,16 +257,28 @@ export class HarmonicAnalysisDialog extends Dialog {
             label.textContent = param.label;
             group.appendChild(label);
 
+            if (param.hint) {
+                const hint = document.createElement('div');
+                Object.assign(hint.style, { fontSize: '12px', color: '#6c757d', margin: '0 0 6px 0', lineHeight: '1.4' });
+                hint.textContent = param.hint;
+                group.appendChild(hint);
+            }
+
             let input;
             if (param.type === 'radio') {
                 input = this.createRadioGroup(param);
             } else if (param.type === 'checkbox') {
                 input = this.createCheckbox(param);
+            } else if (param.type === 'select' || param.type === 'multiselect') {
+                input = this.createSelect(param);
             } else {
                 input = this.createTextInput(param);
             }
 
             group.appendChild(input);
+            if (Array.isArray(param.presets) && param.presets.length) {
+                group.appendChild(this.createPresetRow(param, input));
+            }
             form.appendChild(group);
         });
 
@@ -266,6 +393,63 @@ export class HarmonicAnalysisDialog extends Dialog {
         return input;
     }
 
+    createSelect(param) {
+        const select = document.createElement('select');
+        select.id = param.id;
+        const multiple = param.type === 'multiselect';
+        if (multiple) {
+            select.multiple = true;
+            select.size = Math.min(6, Math.max(3, (param.options || []).length));
+        }
+        Object.assign(select.style, {
+            width: '100%',
+            padding: '6px 10px',
+            border: '1px solid #ced4da',
+            borderRadius: '4px',
+            fontSize: '13px',
+            fontFamily: 'inherit',
+            backgroundColor: '#ffffff',
+            boxSizing: 'border-box'
+        });
+        const chosen = new Set((Array.isArray(param.value) ? param.value : [param.value]).map(String));
+        (param.options || []).forEach((option) => {
+            const opt = document.createElement('option');
+            opt.value = option.value;
+            opt.textContent = option.label;
+            opt.selected = chosen.has(String(option.value));
+            select.appendChild(opt);
+        });
+        this.inputs.set(param.id, select);
+        return select;
+    }
+
+    /** Buttons that fill a text field with a ready-made value. */
+    createPresetRow(param, input) {
+        const row = document.createElement('div');
+        Object.assign(row.style, { display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' });
+        param.presets.forEach((preset) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.textContent = preset.label;
+            button.title = preset.value;
+            Object.assign(button.style, {
+                padding: '3px 10px',
+                border: '1px solid #ced4da',
+                borderRadius: '12px',
+                backgroundColor: '#f8f9fa',
+                color: '#495057',
+                fontSize: '12px',
+                cursor: 'pointer'
+            });
+            button.addEventListener('click', () => {
+                input.value = preset.value;
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+            row.appendChild(button);
+        });
+        return row;
+    }
+
     getFormValues() {
         const values = {};
 
@@ -279,6 +463,11 @@ export class HarmonicAnalysisDialog extends Dialog {
             } else if (param.type === 'checkbox') {
                 const checkbox = this.inputs.get(param.id);
                 values[param.id] = checkbox ? checkbox.checked : !!param.value;
+            } else if (param.type === 'multiselect') {
+                const select = this.inputs.get(param.id);
+                values[param.id] = select
+                    ? Array.from(select.selectedOptions).map((o) => o.value).slice(0, 6)
+                    : (param.value || []);
             } else {
                 const input = this.inputs.get(param.id);
                 values[param.id] = input ? input.value : param.value;

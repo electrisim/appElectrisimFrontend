@@ -6,7 +6,7 @@
     <link rel="preconnect" href="https://js.stripe.com" crossorigin>
     <link rel="preconnect" href="https://unpkg.com" crossorigin>
     <link rel="dns-prefetch" href="https://web-sdk.smartlook.com">
-    <link rel="preload" href="js/app.min.js?v=pv-curves1" as="script">
+    <link rel="preload" href="js/app.min.js?v=gfm-statcom1" as="script">
     <link rel="preload" href="https://unpkg.com/ag-grid-community@31.3.2/dist/ag-grid-community.min.js" as="script">
 
     <!-- Module preload hints for analysis engines: makes browser fetch them earlier (HTTP/2 prioritized)
@@ -20,7 +20,7 @@
     <link rel="modulepreload" href="js/electrisim/transientStability.js">
     <link rel="modulepreload" href="js/electrisim/eigenvalueAnalysis.js">
     <link rel="modulepreload" href="js/electrisim/loadFlow.js?v=13">
-    <link rel="modulepreload" href="js/electrisim/loadflowOpenDss.js?v=4">
+    <link rel="modulepreload" href="js/electrisim/loadflowOpenDss.js?v=5">
     <link rel="modulepreload" href="js/electrisim/optimalPowerFlow.js">
     <link rel="modulepreload" href="js/electrisim/contingencyAnalysis.js?v=2">
     <link rel="modulepreload" href="js/electrisim/dataCenterSiteScreening.js">
@@ -354,7 +354,7 @@
         // Define application scripts (ES modules)
         const appScripts = [
             { src: 'js/electrisim/auth-globals.js' },
-            { src: 'js/app.min.js?v=pv-curves1' },
+            { src: 'js/app.min.js?v=gfm-statcom1' },
            // { src: 'js/extensions.min.js' },
            // { src: 'js/shapes.min.js' },
             { src: 'js/electrisim/dialogs/EditDataDialog.js', type: 'module', async: true },
@@ -410,7 +410,7 @@
             { src: 'js/electrisim/configureAttributes.js', type: 'module', async: true },
             { src: 'js/electrisim/supportingFunctions.js?v=cap-loss1', type: 'module', async: true },
             { src: 'js/electrisim/loadFlow.js?v=13', type: 'module', async: true },
-            { src: 'js/electrisim/loadflowOpenDss.js?v=4', type: 'module', async: true },
+            { src: 'js/electrisim/loadflowOpenDss.js?v=5', type: 'module', async: true },
             { src: 'js/electrisim/bessSizing.js', type: 'module', async: true },
             { src: 'js/electrisim/gridCodePqAnalysis.js?v=pq20261109a', type: 'module', async: true },
             { src: 'js/electrisim/gridCodeVqAnalysis.js?v=vq20261109a', type: 'module', async: true },
@@ -658,7 +658,7 @@
 							
 							// Use async loading for app.min.js to prevent blocking
 							var appScript = document.createElement('script');
-							appScript.src = 'js/app.min.js?v=pv-curves1';
+							appScript.src = 'js/app.min.js?v=gfm-statcom1';
 							appScript.async = false; // Maintain execution order but don't block parsing
 							appScript.defer = true;
 							appScript.onload = function() {
@@ -758,7 +758,8 @@
                                 'js/electrisim/results/loadFlowAnimation.js?v=12',
                                 'js/electrisim/results/loadFlowColouring.js?v=1',
                                 'js/electrisim/results/timeSeriesPlayback.js?v=1',
-                                'js/electrisim/results/networkHealthDashboard.js?v=5',
+                                'js/electrisim/results/faultCurrentWaveform.js?v=1',
+                                'js/electrisim/results/networkHealthDashboard.js?v=6',
                                 'js/electrisim/utils/snapshotStore.js?v=2',
                                 'js/electrisim/results/scenarioCompare.js?v=2',
                                 'js/electrisim/results/lineCurrentCharacteristic.js?v=4',
@@ -826,7 +827,7 @@
 								'js/electrisim/map/mapInitializer.js?v=2',
 								'js/electrisim/supportingFunctions.js?v=cap-loss1',
 								'js/electrisim/loadFlow.js?v=13',
-								'js/electrisim/loadflowOpenDss.js?v=4',
+								'js/electrisim/loadflowOpenDss.js?v=5',
 								'js/electrisim/optimalPowerFlow.js',
 								'js/electrisim/timeSeriesSimulation.js',
 								'js/electrisim/contingencyAnalysis.js?v=2',
