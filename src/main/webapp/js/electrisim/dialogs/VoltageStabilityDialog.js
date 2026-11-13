@@ -13,7 +13,9 @@ export class VoltageStabilityDialog extends Dialog {
 
         const buses = listDiagramBusbars(this.graph);
         const selected = getSelectedDiagramBusbars(this.graph);
-        const preselectedId = selected.length ? selected[0].id : null;
+        const preselectedId = selected.length === 1 ? selected[0].id : null;
+        this._selectedBusIds = selected.map((b) => b.id);
+        const many = selected.length > 1;
         this._busCount = buses.length;
         const busOptions = buses.map((b) => ({
             value: b.id,
@@ -27,8 +29,15 @@ export class VoltageStabilityDialog extends Dialog {
                 label: 'How the load grows',
                 type: 'radio',
                 options: [
-                    { value: 'all_loads', label: 'All loads grow together', default: !preselectedId },
-                    { value: 'bus', label: 'A new load is added at one bus', default: !!preselectedId }
+                    { value: 'all_loads', label: 'All loads grow together', default: !preselectedId && !many },
+                    { value: 'bus', label: 'A new load is added at one bus', default: !!preselectedId },
+                    {
+                        value: 'rank',
+                        label: many
+                            ? `Compare the ${selected.length} selected buses: how much new load each can take`
+                            : 'Compare all buses: how much new load each can take',
+                        default: many
+                    }
                 ]
             },
             {
@@ -39,7 +48,7 @@ export class VoltageStabilityDialog extends Dialog {
             },
             {
                 id: 'power_factor',
-                label: 'Power factor of the new load (inductive)',
+                label: 'Power factor of the new load (inductive; one bus and compare modes)',
                 type: 'number',
                 value: '0.95',
                 min: '0.5',
@@ -66,7 +75,8 @@ export class VoltageStabilityDialog extends Dialog {
             'The load is raised step by step until the load flow no longer solves. That point is the tip of the P-V curve (voltage collapse). ' +
             'The study also reports where the first bus drops below the minimum voltage and where the first line or transformer is overloaded, ' +
             'because one of those usually comes first. The extra power comes from the External Grid (slack). ' +
-            'Tip: select a bus on the diagram before opening this dialog to pre-fill it. ' +
+            'Tip: select one bus on the diagram before opening this dialog to pre-fill it, or select several buses to compare only those ' +
+            '(comparing runs the study once per bus, about a second each, for up to 60 buses). ' +
             '<a href="https://electrisim.com/documentation.html#voltage-stability" target="_blank" rel="noopener noreferrer">Documentation</a>'
         );
     }
@@ -109,7 +119,7 @@ export class VoltageStabilityDialog extends Dialog {
             const busParam = this.parameters.find((p) => p.id === 'bus_id');
             const busOption = (busParam?.options || []).find((o) => String(o.value) === String(values.bus_id));
             const busLabel = busOption ? String(busOption.label || '') : '';
-            if (callback) callback({ ...values, bus_label: busLabel });
+            if (callback) callback({ ...values, bus_label: busLabel, bus_ids: values.mode === 'rank' ? this._selectedBusIds : [] });
         });
     }
 
