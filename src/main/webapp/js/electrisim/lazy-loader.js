@@ -90,6 +90,7 @@
             'contingencyAnalysis',
             'dataCenterSiteScreening',
             'voltageStability',
+            'gridFormingStatcom',
             'timeSeriesSimulation'
         ],
         

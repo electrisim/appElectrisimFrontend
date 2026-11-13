@@ -1351,6 +1351,8 @@
                         <button class="ehd-btn primary ehd-flash-btn">Highlight Hot Spots</button>
                         <button class="ehd-btn ehd-line-i-btn" style="${hideLfOnly}"
                                 title="Select one or more series Line edges first, then open this chart (|I| vs km from pandapower i_from / i_to)">Line current vs km…</button>
+                        <button class="ehd-btn ehd-wave-btn" style="${isSc ? '' : 'display:none;'}"
+                                title="See the fault current in time: peak, DC component and what the breaker sees when its contacts part">Fault current waveform…</button>
                         <button class="ehd-btn ehd-report-btn" title="Generate a multi-page PDF engineering report from this run">Export Report</button>
                         <button class="ehd-btn ehd-copy-btn">Copy Summary</button>
                     </div>
@@ -1409,6 +1411,25 @@
                         window.showLineCurrentCharacteristicPanel(graph);
                     } catch (e) {
                         console.warn('[NetworkHealthDashboard] Line current chart failed:', e);
+                    }
+                });
+            }
+
+            // Fault current waveform (short circuit only): opens on the bus with the highest Ik"
+            const waveBtn = panel.querySelector('.ehd-wave-btn');
+            if (waveBtn && isSc) {
+                waveBtn.addEventListener('click', () => {
+                    if (typeof window.showFaultCurrentWaveform !== 'function') {
+                        console.warn('[NetworkHealthDashboard] faultCurrentWaveform.js is not loaded.');
+                        return;
+                    }
+                    try {
+                        window.showFaultCurrentWaveform(dataJson, {
+                            nameOf: makeDisplayNameResolver(graph),
+                            faultType: metrics.studyParams && metrics.studyParams.fault_type,
+                        });
+                    } catch (e) {
+                        console.warn('[NetworkHealthDashboard] Fault current waveform failed:', e);
                     }
                 });
             }
