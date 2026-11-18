@@ -87,14 +87,6 @@ class MaintenanceMode {
             this.isBackendDown = true;
             this.showMaintenanceBanner();
             this.retryCount = 0;
-            
-            // Track with Smartlook if available
-            if (typeof smartlook !== 'undefined') {
-                smartlook('track', 'backend_unavailable', {
-                    timestamp: new Date().toISOString(),
-                    apiBaseUrl: config.apiBaseUrl
-                });
-            }
         }
         
         this.retryCount++;
@@ -115,15 +107,7 @@ class MaintenanceMode {
             this.hideMaintenanceBanner();
             this.retryCount = 0;
             this.checkIntervalMs = 5000; // Reset to normal interval
-            
-            // Track recovery with Smartlook
-            if (typeof smartlook !== 'undefined') {
-                smartlook('track', 'backend_recovered', {
-                    timestamp: new Date().toISOString(),
-                    apiBaseUrl: config.apiBaseUrl
-                });
-            }
-            
+
             // Show success message briefly
             this.showRecoveryMessage();
         }

@@ -9,53 +9,6 @@ const API_BASE_URL = config.apiBaseUrl;
 // Below it, consent would need a parent; the service is not aimed at children.
 const MINIMUM_AGE = 16;
 
-// Smartlook error tracking helper. Smartlook only exists when the visitor accepted session
-// recording; even then the email and name typed into the form are never sent to it.
-function trackAuthError(errorType, errorDetails, userContext = {}) {
-    // eslint-disable-next-line no-unused-vars
-    const { email, name, ...safeContext } = userContext;
-    userContext = safeContext;
-    try {
-        if (typeof smartlook !== 'undefined') {
-            smartlook('track', 'auth_error', {
-                error_type: errorType,
-                error_message: errorDetails.message || errorDetails,
-                error_code: errorDetails.code || 'unknown',
-                timestamp: new Date().toISOString(),
-                user_agent: navigator.userAgent,
-                url: window.location.href,
-                user_context: {
-                    has_token: !!localStorage.getItem('token'),
-                    has_user: !!localStorage.getItem('user'),
-                    ...userContext
-                }
-            });
-        }
-    } catch (e) {
-        console.warn('Failed to track auth error with Smartlook:', e);
-    }
-}
-
-// Track successful authentication events
-function trackAuthSuccess(authType, userData = {}) {
-    try {
-        if (typeof smartlook !== 'undefined') {
-            smartlook('track', 'auth_success', {
-                auth_type: authType,
-                timestamp: new Date().toISOString(),
-                user_agent: navigator.userAgent,
-                url: window.location.href,
-                user_context: {
-                    user_id: userData.id || 'unknown',
-                    has_stripe_customer: !!userData.stripeCustomerId
-                }
-            });
-        }
-    } catch (e) {
-        console.warn('Failed to track auth success with Smartlook:', e);
-    }
-}
-
 // Helper function for API calls
 async function apiCall(endpoint, options = {}) {
     try {
@@ -115,13 +68,6 @@ async function apiCall(endpoint, options = {}) {
     } catch (error) {
         console.error(`API call failed: ${endpoint}`, error);
         
-        // Track API errors with Smartlook
-        trackAuthError('api_error', {
-            message: error.message,
-            code: error.status || 'network_error',
-            endpoint: endpoint,
-            method: options.method || 'GET'
-        });
         
         throw error;
     }
@@ -145,23 +91,15 @@ async function login(email, password) {
                 localStorage.setItem('user', JSON.stringify(response.user));
             }
             
-            // Track successful login
-            trackAuthSuccess('email_password', response.user);
             
             return response;
         } else {
             const error = new Error('Invalid response from server');
-            trackAuthError('invalid_response', error, { email: email });
             throw error;
         }
     } catch (error) {
         console.error('Login error:', error);
         
-        // Track login errors
-        trackAuthError('login_failed', error, { 
-            email: email,
-            error_type: error.message.includes('Invalid credentials') ? 'invalid_credentials' : 'server_error'
-        });
         
         throw error;
     }
@@ -186,8 +124,6 @@ async function register(email, password, name) {
             localStorage.setItem('user', JSON.stringify(data.user));
             devLog('Token and user stored successfully');
             
-            // Track successful registration
-            trackAuthSuccess('email_password', data.user);
             
             // Note: We don't dispatch userLoggedIn here for registration
             // because createRegisterForm handles the post-registration redirect
@@ -197,7 +133,6 @@ async function register(email, password, name) {
         } else {
             console.error('No token in response:', data);
             const error = new Error('Invalid response from server');
-            trackAuthError('invalid_response', error, { email: email, name: name });
             throw error;
         }
     } catch (error) {
@@ -212,11 +147,6 @@ async function register(email, password, name) {
             errorType = 'server_error';
         }
         
-        trackAuthError('registration_failed', error, { 
-            email: email,
-            name: name,
-            error_type: errorType
-        });
         
         // If the error message is already user-friendly, don't add prefix
         if (error.message.includes('email address is already registered') || 
@@ -305,8 +235,6 @@ function createLoginForm(container) {
             const email = form.querySelector('#email').value;
             const password = form.querySelector('#password').value;
             
-            // Track login attempt
-            trackAuthError('login_attempt', { message: 'User attempting login' }, { email: email });
             
             const response = await login(email, password);
             
@@ -474,8 +402,6 @@ function createRegisterForm(container) {
         submitBtn.textContent = 'Registering...';
         
         try {
-            // Track registration attempt
-            trackAuthError('registration_attempt', { message: 'User attempting registration' }, { email: email, name: name });
             
             devLog('Calling register() API...');
             const response = await register(email, password, name);
@@ -609,8 +535,6 @@ function handleSuccessfulAuth(userData) {
         localStorage.setItem('user', JSON.stringify(userData.user));
     }
     
-    // Track successful OAuth authentication
-    trackAuthSuccess('oauth', userData.user);
     
     // Get base URL from config
     const baseUrl = config.isDevelopment 

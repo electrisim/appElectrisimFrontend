@@ -183,7 +183,7 @@ Ensure your backend is deployed and update the API endpoints in:
 ### 8. Monitoring and Maintenance
 
 #### Enable Application Monitoring:
-- Configure Smartlook analytics (already integrated)
+- Session recording is not used (Smartlook was removed in Nov 2026)
 - Set up error tracking and logging
 - Monitor performance metrics
 

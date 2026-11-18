@@ -9,7 +9,7 @@
     <link rel="preload" href="https://unpkg.com/ag-grid-community@31.3.2/dist/ag-grid-community.min.js" as="script">
 
     <!-- Module preload hints for analysis engines: makes browser fetch them earlier (HTTP/2 prioritized)
-         and shrinks the window for transient script-load failures (see Smartlook error reports).
+         and shrinks the window for transient script-load failures (seen in past error reports).
          Several of these are no longer executed at load (see electrisimScripts below) - preloading
          keeps their on-demand import() a warm cache hit without spending main-thread time on
          evaluating them during startup. -->
@@ -99,9 +99,6 @@
     <script type="module" src="js/electrisim/config/environment.js"></script>
     <!-- Removed duplicate scripts (domCache, batchDOM, performanceTracker, performance-optimizer) - loaded once in electrisimScripts -->
 
-    <!-- Smartlook session recording starts only after the visitor accepts it (consent banner),
-         deferred until after load so it does not slow the editor's first paint. -->
-    <script src="js/electrisim/analytics-consent.js?v=1"></script>
     <!-- INP diagnostics - opt-in only (?inpLog=1 or ?perfMonitor=1).
          Reports which interaction phase dominates so INP regressions can be attributed
          to input delay, handler work, or presentation instead of guessed at. -->
