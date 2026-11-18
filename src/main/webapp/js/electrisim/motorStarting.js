@@ -221,6 +221,10 @@ window.motorStartingPandaPower = function (a, b, c) {
                 if (graph.getView && graph.getView().refresh) {
                     graph.getView().refresh();
                 }
+                // One box per element: drops stale or old-template boxes, places and styles the rest.
+                if (typeof window.repositionAllResultBoxes === 'function') {
+                    window.repositionAllResultBoxes(graph);
+                }
             }
 
             // Detailed report dialog
