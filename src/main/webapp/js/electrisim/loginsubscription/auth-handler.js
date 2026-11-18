@@ -202,7 +202,9 @@ function createLoginForm(container) {
         </p>
         <div class="divider">or</div>
         <p class="age-note">If you do not have an account yet, signing in with Google, LinkedIn or
-        Microsoft creates one, and you confirm that you are at least ${MINIMUM_AGE} years old.</p>
+        Microsoft creates one: you confirm that you are at least ${MINIMUM_AGE} years old and agree to the
+        <a href="https://electrisim.com/terms" target="_blank" rel="noopener">Terms of Service</a> and
+        <a href="https://electrisim.com/privacy" target="_blank" rel="noopener">Privacy Policy</a>.</p>
         <button type="button" class="google-btn">
             <img src="images/google-g-logo.svg" alt="Google" />
             Sign in with Google
@@ -358,7 +360,8 @@ function createRegisterForm(container) {
         </div>
         <label class="age-confirm" for="age-confirm">
             <input type="checkbox" id="age-confirm" name="ageConfirmed" required>
-            <span>I confirm that I am at least ${MINIMUM_AGE} years old and have read the
+            <span>I confirm that I am at least ${MINIMUM_AGE} years old and agree to the
+            <a href="https://electrisim.com/terms" target="_blank" rel="noopener">Terms of Service</a> and
             <a href="https://electrisim.com/privacy" target="_blank" rel="noopener">Privacy Policy</a>.</span>
         </label>
         <button type="submit">Register</button>

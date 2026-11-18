@@ -23,7 +23,9 @@ function createRenewalTerms() {
         '<strong>Renews automatically every month</strong> at the price shown ' +
         '(Company: per seat) and your card is charged each month until you cancel. ' +
         'Cancel anytime in the Stripe billing portal; you keep access until the end ' +
-        'of the month you paid for.';
+        'of the month you paid for. See the ' +
+        '<a href="https://electrisim.com/terms#billing" target="_blank" rel="noopener" ' +
+        'style="color:#2f5bea;text-decoration:underline">Terms of Service</a>.';
     return terms;
 }
 
