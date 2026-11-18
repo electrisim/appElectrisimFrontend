@@ -92,8 +92,8 @@ class TimeSeriesSimulationDialog {
         const dialog = document.createElement('div');
         dialog.style.cssText = `
             background: white; border-radius: 8px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
-            width: min(780px, 96vw); max-width: 96vw; height: calc(100vh - 48px);
-            max-height: calc(100vh - 48px); overflow: hidden; display: flex; flex-direction: column;
+            width: min(1040px, 96vw); max-width: 96vw; height: min(calc(100vh - 48px), 880px);
+            max-height: min(calc(100vh - 48px), 880px); overflow: hidden; display: flex; flex-direction: column;
             flex-shrink: 0; margin: auto; font-family: Arial, sans-serif; box-sizing: border-box;
         `;
 
@@ -120,6 +120,7 @@ class TimeSeriesSimulationDialog {
         formScroll.style.cssText = `
             flex: 1 1 0%; min-height: 0; overflow-y: auto; overflow-x: hidden;
             padding: 4px 24px 12px; scrollbar-width: thin; scrollbar-color: #c5ccd3 #f1f3f5;
+            overscroll-behavior: contain;
         `;
 
         const form = document.createElement('form');

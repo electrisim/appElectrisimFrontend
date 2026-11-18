@@ -5,7 +5,16 @@ export function getDrawioStudyDialogHeight() {
     if (typeof window === 'undefined' || typeof window.innerHeight !== 'number') {
         return 760;
     }
-    return Math.min(880, Math.max(560, Math.floor(window.innerHeight * 0.9)));
+    return Math.min(860, Math.max(560, Math.floor(window.innerHeight * 0.9)));
+}
+
+/** Simulation input dialogs are wide enough for two columns of fields (see enableStudyFormColumns). */
+export const STUDY_DIALOG_WIDE_PX = 1040;
+
+/** Width for Draw.io embedded study dialogs: wide, but never wider than the window. */
+export function getDrawioStudyDialogWidth(preferredPx = STUDY_DIALOG_WIDE_PX) {
+    if (typeof window === 'undefined' || typeof window.innerWidth !== 'number') return preferredPx;
+    return Math.max(480, Math.min(preferredPx, Math.floor(window.innerWidth * 0.94)));
 }
 
 /** Scroll region: fills remaining space inside flex column layouts */
@@ -16,7 +25,9 @@ export const SIMULATION_FORM_SCROLL_STYLE = {
     overflowX: 'hidden',
     paddingRight: '8px',
     scrollbarWidth: 'thin',
-    scrollbarColor: '#c5ccd3 #f1f3f5'
+    scrollbarColor: '#c5ccd3 #f1f3f5',
+    /* Also the marker enableStudyFormColumns looks for: every scroll region built from this style. */
+    overscrollBehavior: 'contain'
 };
 
 /** Compact info banner used at top of calculation / study dialogs */
@@ -59,12 +70,14 @@ export const STUDY_MODAL_OVERLAY_STYLE = {
  * @param {number} widthPx preferred max width in px before vw cap
  */
 export function getStudyModalDialogBoxStyle(widthPx = 640) {
-    const shellH = 'calc(100vh - 48px)';
+    /* Wide and not taller than needed: fields flow into two columns, so the form is about half as tall. */
+    const shellH = 'min(calc(100vh - 48px), 880px)';
+    const w = Math.max(Number(widthPx) || 0, STUDY_DIALOG_WIDE_PX);
     return {
         backgroundColor: 'white',
         borderRadius: '8px',
         boxShadow: '0 6px 24px rgba(0, 0, 0, 0.12)',
-        width: `min(${widthPx}px, 94vw)`,
+        width: `min(${w}px, 94vw)`,
         maxWidth: '94vw',
         height: shellH,
         maxHeight: shellH,
@@ -363,3 +376,155 @@ export const DIALOG_STYLES = {
         padding: '20px'
     }
 }; 
+/* ------------------------------------------------------------------------------------------
+ * Two-column simulation input dialogs.
+ * Every study dialog builds a scroll region from SIMULATION_FORM_SCROLL_STYLE (marked by
+ * overscroll-behavior: contain). Its form flows into CSS columns (top-to-bottom, then the next
+ * column), so the reading order is unchanged and the dialog is about half as tall. Fields keep
+ * their own DOM nodes and listeners. Wide items (tables, charts) span both columns.
+ * A dialog opts out with data-study-columns="off" on the scroll region or the form.
+ * ---------------------------------------------------------------------------------------- */
+
+const STUDY_COLS_CLASS = 'es-study-cols';
+const STUDY_COLS_STYLE_ID = 'es-study-cols-style';
+const STUDY_COL_MIN_PX = 300;
+
+function ensureStudyColumnsCss() {
+    if (typeof document === 'undefined' || document.getElementById(STUDY_COLS_STYLE_ID)) return;
+    const s = document.createElement('style');
+    s.id = STUDY_COLS_STYLE_ID;
+    s.textContent = `
+.${STUDY_COLS_CLASS} {
+  display: block !important;
+  column-width: ${STUDY_COL_MIN_PX}px;
+  column-count: 2;
+  column-gap: 28px;
+  column-rule: 1px solid #eef1f4;
+}
+.${STUDY_COLS_CLASS} > * { break-inside: avoid; page-break-inside: avoid; }
+.${STUDY_COLS_CLASS} input:not([type="checkbox"]):not([type="radio"]), .${STUDY_COLS_CLASS} select, .${STUDY_COLS_CLASS} textarea { max-width: 100%; box-sizing: border-box; }
+.${STUDY_COLS_CLASS} > .es-study-span { column-span: all; }
+.${STUDY_COLS_CLASS} > .es-study-split { break-inside: auto; }
+`;
+    document.head.appendChild(s);
+}
+
+function isStudyScrollRegion(el) {
+    return !!(el && el.nodeType === 1 && el.style
+        && el.style.overscrollBehavior === 'contain'
+        && (el.style.overflowY === 'auto' || el.style.overflowY === 'scroll'));
+}
+
+/** The element whose children are the field groups: a lone form/div child, or the region itself. */
+function columnHostOf(region) {
+    let host = region;
+    for (let depth = 0; depth < 3; depth++) {
+        const kids = [...host.children].filter((c) => c.tagName !== 'SCRIPT' && c.tagName !== 'STYLE');
+        if (kids.length === 1 && (kids[0].tagName === 'FORM' || kids[0].tagName === 'DIV')) {
+            host = kids[0];
+            continue;
+        }
+        break;
+    }
+    if (host === region) {
+        /* Fields sit directly in the scroll region: wrap them so the region itself still scrolls vertically. */
+        const wrap = document.createElement('div');
+        while (region.firstChild) wrap.appendChild(region.firstChild);
+        region.appendChild(wrap);
+        host = wrap;
+    }
+    return host;
+}
+
+function hasTabs(host) {
+    return !!host.querySelector('[role="tablist"], .tab-buttons, .es-tabs, [data-tab]');
+}
+
+/** Keep each field's spacing (the flex gap is lost when the host becomes a column box). */
+function applyGapAsMargins(host) {
+    let gap = 0;
+    try {
+        const cs = getComputedStyle(host);
+        gap = parseFloat(cs.rowGap) || parseFloat(cs.gap) || 0;
+    } catch (e) { /* ignore */ }
+    if (gap <= 0) gap = 12;
+    [...host.children].forEach((child) => {
+        let mb = 0;
+        try { mb = parseFloat(getComputedStyle(child).marginBottom) || 0; } catch (e) { /* ignore */ }
+        if (mb < gap) child.style.marginBottom = `${gap}px`;
+        child.style.marginTop = '0';
+    });
+}
+
+/** Wide content spans both columns; very tall groups may split so the columns stay balanced. */
+function refineStudyColumns(host) {
+    if (!host.isConnected || !host.classList.contains(STUDY_COLS_CLASS)) return;
+    const total = host.scrollHeight || 1;
+    [...host.children].forEach((child) => {
+        if (child.classList.contains('es-study-span')) return;
+        const overflow = child.scrollWidth > child.clientWidth + 24;
+        const wideWidget = child.querySelector('table, canvas, svg[width], .es-wide');
+        const wideW = wideWidget ? wideWidget.getBoundingClientRect().width : 0;
+        if (overflow || wideW > child.clientWidth + 4 || child.dataset.studySpan === 'all') {
+            child.classList.add('es-study-span');
+        } else if (child.offsetHeight > total * 0.6) {
+            child.classList.add('es-study-split');
+        }
+    });
+}
+
+/**
+ * Lay the fields of a study dialog scroll region out in two columns (one when narrow).
+ * Safe to call more than once.
+ */
+export function enableStudyFormColumns(region) {
+    if (!region || region._esStudyCols || typeof document === 'undefined') return;
+    if (region.dataset?.studyColumns === 'off') return;
+    region._esStudyCols = true;
+    const host = columnHostOf(region);
+    if (host.dataset?.studyColumns === 'off' || hasTabs(host) || host.children.length < 3) return;
+    ensureStudyColumnsCss();
+    applyGapAsMargins(host);
+    host.classList.add(STUDY_COLS_CLASS);
+    const refine = () => refineStudyColumns(host);
+    requestAnimationFrame(refine);
+    setTimeout(refine, 250);
+    /* Sections that appear later (toggled options, templates) get the same treatment. */
+    if (typeof MutationObserver === 'function') {
+        let pending = false;
+        new MutationObserver(() => {
+            if (pending) return;
+            pending = true;
+            requestAnimationFrame(() => { pending = false; applyGapAsMargins(host); refine(); });
+        }).observe(host, { childList: true });
+    }
+}
+
+function scanForStudyScrollRegions(root) {
+    if (!root || root.nodeType !== 1) return;
+    if (isStudyScrollRegion(root)) enableStudyFormColumns(root);
+    root.querySelectorAll?.('div').forEach((el) => {
+        if (isStudyScrollRegion(el)) enableStudyFormColumns(el);
+    });
+}
+
+/** Dialogs are appended to <body> once built; lay out each new one. */
+function installStudyColumnsObserver() {
+    if (typeof document === 'undefined' || typeof MutationObserver !== 'function') return;
+    if (globalThis.__esStudyColumnsObserver) return;
+    const start = () => {
+        if (!document.body || globalThis.__esStudyColumnsObserver) return;
+        const obs = new MutationObserver((records) => {
+            records.forEach((r) => r.addedNodes.forEach((n) => {
+                /* Content is often filled in right after the shell is attached. */
+                requestAnimationFrame(() => scanForStudyScrollRegions(n));
+            }));
+        });
+        obs.observe(document.body, { childList: true });
+        globalThis.__esStudyColumnsObserver = obs;
+    };
+    if (document.body) start();
+    else document.addEventListener('DOMContentLoaded', start, { once: true });
+}
+
+installStudyColumnsObserver();

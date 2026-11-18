@@ -61,6 +61,34 @@
         return 0;
     }
 
+    function readNumAttr(cell, name) {
+        const attrs = cell?.value?.attributes;
+        if (!attrs) return null;
+        for (let i = 0; i < attrs.length; i++) {
+            if (attrs[i].nodeName === name) {
+                const v = parseFloat(attrs[i].nodeValue);
+                return Number.isFinite(v) ? v : null;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Thermal current limit of the line as pandapower uses it for loading_percent:
+     * max_i_ka × df × parallel. Falls back to I / loading when the attribute is missing.
+     */
+    function ratedCurrentKa(cell, res, iMax) {
+        const maxI = readNumAttr(cell, 'max_i_ka');
+        if (maxI != null && maxI > 0) {
+            const par = readNumAttr(cell, 'parallel');
+            const df = readNumAttr(cell, 'df');
+            return maxI * (par != null && par > 0 ? par : 1) * (df != null && df > 0 ? df : 1);
+        }
+        const loading = num(res?.loading_percent);
+        if (loading != null && loading > 0 && iMax > 0) return iMax / (loading / 100);
+        return null;
+    }
+
     function lineDisplayName(cell) {
         const attrs = cell?.value?.attributes;
         if (attrs) {
@@ -215,6 +243,7 @@
                 color
             });
 
+            const loading = num(res.loading_percent);
             segments.push({
                 index: segIdx + 1,
                 name,
@@ -223,7 +252,9 @@
                 iStart,
                 iEnd,
                 color,
-                lenKm: len
+                lenKm: len,
+                ratedKa: ratedCurrentKa(cell, res, Math.max(Math.abs(iStart), Math.abs(iEnd))),
+                loadingPercent: loading
             });
 
             km += len;
@@ -326,13 +357,54 @@
   gap:8px; align-items:flex-start; cursor:pointer; margin:8px 0 0;
 }
 #${PANEL_ID} label.lic-check input { margin-top:2px; flex-shrink:0; }
+#${PANEL_ID} .lic-toolbar { display:flex; gap:6px; justify-content:flex-end; margin:0 0 8px; }
+#${PANEL_ID} button.lic-dl {
+  font-size:12px; padding:4px 10px; border-radius:6px; border:1px solid #2563eb;
+  background:#fff; color:#2563eb; cursor:pointer;
+}
+#${PANEL_ID} button.lic-dl:hover { background:#2563eb; color:#fff; }
+#${PANEL_ID} button.lic-dl:disabled { opacity:.45; cursor:not-allowed; background:#fff; color:#2563eb; }
 `;
         document.head.appendChild(s);
     }
 
+    /** 1-2-5 step for about `target` intervals over `span`. */
+    function niceStep(span, target) {
+        if (!(span > 0)) return 1;
+        const raw = span / Math.max(target, 1);
+        const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+        const norm = raw / mag;
+        const f = norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10;
+        return f * mag;
+    }
+
+    function decimalsForStep(step) {
+        if (!(step > 0) || step >= 1) return 0;
+        return Math.min(6, Math.ceil(-Math.log10(step) - 1e-9));
+    }
+
+    function fmtKm(v) {
+        const a = Math.abs(v);
+        if (a >= 100 || Math.abs(v - Math.round(v)) < 1e-9) return v.toFixed(0);
+        if (a >= 10) return v.toFixed(1);
+        return v.toFixed(2);
+    }
+
+    /**
+     * Chart as a stand-alone SVG (inline styles + fonts only, so it can be exported as PNG/SVG
+     * for a report). One distance axis with regular ticks; bus junctions are dashed verticals
+     * labelled above the plot; the per-line thermal limit (max_i_ka) is a dashed red level.
+     */
     function renderSvg(profile, renderOpts) {
         const focusPlateau = !!(renderOpts && renderOpts.focusPlateau);
-        const m = { left: 54, right: 18, top: 42, bottom: 58 };
+        const interpolate = !(renderOpts && renderOpts.interpolate === false);
+        const showRated = !(renderOpts && renderOpts.showRated === false);
+        const segs = profile.segments || [];
+        const ratedSegs = showRated ? segs.filter((s) => s.ratedKa != null && s.ratedKa > 0) : [];
+
+        const legendCols = 2;
+        const legendRows = Math.ceil(segs.length / legendCols) + (ratedSegs.length ? 1 : 0);
+        const m = { left: 62, right: 22, top: 68, bottom: 50 + legendRows * 16 + 8 };
         const iw = 580;
         const ih = 292;
         const W = iw + m.left + m.right;
@@ -340,230 +412,202 @@
 
         const allYs = [];
         profile.points.forEach((p) => allYs.push(p.i));
-        profile.edges.forEach((e) => {
-            allYs.push(e.y1, e.y2);
-        });
-        const ysForScale = yValuesForScale(allYs, focusPlateau);
+        const ysForScale = yValuesForScale(allYs, focusPlateau).slice();
+        /* The limit lines join the Y range, except in plateau zoom (they would flatten it). */
+        if (!focusPlateau) ratedSegs.forEach((s) => ysForScale.push(s.ratedKa));
         let vmin = ysForScale.length ? Math.min(...ysForScale) : 0;
         let vmax = ysForScale.length ? Math.max(...ysForScale) : 1;
         if (vmax <= vmin) {
             vmin = vmin > 0 ? vmin * 0.9 : 0;
             vmax = vmax <= 0 ? 1 : vmax * 1.1 + 1e-6;
         }
-        let pad = Math.max((vmax - vmin) * 0.12, 1e-4);
+        let pad = Math.max((vmax - vmin) * 0.1, 1e-4);
         const mid = (vmin + vmax) / 2;
-        const minSpan = Math.max(mid * 0.04, 5e-4);
-        if (vmax - vmin < minSpan) {
-            pad = minSpan / 2;
-        }
+        const minSpan = Math.max(Math.abs(mid) * 0.04, 5e-4);
+        if (vmax - vmin < minSpan) pad = minSpan / 2;
         vmin -= pad;
         vmax += pad;
+        if (vmin < 0 && Math.min(...allYs) >= 0) vmin = 0;
+        /* Snap the Y range to round tick values. */
+        const yStep = niceStep(vmax - vmin, 5);
+        vmin = Math.floor(vmin / yStep + 1e-9) * yStep;
+        vmax = Math.ceil(vmax / yStep - 1e-9) * yStep;
+        if (vmax <= vmin) vmax = vmin + yStep;
+        const yDec = decimalsForStep(yStep);
 
         const xmax = Math.max(profile.lengthKmTotal, 1e-6);
-
         const xPx = (x) => m.left + (x / xmax) * iw;
         const yPx = (y) => m.top + ih - ((y - vmin) / (vmax - vmin)) * ih;
 
-        const escTitle = (t) => escapeHtml(t);
+        const esc = (t) => escapeHtml(t);
         const clipId = `${PANEL_ID.replace(/-/g, '_')}_plotclip`;
 
-        let plotBody = '';
-        plotBody += `<rect x="${m.left}" y="${m.top}" width="${iw}" height="${ih}" fill="#ffffff"/>`;
+        let plotBody = `<rect x="${m.left}" y="${m.top}" width="${iw}" height="${ih}" fill="#ffffff"/>`;
 
-        let bands = '';
-        (profile.segments || []).forEach((seg) => {
+        segs.forEach((seg) => {
+            const x0 = xPx(seg.kmStart);
+            const w = Math.max(xPx(seg.kmEnd) - x0, 1);
+            plotBody += `<rect x="${x0.toFixed(1)}" y="${m.top}" width="${w.toFixed(1)}" height="${ih}" fill="${seg.color}" fill-opacity="0.06" stroke="none"><title>#${seg.index} ${esc(seg.name)} — ${seg.kmStart.toFixed(2)}→${seg.kmEnd.toFixed(2)} km; I: ${seg.iStart.toFixed(4)}→${seg.iEnd.toFixed(4)} kA</title></rect>`;
+        });
+
+        /* Regular grid (one axis). */
+        const xStep = niceStep(xmax, 6);
+        const xTicks = [];
+        for (let v = 0; v <= xmax + xStep * 1e-6; v += xStep) xTicks.push(v);
+        const yTicks = [];
+        for (let v = vmin; v <= vmax + yStep * 1e-6; v += yStep) yTicks.push(v);
+        xTicks.forEach((v) => {
+            const xv = xPx(v);
+            plotBody += `<line x1="${xv.toFixed(1)}" y1="${m.top}" x2="${xv.toFixed(1)}" y2="${m.top + ih}" stroke="#eef2f7" stroke-width="1"/>`;
+        });
+        yTicks.forEach((v) => {
+            const yv = yPx(v);
+            plotBody += `<line x1="${m.left}" y1="${yv.toFixed(1)}" x2="${m.left + iw}" y2="${yv.toFixed(1)}" stroke="#eef2f7" stroke-width="1"/>`;
+        });
+
+        /* Bus junctions: dashed verticals in the plot, km labels above it (staggered if close). */
+        const junctions = [...new Set(segs.slice(1).map((s) => +s.kmStart.toFixed(9)))].sort((a, b) => a - b);
+        let junctionLabels = '';
+        const rowLastX = [-Infinity, -Infinity];
+        junctions.forEach((km) => {
+            const xv = xPx(km);
+            plotBody += `<line x1="${xv.toFixed(1)}" y1="${m.top}" x2="${xv.toFixed(1)}" y2="${m.top + ih}" stroke="#94a3b8" stroke-dasharray="5 4" stroke-width="1.1"/>`;
+            const label = `${fmtKm(km)} km`;
+            const halfW = label.length * 3 + 4;
+            let row = rowLastX.findIndex((last) => xv - halfW > last + 2);
+            if (row < 0) row = rowLastX[0] <= rowLastX[1] ? 0 : 1;
+            rowLastX[row] = xv + halfW;
+            const ty = m.top - 6 - row * 12;
+            junctionLabels += `<text x="${xv.toFixed(1)}" y="${ty}" fill="#475569" font-size="10" font-weight="600" text-anchor="middle">${label}</text>`;
+            if (row > 0) {
+                junctionLabels += `<line x1="${xv.toFixed(1)}" y1="${ty + 2}" x2="${xv.toFixed(1)}" y2="${m.top}" stroke="#cbd5e1" stroke-width="0.8"/>`;
+            }
+        });
+
+        /* Thermal limit per line (max_i_ka × parallel × df). */
+        let ratedPaths = '';
+        ratedSegs.forEach((seg) => {
             const x0 = xPx(seg.kmStart);
             const x1 = xPx(seg.kmEnd);
-            const w = Math.max(x1 - x0, 1);
-            bands += `<rect x="${x0.toFixed(1)}" y="${m.top}" width="${w.toFixed(
-                1
-            )}" height="${ih}" fill="${seg.color}" fill-opacity="0.07" stroke="none">
-  <title>#${seg.index} ${escTitle(seg.name)} — ${seg.kmStart.toFixed(2)}→${seg.kmEnd.toFixed(2)} km; I: ${seg.iStart.toFixed(4)}→${seg.iEnd.toFixed(4)} kA</title>
-</rect>`;
+            const yr = yPx(seg.ratedKa);
+            ratedPaths += `<line x1="${x0.toFixed(2)}" y1="${yr.toFixed(2)}" x2="${x1.toFixed(2)}" y2="${yr.toFixed(2)}" stroke="#dc2626" stroke-width="1.6" stroke-dasharray="7 4"><title>${esc(`#${seg.index} ${seg.name}: max_i_ka (rated) = ${seg.ratedKa.toFixed(3)} kA`)}</title></line>`;
+            if (x1 - x0 > 70 && yr >= m.top + 10 && yr <= m.top + ih) {
+                ratedPaths += `<text x="${((x0 + x1) / 2).toFixed(1)}" y="${(yr - 4).toFixed(1)}" fill="#dc2626" font-size="10" text-anchor="middle">I max ${seg.ratedKa.toFixed(3)} kA</text>`;
+            }
         });
-        plotBody += bands;
 
-        /* Vertical markers at segment boundaries (km) — line in plot, label below */
-        let boundaryLines = '';
-        let boundaryLabels = '';
-        const boundaryKms = new Set();
-        (profile.segments || []).forEach((seg) => {
-            boundaryKms.add(seg.kmStart);
-            boundaryKms.add(seg.kmEnd);
-        });
-        boundaryKms.forEach((kmMark) => {
-            const xv = xPx(kmMark);
-            const kmDec = kmMark >= 100 ? 0 : kmMark >= 10 ? 1 : 2;
-            boundaryLines += `<line x1="${xv.toFixed(1)}" y1="${m.top}" x2="${xv.toFixed(
-                1
-            )}" y2="${(m.top + ih).toFixed(1)}" stroke="#94a3b8" stroke-dasharray="5 4" stroke-width="1.1" opacity="0.95"/>`;
-            boundaryLabels += `<text x="${xv.toFixed(1)}" y="${
-                m.top + ih + 12
-            }" fill="#475569" font-size="10" font-weight="600" text-anchor="middle">${kmMark.toFixed(
-                kmDec
-            )}</text>`;
-        });
-        plotBody += boundaryLines;
-
-        /* Light grid */
-        let grid = '';
-        const nx = Math.min(Math.max(Math.round(xmax / Math.max(xmax / 6, 1)), 5), 10);
-        const ny = 5;
-        for (let i = 0; i <= nx; i++) {
-            const xv = xPx((i / nx) * xmax);
-            grid += `<line x1="${xv.toFixed(1)}" y1="${m.top}" x2="${xv.toFixed(
-                1
-            )}" y2="${(m.top + ih).toFixed(1)}" stroke="#f1f5f9" stroke-width="1"/>`;
-        }
-        for (let j = 0; j <= ny; j++) {
-            const frac = j / ny;
-            const yi = yPx(vmax - frac * (vmax - vmin));
-            grid += `<line x1="${m.left}" y1="${yi.toFixed(1)}" x2="${(m.left + iw).toFixed(
-                1
-            )}" y2="${yi.toFixed(1)}" stroke="#f1f5f9" stroke-width="1"/>`;
-        }
-        plotBody += grid;
-
+        /* Current profile: a ramp i_from → i_to inside each line, a step only at junctions. */
         let segmentPaths = '';
-        (profile.segments || []).forEach((seg) => {
+        let prevEnd = null;
+        segs.forEach((seg) => {
             const x0 = xPx(seg.kmStart);
             const x1 = xPx(seg.kmEnd);
             const y0 = yPx(seg.iStart);
             const y1 = yPx(seg.iEnd);
-            const d = `M ${x0.toFixed(2)},${y0.toFixed(2)} L ${x1.toFixed(2)},${y0.toFixed(2)} L ${x1.toFixed(2)},${y1.toFixed(2)}`;
-            const tip = `#${seg.index} ${seg.name}: ${seg.kmStart.toFixed(
-                3
-            )}–${seg.kmEnd.toFixed(3)} km | ${seg.iStart.toFixed(4)} → ${seg.iEnd.toFixed(4)} kA`;
-            segmentPaths += `<path d="${d}" fill="none" stroke="${seg.color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"><title>${escTitle(
-                tip
-            )}</title></path>`;
+            let d = interpolate
+                ? `M ${x0.toFixed(2)},${y0.toFixed(2)} L ${x1.toFixed(2)},${y1.toFixed(2)}`
+                : `M ${x0.toFixed(2)},${y0.toFixed(2)} L ${x1.toFixed(2)},${y0.toFixed(2)} L ${x1.toFixed(2)},${y1.toFixed(2)}`;
+            if (prevEnd && interpolate) {
+                /* Jump at the bus (another branch / load takes current there). */
+                d = `M ${x0.toFixed(2)},${prevEnd.toFixed(2)} L ${x0.toFixed(2)},${y0.toFixed(2)} ` + d.slice(d.indexOf('L'));
+            }
+            prevEnd = y1;
+            const tip = `#${seg.index} ${seg.name}: ${seg.kmStart.toFixed(3)}–${seg.kmEnd.toFixed(3)} km | ${seg.iStart.toFixed(4)} → ${seg.iEnd.toFixed(4)} kA`;
+            segmentPaths += `<path d="${d}" fill="none" stroke="${seg.color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"><title>${esc(tip)}</title></path>`;
         });
 
         let kneeDots = '';
-        const segByIndex = (si) => (profile.segments || []).find((s) => s.index === si) || null;
+        const segByIndex = (si) => segs.find((s) => s.index === si) || null;
         profile.points.forEach((p) => {
             const seg = segByIndex(p.segment);
             const col = seg ? seg.color : SEGMENT_PALETTE[0];
-            const cx = xPx(p.km);
-            const cy = yPx(p.i);
-            const lab = `${p.tip} — km ${p.km.toFixed(4)}, I ${p.i.toFixed(5)} kA`;
-            kneeDots += `<circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="4" fill="#fff" stroke="${col}" stroke-width="2"><title>${escTitle(
-                lab
-            )}</title></circle>`;
+            kneeDots += `<circle cx="${xPx(p.km).toFixed(2)}" cy="${yPx(p.i).toFixed(2)}" r="3.5" fill="#fff" stroke="${col}" stroke-width="2"><title>${esc(`${p.tip} — km ${p.km.toFixed(4)}, I ${p.i.toFixed(5)} kA`)}</title></circle>`;
         });
 
-        plotBody += segmentPaths;
-        plotBody += kneeDots;
+        plotBody += ratedPaths + segmentPaths + kneeDots;
 
-        const xticks = [];
-        for (let i = 0; i <= nx; i++) {
-            const xv = xPx((i / nx) * xmax);
-            const xvValNum = (i / nx) * xmax;
-            const decimals = xvValNum >= 100 ? 0 : xvValNum >= 20 ? 1 : 2;
-            xticks.push(
-                `<text x="${xv.toFixed(1)}" y="${H - 18}" fill="#64748b" font-size="11" text-anchor="middle">${xvValNum.toFixed(decimals)}</text>`
-            );
-        }
-
-        const yticks = [];
-        const yFmt = vmax - vmin < 0.02 ? (v) => v.toFixed(4) : (v) => v.toFixed(3);
-        for (let j = 0; j <= ny; j++) {
-            const frac = j / ny;
-            const v = vmax - frac * (vmax - vmin);
-            const yi = yPx(v);
-            yticks.push(
-                `<text x="${m.left - 8}" y="${yi + 4}" fill="#475569" font-size="11" text-anchor="end">${yFmt(
-                    v
-                )}</text>`
-            );
-        }
+        const xLabels = xTicks
+            .map((v) => `<text x="${xPx(v).toFixed(1)}" y="${m.top + ih + 16}" fill="#475569" font-size="11" text-anchor="middle">${fmtKm(v)}</text>`)
+            .join('');
+        const yLabels = yTicks
+            .map((v) => `<text x="${m.left - 8}" y="${(yPx(v) + 4).toFixed(1)}" fill="#475569" font-size="11" text-anchor="end">${v.toFixed(yDec)}</text>`)
+            .join('');
 
         const maxAll = allYs.length ? Math.max(...allYs) : 0;
-        const maxScale = ysForScale.length ? Math.max(...ysForScale) : 0;
-        const yClipped = focusPlateau && maxAll - maxScale > 1e-4;
+        const yClipped = focusPlateau && maxAll > vmax + 1e-9;
         const yClipNote = yClipped
-            ? `<text x="${m.left + iw}" y="16" fill="#c2410c" font-size="10" font-weight="600" text-anchor="end">Zoomed Y — values above scale: orange ▲ (hover)</text>`
+            ? `<text x="${m.left + iw}" y="14" fill="#c2410c" font-size="10" font-weight="600" text-anchor="end">Zoomed Y — values above scale: orange ▲</text>`
             : '';
 
-        /* Mark knees that fall outside padded [vmin,vmax] so plateau mode is not misleading */
         let offScaleMarkers = '';
-        if (focusPlateau && yClipped) {
-            const eps = Math.max(Math.abs(vmax) * 1e-9, 1e-9);
+        if (yClipped) {
             const seen = new Set();
             profile.points.forEach((p) => {
+                if (!(p.i > vmax + 1e-9)) return;
+                const key = p.km.toFixed(6);
+                if (seen.has(key)) return;
+                seen.add(key);
                 const cx = xPx(p.km);
-                if (p.i > vmax + eps) {
-                    const key = `${p.km.toFixed(6)}:${p.segment}:h`;
-                    if (seen.has(key)) return;
-                    seen.add(key);
-                    const ty = m.top + 4;
-                    const tipTxt = `|I| = ${p.i.toFixed(
-                        5
-                    )} kA (${p.tip}) — above visible Y-zoom; exact value also in table below`;
-                    offScaleMarkers += `<g aria-label="off-scale-high">
-<polygon fill="#ea580c" stroke="#fff" stroke-width="1" points="${(cx - 7).toFixed(1)},${(ty + 12).toFixed(
-                        1
-                    )} ${cx.toFixed(1)},${ty.toFixed(1)} ${(cx + 7).toFixed(1)},${(ty + 12).toFixed(
-                        1
-                    )}" pointer-events="all"><title>${escTitle(tipTxt)}</title></polygon></g>`;
-                } else if (p.i < vmin - eps) {
-                    const key = `${p.km.toFixed(6)}:${p.segment}:l`;
-                    if (seen.has(key)) return;
-                    seen.add(key);
-                    const by = m.top + ih - 4;
-                    const tipTxt = `|I| = ${p.i.toFixed(
-                        5
-                    )} kA (${p.tip}) — below visible Y-zoom; exact value also in table below`;
-                    offScaleMarkers += `<g aria-label="off-scale-low">
-<polygon fill="#ea580c" stroke="#fff" stroke-width="1" points="${(cx - 7).toFixed(1)},${(
-                        by - 12
-                    ).toFixed(1)} ${cx.toFixed(1)},${by.toFixed(1)} ${(cx + 7).toFixed(1)},${(
-                        by - 12
-                    ).toFixed(1)}" pointer-events="all"><title>${escTitle(tipTxt)}</title></polygon></g>`;
-                }
+                const ty = m.top + 4;
+                offScaleMarkers += `<polygon fill="#ea580c" stroke="#fff" stroke-width="1" points="${(cx - 7).toFixed(1)},${ty + 12} ${cx.toFixed(1)},${ty} ${(cx + 7).toFixed(1)},${ty + 12}"><title>${esc(`|I| = ${p.i.toFixed(5)} kA (${p.tip}) — above the zoomed scale`)}</title></polygon>`;
             });
         }
 
+        /* Legend inside the SVG so the downloaded image is self-explanatory. */
+        let legend = '';
+        const legendTop = m.top + ih + 46;
+        const colW = (W - 24) / legendCols;
+        segs.forEach((s, k) => {
+            const col = k % legendCols;
+            const row = Math.floor(k / legendCols);
+            const lx = 12 + col * colW;
+            const ly = legendTop + row * 16;
+            const rated = s.ratedKa != null ? ` · Imax ${s.ratedKa.toFixed(2)} kA` : '';
+            const maxChars = Math.floor((colW - 22) / 5.6) - rated.length - 14;
+            const nm = s.name.length > maxChars ? `${s.name.slice(0, Math.max(maxChars - 1, 4))}…` : s.name;
+            legend += `<rect x="${lx}" y="${ly - 9}" width="10" height="10" rx="2" fill="${s.color}"/>`;
+            legend += `<text x="${lx + 15}" y="${ly}" fill="#334155" font-size="10.5"><tspan font-weight="700">#${s.index}</tspan> ${fmtKm(s.kmStart)}–${fmtKm(s.kmEnd)} km · ${esc(nm)}${esc(rated)}<title>${esc(s.name)}</title></text>`;
+        });
+        if (ratedSegs.length) {
+            const ly = legendTop + Math.ceil(segs.length / legendCols) * 16;
+            legend += `<line x1="12" y1="${ly - 4}" x2="34" y2="${ly - 4}" stroke="#dc2626" stroke-width="1.6" stroke-dasharray="7 4"/>`;
+            legend += `<text x="40" y="${ly}" fill="#334155" font-size="10.5">Rated current of each line (max_i_ka × parallel × df)</text>`;
+        }
+
+        const subtitle = interpolate
+            ? '|I| varies linearly between i_from_ka and i_to_ka within each line · steps only at bus junctions'
+            : '|I| held at i_from_ka along each line, stepping to i_to_ka at its end';
+
         return `
-<svg class="lic-svg-main" width="${W}" height="${H}" role="img" aria-label="Line current vs distance chart">
-<defs>
-  <clipPath id="${clipId}"><rect x="${m.left}" y="${m.top}" width="${iw}" height="${ih}"/></clipPath>
-</defs>
-<text x="${m.left + iw / 2}" y="18" fill="#334155" font-size="13" font-weight="600" text-anchor="middle">|I| along path vs distance</text>
-<text x="${m.left + iw / 2}" y="34" fill="#64748b" font-size="10" text-anchor="middle">${yClipped ? 'Hover traces \u0026 points · plateau zoom hides extreme |I|; orange \u25B2 marks |I| above chart scale · ' : ''}bold numbers under the plot = junction km</text>
+<svg xmlns="http://www.w3.org/2000/svg" class="lic-svg-main" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="system-ui, -apple-system, Segoe UI, Arial, sans-serif" role="img" aria-label="Line current vs distance chart">
+<defs><clipPath id="${clipId}"><rect x="${m.left}" y="${m.top}" width="${iw}" height="${ih}"/></clipPath></defs>
+<rect x="0" y="0" width="${W}" height="${H}" fill="#ffffff"/>
+<text x="${m.left + iw / 2}" y="18" fill="#0f172a" font-size="13" font-weight="600" text-anchor="middle">Line current |I| along path vs distance</text>
+<text x="${m.left + iw / 2}" y="33" fill="#64748b" font-size="10" text-anchor="middle">${esc(subtitle)}</text>
 ${yClipNote}
-<g clip-path="url(#${clipId})">
-${plotBody}
-</g>
+<g clip-path="url(#${clipId})">${plotBody}</g>
 <rect x="${m.left}" y="${m.top}" width="${iw}" height="${ih}" fill="none" stroke="#94a3b8" stroke-width="1"/>
 ${offScaleMarkers}
-${boundaryLabels}
-${xticks.join('')}
-${yticks.join('')}
-<text x="${m.left + iw / 2}" y="${H - 2}" fill="#64748b" font-size="12" font-weight="500" text-anchor="middle">Distance along path [km] · regular ticks</text>
-<text transform="rotate(-90 ${14} ${m.top + ih / 2})" x="${14}" y="${m.top + ih / 2}" fill="#64748b" font-size="12" text-anchor="middle">|I| [kA]</text>
+${junctionLabels}
+${xLabels}
+${yLabels}
+<text x="${m.left + iw / 2}" y="${m.top + ih + 34}" fill="#475569" font-size="12" font-weight="500" text-anchor="middle">Distance along path [km]</text>
+<text transform="rotate(-90 16 ${m.top + ih / 2})" x="16" y="${m.top + ih / 2}" fill="#475569" font-size="12" text-anchor="middle">|I| [kA]</text>
+${legend}
 </svg>`;
-    }
-
-    function renderLegend(profile) {
-        const segs = profile.segments || [];
-        return segs
-            .map((s) => {
-                const range = `${s.kmStart.toFixed(2)}–${s.kmEnd.toFixed(2)} km`;
-                const nameShort = escapeHtml(
-                    s.name.length > 48 ? `${s.name.slice(0, 46)}…` : s.name
-                );
-                return `<span class="lic-legend-chip" title="${escapeHtml(`${s.name} (${range})`)}"><span class="lic-legend-dot" style="background:${s.color}"></span><b>#${s.index}</b> ${range} · ${nameShort}</span>`;
-            })
-            .join('');
     }
 
     function renderTable(profile) {
         const rows = (profile.segments || [])
             .map((s) => {
                 const dI = s.iEnd - s.iStart;
+                const iPeak = Math.max(Math.abs(s.iStart), Math.abs(s.iEnd));
+                const util = s.ratedKa ? (iPeak / s.ratedKa) * 100 : null;
+                const utilCell = util == null
+                    ? '—'
+                    : `<span style="color:${util > 100 ? '#dc2626' : util > 90 ? '#c2410c' : '#0f172a'};font-weight:${util > 90 ? 700 : 400}">${util.toFixed(1)}</span>`;
                 return `<tr>
-  <td class="lic-n">${s.index}</td>
+  <td class="lic-n"><span class="lic-legend-dot" style="background:${s.color}"></span>${s.index}</td>
   <td class="lic-name">${escapeHtml(s.name)}</td>
   <td class="lic-n">${s.lenKm.toFixed(3)}</td>
   <td class="lic-n">${s.kmStart.toFixed(3)}</td>
@@ -571,6 +615,8 @@ ${yticks.join('')}
   <td class="lic-n">${s.iStart.toFixed(5)}</td>
   <td class="lic-n">${s.iEnd.toFixed(5)}</td>
   <td class="lic-n">${dI >= 0 ? '+' : ''}${dI.toFixed(5)}</td>
+  <td class="lic-n">${s.ratedKa != null ? s.ratedKa.toFixed(3) : '—'}</td>
+  <td class="lic-n">${utilCell}</td>
 </tr>`;
             })
             .join('');
@@ -580,10 +626,60 @@ ${yticks.join('')}
 <tr>
   <th>#</th><th>Line (diagram name)</th><th>ΔL [km]</th><th>From km</th><th>To km</th>
   <th>I<sub>start</sub> [kA]</th><th>I<sub>end</sub> [kA]</th><th>ΔI [kA]</th>
+  <th title="max_i_ka × parallel × df">I<sub>max</sub> [kA]</th><th title="max(|I_start|, |I_end|) / I_max">Loading [%]</th>
 </tr>
 </thead>
 <tbody>${rows}</tbody>
 </table>`;
+    }
+
+    function svgSourceOf(svgEl) {
+        const clone = svgEl.cloneNode(true);
+        clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        clone.removeAttribute('class');
+        clone.querySelectorAll('title').forEach((t) => t.remove());
+        return '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(clone);
+    }
+
+    function triggerDownload(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1500);
+    }
+
+    function downloadSvg(svgEl, baseName) {
+        const blob = new Blob([svgSourceOf(svgEl)], { type: 'image/svg+xml;charset=utf-8' });
+        triggerDownload(blob, `${baseName}.svg`);
+    }
+
+    /** PNG at 3× resolution — sharp enough for a printed report. */
+    function downloadPng(svgEl, baseName) {
+        const w = parseFloat(svgEl.getAttribute('width')) || svgEl.clientWidth || 700;
+        const h = parseFloat(svgEl.getAttribute('height')) || svgEl.clientHeight || 450;
+        const scale = 3;
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(w * scale);
+            canvas.height = Math.round(h * scale);
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            canvas.toBlob((blob) => {
+                if (blob) triggerDownload(blob, `${baseName}.png`);
+            }, 'image/png');
+        };
+        img.onerror = () => {
+            console.warn('[lineCurrentCharacteristic] PNG export failed; saving SVG instead.');
+            downloadSvg(svgEl, baseName);
+        };
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgSourceOf(svgEl));
     }
 
     function resolveGraph(graph) {
@@ -620,12 +716,24 @@ ${yticks.join('')}
 
         panel.innerHTML = `
 <div class="lic-header">
-  <h4>Line current along path · |I|[kA] vs km</h4>
+  <h4>Line current along path · |I| [kA] vs km</h4>
   <button class="lic-close" type="button" title="Close" aria-label="Close">×</button>
 </div>
 <div class="lic-body">
   <div class="lic-status" style="font-size:12px;color:#64748b;margin-bottom:8px"></div>
+  <div class="lic-toolbar">
+    <button type="button" class="lic-dl lic-dl-png" title="Download the chart as a PNG image (3× resolution) for a report">⬇ PNG</button>
+    <button type="button" class="lic-dl lic-dl-svg" title="Download the chart as a vector SVG image">⬇ SVG</button>
+  </div>
   <div class="lic-chart-host"></div>
+  <label class="lic-check">
+    <input type="checkbox" class="lic-interp" checked />
+    <span><strong>Gradual current along each line</strong> — linear between <code>i_from_ka</code> and <code>i_to_ka</code> (the change inside a line is its charging current, which grows with distance). Untick for the step profile.</span>
+  </label>
+  <label class="lic-check">
+    <input type="checkbox" class="lic-rated" checked />
+    <span>Show rated current of each line (<code>max_i_ka</code> × parallel × df) as a dashed red level</span>
+  </label>
   <label class="lic-check">
     <input type="checkbox" class="lic-abs" checked />
     <span>Use absolute current (|I|) for AC magnitudes</span>
@@ -634,7 +742,7 @@ ${yticks.join('')}
     <input type="checkbox" class="lic-y-focus" />
     <span><strong>Amplify plateau on chart</strong> — when one |I| is much larger than the rest, zoom the Y-axis so small trends are visible; the spike is clipped at the top but marked with <strong style="color:#ea580c">▲</strong> (hover for kA — always in table).</span>
   </label>
-  <p class="lic-hint">Select a chain of Line edges, run load flow, then open this chart. Each coloured band is one line segment; dashed verticals mark bus junctions (km). Values come from pandapower <code>i_from_ka</code> / <code>i_to_ka</code> oriented along the traced path.</p>
+  <p class="lic-hint">Select a chain of Line edges, run load flow, then open this chart. Each coloured band is one line segment; dashed verticals mark bus junctions, labelled in km above the chart. Values come from pandapower <code>i_from_ka</code> / <code>i_to_ka</code> oriented along the traced path.</p>
 </div>`;
 
         document.body.appendChild(panel);
@@ -643,6 +751,16 @@ ${yticks.join('')}
         const chartHost = panel.querySelector('.lic-chart-host');
         const absEl = panel.querySelector('.lic-abs');
         const yFocusEl = panel.querySelector('.lic-y-focus');
+        const interpEl = panel.querySelector('.lic-interp');
+        const ratedEl = panel.querySelector('.lic-rated');
+        const pngBtn = panel.querySelector('.lic-dl-png');
+        const svgBtn = panel.querySelector('.lic-dl-svg');
+        pngBtn.disabled = true;
+        svgBtn.disabled = true;
+        const chartSvg = () => chartHost.querySelector('svg.lic-svg-main');
+        const fileBase = () => `line_current_along_path_${new Date().toISOString().slice(0, 10)}`;
+        pngBtn.addEventListener('click', () => { const el = chartSvg(); if (el) downloadPng(el, fileBase()); });
+        svgBtn.addEventListener('click', () => { const el = chartSvg(); if (el) downloadSvg(el, fileBase()); });
 
         function writeStatus(html) {
             statusEl.innerHTML = html;
@@ -684,26 +802,35 @@ ${yticks.join('')}
                 const prof = buildSeries(orderOutcome.ordered, linesArr, {
                     useAbs: absEl.checked
                 });
-                const svg = renderSvg(prof, { focusPlateau: yFocusEl.checked });
+                const svg = renderSvg(prof, {
+                    focusPlateau: yFocusEl.checked,
+                    interpolate: interpEl.checked,
+                    showRated: ratedEl.checked
+                });
                 const summary = `<div style="font-size:12px;margin:10px 0 4px;color:#334155;"><strong>${prof.segments.length} segment(s)</strong> · Total path <strong>${prof.lengthKmTotal.toFixed(3)} km</strong></div>`;
                 chartHost.innerHTML =
                     `<div style="min-width:560px">` +
                     svg +
-                    `<div class="lic-legend">${renderLegend(prof)}</div>` +
                     summary +
                     `<div class="lic-table-wrap">${renderTable(prof)}</div>` +
                     `</div>`;
+                pngBtn.disabled = false;
+                svgBtn.disabled = false;
                 writeStatus(
                     `✓ Profile with <b>${prof.points.length}</b> knee points from pandapower <code>i_from</code>/<code>i_to</code> (see table for exact kA).`
                 );
             } catch (err) {
                 chartHost.innerHTML = '';
+                pngBtn.disabled = true;
+                svgBtn.disabled = true;
                 writeStatus(`<span style="color:#dc2626">${escapeHtml(err.message || String(err))}</span>`);
             }
         }
 
         absEl.addEventListener('change', redraw);
         yFocusEl.addEventListener('change', redraw);
+        interpEl.addEventListener('change', redraw);
+        ratedEl.addEventListener('change', redraw);
         redraw();
 
         /* drag header */
