@@ -112,9 +112,9 @@
     function preconnectExternalResources() {
         const externalDomains = [
             'https://js.stripe.com',
-            'https://unpkg.com',
-            'https://fonts.googleapis.com',
-            'https://fonts.gstatic.com'
+            'https://unpkg.com'
+            // No Google Fonts: the app uses system fonts, and a preconnect alone already
+            // sends the visitor's IP address to Google.
         ];
         
         externalDomains.forEach(domain => {

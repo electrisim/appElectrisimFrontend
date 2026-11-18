@@ -5,8 +5,16 @@ import config from '../config/environment.js';
 
 const API_BASE_URL = config.apiBaseUrl;
 
-// Smartlook error tracking helper
+// Minimum age to create an account: the GDPR Art. 8 default, which Poland keeps.
+// Below it, consent would need a parent; the service is not aimed at children.
+const MINIMUM_AGE = 16;
+
+// Smartlook error tracking helper. Smartlook only exists when the visitor accepted session
+// recording; even then the email and name typed into the form are never sent to it.
 function trackAuthError(errorType, errorDetails, userContext = {}) {
+    // eslint-disable-next-line no-unused-vars
+    const { email, name, ...safeContext } = userContext;
+    userContext = safeContext;
     try {
         if (typeof smartlook !== 'undefined') {
             smartlook('track', 'auth_error', {
@@ -39,7 +47,6 @@ function trackAuthSuccess(authType, userData = {}) {
                 url: window.location.href,
                 user_context: {
                     user_id: userData.id || 'unknown',
-                    user_email: userData.email || 'unknown',
                     has_stripe_customer: !!userData.stripeCustomerId
                 }
             });
@@ -264,6 +271,8 @@ function createLoginForm(container) {
           <a href="${config.isDevelopment ? '/src/main/webapp/forgot-password.html' : '/forgot-password.html'}">Forgot Password?</a>
         </p>
         <div class="divider">or</div>
+        <p class="age-note">If you do not have an account yet, signing in with Google, LinkedIn or
+        Microsoft creates one, and you confirm that you are at least ${MINIMUM_AGE} years old.</p>
         <button type="button" class="google-btn">
             <img src="images/google-g-logo.svg" alt="Google" />
             Sign in with Google
@@ -419,6 +428,11 @@ function createRegisterForm(container) {
             <label for="password">Password</label>
             <input type="password" id="password" name="password" required>
         </div>
+        <label class="age-confirm" for="age-confirm">
+            <input type="checkbox" id="age-confirm" name="ageConfirmed" required>
+            <span>I confirm that I am at least ${MINIMUM_AGE} years old and have read the
+            <a href="https://electrisim.com/privacy" target="_blank" rel="noopener">Privacy Policy</a>.</span>
+        </label>
         <button type="submit">Register</button>
         <div class="divider">or</div>
         <button type="button" class="google-btn">
@@ -446,7 +460,12 @@ function createRegisterForm(container) {
         const password = form.querySelector('#password').value;
         const submitBtn = form.querySelector('button[type="submit"]');
         const errorElement = form.querySelector('#register-error');
-        
+
+        if (!form.querySelector('#age-confirm').checked) {
+            errorElement.textContent = `Please confirm that you are at least ${MINIMUM_AGE} years old.`;
+            return;
+        }
+
         devLog('Registration attempt for:', email);
         
         // Clear any previous errors and show loading state
@@ -524,6 +543,20 @@ function createRegisterForm(container) {
     });
     
     devLog('Form submit event listener attached');
+
+    // Signing up through Google, LinkedIn or Microsoft also needs the age confirmation.
+    // Capture phase on the form runs before the buttons' own click handlers.
+    form.addEventListener('click', (e) => {
+        const oauthBtn = e.target.closest('.google-btn, .linkedin-btn, .microsoft-btn');
+        const ageBox = form.querySelector('#age-confirm');
+        if (oauthBtn && !ageBox.checked) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            form.querySelector('#register-error').textContent =
+                `Please confirm that you are at least ${MINIMUM_AGE} years old first.`;
+            ageBox.focus();
+        }
+    }, true);
 
     // Handle Google login
     form.querySelector('.google-btn').addEventListener('click', () => {

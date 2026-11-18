@@ -6,6 +6,27 @@ import { DIALOG_STYLES } from '../utils/dialogStyles.js';
 
 const API_BASE_URL = config.apiBaseUrl;
 
+// Auto-renewal terms shown directly under the Subscribe buttons: the recurring charge,
+// how to cancel, and what happens on cancellation must be visible before the click
+// (California ARL, FTC ROSCA, EU Consumer Rights Directive Art. 8(2)).
+function createRenewalTerms() {
+    const terms = document.createElement('p');
+    terms.className = 'electrisim-renewal-terms';
+    Object.assign(terms.style, {
+        fontSize: '12px',
+        lineHeight: '1.5',
+        color: '#4b5563',
+        margin: '10px 0 0 0',
+        textAlign: 'center'
+    });
+    terms.innerHTML =
+        '<strong>Renews automatically every month</strong> at the price shown ' +
+        '(Company: per seat) and your card is charged each month until you cancel. ' +
+        'Cancel anytime in the Stripe billing portal; you keep access until the end ' +
+        'of the month you paid for.';
+    return terms;
+}
+
 // Function to get auth token from various storage options
 function getAuthToken() {
     // Try different storage mechanisms
@@ -472,6 +493,7 @@ function showSubscriptionModal() {
     modal.appendChild(subscribeButton);
     modal.appendChild(companyButton);
     modal.appendChild(academicButton);
+    modal.appendChild(createRenewalTerms());
     modal.appendChild(cancelButton);
     
     overlay.appendChild(modal);
@@ -788,6 +810,7 @@ const SubscriptionManager = {
         modal.appendChild(subscribeButton);
         modal.appendChild(companyButton);
         modal.appendChild(academicButton);
+        modal.appendChild(createRenewalTerms());
         modal.appendChild(cancelButton);
         
         overlay.appendChild(modal);
