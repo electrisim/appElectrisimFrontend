@@ -565,7 +565,7 @@ export class Dialog {
             backgroundColor: 'white',
             borderRadius: '8px',
             boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-            maxWidth: '720px',
+            maxWidth: isSimulationStudyDialog(this) ? '1040px' : '720px',
             width: '95%',
             minWidth: '320px',
             maxHeight: 'min(92vh, 920px)',
