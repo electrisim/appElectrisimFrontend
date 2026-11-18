@@ -1,11 +1,12 @@
 import { devLog } from './utils/devLog.js';
 // Dialog.js - Base class for all dialogs
-import { rememberStudySettings } from './utils/studySettingsMemory.js';
+import { rememberStudySettings, isSimulationStudyDialog } from './utils/studySettingsMemory.js';
 import {
     DIALOG_STYLES,
     attachBackdropCloseHandler,
     parkOverlayForCanvas,
     getDrawioStudyDialogHeight,
+    getDrawioStudyDialogWidth,
     getStudyModalDialogBoxStyle,
     preventAccidentalFormSubmit,
     preventAccidentalFormSubmitOnTree,
@@ -124,7 +125,9 @@ export class Dialog {
                     minWidth: 0,
                     scrollbarWidth: 'thin',
                     scrollbarColor: '#c5ccd3 #f1f3f5',
-                    paddingRight: '8px'
+                    paddingRight: '8px',
+                    /* Simulation dialogs get the two-column form layout (dialogStyles.js). */
+                    ...(isSimulationStudyDialog(this) ? { overscrollBehavior: 'contain' } : {})
                 }
         );
 
@@ -390,7 +393,8 @@ export class Dialog {
         if (useDrawIODialog) {
             // The true, false parameters tell DrawIO not to create its own buttons
             // Pass onDialogClose so destroy() runs when closed via ESC (ensures cleanupCallback runs)
-            this.ui.showDialog(container, 720, getDrawioStudyDialogHeight(), true, false, () => {
+            const drawioW = isSimulationStudyDialog(this) ? getDrawioStudyDialogWidth() : 720;
+            this.ui.showDialog(container, drawioW, getDrawioStudyDialogHeight(), true, false, () => {
                 this.destroy();
                 return 1; // Allow DrawIO to proceed with DOM removal
             });

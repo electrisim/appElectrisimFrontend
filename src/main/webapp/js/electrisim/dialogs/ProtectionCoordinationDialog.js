@@ -3,7 +3,7 @@
 // gate before the callback fires.
 import { Dialog } from '../Dialog.js';
 import { ensureSubscriptionFunctions } from '../ensureSubscriptionFunctions.js';
-import { getDrawioStudyDialogHeight, SIMULATION_FORM_SCROLL_STYLE, SIMULATION_INFO_BANNER_STYLE, preventAccidentalFormSubmit } from '../utils/dialogStyles.js';
+import { getDrawioStudyDialogHeight, getDrawioStudyDialogWidth, SIMULATION_FORM_SCROLL_STYLE, SIMULATION_INFO_BANNER_STYLE, preventAccidentalFormSubmit } from '../utils/dialogStyles.js';
 
 export class ProtectionCoordinationDialog extends Dialog {
     constructor(editorUi) {
@@ -556,7 +556,7 @@ export class ProtectionCoordinationDialog extends Dialog {
 
         const useDrawIODialog = !this.useModalFallback && this.ui && typeof this.ui.showDialog === 'function';
         if (useDrawIODialog) {
-            this.ui.showDialog(container, 740, getDrawioStudyDialogHeight(), true, false, () => {
+            this.ui.showDialog(container, getDrawioStudyDialogWidth(), getDrawioStudyDialogHeight(), true, false, () => {
                 this.destroy();
                 return 1;
             });

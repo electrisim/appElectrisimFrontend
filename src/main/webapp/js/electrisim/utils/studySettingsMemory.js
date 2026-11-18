@@ -29,6 +29,11 @@ const STUDY_KEYS = {
     EconomicAnalysisDialog: 'economicAnalysis'
 };
 
+/** True for the simulation input dialogs (the ones whose settings are remembered). */
+export function isSimulationStudyDialog(dialog) {
+    return !!STUDY_KEYS[dialog?.constructor?.name];
+}
+
 // Field types whose value is a plain string/boolean that can be stored and restored.
 const REMEMBERED_TYPES = new Set(['text', 'number', 'select', 'checkbox', 'radio']);
 
@@ -97,15 +102,37 @@ function _applySaved(parameters, saved) {
     });
 }
 
+/**
+ * Value of the checked radio of a radio parameter. Dialogs register radios differently
+ * (Dialog.js by `${id}_${value}`, RPCDialog and its subclasses by `id` -> the checked radio,
+ * others not at all), so try each, then fall back to the dialog's own DOM.
+ */
+function _checkedRadioValue(dialog, param) {
+    const options = param.options || [];
+    const byValue = options.find((option) =>
+        dialog.inputs?.get?.(`${param.id}_${option.value}`)?.checked
+    );
+    if (byValue) return String(byValue.value);
+    const roots = [dialog.container, dialog.dialogContent, dialog.modal, dialog.form]
+        .filter((el) => el && typeof el.querySelector === 'function');
+    for (const root of roots) {
+        const radios = root.querySelectorAll('input[type="radio"]');
+        for (const el of radios) {
+            if (el.name === param.id && el.checked) return String(el.value);
+        }
+    }
+    const byId = dialog.inputs?.get?.(param.id);
+    if (byId && byId.type === 'radio' && byId.checked) return String(byId.value);
+    return null;
+}
+
 function _snapshot(dialog) {
     const values = {};
     (dialog.parameters || []).forEach((param) => {
         if (!param || !param.id || !REMEMBERED_TYPES.has(param.type)) return;
         if (param.type === 'radio') {
-            const selected = (param.options || []).find((option) =>
-                dialog.inputs?.get?.(`${param.id}_${option.value}`)?.checked
-            );
-            if (selected) values[param.id] = String(selected.value);
+            const selected = _checkedRadioValue(dialog, param);
+            if (selected != null) values[param.id] = selected;
             return;
         }
         const input = dialog.inputs?.get?.(param.id);
