@@ -385,6 +385,14 @@ export const DIALOG_STYLES = {
  * A dialog opts out with data-study-columns="off" on the scroll region or the form.
  * ---------------------------------------------------------------------------------------- */
 
+/** requestAnimationFrame, with a timer fallback for hidden / background tabs where frames pause. */
+function nextFrame(fn) {
+    let done = false;
+    const run = () => { if (!done) { done = true; fn(); } };
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(run);
+    setTimeout(run, 60);
+}
+
 const STUDY_COLS_CLASS = 'es-study-cols';
 const STUDY_COLS_STYLE_ID = 'es-study-cols-style';
 const STUDY_COL_MIN_PX = 300;
@@ -477,17 +485,15 @@ function refineStudyColumns(host) {
  * Lay the fields of a study dialog scroll region out in two columns (one when narrow).
  * Safe to call more than once.
  */
-export function enableStudyFormColumns(region) {
-    if (!region || region._esStudyCols || typeof document === 'undefined') return;
-    if (region.dataset?.studyColumns === 'off') return;
-    region._esStudyCols = true;
-    const host = columnHostOf(region);
+function layoutStudyHost(host) {
+    if (!host || host._esStudyColsHost) return;
     if (host.dataset?.studyColumns === 'off' || hasTabs(host) || host.children.length < 3) return;
+    host._esStudyColsHost = true;
     ensureStudyColumnsCss();
     applyGapAsMargins(host);
     host.classList.add(STUDY_COLS_CLASS);
     const refine = () => refineStudyColumns(host);
-    requestAnimationFrame(refine);
+    nextFrame(refine);
     setTimeout(refine, 250);
     /* Sections that appear later (toggled options, templates) get the same treatment. */
     if (typeof MutationObserver === 'function') {
@@ -495,17 +501,53 @@ export function enableStudyFormColumns(region) {
         new MutationObserver(() => {
             if (pending) return;
             pending = true;
-            requestAnimationFrame(() => { pending = false; applyGapAsMargins(host); refine(); });
+            nextFrame(() => { pending = false; applyGapAsMargins(host); refine(); });
         }).observe(host, { childList: true });
     }
+}
+
+/**
+ * Lay the fields of a study dialog scroll region out in two columns (one when narrow).
+ * Safe to call more than once. The region is watched, so a form that is rebuilt and swapped in
+ * (Load Flow's Pandapower / OpenDSS tabs, templates, …) is laid out again.
+ */
+export function enableStudyFormColumns(region) {
+    if (!region || typeof document === 'undefined') return;
+    if (region.dataset?.studyColumns === 'off') return;
+    if (region.children.length) layoutStudyHost(columnHostOf(region));
+    if (region._esStudyCols || typeof MutationObserver !== 'function') return;
+    region._esStudyCols = true;
+    let pending = false;
+    new MutationObserver(() => {
+        if (pending) return;
+        pending = true;
+        nextFrame(() => {
+            pending = false;
+            if (region.isConnected && region.children.length) layoutStudyHost(columnHostOf(region));
+        });
+    }).observe(region, { childList: true });
 }
 
 function scanForStudyScrollRegions(root) {
     if (!root || root.nodeType !== 1) return;
     if (isStudyScrollRegion(root)) enableStudyFormColumns(root);
     root.querySelectorAll?.('div').forEach((el) => {
-        if (isStudyScrollRegion(el)) enableStudyFormColumns(el);
+        if (isStudyScrollRegion(el) && !el._esStudyCols) enableStudyFormColumns(el);
     });
+}
+
+/** Watch a dialog for scroll regions created after it opened (e.g. a tab that rebuilds its body). */
+function watchDialogRoot(root) {
+    if (!root || root.nodeType !== 1 || root._esStudyColsWatch || typeof MutationObserver !== 'function') return;
+    root._esStudyColsWatch = true;
+    let pending = false;
+    const obs = new MutationObserver(() => {
+        if (!root.isConnected) { obs.disconnect(); return; }
+        if (pending) return;
+        pending = true;
+        nextFrame(() => { pending = false; scanForStudyScrollRegions(root); });
+    });
+    obs.observe(root, { childList: true, subtree: true });
 }
 
 /** Dialogs are appended to <body> once built; lay out each new one. */
@@ -517,7 +559,11 @@ function installStudyColumnsObserver() {
         const obs = new MutationObserver((records) => {
             records.forEach((r) => r.addedNodes.forEach((n) => {
                 /* Content is often filled in right after the shell is attached. */
-                requestAnimationFrame(() => scanForStudyScrollRegions(n));
+                nextFrame(() => {
+                    scanForStudyScrollRegions(n);
+                    if (n.nodeType === 1 && (n.style?.position === 'fixed' || n.classList?.contains('geDialog')
+                        || n.querySelector?.('form, input, select'))) watchDialogRoot(n);
+                });
             }));
         });
         obs.observe(document.body, { childList: true });
