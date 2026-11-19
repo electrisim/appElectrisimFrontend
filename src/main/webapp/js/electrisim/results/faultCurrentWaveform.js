@@ -6,10 +6,15 @@
  * Shows the peak, and the DC component and asymmetrical current at breaker contact parting,
  * against the 45 ms time constant standard breakers are tested with (IEC 62271-100).
  *
- * Assumptions, also shown to the user:
+ * Assumptions of the curve, also shown to the user:
  *  - the AC component stays at Ik" (far-from-generator fault); near machines it decays;
  *  - one DC time constant, taken from the IEC 60909 peak factor kappa = ip / (sqrt(2) Ik")
- *    when ip is available (the same R/X the standard uses for i_dc), else from Xk / Rk.
+ *    when ip is available, so the drawn peak matches ip, else from Xk / Rk.
+ * When the IEC 60909 study reports the breaking duty at its contact parting time t_min
+ * (ib_ka, idc_ka, ib_asym_ka, dc_percent), the values at that time are the study's own: Ib with
+ * the decay of generators and motors (IEC 60909-0 4.5), i_DC with R/X from method C at the
+ * equivalent frequency for f*t (4.4). In a meshed network that DC decay is not the single time
+ * constant of the curve, which uses the 20 Hz R/X behind kappa.
  */
 (function (root) {
     'use strict';
@@ -72,6 +77,17 @@
         }
         xr = Math.min(Math.max(xr, 0.05), 500);
         var omega = 2 * Math.PI * f;
+        // The study's breaking duty at its contact parting time, when it reports one.
+        var study = null;
+        var tMin = num(opts.studyTminMs);
+        var sIb = num(row.ib_ka);
+        var sIdc = num(row.idc_ka);
+        if (tMin !== null && tMin > 0 && sIb !== null && sIb > 0 && sIdc !== null) {
+            study = {
+                tMinMs: tMin, ib: sIb, idc: sIdc, ibAsym: num(row.ib_asym_ka), dcPercent: num(row.dc_percent),
+                xrDc: num(row.xr_dc), tauDcMs: num(row.tau_dc_ms)
+            };
+        }
         return {
             ik: ik,
             ipStudy: ip,
@@ -85,7 +101,8 @@
             tau: xr / omega,            // DC time constant [s]
             threePhase: (opts.faultType || '3ph') === '3ph',
             faultType: opts.faultType || '3ph',
-            label: opts.label || String(row.name || '')
+            label: opts.label || String(row.name || ''),
+            study: study
         };
     }
 
@@ -150,6 +167,41 @@
         };
     }
 
+    /**
+     * What the breaker sees when its contacts part: the study's own values when it reports them
+     * for this time (Ib with machine decay, i_DC from method C), otherwise the curve's.
+     */
+    function contactParting(m, tcpMs) {
+        var duty = breakerDuty(m, tcpMs);
+        var s = m.study;
+        if (s && Math.abs(s.tMinMs - tcpMs) < 0.5) {
+            var tauMs = s.tauDcMs !== null ? s.tauDcMs : m.tau * 1000;
+            var pct = s.dcPercent !== null ? s.dcPercent : 100 * s.idc / (SQRT2 * s.ib);
+            return {
+                fromStudy: true,
+                ibKa: s.ib,
+                dcKa: s.idc,
+                dcPercent: pct,
+                asymKa: s.ibAsym !== null ? s.ibAsym : Math.sqrt(s.ib * s.ib + s.idc * s.idc),
+                xr: s.xrDc !== null ? s.xrDc : m.xr,
+                tauMs: tauMs,
+                standardDcPercent: duty.standardDcPercent,
+                exceedsStandard: tauMs > STANDARD_TAU_MS * 1.02
+            };
+        }
+        return {
+            fromStudy: false,
+            ibKa: m.ik,
+            dcKa: duty.dcKa,
+            dcPercent: duty.dcPercent,
+            asymKa: duty.asymKa,
+            xr: m.xr,
+            tauMs: m.tau * 1000,
+            standardDcPercent: duty.standardDcPercent,
+            exceedsStandard: duty.exceedsStandard
+        };
+    }
+
     function defaultWindowMs(m) {
         var cycles = Math.ceil(Math.max(5, Math.min(10, 2.2 * m.tau * m.f)));
         return Math.round(1000 * cycles / m.f);
@@ -169,7 +221,7 @@
     }
 
     function verdictText(m, duty, tcpMs) {
-        var tauMs = m.tau * 1000;
+        var tauMs = duty.tauMs !== undefined ? duty.tauMs : m.tau * 1000;
         if (duty.exceedsStandard) {
             return 'DC time constant ' + tauMs.toFixed(0) + ' ms is above the 45 ms of a standard breaker: ' +
                 duty.dcPercent.toFixed(0) + ' % DC at contact parting, against ' + duty.standardDcPercent.toFixed(0) + ' % in the type test.';
@@ -195,7 +247,7 @@
         var winMs = state.windowMs;
         var p = Math.max(0, Math.min(1, state.progress == null ? 1 : state.progress));
         var nPh = phaseCount(m);
-        var duty = breakerDuty(m, tcpMs);
+        var duty = contactParting(m, tcpMs);
         var peak = findPeak(m, alpha);
 
         ctx.save();
@@ -451,8 +503,8 @@
             var facts = [
                 ['#33475b', 'Result of the study: Ik″ = ' + fmtKa(m.ik) + ' kA r.m.s.'],
                 ['#c92a2a', 'Highest peak: ' + fmtKa(worstPossible) + ' kA, ' + (worstPossible / m.ik).toFixed(2) + ' × Ik″ (X/R = ' + m.xr.toFixed(1) + ')'],
-                ['#6f42c1', 'At contact parting (' + tcpMs + ' ms): up to ' + duty.dcPercent.toFixed(0) + ' % DC, ' + fmtKa(duty.asymKa) + ' kA asymmetrical'],
-                [duty.exceedsStandard ? '#e8590c' : '#198754', 'DC time constant ' + (m.tau * 1000).toFixed(0) + ' ms, standard breaker test: 45 ms (' + duty.standardDcPercent.toFixed(0) + ' % DC)']
+                ['#6f42c1', 'At contact parting (' + tcpMs + ' ms): ' + (duty.fromStudy ? 'Ib ' + fmtKa(duty.ibKa) + ' kA, ' : 'up to ') + duty.dcPercent.toFixed(0) + ' % DC, ' + fmtKa(duty.asymKa) + ' kA asymmetrical'],
+                [duty.exceedsStandard ? '#e8590c' : '#198754', 'DC time constant ' + duty.tauMs.toFixed(0) + ' ms, standard breaker test: 45 ms (' + duty.standardDcPercent.toFixed(0) + ' % DC)']
             ];
             ctx.font = font(25, 600);
             facts.forEach(function (fct) {
@@ -562,10 +614,13 @@
         var old = document.getElementById(OVERLAY_ID);
         if (old) old.remove();
 
+        var studyTmin = num(data.study_params && data.study_params.t_min_ms);
         var st = {
             index: 0,
-            frequency: num(data.frequency_hz) || num(readPref('frequency', '')) || (isAnsi ? 60 : 50),
-            tcpMs: num(readPref('tcpMs', '')) || 50,
+            frequency: num(data.frequency_hz) || num(data.study_params && data.study_params.frequency_hz) ||
+                num(readPref('frequency', '')) || (isAnsi ? 60 : 50),
+            // The study's breaking duty is at its own t_min, so start there.
+            tcpMs: (studyTmin !== null && studyTmin > 0 ? studyTmin : null) || num(readPref('tcpMs', '')) || 50,
             alphaDeg: 0,
             progress: 1,
             windowMs: 100,
@@ -723,7 +778,7 @@
 
         function renderText() {
             var m = st.model;
-            var duty = breakerDuty(m, st.tcpMs);
+            var duty = contactParting(m, st.tcpMs);
             var peak = findPeak(m, st.alphaDeg);
             var worst = kappaFromRx(1 / m.xr) * SQRT2 * m.ik;
             var colour = duty.exceedsStandard ? '#e8590c' : '#198754';
@@ -734,9 +789,10 @@
             tiles.innerHTML =
                 tile(fmtKa(m.ik) + ' kA', 'Ik″ from the study', 'symmetrical, r.m.s.', '#12263a') +
                 tile(fmtKa(peak.abs) + ' kA', 'Peak at this angle', (m.ipStudy ? 'ip from the study: ' + fmtKa(m.ipStudy) + ' kA' : 'highest possible: ' + fmtKa(worst) + ' kA'), '#c92a2a') +
-                tile((m.tau * 1000).toFixed(0) + ' ms', 'DC time constant', 'X/R = ' + m.xr.toFixed(1), colour) +
-                tile(duty.dcPercent.toFixed(0) + ' %', 'DC at contact parting', 'standard breaker: ' + duty.standardDcPercent.toFixed(0) + ' %', '#6f42c1') +
-                tile(fmtKa(duty.asymKa) + ' kA', 'Asymmetrical breaking current', 'r.m.s., AC and DC together', '#6f42c1');
+                tile(duty.tauMs.toFixed(0) + ' ms', 'DC time constant', 'X/R = ' + duty.xr.toFixed(1) + (duty.fromStudy ? ' (study, method C)' : ''), colour) +
+                tile(duty.dcPercent.toFixed(0) + ' %', 'DC at contact parting', (duty.fromStudy ? 'study · ' : '') + 'standard breaker: ' + duty.standardDcPercent.toFixed(0) + ' %', '#6f42c1') +
+                (duty.fromStudy ? tile(fmtKa(duty.ibKa) + ' kA', 'Breaking current Ib', 'study: AC at contact parting', '#6f42c1') : '') +
+                tile(fmtKa(duty.asymKa) + ' kA', 'Asymmetrical breaking current', (duty.fromStudy ? 'study: ' : '') + 'r.m.s., AC and DC together', '#6f42c1');
             legend.innerHTML = '';
             for (var k = 0; k < phaseCount(m); k++) {
                 legend.innerHTML += '<span><span style="display:inline-block;width:18px;height:4px;background:' + PHASE_COLOURS[k] +
@@ -750,7 +806,9 @@
                 'The curve is built from the study result: an AC component of √2·Ik″ and a DC component that decays with the time constant X/(ω·R).',
                 'X/R comes from: ' + m.xrSource + '.' + (m.xrPoint !== null && Math.abs(m.xrPoint - m.xr) / m.xr > 0.05
                     ? ' Xk/Rk at the fault point alone would give ' + m.xrPoint.toFixed(1) + '.' : ''),
-                'The AC component is kept constant (fault far from generators). Close to generators and motors it decays, so the real current is lower later on and the DC share at contact parting is higher than shown.',
+                m.study
+                    ? 'At t_min = ' + m.study.tMinMs + ' ms (the study\'s contact parting time) the tiles show the study\'s own values: Ib includes the decay of generators and motors (IEC 60909-0 4.5) and the DC component uses R/X from method C at the equivalent frequency for f·t (4.4). In a meshed network that decay is not the single time constant of the curve. At other times the tiles come from the curve.'
+                    : 'The AC component is kept constant (fault far from generators). Close to generators and motors it decays, so the real current is lower later on and the DC share at contact parting is higher than shown.',
                 'Contact parting time is the relay time plus the minimum opening time of the breaker. A standard breaker is type-tested with a DC time constant of 45 ms (IEC 62271-100).',
                 isAnsi ? '' : 'Short circuits to IEC 60909 are calculated at 50 Hz in Electrisim; the frequency here only sets the time axis and the time constant.'
             ].filter(Boolean).map(function (n) { return '<div>• ' + esc(n) + '</div>'; }).join('');
@@ -758,7 +816,7 @@
 
         function rebuild(resetAngle) {
             var entry = rows[st.index];
-            st.model = buildModel(entry.row, { frequency: st.frequency, faultType: faultType, label: entry.label });
+            st.model = buildModel(entry.row, { frequency: st.frequency, faultType: faultType, label: entry.label, studyTminMs: studyTmin });
             st.windowMs = defaultWindowMs(st.model);
             if (resetAngle) st.alphaDeg = worstAngle(st.model);
             renderText();
@@ -937,6 +995,7 @@
         findPeak: findPeak,
         worstAngle: worstAngle,
         breakerDuty: breakerDuty,
+        contactParting: contactParting,
         rxFromKappa: rxFromKappa,
         kappaFromRx: kappaFromRx,
         defaultWindowMs: defaultWindowMs,

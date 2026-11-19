@@ -1219,8 +1219,10 @@
                 label: 'Duty checks',
                 value: metrics.dutyRated > 0 ? `${metrics.dutyRated - metrics.dutyFail}/${metrics.dutyRated}` : '—',
                 unit: '',
-                sub: metrics.dutyRated > 0 ? `${metrics.dutyFail} failing` : 'No switch ratings',
-                cls: metrics.dutyFail > 0 ? 'danger' : 'good',
+                sub: metrics.dutyRated > 0
+                    ? `${metrics.dutyFail} failing` + (metrics.breakerCheck > 0 ? ` · ${metrics.breakerCheck} to confirm` : '')
+                    : 'No switch ratings',
+                cls: metrics.dutyFail > 0 ? 'danger' : (metrics.breakerCheck > 0 ? 'warn' : 'good'),
             },
         ];
     }
@@ -1294,8 +1296,54 @@
             d.interrupting_rating_ka != null ? fmt(num(d.interrupting_rating_ka), 3) : '—',
             d.interrupting_pass === false ? 'FAIL' : (d.interrupting_pass === true ? 'OK' : '—'),
             fmt(num(d.duty_momentary_ka), 3),
-            d.momentary_rating_ka != null ? fmt(num(d.momentary_rating_ka), 3) : '—',
+            d.momentary_rating_ka != null
+                ? fmt(num(d.momentary_rating_ka), 3) + (d.momentary_rating_source === 'derived' ? '*' : '')
+                : '—',
             d.momentary_pass === false ? 'FAIL' : (d.momentary_pass === true ? 'OK' : '—'),
+        ]);
+    }
+
+    /** IEC 60909: per bus, what flows when the breaker contacts part (t_min). Empty for ANSI. */
+    const SC_BREAKING_HEAD = ['Object id', 'Dialog name', 'Ikss [kA]', 'Ib [kA]', 'X/R (DC)', 'Tau [ms]', 'iDC [kA]', 'DC [%]', 'Ib asym [kA]'];
+    function buildScBreakingRows(dataJson, dialogNameFor) {
+        const buses = Array.isArray(dataJson?.busbars) ? dataJson.busbars : [];
+        if (!buses.some(b => num(b.ib_ka) !== null)) return [];
+        const nameOf = (row) => {
+            const n = row?.name;
+            if (n && !/^mxCell[#_]\d+$/i.test(String(n))) return String(n).replace(/_/g, '#');
+            return row?.id != null ? String(row.id) : 'Bus';
+        };
+        return buses.filter(b => num(b.ib_ka) !== null).map(b => [
+            nameOf(b),
+            dialogNameFor ? (dialogNameFor(b) || '—') : '—',
+            fmt(num(b.ikss_ka), 3),
+            fmt(num(b.ib_ka), 3),
+            fmt(num(b.xr_dc), 1),
+            fmt(num(b.tau_dc_ms), 0),
+            fmt(num(b.idc_ka), 3),
+            fmt(num(b.dc_percent), 1),
+            fmt(num(b.ib_asym_ka), 3),
+        ]).sort((a, b) => (parseFloat(b[8]) || 0) - (parseFloat(a[8]) || 0));
+    }
+
+    /** IEC 62271-100 making / breaking check of each circuit breaker of the IEC 60909 study. */
+    const SC_BREAKER_HEAD = ['Breaker', 't [ms]', 'ip / Ima [kA]', 'Making', 'Ib / Isc [kA]', 'Breaking', 'DC / rated [%]', 'DC', 'Ib,asym / Isc,asym [kA]', 'Result'];
+    function buildScBreakerRows(dataJson, dialogNameFor) {
+        const duties = Array.isArray(dataJson?.breaker_duties) ? dataJson.breaker_duties : [];
+        const word = { pass: 'PASS', check: 'CHECK', fail: 'FAIL', not_rated: 'NOT RATED' };
+        const ok = (v) => (v === true ? 'PASS' : v === false ? 'FAIL' : '—');
+        const pair = (a, b, d) => `${fmt(num(a), d)} / ${fmt(num(b), d)}`;
+        return duties.map(d => [
+            (dialogNameFor ? dialogNameFor(d) : '') || d.name || d.id || '—',
+            fmt(num(d.t_cp_ms), 0),
+            pair(d.ip_ka, d.making_rating_ka, 2) + (d.making_rating_source === 'derived' ? '*' : ''),
+            ok(d.making_pass),
+            pair(d.ib_ka, d.breaking_rating_ka, 2),
+            ok(d.breaking_pass),
+            pair(d.dc_percent, d.rated_dc_percent, 1),
+            word[d.dc_status] || '—',
+            pair(d.ib_asym_ka, d.breaking_asym_rating_ka, 2),
+            word[d.status] || '—',
         ]);
     }
 
@@ -1317,6 +1365,15 @@
                 rows: branchRows,
             });
         }
+        const tMin = num(dataJson?.study_params?.t_min_ms);
+        const breakingRows = isAnsi ? [] : buildScBreakingRows(dataJson, dn);
+        if (breakingRows.length) {
+            sections.push({
+                title: `Breaking currents at contact parting${tMin !== null ? ` (t_min = ${fmt(tMin, 0)} ms)` : ''}`,
+                head: SC_BREAKING_HEAD,
+                rows: breakingRows,
+            });
+        }
         const dutyRows = buildScDutyRows(dataJson);
         if (dutyRows.length) {
             sections.push({
@@ -1324,6 +1381,10 @@
                 head: ['Device', 'Duty int [kA]', 'Rating int [kA]', 'Int', 'Duty mom [kA]', 'Rating mom [kA]', 'Mom'],
                 rows: dutyRows,
             });
+        }
+        const breakerRows = buildScBreakerRows(dataJson, dn);
+        if (breakerRows.length) {
+            sections.push({ title: 'Circuit breakers (IEC 62271-100)', head: SC_BREAKER_HEAD, rows: breakerRows });
         }
         return sections;
     }
@@ -1900,6 +1961,7 @@
                 sp.fault_type,
                 sp.fault_location,
                 sp.tk_s != null ? `tk_s=${sp.tk_s}s` : null,
+                sp.t_min_ms != null ? `t_min=${sp.t_min_ms} ms` : null,
             ].filter(Boolean).join(' · ');
             if (spLine) {
                 doc.setFontSize(9);
@@ -2190,6 +2252,34 @@
                     headStyles: { fillColor: hexToRgb(COLOR.BRAND), textColor: [255,255,255] },
                     columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' } },
                 });
+                const breakingRows = isAnsi ? [] : buildScBreakingRows(dataJson, dialogNameFor);
+                if (breakingRows.length) {
+                    const tMin = num(dataJson?.study_params?.t_min_ms);
+                    let y0 = (doc.lastAutoTable && doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY : 30) + 10;
+                    if (y0 > PAGE.h - 60) {
+                        doc.addPage('a4', 'portrait');
+                        drawHeaderBand('Breaking Currents', 'IEC 60909-0 at contact parting');
+                        y0 = 30;
+                    }
+                    setText(COLOR.TEXT);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(11);
+                    doc.text(`Breaking currents at contact parting${tMin !== null ? ` (t_min = ${fmt(tMin, 0)} ms)` : ''}`, PAGE.margin, y0);
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(8);
+                    setText(COLOR.MUTED);
+                    doc.text('Ib with the decay of generators and motors (IEC 60909-0 4.5); iDC with R/X from method C at fc for f*t (4.4); Ib asym = sqrt(Ib^2 + iDC^2).', PAGE.margin, y0 + 4.5);
+                    doc.autoTable({
+                        startY: y0 + 7,
+                        margin: { left: PAGE.margin, right: PAGE.margin },
+                        head: [SC_BREAKING_HEAD],
+                        body: breakingRows,
+                        theme: 'striped',
+                        styles: { font: 'helvetica', fontSize: 8, cellPadding: 1.1 },
+                        headStyles: { fillColor: hexToRgb(COLOR.BRAND), textColor: [255,255,255] },
+                        columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' }, 7: { halign: 'right' }, 8: { halign: 'right' } },
+                    });
+                }
             }
         } else {
             drawHeaderBand('Voltage Profile', `${metrics.busBuckets.total} buses · band ±5% (warn) / ±10% (critical)`);
@@ -2262,6 +2352,48 @@
                         }
                     },
                 });
+            }
+            const breakerRows = buildScBreakerRows(dataJson, dialogNameFor);
+            if (breakerRows.length && doc.autoTable) {
+                const tMin = num(dataJson?.study_params?.t_min_ms);
+                doc.addPage('a4', 'portrait');
+                drawHeaderBand('Circuit Breakers (IEC 62271-100)',
+                    `${breakerRows.length} breakers · contacts part at ${tMin !== null ? fmt(tMin, 0) + ' ms' : 't_min'} unless set per breaker`);
+                doc.autoTable({
+                    startY: 30,
+                    margin: { left: PAGE.margin, right: PAGE.margin },
+                    head: [SC_BREAKER_HEAD],
+                    body: breakerRows,
+                    theme: 'striped',
+                    styles: { font: 'helvetica', fontSize: 7.5, cellPadding: 1.1 },
+                    headStyles: { fillColor: hexToRgb(COLOR.BRAND), textColor: [255,255,255] },
+                    didParseCell: (d) => {
+                        if (d.section !== 'body' || ![3, 5, 7, 9].includes(d.column.index)) return;
+                        const v = String(d.cell.raw || '');
+                        if (v === 'FAIL') {
+                            d.cell.styles.fillColor = [253, 226, 226];
+                            d.cell.styles.textColor = hexToRgb(COLOR.DANGER);
+                            d.cell.styles.fontStyle = 'bold';
+                        } else if (v === 'CHECK') {
+                            d.cell.styles.fillColor = [254, 240, 199];
+                            d.cell.styles.textColor = hexToRgb(COLOR.WARN);
+                            d.cell.styles.fontStyle = 'bold';
+                        } else if (v === 'PASS') {
+                            d.cell.styles.textColor = hexToRgb(COLOR.GOOD);
+                        }
+                    },
+                });
+                const yNote = (doc.lastAutoTable && doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY : 40) + 6;
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(8);
+                setText(COLOR.MUTED);
+                doc.text(doc.splitTextToSize(
+                    'Each breaker is checked against the fault at its bus. Making: ip against the rated making current '
+                    + '(* derived from Isc: 2.5 x at 50 Hz, 2.6 x at 60 Hz, 2.7 x for a DC time constant above 45 ms). '
+                    + 'Breaking: Ib against Isc. DC: the DC component at contact parting against the rated value '
+                    + '(100 x exp(-t/tau) unless entered). CHECK: DC above the rated value while Ib,asym stays within '
+                    + 'Isc,asym = Isc x sqrt(1 + 2 p^2); confirm with the manufacturer or use a breaker with a longer '
+                    + 'DC time constant (60, 75 or 120 ms).', CONTENT_W), PAGE.margin, yNote);
             }
         } else {
             drawHeaderBand('Top Loaded Equipment', `${metrics.equipmentBuckets.total} branches monitored`);
@@ -2486,6 +2618,8 @@
         buildScBusRows,
         buildScBranchRows,
         buildScDutyRows,
+        buildScBreakingRows,
+        buildScBreakerRows,
         buildScDetailedSections,
         buildBreakdownRows,
         buildIssueRows,

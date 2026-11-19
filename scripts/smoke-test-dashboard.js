@@ -272,4 +272,30 @@ const m13 = win.computeShortCircuitMetrics(scZero);
 assert(m13.converged === false, 'all-zero Ikss is not converged');
 assert(m13.maxIk === null, 'max Ikss null when all zeros');
 
+// --- Test 14: IEC 62271-100 breaker duties of the IEC study ----------------
+console.log('\nTest 14: IEC breaker duties');
+const scIecBreakers = {
+    study: 'shortcircuit',
+    study_params: { standard: 'iec60909', t_min_ms: 50 },
+    busbars: [
+        { id: 'b1', name: 'b1', ikss_ka: 18.2, ip_ka: 47.5, ith_ka: 18.6, rk_ohm: 0.04, xk_ohm: 0.7,
+          ib_ka: 18.2, idc_ka: 10.7, ib_asym_ka: 21.1, dc_percent: 41.6, xr_dc: 17.9, tau_dc_ms: 57 },
+    ],
+    breaker_duties: [
+        { id: 'q1', name: 'Q1', status: 'check', making_pass: true, breaking_pass: true, dc_status: 'check',
+          ip_ka: 47.5, making_rating_ka: 50, making_rating_source: 'derived', ib_ka: 18.2, breaking_rating_ka: 20,
+          dc_percent: 41.6, rated_dc_percent: 32.9, ib_asym_ka: 21.1, breaking_asym_rating_ka: 22.07, t_cp_ms: 50 },
+        { id: 'q2', name: 'Q2', status: 'fail', making_pass: false, breaking_pass: true, dc_status: 'pass',
+          ip_ka: 47.5, making_rating_ka: 40, ib_ka: 18.2, breaking_rating_ka: 16, t_cp_ms: 50 },
+        { id: 'q3', name: 'Q3', status: 'not_rated', making_pass: null, breaking_pass: null, ib_ka: 18.2, t_cp_ms: 50 },
+    ],
+};
+const m14 = win.computeShortCircuitMetrics(scIecBreakers);
+assert(m14.dutyRated === 2, 'IEC breakers with ratings counted as rated');
+assert(m14.dutyFail === 1, 'IEC breaker fail counted');
+assert(m14.breakerCheck === 1, 'IEC breaker to confirm counted');
+assert(m14.breakers.length === 3, 'breaker rows kept for the dashboard table');
+assert(m14.issues.some(i => i.severity === 'danger' && i.title.includes('Q2')), 'failing breaker is a danger issue');
+assert(m14.issues.some(i => i.severity === 'warn' && i.title.includes('Q1')), 'breaker above the rated DC is a warning');
+
 console.log('\nAll dashboard smoke tests passed.');

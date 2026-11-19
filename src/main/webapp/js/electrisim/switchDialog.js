@@ -84,6 +84,9 @@ export const defaultSwitchData = {
     rated_voltage_kv: 0.0,
     contact_parting_cycles: 3.0,
     generator_cb: false,
+    contact_parting_ms: 0.0,
+    dc_time_constant_ms: 45.0,
+    rated_dc_percent: 0.0,
     cost_per_unit_by_currency: "0",
     // Protection coordination defaults (used by the Protection Coordination study)
     protection_type: "none",
@@ -182,7 +185,8 @@ export class SwitchDialog extends Dialog {
             }
         ];
         
-        // Short Circuit parameters (ANSI/IEEE C37 device ratings)
+        // Short Circuit parameters: breaker ratings for the IEC 62271-100 check (IEC 60909 study)
+        // and the ANSI/IEEE C37 device duties. Isc and the making / momentary rating serve both.
         this.shortCircuitParameters = [
             {
                 id: 'ikss_ka',
@@ -212,10 +216,10 @@ export class SwitchDialog extends Dialog {
             },
             {
                 id: 'interrupting_rating_ka',
-                label: 'Interrupting rating',
+                label: 'Rated short-circuit breaking current Isc',
                 symbol: 'interrupting_rating_ka',
                 unit: 'kA',
-                description: 'Symmetrical interrupting rating at rated voltage (kA)',
+                description: 'Symmetrical r.m.s. at rated voltage: IEC 62271-100 Isc, or the ANSI/IEEE symmetrical interrupting rating. 0 = no breaking check.',
                 type: 'number',
                 value: this.data.interrupting_rating_ka.toString(),
                 step: '0.1',
@@ -223,10 +227,10 @@ export class SwitchDialog extends Dialog {
             },
             {
                 id: 'momentary_rating_ka',
-                label: 'Momentary / close-and-latch rating',
+                label: 'Rated making / close-and-latch current (peak)',
                 symbol: 'momentary_rating_ka',
                 unit: 'kA',
-                description: 'First-cycle (momentary) rating (kA). If empty, interrupting rating is used.',
+                description: 'Peak value. 0 = derived from Isc: IEC 2.5 x Isc at 50 Hz, 2.6 x at 60 Hz (2.7 x when the DC time constant is above 45 ms); ANSI 2.6 x for HV, 2.74 x for generator breakers, the test-circuit peak for LV breakers.',
                 type: 'number',
                 value: this.data.momentary_rating_ka.toString(),
                 step: '0.1',
@@ -248,7 +252,7 @@ export class SwitchDialog extends Dialog {
                 label: 'Contact parting time',
                 symbol: 'contact_parting_cycles',
                 unit: 'cycles',
-                description: 'Opening time in cycles at system frequency (HV interrupting duty)',
+                description: 'ANSI/IEEE study: opening time in cycles at system frequency (HV interrupting duty)',
                 type: 'number',
                 value: this.data.contact_parting_cycles.toString(),
                 step: '0.5',
@@ -261,6 +265,39 @@ export class SwitchDialog extends Dialog {
                 description: 'Apply IEEE C37.013 generator-breaker duty checks',
                 type: 'checkbox',
                 value: this.data.generator_cb
+            },
+            {
+                id: 'contact_parting_ms',
+                label: 'Contact parting time t_min (IEC)',
+                symbol: 'contact_parting_ms',
+                unit: 'ms',
+                description: 'IEC 60909 study: relay time plus the minimum opening time of this breaker. 0 = the t_min of the Short Circuit dialog.',
+                type: 'number',
+                value: this.data.contact_parting_ms.toString(),
+                step: '5',
+                min: '0'
+            },
+            {
+                id: 'dc_time_constant_ms',
+                label: 'Rated DC time constant (IEC 62271-100)',
+                symbol: 'dc_time_constant_ms',
+                unit: 'ms',
+                description: '45 ms for a standard breaker; 60, 75 or 120 ms for the special cases. Sets the rated DC component and the derived making current.',
+                type: 'number',
+                value: this.data.dc_time_constant_ms.toString(),
+                step: '5',
+                min: '0'
+            },
+            {
+                id: 'rated_dc_percent',
+                label: 'Rated DC component at contact parting (IEC)',
+                symbol: 'rated_dc_percent',
+                unit: '%',
+                description: 'From the manufacturer. 0 = 100 x exp(-t / tau) at this breaker\'s contact parting time.',
+                type: 'number',
+                value: this.data.rated_dc_percent.toString(),
+                step: '1',
+                min: '0'
             }
         ];
         

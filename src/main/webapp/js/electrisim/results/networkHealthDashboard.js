@@ -422,6 +422,17 @@
         return hasSc && !hasLf;
     }
 
+    function passWord(v) {
+        return v === true ? 'OK' : v === false ? 'FAIL' : '—';
+    }
+
+    /** One line on a circuit breaker's IEC 62271-100 check. */
+    function breakerDetail(b) {
+        return `Making ${passWord(b.making_pass)} (ip ${fmt(b.ip_ka, 2)} / ${fmt(b.making_rating_ka, 2)} kA) · `
+            + `Breaking ${passWord(b.breaking_pass)} (Ib ${fmt(b.ib_ka, 2)} / ${fmt(b.breaking_rating_ka, 2)} kA) · `
+            + `DC ${fmt(b.dc_percent, 1)} % / ${fmt(b.rated_dc_percent, 1)} % at ${fmt(b.t_cp_ms, 0)} ms`;
+    }
+
     function computeShortCircuitMetrics(dataJson, graph) {
         const d = dataJson || {};
         const nameOf = makeDisplayNameResolver(graph);
@@ -530,6 +541,34 @@
             if (duty.interrupting_rating_ka != null || duty.momentary_rating_ka != null) dutyRated++;
         }
 
+        // IEC 60909 study: making / breaking check of each circuit breaker (IEC 62271-100).
+        const breakers = Array.isArray(d.breaker_duties) ? d.breaker_duties : [];
+        let breakerCheck = 0;
+        const breakerRows = [];
+        for (const brk of breakers) {
+            const label = nameOf(brk) || brk.name || brk.id;
+            breakerRows.push({ ...brk, dialogName: label });
+            if (brk.breaking_rating_ka != null || brk.making_rating_ka != null) dutyRated++;
+            if (brk.status === 'fail') {
+                dutyFail++;
+                issues.push({
+                    severity: 'danger',
+                    title: `Breaker duty fail — ${label}`,
+                    detail: breakerDetail(brk),
+                    cellId: brk.id, cellName: brk.name,
+                });
+            } else if (brk.status === 'check') {
+                breakerCheck++;
+                issues.push({
+                    severity: 'warn',
+                    title: `Breaker DC component above rating — ${label}`,
+                    detail: `${fmt(brk.dc_percent, 1)} % DC at ${fmt(brk.t_cp_ms, 0)} ms against ${fmt(brk.rated_dc_percent, 1)} % rated; `
+                        + `Ib,asym ${fmt(brk.ib_asym_ka, 2)} kA is within ${fmt(brk.breaking_asym_rating_ka, 2)} kA. Confirm with the manufacturer.`,
+                    cellId: brk.id, cellName: brk.name,
+                });
+            }
+        }
+
         const histMin = 0;
         const histMax = maxIk ? maxIk * 1.05 : 1;
         const bins = 8;
@@ -573,7 +612,8 @@
             top5,
             issues,
             histogram, histLabels, histMin, histMax,
-            dutyFail, dutyRated,
+            dutyFail, dutyRated, breakerCheck,
+            breakers: breakerRows,
             studyParams: d.study_params || {},
             engine: d.engine || d.standard || 'Short circuit',
             counts: {
@@ -760,6 +800,21 @@
             #${PANEL_ID} .ehd-issue-text { font-size: 11px; line-height: 1.35; flex: 1; }
             #${PANEL_ID} .ehd-issue-title { font-weight: 600; color: ${COLOR_TEXT}; }
             #${PANEL_ID} .ehd-issue-detail { color: ${COLOR_MUTED}; }
+            #${PANEL_ID} table.ehd-brk { width: 100%; border-collapse: collapse; font-size: 11px; }
+            #${PANEL_ID} table.ehd-brk th {
+                text-align: left; font-weight: 600; color: ${COLOR_MUTED}; padding: 3px 4px;
+                border-bottom: 1px solid ${COLOR_BORDER}; white-space: nowrap;
+            }
+            #${PANEL_ID} table.ehd-brk td { padding: 4px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
+            #${PANEL_ID} table.ehd-brk td:first-child { max-width: 110px; overflow: hidden; text-overflow: ellipsis; color: ${COLOR_TEXT}; font-weight: 500; }
+            #${PANEL_ID} .ehd-brk-row { cursor: pointer; }
+            #${PANEL_ID} .ehd-brk-row:hover { background: #f1f5f9; }
+            #${PANEL_ID} .ehd-brk-status { font-weight: 700; font-size: 10px; }
+            #${PANEL_ID} .ehd-brk-status.pass { color: ${COLOR_GOOD}; }
+            #${PANEL_ID} .ehd-brk-status.check { color: ${COLOR_WARN}; }
+            #${PANEL_ID} .ehd-brk-status.fail { color: ${COLOR_DANGER}; }
+            #${PANEL_ID} .ehd-brk-status.not_rated { color: ${COLOR_MUTED}; }
+            #${PANEL_ID} .ehd-brk-note { margin-top: 4px; font-size: 10px; color: ${COLOR_MUTED}; }
             #${PANEL_ID} .ehd-no-issues {
                 padding: 10px; font-size: 12px; color: ${COLOR_GOOD};
                 background: #ecfdf5; border-radius: 6px; text-align: center;
@@ -978,6 +1033,35 @@
         }).join('');
     }
 
+    function escHtml(v) {
+        return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    /** Circuit breakers of the IEC 60909 study: making, breaking and DC against the ratings. */
+    function buildBreakerTable(metrics, targets) {
+        const label = { pass: 'PASS', check: 'CHECK', fail: 'FAIL', not_rated: 'NOT RATED' };
+        const order = { fail: 0, check: 1, pass: 2, not_rated: 3 };
+        const rows = [...(metrics.breakers || [])].sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9));
+        const pair = (a, b, d) => `${fmt(a, d)} / ${fmt(b, d)}`;
+        return `<table class="ehd-brk"><thead><tr>
+                <th>Breaker</th><th title="Peak current against the rated making current">ip / Ima kA</th>
+                <th title="Symmetrical breaking current at contact parting against Isc">Ib / Isc kA</th>
+                <th title="DC component at contact parting against the rated DC component">DC / rated %</th><th></th>
+            </tr></thead><tbody>${rows.slice(0, 12).map(b => {
+                const idx = targets.length;
+                targets.push({ id: b.id, name: b.name });
+                const derived = b.making_rating_source === 'derived' ? '*' : '';
+                return `<tr class="ehd-brk-row" data-target-idx="${idx}" title="${escapeAttr(breakerDetail(b))}">
+                    <td>${escHtml(b.dialogName || b.name || b.id)}</td>
+                    <td>${pair(b.ip_ka, b.making_rating_ka, 1)}${derived}</td>
+                    <td>${pair(b.ib_ka, b.breaking_rating_ka, 1)}</td>
+                    <td>${pair(b.dc_percent, b.rated_dc_percent, 0)}</td>
+                    <td><span class="ehd-brk-status ${escapeAttr(b.status || '')}">${label[b.status] || '—'}</span></td>
+                </tr>`;
+            }).join('')}</tbody></table>
+            <div class="ehd-brk-note">Contacts part at ${fmt(metrics.studyParams.t_min_ms, 0)} ms unless a breaker has its own time · * making current derived from Isc</div>`;
+    }
+
     /* ---------------------------------------------------------------------
      *  Format a breakdown array as a human-readable, multi-line tooltip.
      * ------------------------------------------------------------------- */
@@ -1010,9 +1094,12 @@
             { label: 'Max Ith', cls: 'info', value: fmt(m.maxIth, 2), unit: 'kA', sub: 'Thermal / interrupting basis' },
             { label: 'Max X/R', cls: 'info', value: fmt(m.maxXr, 1), unit: '', sub: 'Fault-point asymmetry' },
             {
-                label: 'Duty checks', cls: m.dutyFail > 0 ? 'danger' : 'good',
+                label: 'Duty checks', cls: m.dutyFail > 0 ? 'danger' : (m.breakerCheck > 0 ? 'warn' : 'good'),
                 value: m.dutyRated > 0 ? String(m.dutyRated - m.dutyFail) + '/' + m.dutyRated : '—',
-                unit: '', sub: m.dutyRated > 0 ? `${m.dutyFail} failing` : 'No switch ratings entered',
+                unit: '',
+                sub: m.dutyRated > 0
+                    ? `${m.dutyFail} failing` + (m.breakerCheck > 0 ? ` · ${m.breakerCheck} to confirm` : '')
+                    : 'No switch ratings entered',
             },
         ];
         return cards.map(c => `
@@ -1347,6 +1434,15 @@
                         <div class="ehd-issues">${buildIssues(metrics, targets)}</div>
                     </div>
 
+                    ${isSc && metrics.breakers && metrics.breakers.length ? `
+                    <div class="ehd-section">
+                        <div class="ehd-section-title">
+                            <span>Circuit Breakers (IEC 62271-100)</span>
+                            <span class="ehd-count">${metrics.breakers.length} · click → focus</span>
+                        </div>
+                        ${buildBreakerTable(metrics, targets)}
+                    </div>` : ''}
+
                     <div class="ehd-cta-row">
                         <button class="ehd-btn primary ehd-flash-btn">Highlight Hot Spots</button>
                         <button class="ehd-btn ehd-line-i-btn" style="${hideLfOnly}"
@@ -1384,7 +1480,7 @@
             });
 
             // Click → focus on diagram (Top 5 + Issues)
-            panel.querySelectorAll('.ehd-bar-row, .ehd-issue').forEach(el => {
+            panel.querySelectorAll('.ehd-bar-row, .ehd-issue, .ehd-brk-row').forEach(el => {
                 el.addEventListener('click', () => {
                     const idx = parseInt(el.getAttribute('data-target-idx'), 10);
                     if (Number.isNaN(idx)) return;
@@ -1479,7 +1575,9 @@
 Status: ${status.text} (Score ${metrics.healthScore}/100)
 Max Ikss: ${fmt(metrics.maxIk, 2)} kA | Min Ikss: ${fmt(metrics.minIk, 2)} kA
 Max Ip: ${fmt(metrics.maxIp, 2)} kA | Max Ith: ${fmt(metrics.maxIth, 2)} kA
-Buses: ${metrics.counts.buses} | Issues: ${metrics.issues.length}`
+Buses: ${metrics.counts.buses} | Issues: ${metrics.issues.length}${(metrics.breakers || []).length
+    ? `\nBreakers (IEC 62271-100): ${metrics.breakers.length} | failing ${metrics.dutyFail} | to confirm ${metrics.breakerCheck}`
+    : ''}`
                     : `Electrisim — Network Health Summary
 Status: ${status.text} (Score ${metrics.healthScore}/100)
 Generation:  ${fmt(metrics.totalGen, 2)} MW

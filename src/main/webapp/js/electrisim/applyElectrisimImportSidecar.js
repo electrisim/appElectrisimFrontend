@@ -68,6 +68,9 @@ export function applyElectrisimImportSidecar(graph, modelData) {
             const s = sw;
             setAttr(cell, 'interrupting_rating_ka', s.interrupting_rating_ka);
             setAttr(cell, 'momentary_rating_ka', s.momentary_rating_ka);
+            setAttr(cell, 'contact_parting_ms', s.contact_parting_ms);
+            setAttr(cell, 'dc_time_constant_ms', s.dc_time_constant_ms);
+            setAttr(cell, 'rated_dc_percent', s.rated_dc_percent);
             setAttr(cell, 'in_ka', s.in_ka);
             setAttr(cell, 'type', s.type);
             setAttr(cell, 'ansi_device_class', s.ansi_device_class);

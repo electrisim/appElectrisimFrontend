@@ -1392,6 +1392,10 @@ export function configureSwitchAttributes(grafka, vertex, options = {}) {
     g.setAttribute("rated_voltage_kv", options.rated_voltage_kv !== undefined ? String(options.rated_voltage_kv) : "0");
     g.setAttribute("contact_parting_cycles", options.contact_parting_cycles !== undefined ? String(options.contact_parting_cycles) : "3");
     g.setAttribute("generator_cb", options.generator_cb === true || options.generator_cb === "true" ? "true" : "false");
+    // IEC 62271-100 check in the IEC 60909 study. 0 = the study's contact parting time / derived value.
+    g.setAttribute("contact_parting_ms", options.contact_parting_ms !== undefined ? String(options.contact_parting_ms) : "0");
+    g.setAttribute("dc_time_constant_ms", options.dc_time_constant_ms !== undefined ? String(options.dc_time_constant_ms) : "45");
+    g.setAttribute("rated_dc_percent", options.rated_dc_percent !== undefined ? String(options.rated_dc_percent) : "0");
     
     // Economic parameters
     g.setAttribute("Economic_parameters", "");
