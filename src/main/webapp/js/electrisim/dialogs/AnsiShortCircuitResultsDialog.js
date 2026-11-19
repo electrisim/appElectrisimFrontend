@@ -344,7 +344,8 @@ export class AnsiShortCircuitResultsDialog {
                 { t: fmt(d.interrupting_rating_ka), align: 'right' },
                 { t: d.interrupting_pass === true ? 'PASS' : d.interrupting_pass === false ? 'FAIL' : '—', align: 'center', style: intStyle },
                 { t: fmt(d.duty_momentary_ka), align: 'right' },
-                { t: fmt(d.momentary_rating_ka), align: 'right' },
+                // A blank momentary rating is derived from the interrupting rating (2.6 x for HV breakers).
+                { t: fmt(d.momentary_rating_ka) + (d.momentary_rating_source === 'derived' ? ' (derived)' : ''), align: 'right' },
                 { t: d.momentary_pass === true ? 'PASS' : d.momentary_pass === false ? 'FAIL' : '—', align: 'center', style: momStyle }
             ];
             row.forEach(cell => {

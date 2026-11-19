@@ -80,6 +80,27 @@ const dSlow = fw.breakerDuty(slow, 50);
 truthy(dSlow.exceedsStandard && dSlow.dcPercent > dSlow.standardDcPercent, 'X/R = 40 exceeds the standard DC component');
 near(dSlow.standardDcPercent, 100 * Math.exp(-50 / 45), 1e-9, 'standard DC component at 50 ms');
 
+// The study's own breaking duty at its contact parting time replaces the curve's values there
+const studyRow = {
+    name: 'G1', ikss_ka: 18.2, ip_ka: 47.5, rk_ohm: 0.05, xk_ohm: 0.9,
+    ib_ka: 16.4, idc_ka: 9.6, ib_asym_ka: Math.hypot(16.4, 9.6), dc_percent: 100 * 9.6 / (Math.SQRT2 * 16.4),
+    xr_dc: 19.3, tau_dc_ms: 19.3 / (2 * Math.PI * 50) * 1000,
+};
+const ms = fw.buildModel(studyRow, { frequency: 50, faultType: '3ph', studyTminMs: 50 });
+truthy(ms.study && ms.study.tMinMs === 50, 'model keeps the study breaking duty');
+const cpStudy = fw.contactParting(ms, 50);
+truthy(cpStudy.fromStudy, 'at the study t_min the values come from the study');
+near(cpStudy.ibKa, 16.4, 1e-12, 'Ib from the study (machine decay included)');
+near(cpStudy.dcKa, 9.6, 1e-12, 'DC component from the study');
+near(cpStudy.asymKa, Math.hypot(16.4, 9.6), 1e-12, 'asymmetrical breaking current from the study');
+near(cpStudy.tauMs, studyRow.tau_dc_ms, 1e-12, 'DC time constant from the study (method C)');
+truthy(cpStudy.exceedsStandard, 'a 61 ms study time constant exceeds the 45 ms standard');
+const cpCurve = fw.contactParting(ms, 80);
+truthy(!cpCurve.fromStudy && Math.abs(cpCurve.ibKa - 18.2) < 1e-12, 'at another time the curve gives the values');
+near(cpCurve.dcPercent, fw.breakerDuty(ms, 80).dcPercent, 1e-12, 'curve DC percentage at another time');
+truthy(fw.buildModel(studyRow, { frequency: 50 }).study === null, 'no study t_min: the curve only');
+truthy(!fw.contactParting(m45, 45).fromStudy, 'rows without breaking duty use the curve');
+
 // Animation timeline ends at the angle it started with
 const end = fw.timeline(1e6, 123);
 truthy(end.done && end.progress === 1 && end.alpha === 123, 'timeline ends on the starting angle');

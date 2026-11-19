@@ -163,6 +163,26 @@ const kSc = I.buildKpiCells(mSc);
 assert(kSc[0].label === 'Max Ikss' && parseFloat(kSc[0].value) === 5.5, 'SC max Ikss KPI');
 const scBus = I.buildScBusRows(scPayload, () => '');
 assert(Array.isArray(scBus) && scBus.length === 1, 'SC bus rows');
+assert(I.buildScBreakingRows(scPayload, () => '').length === 0, 'no breaking rows without Ib in the result');
+const scBreaking = {
+    study: 'shortcircuit',
+    study_params: { standard: 'iec60909', t_min_ms: 50 },
+    busbars: [{ id: 'b1', name: 'b1', ikss_ka: 18.2, ip_ka: 47.5, ith_ka: 18.6, rk_ohm: 0.04, xk_ohm: 0.7,
+                ib_ka: 18.2, idc_ka: 10.7, ib_asym_ka: 21.1, dc_percent: 41.6, xr_dc: 17.9, tau_dc_ms: 57 }],
+    breaker_duties: [{ id: 'q1', name: 'Q1', status: 'check', making_pass: true, breaking_pass: true,
+                       dc_status: 'check', ip_ka: 47.5, making_rating_ka: 50, making_rating_source: 'derived',
+                       ib_ka: 18.2, breaking_rating_ka: 20, dc_percent: 41.6, rated_dc_percent: 32.9,
+                       ib_asym_ka: 21.1, breaking_asym_rating_ka: 22.07, t_cp_ms: 50 }],
+};
+const brkRows = I.buildScBreakingRows(scBreaking, () => '');
+assert(brkRows.length === 1 && brkRows[0][3] === '18.200' && brkRows[0][7] === '41.6', 'breaking rows: Ib and DC %');
+const cbRows = I.buildScBreakerRows(scBreaking, () => '');
+assert(cbRows.length === 1 && cbRows[0][2] === '47.50 / 50.00*' && cbRows[0][9] === 'CHECK', 'breaker rows: derived Ima and CHECK');
+const secTitles = I.buildScDetailedSections(scBreaking, null).map(s => s.title);
+assert(secTitles.some(t => t.startsWith('Breaking currents at contact parting (t_min = 50 ms)')), 'breaking section in detailed results');
+assert(secTitles.includes('Circuit breakers (IEC 62271-100)'), 'breaker section in detailed results');
+const kBrk = I.buildScKpiCells(win.computeShortCircuitMetrics(scBreaking));
+assert(kBrk[5].cls === 'warn' && kBrk[5].sub.includes('to confirm'), 'duty KPI warns for a breaker to confirm');
 assert(k1[1].label === 'Total Load',                                     'load card present');
 assert(k1[2].label === 'System Losses',                                  'losses card present');
 assert(k1[3].label === 'Voltage Range' && k1[3].cls === 'good',         'voltage card good');

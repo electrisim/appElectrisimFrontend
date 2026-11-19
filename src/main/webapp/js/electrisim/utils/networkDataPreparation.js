@@ -1542,7 +1542,11 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                     momentary_rating_ka: { name: 'momentary_rating_ka', optional: true },
                     rated_voltage_kv: { name: 'rated_voltage_kv', optional: true },
                     contact_parting_cycles: { name: 'contact_parting_cycles', optional: true },
-                    generator_cb: { name: 'generator_cb', optional: true }
+                    generator_cb: { name: 'generator_cb', optional: true },
+                    // IEC 62271-100 breaker check of the IEC 60909 study
+                    contact_parting_ms: { name: 'contact_parting_ms', optional: true },
+                    dc_time_constant_ms: { name: 'dc_time_constant_ms', optional: true },
+                    rated_dc_percent: { name: 'rated_dc_percent', optional: true }
                 });
                 const switchElement = {
                     typ: `Switch${counters.switch++}`,
