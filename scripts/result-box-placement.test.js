@@ -567,6 +567,82 @@ function drawnAbs(parent, box) {
     assert(onCable.length === 1 && onCable[0].placeholder === lineBox, 'the cable does not claim the turbine boxes');
 }
 
+// Study switches, old templates and duplicate boxes (short circuit after load flow).
+function makeWritableGraph() {
+    const G = makeGraph();
+    G.model.setValue = function (c, v) { c.value = v; };
+    G.model.setStyle = function (c, s) { c.style = s; };
+    return G;
+}
+function plainText(v) { return String(v || '').replace(/<[^>]+>/g, ' '); }
+// Minimal mxUtils.setStyle so stored keys (elxxxFull) can be overwritten like in the app.
+const hadMxUtils = typeof global.mxUtils !== 'undefined';
+if (!hadMxUtils) {
+    global.mxUtils = {
+        setStyle(style, key, value) {
+            const parts = String(style || '').split(';').filter((p) => p && p.split('=')[0] !== key);
+            if (value != null) parts.push(key + '=' + value);
+            return parts.join(';');
+        }
+    };
+}
+{
+    const G = makeWritableGraph();
+    const bus = G.addVertex(G.cell({ style: 'shapeELXXX=Bus', geometry: makeGeo(0, 100, 200, 12) }));
+    const box = G.cell({ style: 'shapeELXXX=ResultBus;fillColor=#F8F9FA;connectedTo=' + bus.id, geometry: makeGeo(0, 1, 80, 70) });
+    G.model.add(bus, box);
+    box.value = 'Bus 1\nU[pu]: 1.010\nU[degree]: -3.0\nP[MW]: 0.000\nQ[MVar]: 0.000';
+    repositionAllResultBoxes(G.graph);
+    assert(/1\.010 pu/.test(plainText(box.value)), 'load flow summary is drawn on the bus');
+    box.value = 'Bus 1\n                ikss[kA]: 7.777\n                ip[kA]: 2.000\n                ith[kA]: 1.100';
+    repositionAllResultBoxes(G.graph);
+    assert(/7\.777/.test(plainText(box.value)) && !/ pu/.test(plainText(box.value)), 'short circuit after load flow shows the short-circuit values');
+    assert(/ikss/.test(readStoredFullResult(G.model, box)), 'short-circuit text replaces the stored load flow text');
+    box.value = 'Bus 1\nFault not applied';
+    repositionAllResultBoxes(G.graph);
+    assert(/Fault not applied/.test(plainText(box.value)), 'a bus left out of a User Selection fault says so');
+}
+{
+    // Old templates carry borderless fontSize=6 labels: give them the dashed result box look.
+    const G = makeWritableGraph();
+    const bus = G.addVertex(G.cell({ style: 'shapeELXXX=Bus', geometry: makeGeo(0, 100, 200, 12) }));
+    const box = G.cell({ style: 'shapeELXXX=Result;fontSize=6;align=ALIGN_LEFT;', geometry: makeGeo(0, 2.7, 0, 0), value: 'Bus 1\nU[pu]: 1.0' });
+    G.model.add(bus, box);
+    repositionAllResultBoxes(G.graph);
+    assert(/fillColor=#F8F9FA/.test(box.style) && /dashed=1/.test(box.style), 'an old borderless result label gets the dashed box style');
+    assert(/shapeELXXX=Result;/.test(box.style) && !/fontSize=6/.test(box.style), 'the old label keeps its result tag and drops the tiny font');
+}
+{
+    // An old-template label straight on a layer belongs to no element and is dropped.
+    const G = makeWritableGraph();
+    const layer = G.cell({});
+    G.model.add(G.root, layer);
+    const bus = G.cell({ style: 'shapeELXXX=Bus', geometry: makeGeo(0, 100, 200, 12) });
+    G.model.add(layer, bus);
+    const stray = G.cell({ style: 'shapeELXXX=Result;fontSize=6;strokeColor=white;', geometry: makeGeo(0, 0, 0, 0), value: 'Line 1\nP_from[MW]: 1.0' });
+    G.model.add(layer, stray);
+    const busBox = G.cell({ style: 'shapeELXXX=ResultBus;fillColor=#F8F9FA;connectedTo=' + bus.id, geometry: makeGeo(0, 1, 80, 70), value: 'Bus 1\nU[pu]: 1.0' });
+    G.model.add(bus, busBox);
+    repositionAllResultBoxes(G.graph);
+    assert(stray.parent === null, 'a result label on a layer is removed');
+    assert(busBox.parent === bus, 'the bus keeps its own result box');
+}
+{
+    // Two boxes on one bus: the one the latest study wrote stays.
+    const G = makeWritableGraph();
+    const bus = G.addVertex(G.cell({ style: 'shapeELXXX=Bus', geometry: makeGeo(0, 100, 200, 12) }));
+    const oldBox = G.cell({ style: 'shapeELXXX=ResultBus;fillColor=#F8F9FA;connectedTo=' + bus.id, geometry: makeGeo(0, 1, 80, 70) });
+    G.model.add(bus, oldBox);
+    oldBox.value = 'Bus 1\nU[pu]: 1.010\nP[MW]: 0.000\nQ[MVar]: 0.000';
+    repositionAllResultBoxes(G.graph);
+    const newBox = G.cell({ style: 'shapeELXXX=Result;fillColor=#F8F9FA;connectedTo=' + bus.id, geometry: makeGeo(0, 1, 80, 70) });
+    G.model.add(bus, newBox);
+    newBox.value = 'Bus 1\nikss[kA]: 7.777\nip[kA]: 2.000\nith[kA]: 1.100';
+    repositionAllResultBoxes(G.graph);
+    assert(oldBox.parent === null && newBox.parent === bus, 'the older duplicate box is removed, the new result stays');
+}
+if (!hadMxUtils) delete global.mxUtils;
+
 // A generator whose lead goes to a bus on the right keeps the box on the outer side.
 {
     const G = makeGraph();

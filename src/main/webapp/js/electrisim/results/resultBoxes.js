@@ -550,16 +550,63 @@ function decodeResultText(b64) {
     }
 }
 
-function looksLikeFullResult(text) {
-    var raw = String(text || '');
-    if (/\[\+\]|\[–\]|\[-\]/.test(raw)) return false;
-    // Three-winding transformer text uses lowercase "loading[%]" and i_HV / i_MV / i_LV.
-    // STATCOM (SSC) text uses pandapower field names "q_mvar:" / "vm_pu:".
-    return /U\[pu\]:|U\[kV\]:|P_HV\[MW\]:|P_LV\[MW\]:|P_from\[MW\]:|P\[MW\]:|Q\[MVar\]:|Q_from\[MVar\]:|[Ll]oading(?:\[%\])?:|i_from\[|i_HV\[kA\]:|q_mvar:|vm_pu:/.test(raw);
-}
-
 function readStoredFullResult(model, box) {
     return decodeResultText(styleKeyValue(model.getStyle(box) || '', 'elxxxFull'));
+}
+
+/**
+ * True when the box shows the summary or full text this file drew (it carries the + / – mark).
+ * Anything else was just written by a study, whatever study it was (Load Flow, Short Circuit,
+ * Arc Flash, …), and replaces the stored text.
+ */
+function isRenderedResultText(text) {
+    var raw = String(text || '');
+    return raw.indexOf('elxxx-result-toggle') >= 0 || /\[\+\]|\[–\]/.test(raw);
+}
+
+var EMPTY_RESULT_TEXT = 'Click Simulate to generate results';
+
+/**
+ * Text a study just wrote into the box (not our own render, not the empty placeholder).
+ * Any study counts: Short Circuit (ikss), ANSI, Arc Flash, "Fault not applied", … — not only
+ * Load Flow fields, or an earlier Load Flow text stored on the box would hide the new result.
+ */
+function looksLikeFullResult(text) {
+    var raw = String(text || '').trim();
+    return !!raw && raw !== EMPTY_RESULT_TEXT && !isRenderedResultText(raw);
+}
+
+// When each box last received new study text (session only, not saved in the file).
+var resultWrittenAt = typeof WeakMap !== 'undefined' ? new WeakMap() : null;
+var resultWriteSeq = 0;
+
+function markResultWritten(box) {
+    if (resultWrittenAt && box) resultWrittenAt.set(box, ++resultWriteSeq);
+}
+
+function resultWrittenSeq(box) {
+    return (resultWrittenAt && box && resultWrittenAt.get(box)) || 0;
+}
+
+var RESULT_STYLE_KEEP_KEYS = ['connectedTo', 'placeholderId', 'elxxxFull', 'elxxxOpen', 'elxxxUserPos'];
+
+/**
+ * Older diagrams and templates carry result labels with no fill or border (fontSize=6 text,
+ * or strokeColor=white). Once sized as a box they draw with the default black border next to
+ * the grey dashed boxes. Give them the shared result box look, keeping their links.
+ */
+function normalizeLegacyResultStyle(model, box) {
+    if (!model || !box || !model.setStyle) return;
+    var st = (model.getStyle && model.getStyle(box)) || box.style || '';
+    if (!isResultPlaceholderStyle(st) || st.indexOf('fillColor=') >= 0) return;
+    var shape = styleKeyValue(st, 'shapeELXXX') || 'Result';
+    var next = RESULT_BOX_STYLE.replace('shapeELXXX=Result;', 'shapeELXXX=' + shape + ';');
+    var i;
+    for (i = 0; i < RESULT_STYLE_KEEP_KEYS.length; i++) {
+        var v = styleKeyValue(st, RESULT_STYLE_KEEP_KEYS[i]);
+        if (v !== '') next += ';' + RESULT_STYLE_KEEP_KEYS[i] + '=' + v;
+    }
+    if (next !== st) model.setStyle(box, next);
 }
 
 function writeResultBoxStyle(model, box, key, value) {
@@ -1068,9 +1115,12 @@ function applyResultBoxPlacement(graph, box, owner, opts) {
     var model = graph.getModel ? graph.getModel() : graph.model;
     if (!model || !model.getGeometry(box)) return;
     var geo = model.getGeometry(box);
+    normalizeLegacyResultStyle(model, box);
     var text = resultBoxPlainText(model, box);
     var storedFull = readStoredFullResult(model, box);
-    var full = (looksLikeFullResult(text) ? text : '') || storedFull || text;
+    var freshText = looksLikeFullResult(text);
+    if (freshText && text !== storedFull) markResultWritten(box);
+    var full = freshText ? text : (storedFull || text);
     if (full && model.getStyle) {
         var encoded = encodeResultText(full);
         if (encoded) writeResultBoxStyle(model, box, 'elxxxFull', encoded);
@@ -1207,13 +1257,59 @@ function isNewlyWrittenResult(model, box) {
     return !stored || stored !== text;
 }
 
+/** A box that sits straight on a layer (old templates) belongs to no element. */
+function isOrphanResultOwner(model, owner) {
+    if (!owner) return false;
+    var root = model.getRoot && model.getRoot();
+    if (!root) return false;
+    if (owner === root) return true;
+    // A layer hangs off the root and has no geometry; elements always have one.
+    return model.getParent(owner) === root && !owner.edge && !model.getGeometry(owner);
+}
+
+/** Of several boxes for one element, the one the latest study wrote. */
+function pickResultBoxToKeep(model, list) {
+    var j;
+    // Raw text not drawn yet was written by the study that is finishing now.
+    var fresh = [];
+    for (j = 0; j < list.length; j++) {
+        if (isNewlyWrittenResult(model, list[j])) fresh.push(list[j]);
+    }
+    if (fresh.length) {
+        // An unstyled label from an old template is raw too; prefer a real result box.
+        for (j = fresh.length - 1; j >= 0; j--) {
+            if ((model.getStyle(fresh[j]) || '').indexOf('fillColor=') >= 0) return fresh[j];
+        }
+        return fresh[fresh.length - 1];
+    }
+    // Otherwise the box that most recently received study text in this session.
+    var best = null;
+    var bestSeq = 0;
+    for (j = 0; j < list.length; j++) {
+        var seq = resultWrittenSeq(list[j]);
+        if (seq > bestSeq) { bestSeq = seq; best = list[j]; }
+    }
+    if (best) return best;
+    for (j = 0; j < list.length; j++) {
+        var text = String(resultBoxPlainText(model, list[j]) || '').trim();
+        if (text && text !== EMPTY_RESULT_TEXT) return list[j];
+    }
+    return list[0];
+}
+
 function dedupeResultBoxes(graph, boxes) {
     var model = graph.getModel();
     var groups = {};
     var order = [];
+    var drop = {};
     var i;
     for (i = 0; i < boxes.length; i++) {
         var owner = resolveResultOwner(graph, boxes[i]);
+        if (isOrphanResultOwner(model, owner)) {
+            // Stale text from an old template; the element's own box carries the results.
+            drop[String(boxes[i].id)] = boxes[i];
+            continue;
+        }
         if (owner && resultLayoutPinned(owner)) continue;
         var boxText = resultBoxPlainText(model, boxes[i]) || readStoredFullResult(model, boxes[i]);
         if (looksLikeTransformerResult(boxText)) {
@@ -1227,17 +1323,12 @@ function dedupeResultBoxes(graph, boxes) {
         }
         groups[key].push(boxes[i]);
     }
-    var drop = {};
     var k;
     for (k = 0; k < order.length; k++) {
         var list = groups[order[k]];
         if (list.length < 2) continue;
-        var fresh = [];
+        var keep = pickResultBoxToKeep(model, list);
         var j;
-        for (j = 0; j < list.length; j++) {
-            if (isNewlyWrittenResult(model, list[j])) fresh.push(list[j]);
-        }
-        var keep = fresh.length ? fresh[fresh.length - 1] : list[0];
         for (j = 0; j < list.length; j++) {
             if (list[j] !== keep) drop[String(list[j].id)] = list[j];
         }
@@ -1841,7 +1932,7 @@ if (typeof window !== 'undefined') {
     window.applyBusPlaceholderResults = applyBusPlaceholderResults;
     window.setResultPlaceholderValue = setResultPlaceholderValue;
     window.applyResultBoxPlacement = applyResultBoxPlacement;
-    window.__elxxxResultBoxesBuild = 35;
+    window.__elxxxResultBoxesBuild = 36;
     window.placeResultBoxBesideVertex = function (graph, box, owner, side) {
         var model = graph && graph.getModel ? graph.getModel() : null;
         var geo = model && box ? model.getGeometry(box) : null;
