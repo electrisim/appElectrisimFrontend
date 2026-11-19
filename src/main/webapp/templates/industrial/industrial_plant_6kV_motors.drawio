@@ -1,0 +1,413 @@
+<mxfile host="Electrisim" agent="Electrisim template builder" version="22.1.0" type="device">
+  <diagram id="electrisim-industrial_plant_6kV_motors" name="Page-1">
+    <mxGraphModel dx="1102" dy="825" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-0" />
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-1" parent="-DPXh-h7QqhF4jSscgDO-0" />
+        <object name="Utility_110kV" Load_flow_parameters="" vn_kv="110" OPF_parameters="" min_vm_pu="0.9" max_vm_pu="1.1" Economic_parameters="" cost_per_unit_by_currency="{}" placeholderId="-DPXh-h7QqhF4jSscgDO-97" id="-DPXh-h7QqhF4jSscgDO-2">
+          <mxCell style="shape=line;strokeWidth=2;html=1;shapeELXXX=Bus;points=[[0,0.5],[0.05,0.5,0],[0.1,0.5,0],[0.15,0.5,0],[0.2,0.5,0],[0.25,0.5,0],[0.3,0.5,0],[0.35,0.5,0],[0.4,0.5,0],[0.45,0.5,0],[0.5,0.5,0],[0.55,0.5,0],[0.6,0.5,0],[0.65,0.5,0],[0.7,0.5,0],[0.75,0.5,0],[0.8,0.5,0],[0.85,0.5,0],[0.9,0.5,0],[0.95,0.5,0],[1,0.5]]" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-1">
+            <mxGeometry x="240" y="140" width="360" height="12" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-3" value="Utility_110kV" style="align=left" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-2">
+          <mxGeometry y="-0.5" relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-97" value="Click Simulate to generate results" style="shapeELXXX=ResultBus;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3;connectedTo=-DPXh-h7QqhF4jSscgDO-2;placeholderId=-DPXh-h7QqhF4jSscgDO-97;elxxxFull=Q2xpY2sgU2ltdWxhdGUgdG8gZ2VuZXJhdGUgcmVzdWx0cw==;spacingTop=2;spacingLeft=2;;overflow=hidden" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-2">
+          <mxGeometry x="0.5" y="1" width="70" height="70" relative="1" as="geometry">
+            <mxPoint x="4" y="4" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object name="MV_SWGR_6kV" Load_flow_parameters="" vn_kv="6" OPF_parameters="" min_vm_pu="0.9" max_vm_pu="1.1" Economic_parameters="" cost_per_unit_by_currency="{}" placeholderId="-DPXh-h7QqhF4jSscgDO-98" id="-DPXh-h7QqhF4jSscgDO-4">
+          <mxCell style="shape=line;strokeWidth=2;html=1;shapeELXXX=Bus;points=[[0,0.5],[0.05,0.5,0],[0.1,0.5,0],[0.15,0.5,0],[0.2,0.5,0],[0.25,0.5,0],[0.3,0.5,0],[0.35,0.5,0],[0.4,0.5,0],[0.45,0.5,0],[0.5,0.5,0],[0.55,0.5,0],[0.6,0.5,0],[0.65,0.5,0],[0.7,0.5,0],[0.75,0.5,0],[0.8,0.5,0],[0.85,0.5,0],[0.9,0.5,0],[0.95,0.5,0],[1,0.5]]" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-1">
+            <mxGeometry x="80" y="400" width="1340" height="12" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-5" value="MV_SWGR_6kV" style="align=left" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-4">
+          <mxGeometry y="-0.5" relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-98" value="Click Simulate to generate results" style="shapeELXXX=ResultBus;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3;connectedTo=-DPXh-h7QqhF4jSscgDO-4;placeholderId=-DPXh-h7QqhF4jSscgDO-98;elxxxFull=Q2xpY2sgU2ltdWxhdGUgdG8gZ2VuZXJhdGUgcmVzdWx0cw==;spacingTop=2;spacingLeft=2;;overflow=hidden" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-4">
+          <mxGeometry x="0.43283582089552236" width="70" height="70" relative="1" as="geometry">
+            <mxPoint x="4" y="-74" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object name="Compressor_6kV" Load_flow_parameters="" vn_kv="6" OPF_parameters="" min_vm_pu="0.9" max_vm_pu="1.1" Economic_parameters="" cost_per_unit_by_currency="{}" placeholderId="-DPXh-h7QqhF4jSscgDO-99" id="-DPXh-h7QqhF4jSscgDO-6">
+          <mxCell style="shape=line;strokeWidth=2;html=1;shapeELXXX=Bus;points=[[0,0.5],[0.05,0.5,0],[0.1,0.5,0],[0.15,0.5,0],[0.2,0.5,0],[0.25,0.5,0],[0.3,0.5,0],[0.35,0.5,0],[0.4,0.5,0],[0.45,0.5,0],[0.5,0.5,0],[0.55,0.5,0],[0.6,0.5,0],[0.65,0.5,0],[0.7,0.5,0],[0.75,0.5,0],[0.8,0.5,0],[0.85,0.5,0],[0.9,0.5,0],[0.95,0.5,0],[1,0.5]]" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-1">
+            <mxGeometry x="420" y="640" width="200" height="12" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-7" value="Compressor_6kV" style="align=left" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-6">
+          <mxGeometry y="-0.5" relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-99" value="Click Simulate to generate results" style="shapeELXXX=ResultBus;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3;connectedTo=-DPXh-h7QqhF4jSscgDO-6;placeholderId=-DPXh-h7QqhF4jSscgDO-99;elxxxFull=Q2xpY2sgU2ltdWxhdGUgdG8gZ2VuZXJhdGUgcmVzdWx0cw==;spacingTop=2;spacingLeft=2;;overflow=hidden" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-6">
+          <mxGeometry x="0.5" width="70" height="70" relative="1" as="geometry">
+            <mxPoint x="4" y="-74" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object name="PumpHouse_6kV" Load_flow_parameters="" vn_kv="6" OPF_parameters="" min_vm_pu="0.9" max_vm_pu="1.1" Economic_parameters="" cost_per_unit_by_currency="{}" placeholderId="-DPXh-h7QqhF4jSscgDO-100" id="-DPXh-h7QqhF4jSscgDO-8">
+          <mxCell style="shape=line;strokeWidth=2;html=1;shapeELXXX=Bus;points=[[0,0.5],[0.05,0.5,0],[0.1,0.5,0],[0.15,0.5,0],[0.2,0.5,0],[0.25,0.5,0],[0.3,0.5,0],[0.35,0.5,0],[0.4,0.5,0],[0.45,0.5,0],[0.5,0.5,0],[0.55,0.5,0],[0.6,0.5,0],[0.65,0.5,0],[0.7,0.5,0],[0.75,0.5,0],[0.8,0.5,0],[0.85,0.5,0],[0.9,0.5,0],[0.95,0.5,0],[1,0.5]]" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-1">
+            <mxGeometry x="680" y="640" width="280" height="12" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-9" value="PumpHouse_6kV" style="align=left" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-8">
+          <mxGeometry y="-0.5" relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-100" value="Click Simulate to generate results" style="shapeELXXX=ResultBus;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3;connectedTo=-DPXh-h7QqhF4jSscgDO-8;placeholderId=-DPXh-h7QqhF4jSscgDO-100;elxxxFull=Q2xpY2sgU2ltdWxhdGUgdG8gZ2VuZXJhdGUgcmVzdWx0cw==;spacingTop=2;spacingLeft=2;;overflow=hidden" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-8">
+          <mxGeometry x="0.5357142857142857" width="70" height="70" relative="1" as="geometry">
+            <mxPoint x="4" y="-74" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object name="LV_MCC_A_0.4kV" Load_flow_parameters="" vn_kv="0.4" OPF_parameters="" min_vm_pu="0.9" max_vm_pu="1.1" Economic_parameters="" cost_per_unit_by_currency="{}" placeholderId="-DPXh-h7QqhF4jSscgDO-101" id="-DPXh-h7QqhF4jSscgDO-10">
+          <mxCell style="shape=line;strokeWidth=2;html=1;shapeELXXX=Bus;points=[[0,0.5],[0.05,0.5,0],[0.1,0.5,0],[0.15,0.5,0],[0.2,0.5,0],[0.25,0.5,0],[0.3,0.5,0],[0.35,0.5,0],[0.4,0.5,0],[0.45,0.5,0],[0.5,0.5,0],[0.55,0.5,0],[0.6,0.5,0],[0.65,0.5,0],[0.7,0.5,0],[0.75,0.5,0],[0.8,0.5,0],[0.85,0.5,0],[0.9,0.5,0],[0.95,0.5,0],[1,0.5]]" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-1">
+            <mxGeometry x="1000" y="640" width="240" height="12" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-11" value="LV_MCC_A_0.4kV" style="align=left" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-10">
+          <mxGeometry y="-0.5" relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-101" value="Click Simulate to generate results" style="shapeELXXX=ResultBus;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3;connectedTo=-DPXh-h7QqhF4jSscgDO-10;placeholderId=-DPXh-h7QqhF4jSscgDO-101;elxxxFull=Q2xpY2sgU2ltdWxhdGUgdG8gZ2VuZXJhdGUgcmVzdWx0cw==;spacingTop=2;spacingLeft=2;;overflow=hidden" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-10">
+          <mxGeometry x="0.6354166666666666" width="70" height="70" relative="1" as="geometry">
+            <mxPoint x="4" y="-74" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object name="LV_MCC_B_0.4kV" Load_flow_parameters="" vn_kv="0.4" OPF_parameters="" min_vm_pu="0.9" max_vm_pu="1.1" Economic_parameters="" cost_per_unit_by_currency="{}" placeholderId="-DPXh-h7QqhF4jSscgDO-102" id="-DPXh-h7QqhF4jSscgDO-12">
+          <mxCell style="shape=line;strokeWidth=2;html=1;shapeELXXX=Bus;points=[[0,0.5],[0.05,0.5,0],[0.1,0.5,0],[0.15,0.5,0],[0.2,0.5,0],[0.25,0.5,0],[0.3,0.5,0],[0.35,0.5,0],[0.4,0.5,0],[0.45,0.5,0],[0.5,0.5,0],[0.55,0.5,0],[0.6,0.5,0],[0.65,0.5,0],[0.7,0.5,0],[0.75,0.5,0],[0.8,0.5,0],[0.85,0.5,0],[0.9,0.5,0],[0.95,0.5,0],[1,0.5]]" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-1">
+            <mxGeometry x="1340" y="640" width="360" height="12" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-13" value="LV_MCC_B_0.4kV" style="align=left" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-12">
+          <mxGeometry y="-0.5" relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-102" value="Click Simulate to generate results" style="shapeELXXX=ResultBus;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3;connectedTo=-DPXh-h7QqhF4jSscgDO-12;placeholderId=-DPXh-h7QqhF4jSscgDO-102;elxxxFull=Q2xpY2sgU2ltdWxhdGUgdG8gZ2VuZXJhdGUgcmVzdWx0cw==;spacingTop=2;spacingLeft=2;;overflow=hidden" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-12">
+          <mxGeometry x="0.2013888888888889" width="70" height="70" relative="1" as="geometry">
+            <mxPoint x="4" y="-74" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object name="Workshop_0.4kV" Load_flow_parameters="" vn_kv="0.4" OPF_parameters="" min_vm_pu="0.9" max_vm_pu="1.1" Economic_parameters="" cost_per_unit_by_currency="{}" placeholderId="-DPXh-h7QqhF4jSscgDO-103" id="-DPXh-h7QqhF4jSscgDO-14">
+          <mxCell style="shape=line;strokeWidth=2;html=1;shapeELXXX=Bus;points=[[0,0.5],[0.05,0.5,0],[0.1,0.5,0],[0.15,0.5,0],[0.2,0.5,0],[0.25,0.5,0],[0.3,0.5,0],[0.35,0.5,0],[0.4,0.5,0],[0.45,0.5,0],[0.5,0.5,0],[0.55,0.5,0],[0.6,0.5,0],[0.65,0.5,0],[0.7,0.5,0],[0.75,0.5,0],[0.8,0.5,0],[0.85,0.5,0],[0.9,0.5,0],[0.95,0.5,0],[1,0.5]]" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-1">
+            <mxGeometry x="1580" y="880" width="180" height="12" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-15" value="Workshop_0.4kV" style="align=left" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-14">
+          <mxGeometry y="-0.5" relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-103" value="Click Simulate to generate results" style="shapeELXXX=ResultBus;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3;connectedTo=-DPXh-h7QqhF4jSscgDO-14;placeholderId=-DPXh-h7QqhF4jSscgDO-103;elxxxFull=Q2xpY2sgU2ltdWxhdGUgdG8gZ2VuZXJhdGUgcmVzdWx0cw==;spacingTop=2;spacingLeft=2;;overflow=hidden" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-14">
+          <mxGeometry x="0.4444444444444444" width="70" height="70" relative="1" as="geometry">
+            <mxPoint x="4" y="-74" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object name="Utility 110 kV" Load_flow_parameters="" vm_pu="1" va_degree="0" Short_circuit_parameters="" s_sc_max_mva="3000" s_sc_min_mva="2000" rx_max="0.1" rx_min="0.1" r0x0_max="0.1" x0x_max="1" r0x0_min="0.1" x0x_min="1" Harmonic_parameters="" spectrum="defaultvsource" spectrum_csv="" OPF_coupling_parameters="" max_p_mw="0" min_p_mw="0" max_q_mvar="0" min_q_mvar="0" controllable="false" opf_marginal_cost_eur_per_mwh="" opf_cp2_eur_per_mw2="" opf_cost_currency="EUR" Economic_parameters="" cost_per_unit_by_currency="{}" placeholderId="-DPXh-h7QqhF4jSscgDO-19" id="-DPXh-h7QqhF4jSscgDO-16">
+          <mxCell style="pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;fillColor=none;strokeColor=none;shape=image;image=images/electrical/sym-ext-grid.svg;shapeELXXX=External Grid" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-1">
+            <mxGeometry x="392" y="44" width="56" height="56" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-17" value="Utility 110 kV" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-16">
+          <mxGeometry x="0.5" y="-0.25" relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-19" value="Click Simulate to generate results" style="shapeELXXX=ResultExternalGrid;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;overflow=hidden;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3;connectedTo=-DPXh-h7QqhF4jSscgDO-16;placeholderId=-DPXh-h7QqhF4jSscgDO-19;elxxxFull=Q2xpY2sgU2ltdWxhdGUgdG8gZ2VuZXJhdGUgcmVzdWx0cw==;spacingTop=2;spacingLeft=2;" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-16">
+          <mxGeometry x="1" y="0.5" width="56" height="56" relative="1" as="geometry">
+            <mxPoint x="8" y="-28" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-18" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5000;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;shapeELXXX=NotEditableLine" edge="1" parent="-DPXh-h7QqhF4jSscgDO-1" source="-DPXh-h7QqhF4jSscgDO-16" target="-DPXh-h7QqhF4jSscgDO-2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <object name="Process load A" Load_flow_parameters="" p_mw="0.6" q_mvar="0.2906" const_z_percent="0" const_i_percent="0" sn_mva="0" scaling="1" type="Wye" Harmonic_parameters="" spectrum="defaultload" spectrum_csv="" pctSeriesRL="100" conn="wye" puXharm="0.0" XRharm="6.0" OPF_parameters="" controllable="false" min_p_mw="0" max_p_mw="1000" min_q_mvar="-1000" max_q_mvar="1000" opf_marginal_cost_eur_per_mwh="" opf_cp2_eur_per_mw2="" opf_cost_currency="EUR" Economic_parameters="" cost_per_unit_by_currency="{}" Computational_load_parameters="" dc_computational_enabled="false" dc_it_share_percent="85" dc_ups_hold_s="0" dc_ride_through_csv="0,0.9&#xa;10,0.9&#xa;20,0.9" placeholderId="-DPXh-h7QqhF4jSscgDO-24" id="-DPXh-h7QqhF4jSscgDO-20">
+          <mxCell style="pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;fillColor=none;strokeColor=none;shape=image;image=images/electrical/sym-load.svg;shapeELXXX=Load" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-1">
+            <mxGeometry x="1028" y="692" width="44" height="56" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-21" value="" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-20">
+          <mxGeometry x="0.5" relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-22" value="Process load A" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-20">
+          <mxGeometry x="0.5" y="1.1" relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-24" value="Click Simulate to generate results" style="shapeELXXX=Result;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;overflow=hidden;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3;connectedTo=-DPXh-h7QqhF4jSscgDO-20;placeholderId=-DPXh-h7QqhF4jSscgDO-24;elxxxFull=Q2xpY2sgU2ltdWxhdGUgdG8gZ2VuZXJhdGUgcmVzdWx0cw==;spacingTop=2;spacingLeft=2;" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-20">
+          <mxGeometry x="1" y="0.5" width="48" height="48" relative="1" as="geometry">
+            <mxPoint x="8" y="-24" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-23" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.2083;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;shapeELXXX=NotEditableLine" edge="1" parent="-DPXh-h7QqhF4jSscgDO-1" source="-DPXh-h7QqhF4jSscgDO-20" target="-DPXh-h7QqhF4jSscgDO-10">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <object name="Building services" Load_flow_parameters="" p_mw="0.45" q_mvar="0.1917" const_z_percent="0" const_i_percent="0" sn_mva="0" scaling="1" type="Wye" Harmonic_parameters="" spectrum="defaultload" spectrum_csv="" pctSeriesRL="100" conn="wye" puXharm="0.0" XRharm="6.0" OPF_parameters="" controllable="false" min_p_mw="0" max_p_mw="1000" min_q_mvar="-1000" max_q_mvar="1000" opf_marginal_cost_eur_per_mwh="" opf_cp2_eur_per_mw2="" opf_cost_currency="EUR" Economic_parameters="" cost_per_unit_by_currency="{}" Computational_load_parameters="" dc_computational_enabled="false" dc_it_share_percent="85" dc_ups_hold_s="0" dc_ride_through_csv="0,0.9&#xa;10,0.9&#xa;20,0.9" placeholderId="-DPXh-h7QqhF4jSscgDO-29" id="-DPXh-h7QqhF4jSscgDO-25">
+          <mxCell style="pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;fillColor=none;strokeColor=none;shape=image;image=images/electrical/sym-load.svg;shapeELXXX=Load" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-1">
+            <mxGeometry x="1418" y="692" width="44" height="56" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-26" value="" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-25">
+          <mxGeometry x="0.5" relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-27" value="Building services" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-25">
+          <mxGeometry x="0.5" y="1.1" relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-29" value="Click Simulate to generate results" style="shapeELXXX=Result;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;overflow=hidden;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3;connectedTo=-DPXh-h7QqhF4jSscgDO-25;placeholderId=-DPXh-h7QqhF4jSscgDO-29;elxxxFull=Q2xpY2sgU2ltdWxhdGUgdG8gZ2VuZXJhdGUgcmVzdWx0cw==;spacingTop=2;spacingLeft=2;" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-25">
+          <mxGeometry y="0.5" width="48" height="48" relative="1" as="geometry">
+            <mxPoint x="-56" y="-24" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-28" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.2778;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;shapeELXXX=NotEditableLine" edge="1" parent="-DPXh-h7QqhF4jSscgDO-1" source="-DPXh-h7QqhF4jSscgDO-25" target="-DPXh-h7QqhF4jSscgDO-12">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <object name="Workshop" Load_flow_parameters="" p_mw="0.15" q_mvar="0.0726" const_z_percent="0" const_i_percent="0" sn_mva="0" scaling="1" type="Wye" Harmonic_parameters="" spectrum="defaultload" spectrum_csv="" pctSeriesRL="100" conn="wye" puXharm="0.0" XRharm="6.0" OPF_parameters="" controllable="false" min_p_mw="0" max_p_mw="1000" min_q_mvar="-1000" max_q_mvar="1000" opf_marginal_cost_eur_per_mwh="" opf_cp2_eur_per_mw2="" opf_cost_currency="EUR" Economic_parameters="" cost_per_unit_by_currency="{}" Computational_load_parameters="" dc_computational_enabled="false" dc_it_share_percent="85" dc_ups_hold_s="0" dc_ride_through_csv="0,0.9&#xa;10,0.9&#xa;20,0.9" placeholderId="-DPXh-h7QqhF4jSscgDO-34" id="-DPXh-h7QqhF4jSscgDO-30">
+          <mxCell style="pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;fillColor=none;strokeColor=none;shape=image;image=images/electrical/sym-load.svg;shapeELXXX=Load" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-1">
+            <mxGeometry x="1638" y="932" width="44" height="56" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-31" value="" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-30">
+          <mxGeometry x="0.5" relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-32" value="Workshop" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-30">
+          <mxGeometry x="0.5" y="1.1" relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-34" value="Click Simulate to generate results" style="shapeELXXX=Result;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;overflow=hidden;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3;connectedTo=-DPXh-h7QqhF4jSscgDO-30;placeholderId=-DPXh-h7QqhF4jSscgDO-34;elxxxFull=Q2xpY2sgU2ltdWxhdGUgdG8gZ2VuZXJhdGUgcmVzdWx0cw==;spacingTop=2;spacingLeft=2;" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-30">
+          <mxGeometry x="1" y="0.5" width="48" height="48" relative="1" as="geometry">
+            <mxPoint x="8" y="-24" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-33" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.4444;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;shapeELXXX=NotEditableLine" edge="1" parent="-DPXh-h7QqhF4jSscgDO-1" source="-DPXh-h7QqhF4jSscgDO-30" target="-DPXh-h7QqhF4jSscgDO-14">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <object name="Fan M4 0.8 MW" Load_flow_parameters="" pn_mech_mw="0.8" cos_phi="0.86" Short_circuit_parameters="" cos_phi_n="0.86" efficiency_n_percent="95.5" lrc_pu="5.5" rx="0.15" vn_kv="6" Dynamics_parameters="" Hm="0.5" tm_c1="0" tm_c2="0" tm_c3="1" Optional_parameters="" efficiency_percent="95.5" loading_percent="80" scaling="1" Economic_parameters="" cost_per_unit_by_currency="{}" placeholderId="-DPXh-h7QqhF4jSscgDO-38" id="-DPXh-h7QqhF4jSscgDO-35">
+          <mxCell style="pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;fillColor=none;strokeColor=none;shape=image;image=images/electrical/sym-motor.svg;shapeELXXX=Motor" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-1">
+            <mxGeometry x="252" y="452" width="56" height="56" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-36" value="" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-35">
+          <mxGeometry x="0.5" y="0.3" relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-38" value="Click Simulate to generate results" style="shapeELXXX=Result;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;overflow=hidden;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3;connectedTo=-DPXh-h7QqhF4jSscgDO-35;placeholderId=-DPXh-h7QqhF4jSscgDO-38;elxxxFull=Q2xpY2sgU2ltdWxhdGUgdG8gZ2VuZXJhdGUgcmVzdWx0cw==;spacingTop=2;spacingLeft=2;" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-35">
+          <mxGeometry y="0.5" width="56" height="56" relative="1" as="geometry">
+            <mxPoint x="-64" y="-28" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-37" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0.19;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.1493;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;shapeELXXX=NotEditableLine" edge="1" parent="-DPXh-h7QqhF4jSscgDO-1" source="-DPXh-h7QqhF4jSscgDO-35" target="-DPXh-h7QqhF4jSscgDO-4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-39" value="Fan M4 0.8 MW" style="text;html=1;align=center;verticalAlign=top;whiteSpace=wrap;fontSize=11;fontColor=#333333;" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-1">
+          <mxGeometry x="222" y="512" width="116" height="30" as="geometry" />
+        </mxCell>
+        <object name="Compressor M1 2.5 MW" Load_flow_parameters="" pn_mech_mw="2.5" cos_phi="0.88" Short_circuit_parameters="" cos_phi_n="0.89" efficiency_n_percent="96.5" lrc_pu="6" rx="0.1" vn_kv="6" Dynamics_parameters="" Hm="0.5" tm_c1="0" tm_c2="0" tm_c3="1" Optional_parameters="" efficiency_percent="96.5" loading_percent="85" scaling="1" Economic_parameters="" cost_per_unit_by_currency="{}" placeholderId="-DPXh-h7QqhF4jSscgDO-43" id="-DPXh-h7QqhF4jSscgDO-40">
+          <mxCell style="pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;fillColor=none;strokeColor=none;shape=image;image=images/electrical/sym-motor.svg;shapeELXXX=Motor" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-1">
+            <mxGeometry x="492" y="692" width="56" height="56" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-41" value="" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-40">
+          <mxGeometry x="0.5" y="0.3" relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-43" value="Click Simulate to generate results" style="shapeELXXX=Result;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;overflow=hidden;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3;connectedTo=-DPXh-h7QqhF4jSscgDO-40;placeholderId=-DPXh-h7QqhF4jSscgDO-43;elxxxFull=Q2xpY2sgU2ltdWxhdGUgdG8gZ2VuZXJhdGUgcmVzdWx0cw==;spacingTop=2;spacingLeft=2;" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-40">
+          <mxGeometry x="1" y="0.5" width="56" height="56" relative="1" as="geometry">
+            <mxPoint x="8" y="-28" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-42" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0.19;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5000;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;shapeELXXX=NotEditableLine" edge="1" parent="-DPXh-h7QqhF4jSscgDO-1" source="-DPXh-h7QqhF4jSscgDO-40" target="-DPXh-h7QqhF4jSscgDO-6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-44" value="Compressor M1 2.5 MW" style="text;html=1;align=center;verticalAlign=top;whiteSpace=wrap;fontSize=11;fontColor=#333333;" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-1">
+          <mxGeometry x="462" y="752" width="116" height="30" as="geometry" />
+        </mxCell>
+        <object name="Pump M2 1.2 MW" Load_flow_parameters="" pn_mech_mw="1.2" cos_phi="0.87" Short_circuit_parameters="" cos_phi_n="0.87" efficiency_n_percent="96" lrc_pu="5.8" rx="0.1" vn_kv="6" Dynamics_parameters="" Hm="0.5" tm_c1="0" tm_c2="0" tm_c3="1" Optional_parameters="" efficiency_percent="96" loading_percent="90" scaling="1" Economic_parameters="" cost_per_unit_by_currency="{}" placeholderId="-DPXh-h7QqhF4jSscgDO-48" id="-DPXh-h7QqhF4jSscgDO-45">
+          <mxCell style="pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;fillColor=none;strokeColor=none;shape=image;image=images/electrical/sym-motor.svg;shapeELXXX=Motor" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-1">
+            <mxGeometry x="732" y="692" width="56" height="56" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-46" value="" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-45">
+          <mxGeometry x="0.5" y="0.3" relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-48" value="Click Simulate to generate results" style="shapeELXXX=Result;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;overflow=hidden;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3;connectedTo=-DPXh-h7QqhF4jSscgDO-45;placeholderId=-DPXh-h7QqhF4jSscgDO-48;elxxxFull=Q2xpY2sgU2ltdWxhdGUgdG8gZ2VuZXJhdGUgcmVzdWx0cw==;spacingTop=2;spacingLeft=2;" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-45">
+          <mxGeometry x="1" y="0.5" width="56" height="56" relative="1" as="geometry">
+            <mxPoint x="8" y="-28" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-47" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0.19;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.2857;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;shapeELXXX=NotEditableLine" edge="1" parent="-DPXh-h7QqhF4jSscgDO-1" source="-DPXh-h7QqhF4jSscgDO-45" target="-DPXh-h7QqhF4jSscgDO-8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-49" value="Pump M2 1.2 MW" style="text;html=1;align=center;verticalAlign=top;whiteSpace=wrap;fontSize=11;fontColor=#333333;" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-1">
+          <mxGeometry x="702" y="752" width="116" height="30" as="geometry" />
+        </mxCell>
+        <object name="Pump M3 1.2 MW" Load_flow_parameters="" pn_mech_mw="1.2" cos_phi="0.87" Short_circuit_parameters="" cos_phi_n="0.87" efficiency_n_percent="96" lrc_pu="5.8" rx="0.1" vn_kv="6" Dynamics_parameters="" Hm="0.5" tm_c1="0" tm_c2="0" tm_c3="1" Optional_parameters="" efficiency_percent="96" loading_percent="90" scaling="1" Economic_parameters="" cost_per_unit_by_currency="{}" placeholderId="-DPXh-h7QqhF4jSscgDO-53" id="-DPXh-h7QqhF4jSscgDO-50">
+          <mxCell style="pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;fillColor=none;strokeColor=none;shape=image;image=images/electrical/sym-motor.svg;shapeELXXX=Motor" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-1">
+            <mxGeometry x="872" y="692" width="56" height="56" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-51" value="" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-50">
+          <mxGeometry x="0.5" y="0.3" relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-53" value="Click Simulate to generate results" style="shapeELXXX=Result;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;overflow=hidden;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3;connectedTo=-DPXh-h7QqhF4jSscgDO-50;placeholderId=-DPXh-h7QqhF4jSscgDO-53;elxxxFull=Q2xpY2sgU2ltdWxhdGUgdG8gZ2VuZXJhdGUgcmVzdWx0cw==;spacingTop=2;spacingLeft=2;" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-50">
+          <mxGeometry x="1" y="0.5" width="56" height="56" relative="1" as="geometry">
+            <mxPoint x="8" y="-28" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-52" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0.19;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.7857;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;shapeELXXX=NotEditableLine" edge="1" parent="-DPXh-h7QqhF4jSscgDO-1" source="-DPXh-h7QqhF4jSscgDO-50" target="-DPXh-h7QqhF4jSscgDO-8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-54" value="Pump M3 1.2 MW" style="text;html=1;align=center;verticalAlign=top;whiteSpace=wrap;fontSize=11;fontColor=#333333;" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-1">
+          <mxGeometry x="842" y="752" width="116" height="30" as="geometry" />
+        </mxCell>
+        <object name="LV motor group A" Load_flow_parameters="" pn_mech_mw="0.35" cos_phi="0.85" Short_circuit_parameters="" cos_phi_n="0.85" efficiency_n_percent="93" lrc_pu="6.5" rx="0.42" vn_kv="0.4" Dynamics_parameters="" Hm="0.5" tm_c1="0" tm_c2="0" tm_c3="1" Optional_parameters="" efficiency_percent="93" loading_percent="80" scaling="1" Economic_parameters="" cost_per_unit_by_currency="{}" placeholderId="-DPXh-h7QqhF4jSscgDO-58" id="-DPXh-h7QqhF4jSscgDO-55">
+          <mxCell style="pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;fillColor=none;strokeColor=none;shape=image;image=images/electrical/sym-motor.svg;shapeELXXX=Motor" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-1">
+            <mxGeometry x="1162" y="692" width="56" height="56" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-56" value="" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-55">
+          <mxGeometry x="0.5" y="0.3" relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-58" value="Click Simulate to generate results" style="shapeELXXX=Result;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;overflow=hidden;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3;connectedTo=-DPXh-h7QqhF4jSscgDO-55;placeholderId=-DPXh-h7QqhF4jSscgDO-58;elxxxFull=Q2xpY2sgU2ltdWxhdGUgdG8gZ2VuZXJhdGUgcmVzdWx0cw==;spacingTop=2;spacingLeft=2;" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-55">
+          <mxGeometry x="1" y="0.5" width="56" height="56" relative="1" as="geometry">
+            <mxPoint x="8" y="-28" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-57" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0.19;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.7917;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;shapeELXXX=NotEditableLine" edge="1" parent="-DPXh-h7QqhF4jSscgDO-1" source="-DPXh-h7QqhF4jSscgDO-55" target="-DPXh-h7QqhF4jSscgDO-10">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-59" value="LV motor group A" style="text;html=1;align=center;verticalAlign=top;whiteSpace=wrap;fontSize=11;fontColor=#333333;" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-1">
+          <mxGeometry x="1132" y="752" width="116" height="30" as="geometry" />
+        </mxCell>
+        <object name="LV motor group B" Load_flow_parameters="" pn_mech_mw="0.25" cos_phi="0.85" Short_circuit_parameters="" cos_phi_n="0.85" efficiency_n_percent="93" lrc_pu="6.5" rx="0.42" vn_kv="0.4" Dynamics_parameters="" Hm="0.5" tm_c1="0" tm_c2="0" tm_c3="1" Optional_parameters="" efficiency_percent="93" loading_percent="80" scaling="1" Economic_parameters="" cost_per_unit_by_currency="{}" placeholderId="-DPXh-h7QqhF4jSscgDO-63" id="-DPXh-h7QqhF4jSscgDO-60">
+          <mxCell style="pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;fillColor=none;strokeColor=none;shape=image;image=images/electrical/sym-motor.svg;shapeELXXX=Motor" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-1">
+            <mxGeometry x="1512" y="692" width="56" height="56" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-61" value="" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-60">
+          <mxGeometry x="0.5" y="0.3" relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-63" value="Click Simulate to generate results" style="shapeELXXX=Result;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;overflow=hidden;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3;connectedTo=-DPXh-h7QqhF4jSscgDO-60;placeholderId=-DPXh-h7QqhF4jSscgDO-63;elxxxFull=Q2xpY2sgU2ltdWxhdGUgdG8gZ2VuZXJhdGUgcmVzdWx0cw==;spacingTop=2;spacingLeft=2;" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-60">
+          <mxGeometry x="1" y="0.5" width="56" height="56" relative="1" as="geometry">
+            <mxPoint x="8" y="-28" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-62" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0.19;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5556;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;shapeELXXX=NotEditableLine" edge="1" parent="-DPXh-h7QqhF4jSscgDO-1" source="-DPXh-h7QqhF4jSscgDO-60" target="-DPXh-h7QqhF4jSscgDO-12">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-64" value="LV motor group B" style="text;html=1;align=center;verticalAlign=top;whiteSpace=wrap;fontSize=11;fontColor=#333333;" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-1">
+          <mxGeometry x="1482" y="752" width="116" height="30" as="geometry" />
+        </mxCell>
+        <object name="PFC bank 1.5 Mvar" Load_flow_parameters="" q_mvar="1.5" loss_factor="0.0002" vn_kv="6" Optional_parameters="" step="1" max_step="1" Economic_parameters="" cost_per_unit_by_currency="{}" placeholderId="-DPXh-h7QqhF4jSscgDO-67" id="-DPXh-h7QqhF4jSscgDO-65">
+          <mxCell style="pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;fillColor=none;strokeColor=none;shape=image;image=images/electrical/sym-capacitor.svg;shapeELXXX=Capacitor" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-1">
+            <mxGeometry x="122.5" y="452" width="35" height="56" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-67" value="Click Simulate to generate results" style="shapeELXXX=Result;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;overflow=hidden;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3;connectedTo=-DPXh-h7QqhF4jSscgDO-65;placeholderId=-DPXh-h7QqhF4jSscgDO-67;elxxxFull=Q2xpY2sgU2ltdWxhdGUgdG8gZ2VuZXJhdGUgcmVzdWx0cw==;spacingTop=2;spacingLeft=2;" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-65">
+          <mxGeometry y="0.5" width="48" height="48" relative="1" as="geometry">
+            <mxPoint x="-56" y="-24" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-66" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.0448;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;shapeELXXX=NotEditableLine" edge="1" parent="-DPXh-h7QqhF4jSscgDO-1" source="-DPXh-h7QqhF4jSscgDO-65" target="-DPXh-h7QqhF4jSscgDO-4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-68" value="PFC bank 1.5 Mvar" style="text;html=1;align=center;verticalAlign=top;whiteSpace=wrap;fontSize=11;fontColor=#333333;" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-1">
+          <mxGeometry x="82" y="512" width="116" height="30" as="geometry" />
+        </mxCell>
+        <object name="TR-1" parameters="true" term_label_0="HV" term_label_1="LV" Load_flow_parameters="" sn_mva="16" vn_hv_kv="110" vn_lv_kv="6.3" Short_circuit_parameters="" vkr_percent="0.5" vk_percent="10" pfe_kw="12" i0_percent="0.08" vector_group="YNd" vk0_percent="10" vkr0_percent="0.5" mag0_percent="100" si0_hv_partial="0.9" rn_ohm="0" xn_ohm="0" Optional_parameters="" parallel="1" shift_degree="150" tap_side="hv" tap_pos="0" tap_neutral="0" tap_max="9" tap_min="-9" tap_step_percent="1.5" tap_step_degree="0" tap_phase_shifter="false" tap_changer_type="Ratio" OPF_parameters="" max_loading_percent="0" Harmonic_parameters="" XRConst="No" Economic_parameters="" cost_per_unit_by_currency="{}" placeholderId="-DPXh-h7QqhF4jSscgDO-71" id="-DPXh-h7QqhF4jSscgDO-69">
+          <mxCell style="pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;fillColor=none;strokeColor=none;shape=image;image=images/electrical/sym-transformer-v.svg;shapeELXXX=Transformer" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-1">
+            <mxGeometry x="396" y="240" width="48" height="72" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-71" value="Click Simulate to generate results" style="shapeELXXX=Result;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;overflow=hidden;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3;connectedTo=-DPXh-h7QqhF4jSscgDO-69;placeholderId=-DPXh-h7QqhF4jSscgDO-71;elxxxFull=Q2xpY2sgU2ltdWxhdGUgdG8gZ2VuZXJhdGUgcmVzdWx0cw==;spacingTop=2;spacingLeft=2;" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-69">
+          <mxGeometry x="1" y="0.5" width="48" height="48" relative="1" as="geometry">
+            <mxPoint x="8" y="-24" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-70" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5000;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;shapeELXXX=NotEditableLine" edge="1" parent="-DPXh-h7QqhF4jSscgDO-1" source="-DPXh-h7QqhF4jSscgDO-69" target="-DPXh-h7QqhF4jSscgDO-2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-72" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.2537;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;shapeELXXX=NotEditableLine" edge="1" parent="-DPXh-h7QqhF4jSscgDO-1" source="-DPXh-h7QqhF4jSscgDO-69" target="-DPXh-h7QqhF4jSscgDO-4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-73" value="&lt;b&gt;TR-1&lt;/b&gt;&lt;br&gt;16 MVA, 110/6.3 kV&lt;br&gt;YNd5, uk 10 %" style="text;html=1;align=right;verticalAlign=top;whiteSpace=wrap;fontSize=11;fontColor=#333333;" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-1">
+          <mxGeometry x="240" y="254" width="150" height="44" as="geometry" />
+        </mxCell>
+        <object name="TR-LV1" parameters="true" term_label_0="HV" term_label_1="LV" Load_flow_parameters="" sn_mva="1.6" vn_hv_kv="6" vn_lv_kv="0.4" Short_circuit_parameters="" vkr_percent="0.875" vk_percent="6" pfe_kw="1.45" i0_percent="0.3" vector_group="Dyn" vk0_percent="6" vkr0_percent="0.875" mag0_percent="100" si0_hv_partial="0.9" rn_ohm="0" xn_ohm="0" Optional_parameters="" parallel="1" shift_degree="150" tap_side="hv" tap_pos="0" tap_neutral="0" tap_max="2" tap_min="-2" tap_step_percent="2.5" tap_step_degree="0" tap_phase_shifter="false" tap_changer_type="Ratio" OPF_parameters="" max_loading_percent="0" Harmonic_parameters="" XRConst="No" Economic_parameters="" cost_per_unit_by_currency="{}" placeholderId="-DPXh-h7QqhF4jSscgDO-76" id="-DPXh-h7QqhF4jSscgDO-74">
+          <mxCell style="pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;fillColor=none;strokeColor=none;shape=image;image=images/electrical/sym-transformer-v.svg;shapeELXXX=Transformer" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-1">
+            <mxGeometry x="1056" y="490" width="48" height="72" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-76" value="Click Simulate to generate results" style="shapeELXXX=Result;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;overflow=hidden;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3;connectedTo=-DPXh-h7QqhF4jSscgDO-74;placeholderId=-DPXh-h7QqhF4jSscgDO-76;elxxxFull=Q2xpY2sgU2ltdWxhdGUgdG8gZ2VuZXJhdGUgcmVzdWx0cw==;spacingTop=2;spacingLeft=2;" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-74">
+          <mxGeometry x="1" y="0.5" width="48" height="48" relative="1" as="geometry">
+            <mxPoint x="8" y="-24" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-75" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.7463;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;shapeELXXX=NotEditableLine" edge="1" parent="-DPXh-h7QqhF4jSscgDO-1" source="-DPXh-h7QqhF4jSscgDO-74" target="-DPXh-h7QqhF4jSscgDO-4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-77" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.3333;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;shapeELXXX=NotEditableLine" edge="1" parent="-DPXh-h7QqhF4jSscgDO-1" source="-DPXh-h7QqhF4jSscgDO-74" target="-DPXh-h7QqhF4jSscgDO-10">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-78" value="&lt;b&gt;TR-LV1&lt;/b&gt;&lt;br&gt;1.6 MVA, 6/0.4 kV&lt;br&gt;Dyn5, uk 6 %" style="text;html=1;align=right;verticalAlign=top;whiteSpace=wrap;fontSize=11;fontColor=#333333;" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-1">
+          <mxGeometry x="900" y="504" width="150" height="44" as="geometry" />
+        </mxCell>
+        <object name="TR-LV2" parameters="true" term_label_0="HV" term_label_1="LV" Load_flow_parameters="" sn_mva="1.6" vn_hv_kv="6" vn_lv_kv="0.4" Short_circuit_parameters="" vkr_percent="0.875" vk_percent="6" pfe_kw="1.45" i0_percent="0.3" vector_group="Dyn" vk0_percent="6" vkr0_percent="0.875" mag0_percent="100" si0_hv_partial="0.9" rn_ohm="0" xn_ohm="0" Optional_parameters="" parallel="1" shift_degree="150" tap_side="hv" tap_pos="0" tap_neutral="0" tap_max="2" tap_min="-2" tap_step_percent="2.5" tap_step_degree="0" tap_phase_shifter="false" tap_changer_type="Ratio" OPF_parameters="" max_loading_percent="0" Harmonic_parameters="" XRConst="No" Economic_parameters="" cost_per_unit_by_currency="{}" placeholderId="-DPXh-h7QqhF4jSscgDO-81" id="-DPXh-h7QqhF4jSscgDO-79">
+          <mxCell style="pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;fillColor=none;strokeColor=none;shape=image;image=images/electrical/sym-transformer-v.svg;shapeELXXX=Transformer" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-1">
+            <mxGeometry x="1356" y="490" width="48" height="72" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-81" value="Click Simulate to generate results" style="shapeELXXX=Result;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;overflow=hidden;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3;connectedTo=-DPXh-h7QqhF4jSscgDO-79;placeholderId=-DPXh-h7QqhF4jSscgDO-81;elxxxFull=Q2xpY2sgU2ltdWxhdGUgdG8gZ2VuZXJhdGUgcmVzdWx0cw==;spacingTop=2;spacingLeft=2;" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-79">
+          <mxGeometry x="1" y="0.5" width="48" height="48" relative="1" as="geometry">
+            <mxPoint x="8" y="-24" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-80" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.9701;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;shapeELXXX=NotEditableLine" edge="1" parent="-DPXh-h7QqhF4jSscgDO-1" source="-DPXh-h7QqhF4jSscgDO-79" target="-DPXh-h7QqhF4jSscgDO-4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-82" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.1111;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;shapeELXXX=NotEditableLine" edge="1" parent="-DPXh-h7QqhF4jSscgDO-1" source="-DPXh-h7QqhF4jSscgDO-79" target="-DPXh-h7QqhF4jSscgDO-12">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-83" value="&lt;b&gt;TR-LV2&lt;/b&gt;&lt;br&gt;1.6 MVA, 6/0.4 kV&lt;br&gt;Dyn5, uk 6 %" style="text;html=1;align=right;verticalAlign=top;whiteSpace=wrap;fontSize=11;fontColor=#333333;" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-1">
+          <mxGeometry x="1200" y="504" width="150" height="44" as="geometry" />
+        </mxCell>
+        <object from_bus="MV_SWGR_6kV" to_bus="Compressor_6kV" length_km="0.35" parallel="1" df="1" parameters="true" name="Cable to compressor (NA2XS2Y 1x185, 350 m)" Load_flow_parameters="" r_ohm_per_km="0.161" x_ohm_per_km="0.11" c_nf_per_km="406" g_us_per_km="0" max_i_ka="0.358" type="cs" r0_ohm_per_km="0.861" x0_ohm_per_km="0.297" c0_nf_per_km="406" endtemp_degree="250" OPF_parameters="" max_loading_percent="0" Economic_parameters="" cost_per_unit_by_currency="0" id="-DPXh-h7QqhF4jSscgDO-84">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;shapeELXXX=Line;exitX=0.3284;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5000;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0" edge="1" parent="-DPXh-h7QqhF4jSscgDO-1" source="-DPXh-h7QqhF4jSscgDO-4" target="-DPXh-h7QqhF4jSscgDO-6" placeholderId="-DPXh-h7QqhF4jSscgDO-85">
+            <mxGeometry relative="1" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-85" value="Click Simulate to generate results" style="shapeELXXX=Result;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;overflow=hidden;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3;connectedTo=-DPXh-h7QqhF4jSscgDO-84;placeholderId=-DPXh-h7QqhF4jSscgDO-85;elxxxFull=Q2xpY2sgU2ltdWxhdGUgdG8gZ2VuZXJhdGUgcmVzdWx0cw==;spacingTop=2;spacingLeft=2;" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-84">
+          <mxGeometry width="64" height="64" relative="1" as="geometry">
+            <mxPoint x="-72" y="-32" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object from_bus="MV_SWGR_6kV" to_bus="PumpHouse_6kV" length_km="0.6" parallel="1" df="1" parameters="true" name="Cable to pump house (NA2XS2Y 1x240, 600 m)" Load_flow_parameters="" r_ohm_per_km="0.122" x_ohm_per_km="0.105" c_nf_per_km="456" g_us_per_km="0" max_i_ka="0.416" type="cs" r0_ohm_per_km="0.822" x0_ohm_per_km="0.2835" c0_nf_per_km="456" endtemp_degree="250" OPF_parameters="" max_loading_percent="0" Economic_parameters="" cost_per_unit_by_currency="0" id="-DPXh-h7QqhF4jSscgDO-86">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;shapeELXXX=Line;exitX=0.5075;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.2857;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0" edge="1" parent="-DPXh-h7QqhF4jSscgDO-1" source="-DPXh-h7QqhF4jSscgDO-4" target="-DPXh-h7QqhF4jSscgDO-8" placeholderId="-DPXh-h7QqhF4jSscgDO-87">
+            <mxGeometry relative="1" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-87" value="Click Simulate to generate results" style="shapeELXXX=Result;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;overflow=hidden;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3;connectedTo=-DPXh-h7QqhF4jSscgDO-86;placeholderId=-DPXh-h7QqhF4jSscgDO-87;elxxxFull=Q2xpY2sgU2ltdWxhdGUgdG8gZ2VuZXJhdGUgcmVzdWx0cw==;spacingTop=2;spacingLeft=2;" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-86">
+          <mxGeometry width="64" height="64" relative="1" as="geometry">
+            <mxPoint x="-92" y="-32" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object from_bus="LV_MCC_B_0.4kV" to_bus="Workshop_0.4kV" length_km="0.12" parallel="2" df="1" parameters="true" name="Cable to workshop (2x NAYY 4x150, 120 m)" Load_flow_parameters="" r_ohm_per_km="0.208" x_ohm_per_km="0.08" c_nf_per_km="261" g_us_per_km="0" max_i_ka="0.27" type="cs" r0_ohm_per_km="0.832" x0_ohm_per_km="0.32" c0_nf_per_km="156.6" endtemp_degree="160" OPF_parameters="" max_loading_percent="0" Economic_parameters="" cost_per_unit_by_currency="0" id="-DPXh-h7QqhF4jSscgDO-88">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;shapeELXXX=Line;exitX=0.8889;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.4444;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0" edge="1" parent="-DPXh-h7QqhF4jSscgDO-1" source="-DPXh-h7QqhF4jSscgDO-12" target="-DPXh-h7QqhF4jSscgDO-14" placeholderId="-DPXh-h7QqhF4jSscgDO-89">
+            <mxGeometry relative="1" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-89" value="Click Simulate to generate results" style="shapeELXXX=Result;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;overflow=hidden;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3;connectedTo=-DPXh-h7QqhF4jSscgDO-88;placeholderId=-DPXh-h7QqhF4jSscgDO-89;elxxxFull=Q2xpY2sgU2ltdWxhdGUgdG8gZ2VuZXJhdGUgcmVzdWx0cw==;spacingTop=2;spacingLeft=2;" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-88">
+          <mxGeometry width="64" height="64" relative="1" as="geometry">
+            <mxPoint x="-82" y="-32" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object name="LV tie" Load_flow_parameters="" et="b" type="CB" closed="false" z_ohm="0.0" in_ka="0" Short_circuit_parameters="" ikss_ka="0" ansi_device_class="auto" interrupting_rating_ka="0" momentary_rating_ka="0" rated_voltage_kv="0" contact_parting_cycles="3" generator_cb="false" contact_parting_ms="0" dc_time_constant_ms="45" rated_dc_percent="0" Economic_parameters="" cost_per_unit_by_currency="{}" Protection_parameters="" protection_type="none" oc_relay_type="DTOC" curve_type="standard_inverse" tms="1.0" t_grade="0.5" t_gg="0.07" t_g="0.5" t_diff="0.3" pickup_mode="auto" I_s_a="0" I_g_a="0" I_gg_a="0" fuse_type="" fuse_mode="library" fuse_custom_std_json="" rated_i_a="0" overload_factor="1.25" ct_current_factor="1.2" safety_factor="1.0" I_e_a="100" t_e="0.2" directional_mode="forward" I_diff_a="100" diff_slope="0.3" z1_r_ohm="1" z1_x_ohm="1" z2_r_ohm="2" z2_x_ohm="2" z3_r_ohm="3" z3_x_ohm="3" t_z1="0" t_z2="0.3" t_z3="0.6" placeholderId="-DPXh-h7QqhF4jSscgDO-94" id="-DPXh-h7QqhF4jSscgDO-90">
+          <mxCell style="pointerEvents=1;verticalLabelPosition=bottom;shadow=0;dashed=0;align=center;html=1;verticalAlign=top;aspect=fixed;imageAspect=1;fillColor=none;strokeColor=none;shape=image;image=images/electrical/sym-switch.svg;shapeELXXX=Switch" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-1">
+            <mxGeometry x="1262" y="631.5" width="56" height="29" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-94" value="Click Simulate to generate results" style="shapeELXXX=Result;shape=rounded;rounded=1;arcSize=6;fillColor=#F8F9FA;strokeColor=#6C757D;strokeWidth=1.5;dashed=1;dashPattern=5 5;opacity=70;whiteSpace=wrap;html=1;overflow=hidden;align=center;verticalAlign=middle;fontSize=7;fontColor=#6C757D;fontStyle=0;spacing=3;connectedTo=-DPXh-h7QqhF4jSscgDO-90;placeholderId=-DPXh-h7QqhF4jSscgDO-94;elxxxFull=Q2xpY2sgU2ltdWxhdGUgdG8gZ2VuZXJhdGUgcmVzdWx0cw==;spacingTop=2;spacingLeft=2;" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-90">
+          <mxGeometry y="0.5" width="48" height="48" relative="1" as="geometry">
+            <mxPoint x="-56" y="-24" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-91" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=none;exitX=0;exitY=0.55;exitDx=0;exitDy=0;exitPerimeter=0;entryX=1.0000;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;shapeELXXX=NotEditableLine" edge="1" parent="-DPXh-h7QqhF4jSscgDO-1" source="-DPXh-h7QqhF4jSscgDO-90" target="-DPXh-h7QqhF4jSscgDO-10">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-93" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=none;exitX=1;exitY=0.55;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.0000;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;shapeELXXX=NotEditableLine" edge="1" parent="-DPXh-h7QqhF4jSscgDO-1" source="-DPXh-h7QqhF4jSscgDO-90" target="-DPXh-h7QqhF4jSscgDO-12">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-95" value="LV tie (open)" style="text;html=1;align=center;verticalAlign=top;whiteSpace=wrap;fontSize=11;fontColor=#333333;" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-1">
+          <mxGeometry x="1220" y="597.5" width="140" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="-DPXh-h7QqhF4jSscgDO-96" value="&lt;b style=&quot;font-size:14px&quot;&gt;Industrial plant – 110/6 kV supply with MV motors&lt;/b&gt;&lt;br&gt;Utility 110 kV (S&quot;k max/min 3000/2000 MVA) feeds a 16 MVA YNd5 main transformer.&lt;br&gt;The 6 kV switchboard supplies a 2.5 MW compressor, two 1.2 MW pumps and a 0.8 MW fan,&lt;br&gt;a 1.5 Mvar power-factor correction bank and two 1.6 MVA Dyn5 unit substations (MCC A/B).&lt;br&gt;The LV tie between MCC A and MCC B is normally open.&lt;br&gt;&lt;br&gt;&lt;b&gt;Try:&lt;/b&gt; Load Flow (voltage drop to the workshop, transformer loading, power factor);&lt;br&gt;Short Circuit IEC 60909 – motor contribution to the 6 kV and 0.4 kV fault levels;&lt;br&gt;close the LV tie, switch the PFC bank off, or run Motor Starting on the compressor." style="rounded=1;whiteSpace=wrap;html=1;arcSize=4;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;spacingRight=8;fontSize=12;fillColor=#e8f5e9;strokeColor=#81c784;" vertex="1" parent="-DPXh-h7QqhF4jSscgDO-1">
+          <mxGeometry x="700" y="20" width="720" height="173.5" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

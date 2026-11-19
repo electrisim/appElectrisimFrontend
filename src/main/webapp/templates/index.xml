@@ -48,6 +48,10 @@
 <template url="renewables/reactive_power_onshore_WF_33MW.drawio" title="onshore wind farm 33MW" libs="general;uml"/>
 <template url="renewables/offshore wind 1GW 100km rev7.drawio" title="offshore wind farm" libs="general;uml"/>
 <template url="renewables/PV 100MW.drawio" title="PV solar farm" libs="general;uml"/>
+<template url="renewables/hybrid_pv_bess_plant.drawio" title="Hybrid PV + BESS plant 30 MW" libs="general;uml"/>
+<template url="renewables/small_hydro_plant.drawio" title="Small hydro plant 2x4.5 MVA" libs="general;uml"/>
+<template url="renewables/islanded_microgrid.drawio" title="Islanded microgrid (diesel + PV + BESS)" libs="general;uml"/>
+<template url="transmission/substation_220_110_20kV_3w.drawio" title="Substation 220/110/20 kV (3-winding)" libs="general;uml"/>
 <template url="transmission/case4gs.drawio" title="IEEE 4 bus" libs="general;uml"/>
 <template url="transmission/case5.drawio" title="IEEE 5 bus" libs="general;uml"/>
 <template url="transmission/case6.drawio" title="IEEE 6 bus" libs="general;uml"/>
@@ -73,9 +77,13 @@
 <template url="transmission/case2869pegase.drawio" title="PEGASE 2869 bus" libs="general;uml"/>
 <template url="transmission/case3120sp.drawio" title="Polish 3120 bus" libs="general;uml"/>
 
+<template url="distribution/primary_substation_110_20kV.drawio" title="Primary substation 110/20 kV with feeders" libs="general;uml"/>
 <template url="distribution/multivoltage example.drawio" title="multivoltage example" libs="general;uml"/>
 <template url="distribution/mv_oberrhein_load.drawio" title="MV Oberrhein load" libs="general;uml"/>
 <template url="distribution/mv_oberrhein_generation.drawio" title="MV Oberrhein generation" libs="general;uml"/>
+<template url="industrial/industrial_plant_6kV_motors.drawio" title="Industrial plant 6 kV with motors" libs="general;uml"/>
+<template url="industrial/commercial_building_lv.drawio" title="Commercial building LV distribution" libs="general;uml"/>
+<template url="industrial/ev_charging_hub.drawio" title="EV fast-charging hub" libs="general;uml"/>
 <template url="cigre/cigre_hv.drawio" title="CIGRE HV" libs="general;uml"/>
 <template url="cigre/cigre_mv.drawio" title="CIGRE MV" libs="general;uml"/>
 <template url="cigre/cigre_mv_PV_wind.drawio" title="CIGRE MV PV wind" libs="general;uml"/>
