@@ -5,7 +5,7 @@
     <!-- Resource Hints for Performance -->
     <link rel="preconnect" href="https://js.stripe.com" crossorigin>
     <link rel="preconnect" href="https://unpkg.com" crossorigin>
-    <link rel="preload" href="js/app.min.js?v=edge-saveas1" as="script">
+    <link rel="preload" href="js/app.min.js?v=sim-groups1" as="script">
     <link rel="preload" href="https://unpkg.com/ag-grid-community@31.3.2/dist/ag-grid-community.min.js" as="script">
 
     <!-- Module preload hints for analysis engines: makes browser fetch them earlier (HTTP/2 prioritized)
@@ -322,7 +322,7 @@
         // Define application scripts (ES modules)
         const appScripts = [
             { src: 'js/electrisim/auth-globals.js' },
-            { src: 'js/app.min.js?v=edge-saveas1' },
+            { src: 'js/app.min.js?v=sim-groups1' },
            // { src: 'js/extensions.min.js' },
            // { src: 'js/shapes.min.js' },
             { src: 'js/electrisim/dialogs/EditDataDialog.js', type: 'module', async: true },
@@ -626,7 +626,7 @@
 							
 							// Use async loading for app.min.js to prevent blocking
 							var appScript = document.createElement('script');
-							appScript.src = 'js/app.min.js?v=edge-saveas1';
+							appScript.src = 'js/app.min.js?v=sim-groups1';
 							appScript.async = false; // Maintain execution order but don't block parsing
 							appScript.defer = true;
 							appScript.onload = function() {
@@ -985,7 +985,7 @@
     <link rel="mask-icon" href="images/safari-pinned-tab.svg" color="#d89000">
     <link rel="stylesheet" type="text/css" href="js/croppie/croppie.min.css">
     <link rel="stylesheet" type="text/css" href="mxgraph/css/common.css">
-    <link rel="stylesheet" type="text/css" href="styles/grapheditor.css">
+    <link rel="stylesheet" type="text/css" href="styles/grapheditor.css?v=sim-groups1">
     <link rel="stylesheet" type="text/css" href="styles/mobile.css">
     <link rel="preconnect" href="https://storage.googleapis.com">
     <link rel="canonical" href="https://app.electrisim.com">
