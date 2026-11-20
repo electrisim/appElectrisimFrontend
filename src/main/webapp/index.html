@@ -29,6 +29,9 @@
 
     <!-- Styled replacement for window.alert; must load before any script that can alert. -->
     <script src="js/electrisim/utils/styledAlert.js?v=2"></script>
+    <!-- Tells phone and tablet visitors that the app works best in a desktop browser.
+         Deferred plain script so it shows while the app bundle is still loading. -->
+    <script defer src="js/electrisim/mobileNotice.js?v=1"></script>
     <link rel="stylesheet" type="text/css" href="mxgraph/css/common.css">
     <link rel="stylesheet" type="text/css" href="styles/resizable-dialogs.css">
     <!-- Leaflet for Map Editor - loaded on demand when Map Editor opens (see showMapEditorDialog) -->
@@ -987,7 +990,7 @@
     <link rel="stylesheet" type="text/css" href="js/croppie/croppie.min.css">
     <link rel="stylesheet" type="text/css" href="mxgraph/css/common.css">
     <link rel="stylesheet" type="text/css" href="styles/grapheditor.css?v=sim-groups1">
-    <link rel="stylesheet" type="text/css" href="styles/mobile.css">
+    <link rel="stylesheet" type="text/css" href="styles/mobile.css?v=2">
     <link rel="preconnect" href="https://storage.googleapis.com">
     <link rel="canonical" href="https://app.electrisim.com">
     <link rel="manifest" href="images/manifest.json">
@@ -1059,7 +1062,7 @@
                 Loading...
             </p>
             <p>
-                Please ensure JavaScript is enabled. Works on desktop and mobile browsers.
+                Please ensure JavaScript is enabled. Works best in a desktop browser on a laptop or computer.
             </p>
         </div>
     </div>

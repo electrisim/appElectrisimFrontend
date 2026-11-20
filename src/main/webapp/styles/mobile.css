@@ -54,3 +54,21 @@ body.geEditor {
         overflow: hidden;
     }
 }
+
+/* Phones: the loading screen's 100px margins (inline style in index.html) and its
+   min-width:50% pushed the text off-centre; the floating Map button covered the
+   page tabs at the bottom of the reduced phone editor. */
+@media (max-width: 600px) {
+    body.geEditor #geInfo .geBlock {
+        min-width: 0 !important;
+        margin: 24px 16px;
+        padding: 16px 0;
+    }
+    body.geEditor #geInfo h1 {
+        font-size: 1.5em;
+    }
+    #electrisim-map-editor-btn {
+        bottom: 52px !important;
+        left: 12px !important;
+    }
+}
