@@ -16,7 +16,7 @@ This repository contains the frontend code for **[Electrisim](https://app.electr
 
 🌐 **Live Application**: [app.electrisim.com](https://app.electrisim.com/)
 
-> **Note**: Currently optimized for desktop web browsers. No Mobile support
+> **Note**: Optimized for desktop web browsers on a laptop or computer. Phone and tablet visitors see a notice that recommends a desktop browser and lets them send the link to their computer (`js/electrisim/mobileNotice.js`; add `?mobileNotice=1` to the URL to see it on a desktop).
 
 ## Features
 
