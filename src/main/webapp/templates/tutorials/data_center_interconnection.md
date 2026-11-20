@@ -36,8 +36,9 @@ Import your own utility case with **pandapower `.py`** or **OpenDSS `.dss`** ins
 ## Phase 2 — Interconnection
 
 - **Load flow / contingency** at final MW with Grid Code P-Q at the POI if required.
-- **Computational load** (Load dialog → Computational load): IT vs cooling ZIP split, UPS hold-up, ride-through curve — used for **ride-through pass/fail** on transient results (not PSS/E CMLD/PERC1).
-- **Transient Stability (ANDES)**: fault at `POI_138`, optional **generator trip** on `Remote_Gen`; POI bus for voltage metrics.
+- **Computational load** (Load dialog → Computational load): IT share behind a UPS (transfer and return voltage, return delay, walk-in, hold-up time), cooling with the Load Flow ZIP %, and the ride-through curve (seconds from the start of the disturbance). Transient Stability simulates the UPS and reports whether the data centre keeps drawing its power (not PSS/E CMLD/PERC1).
+- **STATCOM** (optional): add a STATCOM on `Campus_34.5`. **Simulate → Grid-Forming STATCOM Sizing** with the requirement set *Data centre / demand facility* sizes it for the reactive current in a voltage dip (ΔIq = k·ΔU). In Transient Stability the STATCOM injects that current (STATCOM dialog → Dynamics tab).
+- **Transient Stability (ANDES)**: fault at `POI_138`, optional **generator trip** on `Remote_Gen`; POI bus for the ride-through curve. A UPS that moves the IT load to its battery inside the curve is reported as *load dropped*.
 - **Short Circuit → ANSI/IEEE C37**: tick **Pre/post project comparison**; project elements = data-center load, backup gen, BESS.
 
 ## Standards note

@@ -1103,6 +1103,10 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         dc_computational_enabled: { name: 'dc_computational_enabled', optional: true },
                         dc_it_share_percent: { name: 'dc_it_share_percent', optional: true },
                         dc_ups_hold_s: { name: 'dc_ups_hold_s', optional: true },
+                        dc_ups_transfer_pu: { name: 'dc_ups_transfer_pu', optional: true },
+                        dc_ups_return_pu: { name: 'dc_ups_return_pu', optional: true },
+                        dc_ups_return_delay_s: { name: 'dc_ups_return_delay_s', optional: true },
+                        dc_ups_walk_in_s: { name: 'dc_ups_walk_in_s', optional: true },
                         dc_ride_through_csv: { name: 'dc_ride_through_csv', optional: true },
                     })
                 };
@@ -1452,6 +1456,13 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         q_max_mvar: { name: 'q_max_mvar', optional: true },
                         q_min_mvar: { name: 'q_min_mvar', optional: true },
                         in_service: { name: 'in_service', optional: true },
+                        dyn_statcom_enabled: { name: 'dyn_statcom_enabled', optional: true },
+                        dyn_statcom_voltage_control: { name: 'dyn_statcom_voltage_control', optional: true },
+                        dyn_statcom_kqv: { name: 'dyn_statcom_kqv', optional: true },
+                        dyn_statcom_deadband_percent: { name: 'dyn_statcom_deadband_percent', optional: true },
+                        dyn_statcom_imax_pu: { name: 'dyn_statcom_imax_pu', optional: true },
+                        dyn_statcom_kvp: { name: 'dyn_statcom_kvp', optional: true },
+                        dyn_statcom_kvi: { name: 'dyn_statcom_kvi', optional: true },
                         cost_per_unit_by_currency: { name: 'cost_per_unit_by_currency', optional: true }
                     })
                 };
