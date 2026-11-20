@@ -45,68 +45,72 @@
   <add>Uhttps://jgraph.github.io/drawio-libs/libs/fortinet/Fortinet_VM_Components.xml</add>
 </clibs>
 
-<template url="renewables/reactive_power_onshore_WF_33MW.drawio" title="onshore wind farm 33MW" libs="general;uml"/>
-<template url="renewables/offshore wind 1GW 100km rev7.drawio" title="offshore wind farm" libs="general;uml"/>
-<template url="renewables/PV 100MW.drawio" title="PV solar farm" libs="general;uml"/>
-<template url="renewables/hybrid_pv_bess_plant.drawio" title="Hybrid PV + BESS plant 30 MW" libs="general;uml"/>
-<template url="renewables/small_hydro_plant.drawio" title="Small hydro plant 2x4.5 MVA" libs="general;uml"/>
-<template url="renewables/islanded_microgrid.drawio" title="Islanded microgrid (diesel + PV + BESS)" libs="general;uml"/>
-<template url="transmission/substation_220_110_20kV_3w.drawio" title="Substation 220/110/20 kV (3-winding)" libs="general;uml"/>
-<template url="transmission/case4gs.drawio" title="IEEE 4 bus" libs="general;uml"/>
-<template url="transmission/case5.drawio" title="IEEE 5 bus" libs="general;uml"/>
-<template url="transmission/case6.drawio" title="IEEE 6 bus" libs="general;uml"/>
-<template url="transmission/case9.drawio" title="IEEE 9 bus" libs="general;uml"/>
-<template url="transmission/case14.drawio" title="IEEE 14 bus" libs="general;uml"/>
-<template url="transmission/case24_ieee_rts.drawio" title="IEEE RTS 24 bus" libs="general;uml"/>
-<template url="transmission/case30.drawio" title="IEEE 30 bus" libs="general;uml"/>
-<template url="transmission/IEEE_30.drawio" title="IEEE 30 bus (Illinois)" libs="general;uml"/>
-<template url="transmission/case39.drawio" title="IEEE 39 bus" libs="general;uml"/>
-<template url="transmission/case57.drawio" title="IEEE 57 bus" libs="general;uml"/>
-<template url="transmission/case89pegase.drawio" title="PEGASE 89 bus" libs="general;uml"/>
-<template url="transmission/IEEE_118bus.drawio" title="IEEE 118 bus" libs="general;uml"/>
-<template url="transmission/case145.drawio" title="145 bus" libs="general;uml"/>
-<template url="transmission/illinois_200.drawio" title="Illinois 200 bus" libs="general;uml"/>
-<template url="transmission/case300.drawio" title="IEEE 300 bus" libs="general;uml"/>
-<template url="transmission/10-bus Italian grid.drawio" title="10-bus Italian grid" libs="general;uml"/>
-<template url="transmission/GB reduced network.drawio" title="GB reduced network" libs="general;uml"/>
-<template url="transmission/iceland.drawio" title="Iceland" libs="general;uml"/>
-<template url="transmission/case1354pegase.drawio" title="PEGASE 1354 bus" libs="general;uml"/>
-<template url="transmission/case1888rte.drawio" title="RTE 1888 bus" libs="general;uml"/>
-<template url="transmission/GB network.drawio" title="GB network" libs="general;uml"/>
-<template url="transmission/case2848rte.drawio" title="RTE 2848 bus" libs="general;uml"/>
-<template url="transmission/case2869pegase.drawio" title="PEGASE 2869 bus" libs="general;uml"/>
-<template url="transmission/case3120sp.drawio" title="Polish 3120 bus" libs="general;uml"/>
+<!-- Electrisim templates. The File > New gallery (js/electrisim/templateGallery.js) shows them by folder.
+     title: card name; description: one or two sentences shown on the card and in the details panel;
+     featured="1": also listed under "Start here". Preview images and network facts come from
+     templates/previews (regenerate with: node scripts/template-previews.js). -->
+<template url="renewables/reactive_power_onshore_WF_33MW.drawio" title="Onshore wind farm 33 MW" featured="1" description="Ten wind turbines on a 30 kV collector with a 110 kV grid connection, a shunt reactor and a park controller for reactive power. Good for load flow, short circuit and grid-code P-Q / U-Q checks." libs="general;uml"/>
+<template url="renewables/offshore wind 1GW 100km rev7.drawio" title="Offshore wind farm with 100 km export cable" description="30 &#215; 15 MW turbines, an offshore substation and a 100 km 275 kV export cable to a 400 kV grid substation, with an SSC (STATCOM), park controller and plant supervisory controller. Built for grid-code P-Q / U-Q and line-current studies." libs="general;uml"/>
+<template url="renewables/PV 100MW.drawio" title="PV solar farm 100 MW" description="Seven PV systems with 0.8 kV inverters on a 20 kV collector, a 110 kV grid connection and a shunt reactor." libs="general;uml"/>
+<template url="renewables/hybrid_pv_bess_plant.drawio" title="Hybrid PV + BESS plant 30 MW" featured="1" description="30 MWp PV and an 8 MW / 10 MWh battery on a 33 kV collector behind a 50 MVA 110/33 kV OLTC transformer and a 12 km overhead line. Scenario: full PV output while the battery charges." libs="general;uml"/>
+<template url="renewables/small_hydro_plant.drawio" title="Small hydro plant 2 &#215; 4.5 MVA" description="Two salient-pole generators on a 6.3 kV busbar, a 10 MVA step-up transformer and a 9 km 20 kV line to the utility, with station service. Shows the generator short-circuit contribution (IEC 60909, K_G correction)." libs="general;uml"/>
+<template url="renewables/islanded_microgrid.drawio" title="Islanded microgrid (diesel + PV + BESS)" description="No utility connection: two diesel gensets (the larger one is the slack), an 11 kV village network, a water plant with a 200 kW pump and a PV + battery site. Shows the low fault levels of island grids." libs="general;uml"/>
+<template url="transmission/substation_220_110_20kV_3w.drawio" title="Substation 220/110/20 kV (3-winding)" description="220 kV grid and a 160/160/50 MVA three-winding transformer; the 20 kV tertiary carries a capacitor bank and station service, the 110 kV side feeds a meshed network with two towns and a wind farm. Try load flow, short circuit and N-1 contingency." libs="general;uml"/>
+<template url="transmission/case4gs.drawio" title="IEEE 4 bus" description="4-bus, 230 kV textbook case from Grainger &amp; Stevenson. The smallest network to learn load flow on." libs="general;uml"/>
+<template url="transmission/case5.drawio" title="IEEE 5 bus" description="5-bus PJM test case at 230 kV with five generating units." libs="general;uml"/>
+<template url="transmission/case6.drawio" title="IEEE 6 bus" description="6-bus, 3-generator case from Wood &amp; Wollenberg, Power Generation, Operation and Control." libs="general;uml"/>
+<template url="transmission/case9.drawio" title="IEEE 9 bus" featured="1" description="Classic 9-bus, 3-machine system (WSCC, Anderson &amp; Fouad) at 345 kV. A good first network for load flow, OPF and contingency analysis." libs="general;uml"/>
+<template url="transmission/case14.drawio" title="IEEE 14 bus" description="IEEE 14-bus system with five generating units, transformers and a shunt capacitor. The most widely used small test grid." libs="general;uml"/>
+<template url="transmission/case24_ieee_rts.drawio" title="IEEE RTS 24 bus" description="IEEE Reliability Test System (RTS-24): 24 buses at 230/138 kV with many generating units." libs="general;uml"/>
+<template url="transmission/case30.drawio" title="IEEE 30 bus" description="IEEE 30-bus system in the MATPOWER version (single 135 kV base) with six generating units." libs="general;uml"/>
+<template url="transmission/IEEE_30.drawio" title="IEEE 30 bus (Illinois)" description="IEEE 30-bus system with its real voltage levels (132/33/11 kV), as published by the Illinois Center for a Smarter Electric Grid." libs="general;uml"/>
+<template url="transmission/case39.drawio" title="IEEE 39 bus (New England)" description="IEEE 39-bus New England system with ten generators at 345 kV. A standard case for stability and contingency studies." libs="general;uml"/>
+<template url="transmission/case57.drawio" title="IEEE 57 bus" description="IEEE 57-bus system, a part of the American Electric Power grid in the early 1960s." libs="general;uml"/>
+<template url="transmission/case89pegase.drawio" title="PEGASE 89 bus" description="89-bus extract of the European high-voltage grid (380/220/150 kV) from the PEGASE project." libs="general;uml"/>
+<template url="transmission/IEEE_118bus.drawio" title="IEEE 118 bus" description="IEEE 118-bus system, a part of the American Electric Power grid in the US Midwest, with 54 generating units." libs="general;uml"/>
+<template url="transmission/case145.drawio" title="IEEE 145 bus (50 generators)" description="IEEE 145-bus, 50-generator dynamic test case." libs="general;uml"/>
+<template url="transmission/illinois_200.drawio" title="Illinois 200 bus" description="Synthetic 200-bus grid on the footprint of central Illinois (Texas A&amp;M synthetic grids)." libs="general;uml"/>
+<template url="transmission/case300.drawio" title="IEEE 300 bus" description="IEEE 300-bus test system, the largest of the classic IEEE cases." libs="general;uml"/>
+<template url="transmission/10-bus Italian grid.drawio" title="Italian grid, 10-bus equivalent" description="Equivalent 10-bus model of the Italian 380 kV transmission grid, one bus per market zone or region." libs="general;uml"/>
+<template url="transmission/GB reduced network.drawio" title="GB reduced network" description="Reduced 29-bus model of the Great Britain transmission system (400/275/132 kV)." libs="general;uml"/>
+<template url="transmission/iceland.drawio" title="Iceland" description="Model of the Icelandic power system with 189 buses." libs="general;uml"/>
+<template url="transmission/case1354pegase.drawio" title="PEGASE 1354 bus" description="1354-bus part of the European high-voltage transmission grid from the PEGASE project." libs="general;uml"/>
+<template url="transmission/case1888rte.drawio" title="RTE 1888 bus" description="Snapshot of the French transmission grid from RTE with 1888 buses." libs="general;uml"/>
+<template url="transmission/GB network.drawio" title="GB network" description="Full Great Britain transmission network model with 2224 buses." libs="general;uml"/>
+<template url="transmission/case2848rte.drawio" title="RTE 2848 bus" description="Snapshot of the French transmission grid from RTE with 2848 buses." libs="general;uml"/>
+<template url="transmission/case2869pegase.drawio" title="PEGASE 2869 bus" description="2869-bus model of the European high-voltage grid from the PEGASE project." libs="general;uml"/>
+<template url="transmission/case3120sp.drawio" title="Polish 3120 bus" description="Polish 400/220/110 kV grid at the summer 2008 morning peak (3120 buses)." libs="general;uml"/>
 
-<template url="distribution/primary_substation_110_20kV.drawio" title="Primary substation 110/20 kV with feeders" libs="general;uml"/>
-<template url="distribution/multivoltage example.drawio" title="multivoltage example" libs="general;uml"/>
-<template url="distribution/mv_oberrhein_load.drawio" title="MV Oberrhein load" libs="general;uml"/>
-<template url="distribution/mv_oberrhein_generation.drawio" title="MV Oberrhein generation" libs="general;uml"/>
-<template url="industrial/industrial_plant_6kV_motors.drawio" title="Industrial plant 6 kV with motors" libs="general;uml"/>
-<template url="industrial/commercial_building_lv.drawio" title="Commercial building LV distribution" libs="general;uml"/>
-<template url="industrial/ev_charging_hub.drawio" title="EV fast-charging hub" libs="general;uml"/>
-<template url="cigre/cigre_hv.drawio" title="CIGRE HV" libs="general;uml"/>
-<template url="cigre/cigre_mv.drawio" title="CIGRE MV" libs="general;uml"/>
-<template url="cigre/cigre_mv_PV_wind.drawio" title="CIGRE MV PV wind" libs="general;uml"/>
-<template url="cigre/cigre_mv_allDER.drawio" title="CIGRE MV all DER" libs="general;uml"/>
-<template url="cigre/cigre_lv.drawio" title="CIGRE LV" libs="general;uml"/>
-<template url="low_voltage/synth_lv_rural_1.drawio" title="Synthetic LV rural" libs="general;uml"/>
-<template url="low_voltage/synth_lv_village_1.drawio" title="Synthetic LV village" libs="general;uml"/>
-<template url="low_voltage/dickert_long_cable_multiple_good.drawio" title="Dickert cable good" libs="general;uml"/>
-<template url="low_voltage/dickert_long_COHL_multiple_average.drawio" title="Dickert COHL average" libs="general;uml"/>
-<template url="low_voltage/kerber_dorfnetz.drawio" title="Kerber Dorfnetz" libs="general;uml"/>
-<template url="low_voltage/dickert_long_cable_multiple_bad.drawio" title="Dickert cable bad" libs="general;uml"/>
-<template url="low_voltage/synth_lv_suburb_1.drawio" title="Synthetic LV suburb" libs="general;uml"/>
-<template url="low_voltage/dickert_long_cable_multiple_average.drawio" title="Dickert cable average" libs="general;uml"/>
-<template url="low_voltage/IEEE_LV_European.drawio" title="IEEE European LV" libs="general;uml"/>
-<template url="tutorials/OPF_basic_final.xml" title="Optimal Power Flow" libs="general;uml"/>
-<template url="tutorials/case9_contingency.drawio" title="Contingency analysis" libs="general;uml"/>
-<template url="tutorials/time_series_basic.drawio" title="Time Series Simulation" libs="general;uml"/>
-<template url="tutorials/bess_overvoltage.drawio" title="BESS Overvoltage in Weak Grids" libs="general;uml"/>
-<template url="tutorials/arc_flash.drawio" title="Arc Flash Analysis (IEEE 1584)" libs="general;uml"/>
-<template url="tutorials/data_center_interconnection.drawio" title="Data center interconnection (utility pocket)" libs="general;uml"/>
-<template url="tutorials/ieee118.drawio" title="IEEE 118-bus transmission benchmark" libs="general;uml"/>
-<template url="tutorials/ieee300.drawio" title="IEEE 300-bus transmission benchmark" libs="general;uml"/>
-<template url="testing_with_other_software/comparing_PowerFactory.drawio" title="Comparing PowerFactory" libs="general;uml"/>
+<template url="distribution/primary_substation_110_20kV.drawio" title="Primary substation 110/20 kV with feeders" featured="1" description="Two 40 MVA 110/20 kV transformers and a split 20 kV busbar: urban cable feeders in an open ring, an industrial customer and a rural overhead feeder with a 5 MW PV park." libs="general;uml"/>
+<template url="distribution/multivoltage example.drawio" title="Multi-voltage example" description="pandapower multi-voltage example from 380 kV down to 0.4 kV, with a three-winding transformer, extended wards, an impedance and many static generators." libs="general;uml"/>
+<template url="distribution/mv_oberrhein_load.drawio" title="MV Oberrhein (load case)" description="Real 20 kV network in the German Oberrhein region: 179 buses fed from two 110/20 kV substations. Case with high load and low generation." libs="general;uml"/>
+<template url="distribution/mv_oberrhein_generation.drawio" title="MV Oberrhein (generation case)" description="Real 20 kV network in the German Oberrhein region: 179 buses fed from two 110/20 kV substations. Case with low load and high distributed generation." libs="general;uml"/>
+<template url="industrial/industrial_plant_6kV_motors.drawio" title="Industrial plant 6 kV with motors" featured="1" description="110 kV supply and a 16 MVA transformer to a 6 kV switchboard with a 2.5 MW compressor, pumps, a fan, power-factor correction and two LV unit substations. Try short circuit with motor contribution and motor starting." libs="general;uml"/>
+<template url="industrial/commercial_building_lv.drawio" title="Commercial building LV distribution" description="20 kV supply and two 1 MVA transformers feeding switchboards A and B, with floor boards, a kitchen, a data room, EV parking and 150 kWp rooftop PV. For voltage drop and TN-system fault currents." libs="general;uml"/>
+<template url="industrial/ev_charging_hub.drawio" title="EV fast-charging hub" description="2.2 MW hub: eight 150 kW DC chargers, two 350 kW high-power chargers, a 400 kW / 1 MWh buffer battery and 100 kWp canopy PV behind two 20/0.4 kV transformers." libs="general;uml"/>
+<template url="cigre/cigre_hv.drawio" title="CIGRE HV" description="CIGRE high-voltage benchmark: 13 buses at 380/220 kV with three generators." libs="general;uml"/>
+<template url="cigre/cigre_mv.drawio" title="CIGRE MV" featured="1" description="CIGRE European medium-voltage benchmark: two 20 kV feeders from a 110/20 kV substation, with switches to close rings." libs="general;uml"/>
+<template url="cigre/cigre_mv_PV_wind.drawio" title="CIGRE MV with PV and wind" description="CIGRE European medium-voltage benchmark with PV and wind generation along the feeders." libs="general;uml"/>
+<template url="cigre/cigre_mv_allDER.drawio" title="CIGRE MV with all DER" description="CIGRE European medium-voltage benchmark with all distributed resources: PV, wind, fuel cells, CHP and batteries." libs="general;uml"/>
+<template url="cigre/cigre_lv.drawio" title="CIGRE LV" description="CIGRE European low-voltage benchmark: residential, industrial and commercial 0.4 kV feeders from a 20 kV supply." libs="general;uml"/>
+<template url="low_voltage/synth_lv_rural_1.drawio" title="Synthetic LV rural" description="Synthetic rural low-voltage grid with PV, made for voltage-control studies (pandapower)." libs="general;uml"/>
+<template url="low_voltage/synth_lv_village_1.drawio" title="Synthetic LV village" description="Synthetic village low-voltage grid with PV, made for voltage-control studies (pandapower)." libs="general;uml"/>
+<template url="low_voltage/dickert_long_cable_multiple_good.drawio" title="Dickert LV: long cable, good" description="Dickert benchmark LV grid: long cable feeders, several customers per connection, good case (strong lines)." libs="general;uml"/>
+<template url="low_voltage/dickert_long_COHL_multiple_average.drawio" title="Dickert LV: long cable + overhead, average" description="Dickert benchmark LV grid: long mixed cable and overhead-line feeders, several customers per connection, average case." libs="general;uml"/>
+<template url="low_voltage/kerber_dorfnetz.drawio" title="Kerber village grid (Dorfnetz)" description="Kerber village network: a typical German rural low-voltage grid behind a 10/0.4 kV transformer." libs="general;uml"/>
+<template url="low_voltage/dickert_long_cable_multiple_bad.drawio" title="Dickert LV: long cable, bad" description="Dickert benchmark LV grid: long cable feeders, several customers per connection, bad case (weak lines)." libs="general;uml"/>
+<template url="low_voltage/synth_lv_suburb_1.drawio" title="Synthetic LV suburb" description="Synthetic suburban low-voltage grid with PV, made for voltage-control studies (pandapower)." libs="general;uml"/>
+<template url="low_voltage/dickert_long_cable_multiple_average.drawio" title="Dickert LV: long cable, average" description="Dickert benchmark LV grid: long cable feeders, several customers per connection, average case." libs="general;uml"/>
+<template url="low_voltage/IEEE_LV_European.drawio" title="IEEE European LV test feeder" description="IEEE European Low Voltage Test Feeder: 907 buses and 55 single-phase loads behind an 11/0.416 kV transformer. For unbalanced studies." libs="general;uml"/>
+<template url="tutorials/OPF_basic_final.xml" title="Optimal Power Flow" description="Tutorial: two generators with cost functions and an external grid supply loads over a 220/110 kV network (pandapower OPF basic example)." libs="general;uml"/>
+<template url="tutorials/case9_contingency.drawio" title="Contingency analysis" description="Tutorial: N-1 contingency analysis of the IEEE 9-bus case (pandapower contingency example)." libs="general;uml"/>
+<template url="tutorials/time_series_basic.drawio" title="Time Series Simulation" description="Tutorial: a 5-bus 110/20 kV network with one load and one static generator driven by time profiles (pandapower time-series example)." libs="general;uml"/>
+<template url="tutorials/bess_overvoltage.drawio" title="BESS Overvoltage in Weak Grids" description="Tutorial: a battery on a 110/33 kV connection, with scenarios that change grid strength and inverter control to show when exporting causes overvoltage." libs="general;uml"/>
+<template url="tutorials/arc_flash.drawio" title="Arc Flash Analysis (IEEE 1584)" description="Tutorial: arc flash incident energy (IEEE 1584) on a 20/0.4 kV network with LV switchboards." libs="general;uml"/>
+<template url="tutorials/data_center_interconnection.drawio" title="Data center interconnection (utility pocket)" description="Guide page: import the data center utility-pocket model from Python, then run load flow, site screening, ANSI short circuit and transient stability." libs="general;uml"/>
+<template url="tutorials/ieee118.drawio" title="IEEE 118-bus transmission benchmark" description="Guide page: import the IEEE 118-bus benchmark from a Python script and lay it out automatically." libs="general;uml"/>
+<template url="tutorials/ieee300.drawio" title="IEEE 300-bus transmission benchmark" description="Guide page: import the IEEE 300-bus benchmark from a Python script and lay it out automatically." libs="general;uml"/>
+<template url="testing_with_other_software/comparing_PowerFactory.drawio" title="Comparing with PowerFactory" description="Eight pages that compare Electrisim with DIgSILENT PowerFactory: load-flow test cases and three-, two- and single-phase short circuits." libs="general;uml"/>
 <!--<template url="basic/flowchart.xml" title="flowchart" libs="general;flowchart"/>
 <template url="basic/orgchart.xml" title="orgChart" libs="general;basic;arrows"/>
 <template url="basic/swimlanes.xml" title="swimlaneDiagram" libs="general;flowchart;bpmn"/>

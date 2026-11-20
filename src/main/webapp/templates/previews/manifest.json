@@ -1,0 +1,1314 @@
+{
+  "generated": "2026-11-20T14:03:19.514Z",
+  "width": 640,
+  "height": 400,
+  "templates": {
+    "renewables/reactive_power_onshore_WF_33MW.drawio": {
+      "bytes": 19159,
+      "pages": 1,
+      "stats": {
+        "buses": 23,
+        "lines": 11,
+        "transformers": 11,
+        "generators": 10,
+        "extGrids": 1,
+        "loads": 0,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          110,
+          30,
+          0.69
+        ]
+      },
+      "image": "renewables/reactive_power_onshore_WF_33MW.webp"
+    },
+    "renewables/offshore wind 1GW 100km rev7.drawio": {
+      "bytes": 42324,
+      "pages": 1,
+      "stats": {
+        "buses": 71,
+        "lines": 35,
+        "transformers": 33,
+        "generators": 30,
+        "extGrids": 1,
+        "loads": 1,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          400,
+          275,
+          66,
+          15,
+          0.69,
+          0.4
+        ]
+      },
+      "image": "renewables/offshore wind 1GW 100km rev7.webp"
+    },
+    "renewables/PV 100MW.drawio": {
+      "bytes": 10469,
+      "pages": 2,
+      "stats": {
+        "buses": 12,
+        "lines": 9,
+        "transformers": 2,
+        "generators": 7,
+        "extGrids": 1,
+        "loads": 0,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          110,
+          20,
+          0.8
+        ]
+      },
+      "image": "renewables/PV 100MW.webp"
+    },
+    "renewables/hybrid_pv_bess_plant.drawio": {
+      "bytes": 110097,
+      "pages": 1,
+      "stats": {
+        "buses": 18,
+        "lines": 8,
+        "transformers": 9,
+        "generators": 6,
+        "extGrids": 1,
+        "loads": 0,
+        "motors": 0,
+        "storage": 2,
+        "switches": 0,
+        "kv": [
+          110,
+          33,
+          0.69
+        ]
+      },
+      "image": "renewables/hybrid_pv_bess_plant.webp"
+    },
+    "renewables/small_hydro_plant.drawio": {
+      "bytes": 36430,
+      "pages": 1,
+      "stats": {
+        "buses": 5,
+        "lines": 2,
+        "transformers": 2,
+        "generators": 2,
+        "extGrids": 1,
+        "loads": 2,
+        "motors": 1,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          20,
+          6.3,
+          0.4
+        ]
+      },
+      "image": "renewables/small_hydro_plant.webp"
+    },
+    "renewables/islanded_microgrid.drawio": {
+      "bytes": 56894,
+      "pages": 1,
+      "stats": {
+        "buses": 8,
+        "lines": 3,
+        "transformers": 4,
+        "generators": 3,
+        "extGrids": 0,
+        "loads": 2,
+        "motors": 1,
+        "storage": 1,
+        "switches": 0,
+        "kv": [
+          11,
+          0.4
+        ]
+      },
+      "image": "renewables/islanded_microgrid.webp"
+    },
+    "transmission/substation_220_110_20kV_3w.drawio": {
+      "bytes": 50643,
+      "pages": 1,
+      "stats": {
+        "buses": 8,
+        "lines": 3,
+        "transformers": 4,
+        "generators": 1,
+        "extGrids": 1,
+        "loads": 3,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          220,
+          110,
+          20,
+          0.4
+        ]
+      },
+      "image": "transmission/substation_220_110_20kV_3w.webp"
+    },
+    "transmission/case4gs.drawio": {
+      "bytes": 5640,
+      "pages": 1,
+      "stats": {
+        "buses": 4,
+        "lines": 4,
+        "transformers": 0,
+        "generators": 1,
+        "extGrids": 1,
+        "loads": 4,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          230
+        ]
+      },
+      "image": "transmission/case4gs.webp"
+    },
+    "transmission/case5.drawio": {
+      "bytes": 6888,
+      "pages": 1,
+      "stats": {
+        "buses": 5,
+        "lines": 6,
+        "transformers": 0,
+        "generators": 4,
+        "extGrids": 1,
+        "loads": 3,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          230
+        ]
+      },
+      "image": "transmission/case5.webp"
+    },
+    "transmission/case6.drawio": {
+      "bytes": 7156,
+      "pages": 1,
+      "stats": {
+        "buses": 6,
+        "lines": 11,
+        "transformers": 0,
+        "generators": 2,
+        "extGrids": 1,
+        "loads": 3,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          230
+        ]
+      },
+      "image": "transmission/case6.webp"
+    },
+    "transmission/case9.drawio": {
+      "bytes": 7336,
+      "pages": 1,
+      "stats": {
+        "buses": 9,
+        "lines": 9,
+        "transformers": 0,
+        "generators": 2,
+        "extGrids": 1,
+        "loads": 3,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          345
+        ]
+      },
+      "image": "transmission/case9.webp"
+    },
+    "transmission/case14.drawio": {
+      "bytes": 13532,
+      "pages": 1,
+      "stats": {
+        "buses": 14,
+        "lines": 15,
+        "transformers": 5,
+        "generators": 4,
+        "extGrids": 1,
+        "loads": 11,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          135,
+          14,
+          12,
+          0.208
+        ]
+      },
+      "image": "transmission/case14.webp"
+    },
+    "transmission/case24_ieee_rts.drawio": {
+      "bytes": 23088,
+      "pages": 1,
+      "stats": {
+        "buses": 24,
+        "lines": 33,
+        "transformers": 5,
+        "generators": 32,
+        "extGrids": 1,
+        "loads": 17,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          230,
+          138
+        ]
+      },
+      "image": "transmission/case24_ieee_rts.webp"
+    },
+    "transmission/case30.drawio": {
+      "bytes": 18652,
+      "pages": 1,
+      "stats": {
+        "buses": 30,
+        "lines": 41,
+        "transformers": 0,
+        "generators": 5,
+        "extGrids": 1,
+        "loads": 20,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          135
+        ]
+      },
+      "image": "transmission/case30.webp"
+    },
+    "transmission/IEEE_30.drawio": {
+      "bytes": 21376,
+      "pages": 1,
+      "stats": {
+        "buses": 30,
+        "lines": 34,
+        "transformers": 7,
+        "generators": 5,
+        "extGrids": 1,
+        "loads": 21,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          132,
+          33,
+          11,
+          1
+        ]
+      },
+      "image": "transmission/IEEE_30.webp"
+    },
+    "transmission/case39.drawio": {
+      "bytes": 25352,
+      "pages": 1,
+      "stats": {
+        "buses": 39,
+        "lines": 35,
+        "transformers": 11,
+        "generators": 9,
+        "extGrids": 1,
+        "loads": 21,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          345
+        ]
+      },
+      "image": "transmission/case39.webp"
+    },
+    "transmission/case57.drawio": {
+      "bytes": 34388,
+      "pages": 1,
+      "stats": {
+        "buses": 57,
+        "lines": 63,
+        "transformers": 17,
+        "generators": 6,
+        "extGrids": 1,
+        "loads": 42,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          500,
+          345,
+          230,
+          161,
+          138,
+          115
+        ]
+      },
+      "image": "transmission/case57.webp"
+    },
+    "transmission/case89pegase.drawio": {
+      "bytes": 70948,
+      "pages": 1,
+      "stats": {
+        "buses": 89,
+        "lines": 160,
+        "transformers": 50,
+        "generators": 17,
+        "extGrids": 1,
+        "loads": 29,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          380,
+          220,
+          150
+        ]
+      },
+      "image": "transmission/case89pegase.webp"
+    },
+    "transmission/IEEE_118bus.drawio": {
+      "bytes": 79168,
+      "pages": 1,
+      "stats": {
+        "buses": 118,
+        "lines": 173,
+        "transformers": 13,
+        "generators": 53,
+        "extGrids": 1,
+        "loads": 99,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          345,
+          161,
+          138
+        ]
+      },
+      "image": "transmission/IEEE_118bus.webp"
+    },
+    "transmission/case145.drawio": {
+      "bytes": 63596,
+      "pages": 1,
+      "stats": {
+        "buses": 145,
+        "lines": 378,
+        "transformers": 75,
+        "generators": 58,
+        "extGrids": 1,
+        "loads": 55,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          500,
+          220,
+          100,
+          25.7,
+          24,
+          18.5,
+          18
+        ]
+      },
+      "image": "transmission/case145.webp"
+    },
+    "transmission/illinois_200.drawio": {
+      "bytes": 98684,
+      "pages": 1,
+      "stats": {
+        "buses": 200,
+        "lines": 179,
+        "transformers": 66,
+        "generators": 48,
+        "extGrids": 1,
+        "loads": 108,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          230,
+          115,
+          13.8
+        ]
+      },
+      "image": "transmission/illinois_200.webp"
+    },
+    "transmission/case300.drawio": {
+      "bytes": 91656,
+      "pages": 1,
+      "stats": {
+        "buses": 300,
+        "lines": 283,
+        "transformers": 128,
+        "generators": 76,
+        "extGrids": 1,
+        "loads": 193,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          345,
+          230,
+          138,
+          115,
+          86,
+          66,
+          27,
+          20,
+          16.5,
+          13.8,
+          6.6,
+          2.3,
+          0.6
+        ]
+      },
+      "image": "transmission/case300.webp"
+    },
+    "transmission/10-bus Italian grid.drawio": {
+      "bytes": 27045,
+      "pages": 2,
+      "stats": {
+        "buses": 11,
+        "lines": 15,
+        "transformers": 0,
+        "generators": 10,
+        "extGrids": 1,
+        "loads": 11,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          380
+        ]
+      },
+      "image": "transmission/10-bus Italian grid.webp"
+    },
+    "transmission/GB reduced network.drawio": {
+      "bytes": 29356,
+      "pages": 1,
+      "stats": {
+        "buses": 29,
+        "lines": 86,
+        "transformers": 13,
+        "generators": 65,
+        "extGrids": 1,
+        "loads": 29,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          400,
+          275,
+          132
+        ]
+      },
+      "image": "transmission/GB reduced network.webp"
+    },
+    "transmission/iceland.drawio": {
+      "bytes": 45720,
+      "pages": 1,
+      "stats": {
+        "buses": 189,
+        "lines": 91,
+        "transformers": 115,
+        "generators": 34,
+        "extGrids": 1,
+        "loads": 51,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          220,
+          132,
+          69,
+          66,
+          33,
+          21,
+          19,
+          13.8,
+          11,
+          10.5,
+          6.6,
+          6.3,
+          0.41,
+          0.38,
+          0.22
+        ]
+      },
+      "image": "transmission/iceland.webp"
+    },
+    "transmission/case1354pegase.drawio": {
+      "bytes": 557796,
+      "pages": 1,
+      "stats": {
+        "buses": 1354,
+        "lines": 1751,
+        "transformers": 240,
+        "generators": 311,
+        "extGrids": 1,
+        "loads": 621,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          380,
+          220
+        ]
+      },
+      "image": "transmission/case1354pegase.webp"
+    },
+    "transmission/case1888rte.drawio": {
+      "bytes": 677280,
+      "pages": 1,
+      "stats": {
+        "buses": 1888,
+        "lines": 1976,
+        "transformers": 555,
+        "generators": 353,
+        "extGrids": 1,
+        "loads": 943,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          380,
+          225,
+          150,
+          90,
+          63,
+          24,
+          21,
+          20,
+          19,
+          18,
+          17,
+          15,
+          14,
+          13,
+          11,
+          10,
+          8,
+          5,
+          4,
+          3
+        ]
+      },
+      "image": "transmission/case1888rte.webp"
+    },
+    "transmission/GB network.drawio": {
+      "bytes": 774804,
+      "pages": 1,
+      "stats": {
+        "buses": 2224,
+        "lines": 1557,
+        "transformers": 1650,
+        "generators": 430,
+        "extGrids": 1,
+        "loads": 446,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          400,
+          275,
+          132,
+          66,
+          33,
+          22,
+          11,
+          6.6
+        ]
+      },
+      "image": "transmission/GB network.webp"
+    },
+    "transmission/case2848rte.drawio": {
+      "bytes": 1025620,
+      "pages": 1,
+      "stats": {
+        "buses": 2848,
+        "lines": 2993,
+        "transformers": 783,
+        "generators": 669,
+        "extGrids": 1,
+        "loads": 1388,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          380,
+          225,
+          150,
+          63,
+          45,
+          24,
+          21,
+          20,
+          19,
+          18,
+          17,
+          15,
+          14,
+          13,
+          12,
+          11,
+          10,
+          5,
+          4,
+          3
+        ]
+      },
+      "image": "transmission/case2848rte.webp"
+    },
+    "transmission/case2869pegase.drawio": {
+      "bytes": 1222636,
+      "pages": 1,
+      "stats": {
+        "buses": 2869,
+        "lines": 4051,
+        "transformers": 531,
+        "generators": 689,
+        "extGrids": 1,
+        "loads": 1311,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          380,
+          220,
+          150,
+          110
+        ]
+      },
+      "image": "transmission/case2869pegase.webp"
+    },
+    "transmission/case3120sp.drawio": {
+      "bytes": 1075632,
+      "pages": 1,
+      "stats": {
+        "buses": 3120,
+        "lines": 3487,
+        "transformers": 206,
+        "generators": 504,
+        "extGrids": 1,
+        "loads": 2314,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          400,
+          220,
+          110,
+          32,
+          24,
+          16
+        ]
+      },
+      "image": "transmission/case3120sp.webp"
+    },
+    "distribution/primary_substation_110_20kV.drawio": {
+      "bytes": 86616,
+      "pages": 1,
+      "stats": {
+        "buses": 13,
+        "lines": 9,
+        "transformers": 3,
+        "generators": 1,
+        "extGrids": 1,
+        "loads": 9,
+        "motors": 0,
+        "storage": 0,
+        "switches": 2,
+        "kv": [
+          110,
+          20,
+          0.4
+        ]
+      },
+      "image": "distribution/primary_substation_110_20kV.webp"
+    },
+    "distribution/multivoltage example.drawio": {
+      "bytes": 15413,
+      "pages": 1,
+      "stats": {
+        "buses": 27,
+        "lines": 25,
+        "transformers": 3,
+        "generators": 12,
+        "extGrids": 1,
+        "loads": 25,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          380,
+          110,
+          20,
+          10,
+          0.4
+        ]
+      },
+      "image": "distribution/multivoltage example.webp"
+    },
+    "distribution/mv_oberrhein_load.drawio": {
+      "bytes": 81032,
+      "pages": 1,
+      "stats": {
+        "buses": 179,
+        "lines": 181,
+        "transformers": 2,
+        "generators": 153,
+        "extGrids": 2,
+        "loads": 147,
+        "motors": 0,
+        "storage": 0,
+        "switches": 322,
+        "kv": [
+          110,
+          20
+        ]
+      },
+      "image": "distribution/mv_oberrhein_load.webp"
+    },
+    "distribution/mv_oberrhein_generation.drawio": {
+      "bytes": 137012,
+      "pages": 1,
+      "stats": {
+        "buses": 179,
+        "lines": 181,
+        "transformers": 2,
+        "generators": 153,
+        "extGrids": 2,
+        "loads": 147,
+        "motors": 0,
+        "storage": 0,
+        "switches": 322,
+        "kv": [
+          110,
+          20
+        ]
+      },
+      "image": "distribution/mv_oberrhein_generation.webp"
+    },
+    "industrial/industrial_plant_6kV_motors.drawio": {
+      "bytes": 60783,
+      "pages": 1,
+      "stats": {
+        "buses": 7,
+        "lines": 3,
+        "transformers": 3,
+        "generators": 0,
+        "extGrids": 1,
+        "loads": 3,
+        "motors": 6,
+        "storage": 0,
+        "switches": 1,
+        "kv": [
+          110,
+          6,
+          0.4
+        ]
+      },
+      "image": "industrial/industrial_plant_6kV_motors.webp"
+    },
+    "industrial/commercial_building_lv.drawio": {
+      "bytes": 59457,
+      "pages": 1,
+      "stats": {
+        "buses": 9,
+        "lines": 6,
+        "transformers": 2,
+        "generators": 1,
+        "extGrids": 1,
+        "loads": 5,
+        "motors": 1,
+        "storage": 0,
+        "switches": 1,
+        "kv": [
+          20,
+          0.4
+        ]
+      },
+      "image": "industrial/commercial_building_lv.webp"
+    },
+    "industrial/ev_charging_hub.drawio": {
+      "bytes": 53471,
+      "pages": 1,
+      "stats": {
+        "buses": 7,
+        "lines": 4,
+        "transformers": 2,
+        "generators": 1,
+        "extGrids": 1,
+        "loads": 4,
+        "motors": 0,
+        "storage": 1,
+        "switches": 1,
+        "kv": [
+          20,
+          0.4
+        ]
+      },
+      "image": "industrial/ev_charging_hub.webp"
+    },
+    "cigre/cigre_hv.drawio": {
+      "bytes": 10532,
+      "pages": 1,
+      "stats": {
+        "buses": 13,
+        "lines": 9,
+        "transformers": 6,
+        "generators": 3,
+        "extGrids": 1,
+        "loads": 5,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          380,
+          220,
+          22
+        ]
+      },
+      "image": "cigre/cigre_hv.webp"
+    },
+    "cigre/cigre_mv.drawio": {
+      "bytes": 12600,
+      "pages": 1,
+      "stats": {
+        "buses": 15,
+        "lines": 15,
+        "transformers": 2,
+        "generators": 0,
+        "extGrids": 1,
+        "loads": 18,
+        "motors": 0,
+        "storage": 0,
+        "switches": 8,
+        "kv": [
+          110,
+          20
+        ]
+      },
+      "image": "cigre/cigre_mv.webp"
+    },
+    "cigre/cigre_mv_PV_wind.drawio": {
+      "bytes": 14252,
+      "pages": 1,
+      "stats": {
+        "buses": 15,
+        "lines": 15,
+        "transformers": 2,
+        "generators": 9,
+        "extGrids": 1,
+        "loads": 18,
+        "motors": 0,
+        "storage": 0,
+        "switches": 8,
+        "kv": [
+          110,
+          20
+        ]
+      },
+      "image": "cigre/cigre_mv_PV_wind.webp"
+    },
+    "cigre/cigre_mv_allDER.drawio": {
+      "bytes": 16136,
+      "pages": 1,
+      "stats": {
+        "buses": 15,
+        "lines": 15,
+        "transformers": 2,
+        "generators": 13,
+        "extGrids": 1,
+        "loads": 18,
+        "motors": 0,
+        "storage": 2,
+        "switches": 8,
+        "kv": [
+          110,
+          20
+        ]
+      },
+      "image": "cigre/cigre_mv_allDER.webp"
+    },
+    "cigre/cigre_lv.drawio": {
+      "bytes": 16416,
+      "pages": 1,
+      "stats": {
+        "buses": 44,
+        "lines": 37,
+        "transformers": 3,
+        "generators": 0,
+        "extGrids": 1,
+        "loads": 15,
+        "motors": 0,
+        "storage": 0,
+        "switches": 3,
+        "kv": [
+          20,
+          0.4
+        ]
+      },
+      "image": "cigre/cigre_lv.webp"
+    },
+    "low_voltage/synth_lv_rural_1.drawio": {
+      "bytes": 9492,
+      "pages": 1,
+      "stats": {
+        "buses": 26,
+        "lines": 24,
+        "transformers": 1,
+        "generators": 5,
+        "extGrids": 1,
+        "loads": 14,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          20,
+          0.4
+        ]
+      },
+      "image": "low_voltage/synth_lv_rural_1.webp"
+    },
+    "low_voltage/synth_lv_village_1.drawio": {
+      "bytes": 17736,
+      "pages": 1,
+      "stats": {
+        "buses": 80,
+        "lines": 78,
+        "transformers": 1,
+        "generators": 13,
+        "extGrids": 1,
+        "loads": 47,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          20,
+          0.4
+        ]
+      },
+      "image": "low_voltage/synth_lv_village_1.webp"
+    },
+    "low_voltage/dickert_long_cable_multiple_good.drawio": {
+      "bytes": 19312,
+      "pages": 1,
+      "stats": {
+        "buses": 92,
+        "lines": 90,
+        "transformers": 1,
+        "generators": 0,
+        "extGrids": 1,
+        "loads": 90,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          20,
+          0.4
+        ]
+      },
+      "image": "low_voltage/dickert_long_cable_multiple_good.webp"
+    },
+    "low_voltage/dickert_long_COHL_multiple_average.drawio": {
+      "bytes": 19376,
+      "pages": 1,
+      "stats": {
+        "buses": 92,
+        "lines": 90,
+        "transformers": 1,
+        "generators": 0,
+        "extGrids": 1,
+        "loads": 90,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          20,
+          0.4
+        ]
+      },
+      "image": "low_voltage/dickert_long_COHL_multiple_average.webp"
+    },
+    "low_voltage/kerber_dorfnetz.drawio": {
+      "bytes": 19568,
+      "pages": 1,
+      "stats": {
+        "buses": 116,
+        "lines": 114,
+        "transformers": 1,
+        "generators": 0,
+        "extGrids": 1,
+        "loads": 57,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          10,
+          0.4
+        ]
+      },
+      "image": "low_voltage/kerber_dorfnetz.webp"
+    },
+    "low_voltage/dickert_long_cable_multiple_bad.drawio": {
+      "bytes": 29980,
+      "pages": 1,
+      "stats": {
+        "buses": 152,
+        "lines": 150,
+        "transformers": 1,
+        "generators": 0,
+        "extGrids": 1,
+        "loads": 150,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          20,
+          0.4
+        ]
+      },
+      "image": "low_voltage/dickert_long_cable_multiple_bad.webp"
+    },
+    "low_voltage/synth_lv_suburb_1.drawio": {
+      "bytes": 34908,
+      "pages": 1,
+      "stats": {
+        "buses": 204,
+        "lines": 202,
+        "transformers": 1,
+        "generators": 6,
+        "extGrids": 1,
+        "loads": 109,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          20,
+          0.4
+        ]
+      },
+      "image": "low_voltage/synth_lv_suburb_1.webp"
+    },
+    "low_voltage/dickert_long_cable_multiple_average.drawio": {
+      "bytes": 43272,
+      "pages": 1,
+      "stats": {
+        "buses": 122,
+        "lines": 120,
+        "transformers": 1,
+        "generators": 0,
+        "extGrids": 1,
+        "loads": 120,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          20,
+          0.4
+        ]
+      },
+      "image": "low_voltage/dickert_long_cable_multiple_average.webp"
+    },
+    "low_voltage/IEEE_LV_European.drawio": {
+      "bytes": 156628,
+      "pages": 1,
+      "stats": {
+        "buses": 907,
+        "lines": 905,
+        "transformers": 1,
+        "generators": 0,
+        "extGrids": 1,
+        "loads": 55,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          11,
+          0.416
+        ]
+      },
+      "image": "low_voltage/IEEE_LV_European.webp"
+    },
+    "tutorials/OPF_basic_final.xml": {
+      "bytes": 22026,
+      "pages": 5,
+      "stats": {
+        "buses": 4,
+        "lines": 3,
+        "transformers": 1,
+        "generators": 2,
+        "extGrids": 1,
+        "loads": 3,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          220,
+          110
+        ]
+      },
+      "image": "tutorials/OPF_basic_final.webp"
+    },
+    "tutorials/case9_contingency.drawio": {
+      "bytes": 6398,
+      "pages": 1,
+      "stats": {
+        "buses": 9,
+        "lines": 9,
+        "transformers": 0,
+        "generators": 2,
+        "extGrids": 1,
+        "loads": 3,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          345
+        ]
+      },
+      "image": "tutorials/case9_contingency.webp"
+    },
+    "tutorials/time_series_basic.drawio": {
+      "bytes": 5324,
+      "pages": 1,
+      "stats": {
+        "buses": 5,
+        "lines": 3,
+        "transformers": 1,
+        "generators": 1,
+        "extGrids": 1,
+        "loads": 1,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          110,
+          20
+        ]
+      },
+      "image": "tutorials/time_series_basic.webp"
+    },
+    "tutorials/bess_overvoltage.drawio": {
+      "bytes": 25017,
+      "pages": 5,
+      "stats": {
+        "buses": 3,
+        "lines": 1,
+        "transformers": 1,
+        "generators": 0,
+        "extGrids": 1,
+        "loads": 0,
+        "motors": 0,
+        "storage": 1,
+        "switches": 0,
+        "kv": [
+          110,
+          33
+        ]
+      },
+      "image": "tutorials/bess_overvoltage.webp"
+    },
+    "tutorials/arc_flash.drawio": {
+      "bytes": 4724,
+      "pages": 1,
+      "stats": {
+        "buses": 6,
+        "lines": 4,
+        "transformers": 1,
+        "generators": 0,
+        "extGrids": 1,
+        "loads": 4,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          20,
+          0.4
+        ]
+      },
+      "image": "tutorials/arc_flash.webp"
+    },
+    "tutorials/data_center_interconnection.drawio": {
+      "bytes": 1188,
+      "pages": 1,
+      "stats": {
+        "buses": 0,
+        "lines": 0,
+        "transformers": 0,
+        "generators": 0,
+        "extGrids": 0,
+        "loads": 0,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": []
+      },
+      "image": "tutorials/data_center_interconnection.webp"
+    },
+    "tutorials/ieee118.drawio": {
+      "bytes": 1102,
+      "pages": 1,
+      "stats": {
+        "buses": 0,
+        "lines": 0,
+        "transformers": 0,
+        "generators": 0,
+        "extGrids": 0,
+        "loads": 0,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": []
+      },
+      "image": "tutorials/ieee118.webp"
+    },
+    "tutorials/ieee300.drawio": {
+      "bytes": 1108,
+      "pages": 1,
+      "stats": {
+        "buses": 0,
+        "lines": 0,
+        "transformers": 0,
+        "generators": 0,
+        "extGrids": 0,
+        "loads": 0,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": []
+      },
+      "image": "tutorials/ieee300.webp"
+    },
+    "testing_with_other_software/comparing_PowerFactory.drawio": {
+      "bytes": 476634,
+      "pages": 8,
+      "stats": {
+        "buses": 2,
+        "lines": 1,
+        "transformers": 0,
+        "generators": 0,
+        "extGrids": 1,
+        "loads": 1,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          110
+        ]
+      },
+      "image": "testing_with_other_software/comparing_PowerFactory.webp"
+    }
+  }
+}
