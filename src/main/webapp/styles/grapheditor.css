@@ -785,6 +785,25 @@ table.mxPopupMenu hr {
 table.mxPopupMenu tr {
 	font-size:4pt;
 }
+/* Group headings in a menu (the study groups in Simulate), added by Menus.addMenuSectionHeader */
+html table.mxPopupMenu tr.geMenuSectionHeader td {
+	padding:6px 30px 2px 14px;
+	font-family:Helvetica Neue,Helvetica,Arial Unicode MS,Arial;
+	font-size:7.5pt;
+	font-weight:bold;
+	letter-spacing:0.06em;
+	text-transform:uppercase;
+	color:#6b7280;
+	white-space:nowrap;
+	cursor:default;
+}
+html table.mxPopupMenu tr.geMenuSectionHeader td.mxPopupMenuIcon {
+	padding:0px;
+}
+html table.mxPopupMenu tr.geMenuSectionHeaderSpaced td {
+	border-top:1px solid #e5e7eb;
+	padding-top:8px;
+}
 html td.mxWindowTitle {
 	font-family:Helvetica Neue,Helvetica,Arial Unicode MS,Arial;
  	text-align:left;
