@@ -68,7 +68,19 @@ Documentation: https://electrisim.com/docs-stability#data-centre-ride-through
 
 **Chapters** (from the produced cut; adjust if you re-time the voice):
 
+```
+0:00 Introduction
+0:33 Agenda
+0:51 Open the data centre template
+1:25 The data centre and its UPS
+2:14 The STATCOM and a load flow
+2:44 Size the STATCOM for fault ride-through
+3:30 Remote fault with the STATCOM
+4:08 Remote fault without the STATCOM
+4:46 Close-in fault, default UPS
+5:20 Close-in fault, tuned UPS
+5:57 Summary
+```
 
-
-**Subtitles:** [](DATA_CENTRE_FRT_SUBTITLES.srt) (timed to the produced cut)
+**Subtitles:** [`DATA_CENTRE_FRT_SUBTITLES.srt`](DATA_CENTRE_FRT_SUBTITLES.srt) (timed to the produced cut)
 
