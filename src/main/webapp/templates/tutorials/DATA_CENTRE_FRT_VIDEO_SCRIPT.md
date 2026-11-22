@@ -54,3 +54,21 @@ Written out so the voice reads them correctly: “U P S”, “I T”, “M V A�
 ## Produced video
 
 A finished cut was rendered with an open-source neural voice (Kokoro, voice *af_heart*) from this text, with the screen recorded in the running app; subtitles (SRT) and YouTube chapters come with it. To use the usual Clipchamp voice instead, paste the `.txt` into Clipchamp text to speech and lay the paragraphs over the same shots.
+
+## YouTube
+
+**Title:** Data centre fault ride-through: STATCOM sizing and UPS behaviour in Electrisim (open source)
+
+**Description:**
+
+Will a 300 MW data centre ride through a grid fault? We size a STATCOM for the k-factor reactive current a voltage dip asks for, then simulate the UPS of the data centre in Transient Stability (ANDES): a remote fault with and without the STATCOM, and a close-in fault where the UPS return delay and walk-in decide the verdict.
+
+Template: Electrisim → File → New → Tutorials → Data centre fault ride-through (STATCOM and UPS)
+Documentation: https://electrisim.com/docs-stability#data-centre-ride-through
+
+**Chapters** (from the produced cut; adjust if you re-time the voice):
+
+
+
+**Subtitles:** [](DATA_CENTRE_FRT_SUBTITLES.srt) (timed to the produced cut)
+
