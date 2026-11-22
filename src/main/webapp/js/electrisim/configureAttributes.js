@@ -634,7 +634,12 @@ export function configureLoadAttributes(grafka, vertex, options = {}) {
     g.setAttribute("Computational_load_parameters", "");
     g.setAttribute("dc_computational_enabled", String(options.dc_computational_enabled ?? false));
     g.setAttribute("dc_it_share_percent", String(options.dc_it_share_percent ?? "85"));
-    g.setAttribute("dc_ups_hold_s", String(options.dc_ups_hold_s ?? "0"));
+    g.setAttribute("dc_ups_hold_s", String(options.dc_ups_hold_s ?? "300"));
+    g.setAttribute("dc_ups_transfer_pu", String(options.dc_ups_transfer_pu ?? "0.85"));
+    g.setAttribute("dc_ups_return_pu", String(options.dc_ups_return_pu ?? "0.9"));
+    g.setAttribute("dc_ups_return_delay_s", String(options.dc_ups_return_delay_s ?? "1"));
+    g.setAttribute("dc_ups_walk_in_s", String(options.dc_ups_walk_in_s ?? "5"));
+    g.setAttribute("dc_recovery_s", String(options.dc_recovery_s ?? "1"));
     g.setAttribute("dc_ride_through_csv", options.dc_ride_through_csv || "0,0.9\n10,0.9\n20,0.9");
 
     grafka.getModel().setValue(vertex, g)
@@ -1228,6 +1233,16 @@ export function configureSSCAttributes(grafka, vertex, options = {}) {
 
     //OPTIONAL                
     g.setAttribute("controllable", options.controllable || "True");
+
+    // Time-domain model (Transient Stability, ANDES)
+    g.setAttribute("Dynamics_parameters", "");
+    g.setAttribute("dyn_statcom_enabled", String(options.dyn_statcom_enabled ?? "true"));
+    g.setAttribute("dyn_statcom_voltage_control", String(options.dyn_statcom_voltage_control ?? "true"));
+    g.setAttribute("dyn_statcom_kqv", String(options.dyn_statcom_kqv ?? "2"));
+    g.setAttribute("dyn_statcom_deadband_percent", String(options.dyn_statcom_deadband_percent ?? "10"));
+    g.setAttribute("dyn_statcom_imax_pu", String(options.dyn_statcom_imax_pu ?? "1"));
+    g.setAttribute("dyn_statcom_kvp", String(options.dyn_statcom_kvp ?? "20"));
+    g.setAttribute("dyn_statcom_kvi", String(options.dyn_statcom_kvi ?? "100"));
 
     // Economic parameters
     g.setAttribute("Economic_parameters", "");

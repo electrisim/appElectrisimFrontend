@@ -17,7 +17,8 @@ export const GRID_FORMING_REQUIREMENT_SETS = {
             duty_phase_jump: true, phase_jump_deg: '10', phase_jump_tau_s: '0.2',
             duty_damping: true, damping_percent: '5', damping_freq_hz: '0.5',
             duty_frequency_support: false, droop_percent: '5', deadband_mhz: '20', support_range_percent: '5',
-            support_time_s: '15', activation_threshold_hz: '0', activation_delay_s: '0'
+            support_time_s: '15', activation_threshold_hz: '0', activation_delay_s: '0',
+            duty_frt: false
         }
     },
     pse_island: {
@@ -29,7 +30,18 @@ export const GRID_FORMING_REQUIREMENT_SETS = {
             duty_phase_jump: false, phase_jump_deg: '10', phase_jump_tau_s: '0.2',
             duty_damping: false, damping_percent: '5', damping_freq_hz: '0.5',
             duty_frequency_support: false, droop_percent: '5', deadband_mhz: '20', support_range_percent: '5',
-            support_time_s: '15', activation_threshold_hz: '0.5', activation_delay_s: '1'
+            support_time_s: '15', activation_threshold_hz: '0.5', activation_delay_s: '1',
+            duty_frt: false
+        }
+    },
+    data_centre_frt: {
+        // A data centre (demand facility) behind the STATCOM: the STATCOM gives the reactive current in
+        // a voltage dip that the UPS rectifiers cannot give. No grid forming, so no supercapacitors.
+        label: 'Data centre / demand facility: reactive current in voltage dips (FRT, k-factor), no grid forming',
+        values: {
+            duty_inertia: false, duty_phase_jump: false, duty_damping: false, duty_frequency_support: false,
+            duty_frt: true, frt_k_factor: '2', frt_deadband_percent: '10', frt_characteristic: 'step',
+            frt_retained_pu: '0', frt_iq_max_pu: '1', frt_base: 'facility', frt_statcom_share_percent: '100'
         }
     },
     custom: { label: 'Custom (keep the values below)', values: null }
@@ -77,6 +89,28 @@ function listStatcoms(graph) {
     return out;
 }
 
+/** Loads of the diagram that can be the facility; data-centre (computational) loads first. */
+function listFacilityLoads(graph) {
+    const model = graph?.getModel?.();
+    if (!model) return [];
+    const cells = (typeof model.getDescendants === 'function' ? model.getDescendants() : null)
+        || Object.values(model.cells || {});
+    const out = [];
+    cells.forEach((cell) => {
+        const style = typeof cell?.getStyle === 'function' ? (cell.getStyle() || '') : '';
+        if (!/shapeELXXX=Load(;|$)/.test(style) || !cell.value) return;
+        const p = parseFloat(cellAttr(cell, 'p_mw'));
+        const computational = String(cellAttr(cell, 'dc_computational_enabled')).toLowerCase() === 'true';
+        out.push({
+            value: cell.getId(),
+            computational,
+            label: `Load: ${cellAttr(cell, 'name') || 'Load'} (${Number.isFinite(p) ? `${p} MW` : 'no P set'}` +
+                `${computational ? ', computational load' : ''})`
+        });
+    });
+    return out.sort((a, b) => Number(b.computational) - Number(a.computational));
+}
+
 export class GridFormingStatcomDialog extends Dialog {
     constructor(editorUi) {
         super('Grid-Forming STATCOM Sizing (Supercapacitors)', 'Calculate');
@@ -87,6 +121,11 @@ export class GridFormingStatcomDialog extends Dialog {
 
         const statcoms = listStatcoms(this.graph);
         this._hasStatcom = statcoms.length > 0;
+        const loads = listFacilityLoads(this.graph);
+        const facilityOptions = [
+            { value: 'generation', label: 'Static Generators in service (generating plant); a data-centre load if there are none', default: true },
+            ...loads.map((l) => ({ value: l.value, label: l.label }))
+        ];
         const buses = listDiagramBusbars(this.graph);
         const pccSaved = String(savedSettings(this.graph, 'gridCodePq').pccBusId || '');
         const busOptions = buses.map((b) => ({ value: b.id, label: b.label, default: String(b.id) === pccSaved }));
@@ -108,8 +147,13 @@ export class GridFormingStatcomDialog extends Dialog {
                 description: 'Leave empty to use the Q rating of the STATCOM in the model.'
             },
             {
-                id: 'plant_mw', label: 'Plant rated power [MW]', type: 'number', value: '', min: '0', step: '1',
-                description: 'Leave empty to use the sum of the Static Generators in service.'
+                id: 'facility_id', label: 'Facility the STATCOM serves', type: 'select',
+                description: 'Its rated power is the base of the plant-related duties and of the fault ride-through current. A data centre is a Load with the computational load model switched on.',
+                options: facilityOptions
+            },
+            {
+                id: 'plant_mw', label: 'Plant or facility rated power [MW]', type: 'number', value: '', min: '0', step: '1',
+                description: 'Leave empty to use the facility chosen above (the Static Generators in service, or the load).'
             },
             {
                 id: 'q_reserve_mode', label: 'Reactive power kept free for voltage control during the event', type: 'select',
@@ -170,6 +214,28 @@ export class GridFormingStatcomDialog extends Dialog {
             { id: 'activation_threshold_hz', label: 'Island mode starts at a frequency deviation of [Hz]', type: 'number', value: d.activation_threshold_hz, min: '0', step: '0.1', description: '0 starts the support at the deadband.' },
             { id: 'activation_delay_s', label: 'Delay before island mode starts [s]', type: 'number', value: d.activation_delay_s, min: '0', step: '0.5' },
 
+            { type: 'section', label: 'Duty 5: fault ride-through (reactive current in a voltage dip)', subtitle: 'ΔIq = k·ΔU on the rated current of the facility (or of the STATCOM), on top of the current before the dip. Needs no stored energy; the converter must carry it within its short-time current capability.' },
+            { id: 'duty_frt', label: 'Size for fault ride-through', type: 'checkbox', value: false },
+            { id: 'frt_k_factor', label: 'k-factor', type: 'number', value: '2', min: '0', max: '10', step: '0.5' },
+            { id: 'frt_deadband_percent', label: 'Voltage deadband [± %]', type: 'number', value: '10', min: '0', max: '50', step: '1' },
+            {
+                id: 'frt_characteristic', label: 'Characteristic', type: 'select',
+                options: [
+                    { value: 'step', label: 'ΔIq = k·ΔU once ΔU leaves the deadband', default: true },
+                    { value: 'continuous', label: 'ΔIq = k·(ΔU − deadband), continuous' }
+                ]
+            },
+            { id: 'frt_retained_pu', label: 'Lowest retained voltage at the connection point [p.u.]', type: 'number', value: '0', min: '0', max: '1', step: '0.05', description: 'The deepest dip of the ride-through profile, e.g. 0 for a close-in fault.' },
+            { id: 'frt_iq_max_pu', label: 'Largest additional reactive current asked for [p.u.]', type: 'number', value: '1', min: '0', step: '0.1' },
+            {
+                id: 'frt_base', label: 'k-factor applies to the rated current of', type: 'select',
+                options: [
+                    { value: 'facility', label: 'the facility (plant or data centre)', default: true },
+                    { value: 'statcom', label: 'the STATCOM' }
+                ]
+            },
+            { id: 'frt_statcom_share_percent', label: 'Share of that current from the STATCOM [%]', type: 'number', value: '100', min: '0', max: '100', step: '5', description: '100 for a data centre whose UPS rectifiers give no reactive current; less when turbines or other units give part of it.' },
+
             { type: 'section', label: 'Supercapacitor bank', subtitle: 'Defaults are a common 3000 F cell. Use the data sheet of the cell you plan to use.' },
             { id: 'cell_capacitance_f', label: 'Cell capacitance [F]', type: 'number', value: '3000', min: '1', step: '100' },
             { id: 'cell_voltage_v', label: 'Cell rated voltage [V]', type: 'number', value: '2.7', min: '0.5', step: '0.1' },
@@ -189,8 +255,9 @@ export class GridFormingStatcomDialog extends Dialog {
             '<strong>Which converter rating and how many supercapacitors make the STATCOM grid forming?</strong><br>' +
             'A STATCOM has no energy of its own. To act as a voltage source, give synthetic inertia and damp oscillations it must ' +
             'deliver and absorb active power for a few seconds, and that energy comes from supercapacitors on its DC side. ' +
-            'The study reads the STATCOM, the plant power, the load-flow operating point and the grid short-circuit power from the diagram, ' +
+            'The study reads the STATCOM, the plant or data-centre power, the load-flow operating point and the grid short-circuit power from the diagram, ' +
             'simulates a falling and a rising frequency event, and sizes the bank at end of life. ' +
+            'With the fault ride-through duty it also checks the reactive current the converter must carry through a voltage dip (k-factor). ' +
             '<a href="https://electrisim.com/documentation.html#grid-forming-statcom" target="_blank" rel="noopener noreferrer">Documentation</a>'
         );
     }

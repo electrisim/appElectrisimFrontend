@@ -86,10 +86,15 @@ function escapeHtmlText(value) {
             const rt = this.results.ride_through;
             if (rt?.enabled && rt.pass === false) {
                 const fail = document.createElement('div');
-                fail.style.cssText = 'margin-top:10px;padding:10px;background:#f8d7da;border-radius:4px;font-size:12px;color:#842029;';
-                fail.innerHTML = `<strong>Computational load ride-through failed</strong> at t=${rt.fail_time_s ?? '—'} s, V=${rt.fail_voltage_pu ?? '—'} pu (POI RMS trace vs curve).`;
+                fail.style.cssText = 'margin-top:10px;padding:10px;background:#fff3cd;border-radius:4px;font-size:12px;color:#664d03;';
+                fail.innerHTML = `<strong>The POI voltage leaves the ride-through curve</strong> at t=${escapeHtmlText(rt.fail_time_s ?? '—')} s, V=${escapeHtmlText(rt.fail_voltage_pu ?? '—')} pu. ` +
+                    'Outside the curve the facility is allowed to disconnect; the curve time counts from the start of the disturbance' +
+                    (rt.t_event_s != null ? ` (${escapeHtmlText(rt.t_event_s)} s).` : '.');
                 body.appendChild(fail);
             }
+            // the ride-through verdicts come first, above the charts
+            (this.results.data_centres || []).forEach((dc) => body.insertBefore(this.buildDataCentre(dc), chartsHost));
+            if ((this.results.statcoms || []).length) body.insertBefore(this.buildStatcoms(this.results.statcoms), chartsHost);
             dialog.appendChild(body);
 
             const buttonRow = document.createElement('div');
@@ -142,15 +147,82 @@ function escapeHtmlText(value) {
             }
             const rt = r.ride_through || {};
             if (rt.enabled) {
-                items.push(['Ride-through', rt.pass === true ? 'PASS' : rt.pass === false ? 'FAIL' : '—']);
+                items.push(['POI voltage vs curve', rt.pass === true ? 'inside' : rt.pass === false ? 'outside' : '—']);
             }
+            const verdicts = {
+                pass: 'PASS',
+                slow_recovery: 'FAIL (power back too late)',
+                load_lost: 'FAIL (IT load lost)',
+                outside_envelope: 'outside the curve'
+            };
+            if (rt.verdict) items.push(['Data-centre ride-through', verdicts[rt.verdict] || rt.verdict]);
             items.forEach(([k, v]) => {
                 const chip = document.createElement('div');
                 chip.style.cssText = 'background:#f1f3f5;padding:6px 10px;border-radius:4px;';
-                chip.innerHTML = `<strong>${escapeHtmlText(k)}:</strong> ${escapeHtmlText(v ?? '—')}`;
+                const shown = typeof v === 'number' && !Number.isInteger(v) ? +v.toFixed(4) : v;
+                chip.innerHTML = `<strong>${escapeHtmlText(k)}:</strong> ${escapeHtmlText(shown ?? '—')}`;
                 card.appendChild(chip);
             });
             return card;
+        }
+
+        buildDataCentre(dc) {
+            const box = document.createElement('div');
+            const inside = dc.within_envelope !== false;
+            const good = dc.verdict === 'rides_through' || (dc.verdict === 'ups_transfer' && dc.recovered_in_time);
+            const [bg, fg] = !inside ? ['#fff3cd', '#664d03'] : good ? ['#d1e7dd', '#0f5132'] : ['#f8d7da', '#842029'];
+            const mw = (v) => (v == null ? '—' : `${Number(v).toFixed(0)} MW`);
+            const sec = (v) => (v == null ? '—' : `${Number(v).toFixed(2)} s`);
+            let head;
+            if (dc.verdict === 'rides_through') {
+                head = `<strong>${escapeHtmlText(dc.name)} rides through:</strong> the UPS stays on the grid and the data centre keeps drawing its power.`;
+            } else if (dc.verdict === 'ups_transfer') {
+                head = `<strong>${escapeHtmlText(dc.name)} drops ${mw(dc.load_drop_mw)} from the grid:</strong> the UPS moves the IT load to its battery and walks it back in` +
+                    (dc.recovery_after_voltage_s != null
+                        ? `; the power is back to 90 % ${sec(dc.recovery_after_voltage_s)} after the voltage recovered (allowed ${sec(dc.recovery_limit_s)}).`
+                        : ', but the power is not back by the end of the run.');
+            } else {
+                head = `<strong>${escapeHtmlText(dc.name)} loses its IT load (${mw(dc.load_drop_mw)}):</strong> ` +
+                    (dc.ups?.present ? 'the dip lasts longer than the UPS hold-up time.' : 'there is no UPS, so the servers restart.');
+            }
+            if (!inside) {
+                head += ' The voltage leaves the ride-through curve, where the facility may disconnect.';
+            } else if (dc.verdict === 'it_lost') {
+                head += ' The voltage stays inside the ride-through curve, so the facility had to ride through: <strong>FAIL</strong>.';
+            } else if (dc.verdict === 'ups_transfer') {
+                head += dc.recovered_in_time
+                    ? ' The voltage stays inside the ride-through curve and the power is back in time: <strong>PASS</strong>.'
+                    : ' The voltage stays inside the ride-through curve, so the power had to be back in time: <strong>FAIL</strong>.';
+            } else {
+                head += ' <strong>PASS</strong>.';
+            }
+            box.style.cssText = `margin:0 0 12px;padding:10px 12px;border-radius:4px;font-size:13px;line-height:1.5;background:${bg};color:${fg};`;
+            const ups = dc.ups || {};
+            const rows = [
+                ['Power before the disturbance / lowest', `${mw(dc.p_mw_pre)} / ${mw(dc.p_mw_min)}`],
+                ['IT share', `${dc.it_share_percent ?? '—'} %`],
+                ['UPS', ups.present
+                    ? `transfer below ${ups.transfer_pu} pu, back above ${ups.return_pu} pu after ${ups.return_delay_s} s, walk-in ${ups.walk_in_s} s, hold-up ${ups.hold_s} s`
+                    : 'none (IT power supplies bridge one cycle)'],
+                ['Time on battery / IT off the grid', `${sec(ups.battery_s)} / ${sec(dc.it_off_s)}`],
+                ['Voltage back above ' + (dc.voltage_back_pu ?? '—') + ' pu at', dc.voltage_back_t_s == null ? '—' : `t = ${Number(dc.voltage_back_t_s).toFixed(2)} s`],
+                ['Power back to 90 % after the voltage (allowed)', `${sec(dc.recovery_after_voltage_s)} (${sec(dc.recovery_limit_s)})`],
+                ['State at the end', ups.final_state || '—']
+            ];
+            const events = (dc.events || []).map((e) => `<li>t = ${escapeHtmlText(e.t_s)} s: ${escapeHtmlText(e.event)} (V = ${escapeHtmlText(e.v_pu)} pu)</li>`).join('');
+            box.innerHTML = `<div>${head}</div>` +
+                '<table style="border-collapse:collapse;margin-top:8px;font-size:12px;">' +
+                rows.map(([k, v]) => `<tr><td style="padding:2px 12px 2px 0;font-weight:600;">${escapeHtmlText(k)}</td><td>${escapeHtmlText(v)}</td></tr>`).join('') +
+                '</table>' + (events ? `<ul style="margin:6px 0 0;font-size:12px;">${events}</ul>` : '');
+            return box;
+        }
+
+        buildStatcoms(list) {
+            const box = document.createElement('div');
+            box.style.cssText = 'margin:0 0 12px;padding:10px 12px;border-radius:4px;font-size:12px;background:#e7f1ff;color:#084298;';
+            box.innerHTML = list.map((st) => `<div><strong>STATCOM ${escapeHtmlText(st.name)}</strong> (${escapeHtmlText(st.sn_mva)} MVA, k = ${escapeHtmlText(st.kqv)}, deadband ±${escapeHtmlText(st.deadband_percent)} %, current limit ${escapeHtmlText(st.imax_pu)} pu): ` +
+                `${Number(st.q_mvar_pre ?? 0).toFixed(0)} Mvar before the disturbance, up to ${Number(st.q_mvar_peak ?? 0).toFixed(0)} Mvar and ${Number(st.iq_pu_peak ?? 0).toFixed(2)} pu reactive current after it.</div>`).join('');
+            return box;
         }
 
         async renderCharts(host) {
@@ -222,6 +294,15 @@ function escapeHtmlText(value) {
                     values: this.results.frequency_hz
                 }], 'f [Hz]');
             }
+            const dcs = this.results.data_centres || [];
+            if (dcs.length) {
+                makeChart('Data-centre power drawn from the grid (MW)', dcs.map((d) => ({ name: d.name, values: d.p_mw })), 'P [MW]');
+            }
+            const sts = this.results.statcoms || [];
+            if (sts.length) {
+                makeChart('STATCOM reactive power (Mvar, + into the grid)', sts.map((st) => ({ name: st.name, values: st.q_mvar })), 'Q [Mvar]');
+                makeChart('STATCOM reactive current (pu of its rating)', sts.map((st) => ({ name: st.name, values: st.iq_pu })), 'Iq [pu]');
+            }
         }
 
         exportCsv() {
@@ -245,6 +326,16 @@ function escapeHtmlText(value) {
                 cols.push('frequency_hz');
                 series.push(this.results.frequency_hz);
             }
+            (this.results.data_centres || []).forEach((d) => {
+                cols.push(`p_mw_${d.name}`);
+                series.push(d.p_mw);
+            });
+            (this.results.statcoms || []).forEach((st) => {
+                cols.push(`q_mvar_${st.name}`);
+                series.push(st.q_mvar);
+                cols.push(`iq_pu_${st.name}`);
+                series.push(st.iq_pu);
+            });
             const rt = this.results.ride_through;
             if (rt?.enabled) {
                 cols.push('ride_through_pass');
@@ -266,6 +357,10 @@ function escapeHtmlText(value) {
                 if (rt?.enabled) {
                     lines.push(`ride_through_pass,${rt.pass ?? ''}`);
                 }
+                if (rt?.verdict) lines.push(`data_centre_ride_through,${rt.verdict}`);
+                (this.results.data_centres || []).forEach((d) => {
+                    lines.push(`data_centre,${d.name},verdict,${d.verdict},load_drop_mw,${d.load_drop_mw ?? ''},recovery_after_voltage_s,${d.recovery_after_voltage_s ?? ''},recovered_in_time,${d.recovered_in_time ?? ''}`);
+                });
             }
             const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
             const a = document.createElement('a');

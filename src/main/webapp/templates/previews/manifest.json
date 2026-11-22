@@ -1309,6 +1309,26 @@
         ]
       },
       "image": "testing_with_other_software/comparing_PowerFactory.webp"
+    },
+    "tutorials/data_centre_fault_ride_through.drawio": {
+      "bytes": 16216,
+      "pages": 1,
+      "stats": {
+        "buses": 3,
+        "lines": 2,
+        "transformers": 1,
+        "generators": 0,
+        "extGrids": 1,
+        "loads": 1,
+        "motors": 0,
+        "storage": 0,
+        "switches": 0,
+        "kv": [
+          138,
+          34.5
+        ]
+      },
+      "image": "tutorials/data_centre_fault_ride_through.webp"
     }
   }
 }

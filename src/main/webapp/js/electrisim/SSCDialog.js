@@ -12,7 +12,14 @@ export const defaultSSCData = {
     va_internal_degree: 0.0,
     controllable: true,
     in_service: true,
-    cost_per_unit_by_currency: "0"
+    cost_per_unit_by_currency: "0",
+    dyn_statcom_enabled: true,
+    dyn_statcom_voltage_control: true,
+    dyn_statcom_kqv: 2.0,
+    dyn_statcom_deadband_percent: 10.0,
+    dyn_statcom_imax_pu: 1.0,
+    dyn_statcom_kvp: 20.0,
+    dyn_statcom_kvi: 100.0
 };
 
 export class SSCDialog extends Dialog {
@@ -125,6 +132,71 @@ export class SSCDialog extends Dialog {
             }
         ];
 
+        // Time-domain model (Transient Stability, ANDES): a converter with no active power
+        this.dynamicsParameters = [
+            {
+                id: 'dyn_statcom_enabled',
+                label: 'Model in Transient Stability (ANDES)',
+                description: 'Ticked: the STATCOM is a converter (REGCA1 + REECA1, no active power) in the time-domain simulation. Its rating is the larger of the Q ratings.',
+                type: 'checkbox',
+                value: this.data.dyn_statcom_enabled
+            },
+            {
+                id: 'dyn_statcom_voltage_control',
+                label: 'Regulate the bus voltage',
+                description: 'Ticked: a PI controller holds the voltage of the load flow. Unticked: the STATCOM holds its load-flow reactive power. In both cases the k-factor injection below acts in a dip.',
+                type: 'checkbox',
+                value: this.data.dyn_statcom_voltage_control
+            },
+            {
+                id: 'dyn_statcom_kqv',
+                label: 'k-factor in a voltage dip',
+                description: 'Additional reactive current per unit of voltage drop beyond the deadband (p.u. current / p.u. voltage, on the STATCOM rating). Grid codes ask for 2 to 6.',
+                type: 'number',
+                value: String(this.data.dyn_statcom_kqv),
+                step: '0.5',
+                min: '0',
+                max: '10'
+            },
+            {
+                id: 'dyn_statcom_deadband_percent',
+                label: 'Voltage deadband (± %)',
+                description: 'No additional reactive current while the voltage stays within this band around its value before the disturbance.',
+                type: 'number',
+                value: String(this.data.dyn_statcom_deadband_percent),
+                step: '1',
+                min: '0',
+                max: '50'
+            },
+            {
+                id: 'dyn_statcom_imax_pu',
+                label: 'Current limit (p.u.)',
+                description: 'Largest current of the converter during a disturbance, on its rating. Use the short-time capability of the supplier (e.g. 1.0 to 1.5).',
+                type: 'number',
+                value: String(this.data.dyn_statcom_imax_pu),
+                step: '0.05',
+                min: '0.1'
+            },
+            {
+                id: 'dyn_statcom_kvp',
+                label: 'Voltage control, proportional gain',
+                description: 'Reactive current per p.u. of voltage error, on the STATCOM rating. Used when the STATCOM regulates the bus voltage.',
+                type: 'number',
+                value: String(this.data.dyn_statcom_kvp),
+                step: '1',
+                min: '0'
+            },
+            {
+                id: 'dyn_statcom_kvi',
+                label: 'Voltage control, integral gain (1/s)',
+                description: 'Integral gain of the voltage controller, on the STATCOM rating.',
+                type: 'number',
+                value: String(this.data.dyn_statcom_kvi),
+                step: '5',
+                min: '0'
+            }
+        ];
+
         // Economic parameters (for Economic Analysis)
         this.economicParameters = [
             { id: 'cost_per_unit_by_currency', label: 'Cost per unit', description: 'Cost per unit for Economic Analysis CAPEX calculation', type: 'text', value: '' }
@@ -188,10 +260,12 @@ export class SSCDialog extends Dialog {
         // Create tabs
         const electricalTab = this.createTab('Electrical', 'electrical', this.currentTab === 'electrical');
         const couplingTab = this.createTab('Coupling Transformer', 'coupling', this.currentTab === 'coupling');
+        const dynamicsTab = this.createTab('Dynamics (ANDES)', 'dynamics', this.currentTab === 'dynamics');
         const economicTab = this.createTab('Economic', 'economic', this.currentTab === 'economic');
 
         tabContainer.appendChild(electricalTab);
         tabContainer.appendChild(couplingTab);
+        tabContainer.appendChild(dynamicsTab);
         tabContainer.appendChild(economicTab);
         container.appendChild(tabContainer);
 
@@ -210,10 +284,12 @@ export class SSCDialog extends Dialog {
         // Create tab content containers
         const electricalContent = this.createTabContent('electrical', [...this.electricalParameters, ...this.controlParameters, ...this.configParameters]);
         const couplingContent = this.createTabContent('coupling', this.couplingParameters);
+        const dynamicsContent = this.createTabContent('dynamics', this.dynamicsParameters);
         const economicContent = this.createTabContent('economic', this.economicParameters);
 
         contentArea.appendChild(electricalContent);
         contentArea.appendChild(couplingContent);
+        contentArea.appendChild(dynamicsContent);
         contentArea.appendChild(economicContent);
         container.appendChild(contentArea);
 
@@ -255,9 +331,10 @@ export class SSCDialog extends Dialog {
         this.container = container;
         
         // Tab click handlers
-        electricalTab.onclick = () => this.switchTab('electrical', electricalTab, [couplingTab, economicTab], electricalContent, [couplingContent, economicContent]);
-        couplingTab.onclick = () => this.switchTab('coupling', couplingTab, [electricalTab, economicTab], couplingContent, [electricalContent, economicContent]);
-        economicTab.onclick = () => this.switchTab('economic', economicTab, [electricalTab, couplingTab], economicContent, [electricalContent, couplingContent]);
+        electricalTab.onclick = () => this.switchTab('electrical', electricalTab, [couplingTab, dynamicsTab, economicTab], electricalContent, [couplingContent, dynamicsContent, economicContent]);
+        couplingTab.onclick = () => this.switchTab('coupling', couplingTab, [electricalTab, dynamicsTab, economicTab], couplingContent, [electricalContent, dynamicsContent, economicContent]);
+        dynamicsTab.onclick = () => this.switchTab('dynamics', dynamicsTab, [electricalTab, couplingTab, economicTab], dynamicsContent, [electricalContent, couplingContent, economicContent]);
+        economicTab.onclick = () => this.switchTab('economic', economicTab, [electricalTab, couplingTab, dynamicsTab], economicContent, [electricalContent, couplingContent, dynamicsContent]);
 
         // Show dialog using DrawIO's dialog system
         if (this.ui && typeof this.ui.showDialog === 'function') {
@@ -525,7 +602,7 @@ export class SSCDialog extends Dialog {
         const values = {};
         
         // Collect all parameter values from all tabs
-        [...this.electricalParameters, ...this.couplingParameters, ...this.controlParameters, ...this.configParameters, ...(this.economicParameters || [])].forEach(param => {
+        [...this.electricalParameters, ...this.couplingParameters, ...this.controlParameters, ...this.configParameters, ...(this.dynamicsParameters || []), ...(this.economicParameters || [])].forEach(param => {
             const input = this.inputs.get(param.id);
             if (input) {
                 if (param.id === 'cost_per_unit_by_currency') {
@@ -619,8 +696,16 @@ export class SSCDialog extends Dialog {
                     devLog(`  Updated config ${attributeName}: ${oldValue} → ${configParam.value}`);
                 }
                 
+                const dynamicsParam = this.dynamicsParameters?.find(p => p.id === attributeName);
+                if (dynamicsParam) {
+                    if (dynamicsParam.type === 'checkbox') {
+                        dynamicsParam.value = attributeValue === 'true' || attributeValue === true;
+                    } else if (String(attributeValue).trim() !== '') {
+                        dynamicsParam.value = attributeValue;
+                    }
+                }
                 const economicParam = this.economicParameters?.find(p => p.id === attributeName);
-                if (!electricalParam && !controlParam && !configParam && !economicParam) {
+                if (!electricalParam && !controlParam && !configParam && !dynamicsParam && !economicParam) {
                     devLog(`  WARNING: No parameter found for attribute ${attributeName}`);
                 }
             }

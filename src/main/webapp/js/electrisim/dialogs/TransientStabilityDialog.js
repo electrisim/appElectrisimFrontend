@@ -116,6 +116,23 @@ export class TransientStabilityDialog extends Dialog {
                 step: '0.01'
             },
             {
+                id: 'fault_xf',
+                label: 'Fault reactance xf (p.u. on the system base)',
+                type: 'number',
+                value: '0.0001',
+                min: '0.0001',
+                step: '0.01',
+                description: '0.0001 is a bolted fault. A larger value leaves part of the voltage, as a fault further away in the grid does.'
+            },
+            {
+                id: 'fault_rf',
+                label: 'Fault resistance rf (p.u. on the system base)',
+                type: 'number',
+                value: '0',
+                min: '0',
+                step: '0.01'
+            },
+            {
                 id: 'toggle_line',
                 label: 'Line Outage (optional)',
                 type: 'select',
@@ -153,7 +170,7 @@ export class TransientStabilityDialog extends Dialog {
             },
             {
                 id: 'poi_bus',
-                label: 'POI bus (voltage / ride-through check)',
+                label: 'POI bus (voltage / ride-through check; none = the data-centre bus)',
                 type: 'select',
                 options: buses.map((b, i) => ({
                     value: b.value,
@@ -165,7 +182,10 @@ export class TransientStabilityDialog extends Dialog {
     }
 
     getDescription() {
-        return 'Time-domain transient stability using ANDES (RMS). Optional generator trip and POI voltage ride-through check when Computational load is enabled on a Load. Not EMT — sub-cycle sag requires future ParaEMT/dpsim integration.';
+        return 'Time-domain transient stability using ANDES (RMS). STATCOMs are converters that inject reactive current in a dip (k-factor, Dynamics tab of the STATCOM). ' +
+            'A Load with the computational load model switched on is a data centre: its UPS moves the IT load to battery in a dip and walks it back in, and the results say whether it rides through. ' +
+            'The ride-through curve counts from the start of the disturbance. Not EMT — sub-cycle sag requires future ParaEMT/dpsim integration. ' +
+            '<a href="https://electrisim.com/documentation.html#data-centre-ride-through" target="_blank" rel="noopener noreferrer">Documentation</a>';
     }
 }
 

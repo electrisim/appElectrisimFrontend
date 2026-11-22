@@ -17,6 +17,7 @@ const STATUS = {
 const SET_NAMES = {
     pse_grid_forming: 'PSE (Poland): synthetic inertia, oscillation damping, grid-forming STATCOM',
     pse_island: 'PSE (Poland): island operation with FSM, LFSM-O, LFSM-U (no grid forming)',
+    data_centre_frt: 'Data centre / demand facility: reactive current in voltage dips (FRT)',
     custom: 'Custom'
 };
 
@@ -205,6 +206,7 @@ export class GridFormingStatcomResultsDialog {
         });
 
         if ((r.checklist || []).length) body.appendChild(this._buildChecklist());
+        if (r.frt?.enabled) body.appendChild(this._buildFrtTable());
 
         const storage = r.storage_needed !== false && !!r.bank;
         // chart
@@ -321,27 +323,66 @@ export class GridFormingStatcomResultsDialog {
         const s = r.statcom || {};
         const b = r.bank || {};
         const q = r.requirement || {};
-        const ok = !!s.rating_ok;
+        const ok = s.rating_ok_events != null ? !!s.rating_ok_events : !!s.rating_ok;
         if (r.storage_needed === false || !r.bank) {
             const d0 = document.createElement('div');
-            d0.style.cssText = `padding:12px 16px;margin-bottom:14px;border-radius:8px;border-left:6px solid ${ok ? '#198754' : '#c92a2a'};background:#f8f9fa;font-size:14px;line-height:1.55;`;
+            d0.style.cssText = `padding:12px 16px;margin-bottom:14px;border-radius:8px;border-left:6px solid ${s.rating_ok ? '#198754' : '#c92a2a'};background:#f8f9fa;font-size:14px;line-height:1.55;`;
             const why = r.requirement_set === 'pse_island'
                 ? 'These connection conditions ask for island operation with FSM, LFSM-O and LFSM-U from the turbines and the park controller. They do not ask for grid forming or synthetic inertia.'
                 : 'No duty that needs active power is switched on.';
+            const eventsOk = s.rating_ok_events !== false;
             d0.innerHTML = `<strong>No supercapacitors are needed.</strong> ${this._escape(why)}<br>` +
                 this._escape(`The ${num(s.rating_mva, 0)} MVA STATCOM works with reactive power only` +
-                    (ok ? '.' : `, and ${num(s.q_reserved_mvar, 0)} Mvar is more than its rating.`));
+                    (eventsOk ? '.' : `, and ${num(s.q_reserved_mvar, 0)} Mvar is more than its rating.`)) +
+                (r.frt?.enabled ? `<br>${this._frtSentence()}` : '');
             return d0;
         }
         const d = document.createElement('div');
-        d.style.cssText = `padding:12px 16px;margin-bottom:14px;border-radius:8px;border-left:6px solid ${ok ? '#198754' : '#c92a2a'};background:#f8f9fa;font-size:14px;line-height:1.55;`;
+        d.style.cssText = `padding:12px 16px;margin-bottom:14px;border-radius:8px;border-left:6px solid ${s.rating_ok ? '#198754' : '#c92a2a'};background:#f8f9fa;font-size:14px;line-height:1.55;`;
         const converter = ok
-            ? `<strong>The ${num(s.rating_mva, 0)} MVA converter is large enough:</strong> the duties need up to ${num(q.peak_mw)} MW on top of ${num(s.q_reserved_mvar, 0)} Mvar, which is ${num(s.required_rating_mva, 0)} MVA.`
-            : `<strong>The ${num(s.rating_mva, 0)} MVA converter is too small:</strong> ${num(q.peak_mw)} MW on top of ${num(s.q_reserved_mvar, 0)} Mvar needs ${num(s.required_rating_mva, 0)} MVA.`;
+            ? `<strong>The ${num(s.rating_mva, 0)} MVA converter is large enough for the frequency events:</strong> the duties need up to ${num(q.peak_mw)} MW on top of ${num(s.q_reserved_mvar, 0)} Mvar, which is ${num(s.required_rating_events_mva ?? s.required_rating_mva, 0)} MVA.`
+            : `<strong>The ${num(s.rating_mva, 0)} MVA converter is too small for the frequency events:</strong> ${num(q.peak_mw)} MW on top of ${num(s.q_reserved_mvar, 0)} Mvar needs ${num(s.required_rating_events_mva ?? s.required_rating_mva, 0)} MVA.`;
         const bank = `Supercapacitor bank: ${num(b.cells_total, 0)} cells (${num(b.strings, 0)} strings of ${num(b.cells_series, 0)} in series), ` +
             `${num(b.energy_usable_eol_mj, 0)} MJ usable at end of life, to deliver ${num(q.energy_discharge_mj, 0)} MJ and absorb ${num(q.energy_charge_mj, 0)} MJ.`;
-        d.innerHTML = `${converter}<br>${this._escape(bank)}`;
+        d.innerHTML = `${converter}<br>${this._escape(bank)}` + (r.frt?.enabled ? `<br>${this._frtSentence()}` : '');
         return d;
+    }
+
+    /** One sentence on the fault ride-through check. */
+    _frtSentence() {
+        const f = this.results.frt || {};
+        const s = this.results.statcom || {};
+        const head = f.rating_ok
+            ? `<strong>Fault ride-through: the converter carries the reactive current of the dip.</strong>`
+            : `<strong>Fault ride-through: the converter is too small for the reactive current of the dip.</strong>`;
+        return head + ' ' + this._escape(
+            `A dip to ${num(f.retained_pu, 2)} p.u. asks for ${num(f.iq_total_mva, 0)} MVA of reactive current ` +
+            `(${num(f.iq_pre_mva, 0)} before the dip + ΔIq ${num(f.delta_iq_mva, 0)}` +
+            (f.iq_total_capped ? `, limited to ${num(f.iq_max_pu, 2)} p.u. of ${num(f.base_mva, 0)} MVA)` : ')') +
+            (f.iq_total_ka != null ? `, ${num(f.iq_total_ka, 2)} kA` : '') +
+            `; the converter gives ${num(f.available_mva, 0)} MVA` +
+            (f.rating_ok ? '.' : `, so it needs a rating of ${num(f.required_rating_mva, 0)} MVA (installed ${num(s.rating_mva, 0)} MVA).`) +
+            (f.covers_down_to_pu != null && f.covers_down_to_pu > 0 ? ` The installed converter covers dips down to ${num(f.covers_down_to_pu, 2)} p.u.` : ''));
+    }
+
+    _buildFrtTable() {
+        const f = this.results.frt || {};
+        const base = f.base_kind === 'statcom' ? 'STATCOM rating' : 'facility rated power';
+        const formula = f.characteristic === 'continuous' ? 'k·(ΔU − deadband)' : 'k·ΔU';
+        return this._table('Fault ride-through (reactive current in the dip)', ['Quantity', 'Value'], [
+            ['Characteristic', `ΔIq = ${formula}, k = ${num(f.k_factor, 1)}, deadband ±${num(f.deadband_percent, 0)} %, up to ${num(f.iq_max_pu, 2)} p.u.`],
+            ['Retained voltage / voltage drop', `${num(f.retained_pu, 2)} p.u. / ${num(f.delta_u_pu, 2)} p.u.`],
+            ['Base of the k-factor', `${base}, ${num(f.base_mva, 0)} MVA; ${num(f.statcom_share_percent, 0)} % from the STATCOM`],
+            ['Additional reactive current ΔIq', `${num(f.delta_iq_pu, 2)} p.u. = ${num(f.delta_iq_mva, 0)} MVA at rated voltage${f.delta_iq_limited ? ' (limited)' : ''}`],
+            ['Reactive current before the dip', `${num(f.iq_pre_mva, 0)} MVA (load flow)`],
+            ['Reactive current through the dip', `${num(f.iq_total_mva, 0)} MVA` + (f.iq_total_ka != null ? ` = ${num(f.iq_total_ka, 2)} kA` : '') +
+                (f.iq_total_capped ? ` (before + ΔIq, limited to ${num(f.iq_max_pu, 2)} p.u.)` : '')],
+            ['Reactive power in the dip (at the retained voltage)', `${num(f.q_in_dip_mvar, 0)} Mvar`],
+            ['Converter short-time capability', `${num(f.available_mva, 0)} MVA`],
+            ['Converter rating needed for the dip', { text: `${num(f.required_rating_mva, 0)} MVA`, colour: f.rating_ok ? '#198754' : '#c92a2a' }],
+            ['Deepest dip the installed converter covers', f.covers_down_to_pu == null ? 'none (not even the current before the dip)'
+                : f.covers_down_to_pu <= 0 ? 'every dip, down to 0 p.u.' : `${num(f.covers_down_to_pu, 2)} p.u.`]
+        ]);
     }
 
     _buildTiles() {
@@ -362,12 +403,18 @@ export class GridFormingStatcomResultsDialog {
         if (r.storage_needed === false || !b.cells_total) {
             grid.appendChild(tile('None', 'Supercapacitors', 'no duty needs stored energy', '#198754'));
             grid.appendChild(tile(`${num(s.rating_mva, 0)} MVA`, 'STATCOM rating', `${num(s.q_reserved_mvar, 0)} Mvar in use in the load flow`));
+            if (r.frt?.enabled) {
+                grid.appendChild(tile(`${num(r.frt.iq_total_mva, 0)} MVA`, 'Reactive current in the dip', `converter gives ${num(r.frt.available_mva, 0)} MVA`, r.frt.rating_ok ? '#198754' : '#c92a2a'));
+            }
             const sk = r.grid?.connection_point?.sk_max_mva;
             if (sk != null) grid.appendChild(tile(`${num(sk, 0)} MVA`, 'Grid short-circuit power', 'at the connection point, maximum'));
             return grid;
         }
         grid.appendChild(tile(`${num(q.peak_mw)} MW`, 'Peak active power', `converter can give ${num(s.p_headroom_mw)} MW`));
         grid.appendChild(tile(`${num(s.required_rating_mva, 0)} MVA`, 'Converter rating needed', `installed ${num(s.rating_mva, 0)} MVA`, s.rating_ok ? '#198754' : '#c92a2a'));
+        if (r.frt?.enabled) {
+            grid.appendChild(tile(`${num(r.frt.iq_total_mva, 0)} MVA`, 'Reactive current in the dip', `converter gives ${num(r.frt.available_mva, 0)} MVA`, r.frt.rating_ok ? '#198754' : '#c92a2a'));
+        }
         grid.appendChild(tile(`${num(q.energy_discharge_mj, 0)} MJ`, 'Energy to deliver', `${num((q.energy_discharge_mj || 0) / 3.6, 1)} kWh; absorb ${num(q.energy_charge_mj, 0)} MJ`));
         grid.appendChild(tile(num(b.cells_total, 0), 'Supercapacitor cells', `${num(b.strings, 0)} strings × ${num(b.cells_series, 0)} in series`));
         if (r.inertia?.enabled) {
@@ -468,13 +515,15 @@ export class GridFormingStatcomResultsDialog {
             ['Coupling reactance', `${num(s.x_coupling_ohm, 1)} Ω = ${num(s.x_coupling_pu, 2)} p.u. on the STATCOM rating`],
             ['Reactive power in the load flow', s.q_operating_mvar == null ? 'not available' : `${num(s.q_operating_mvar, 1)} Mvar (+ = into the grid)`],
             ['Reactive power kept free in the converter check', `${num(s.q_reserved_mvar, 1)} Mvar`],
-            ['Plant', `${num(p.p_mw, 0)} MW` + (p.units ? `, ${p.units} generating units, ${num(p.s_mva, 0)} MVA` : '')],
+            p.kind === 'load'
+                ? ['Facility (load)', `${p.name || '—'}: ${num(p.p_mw, 0)} MW, ${num(p.base_mva ?? p.s_mva, 0)} MVA`]
+                : ['Plant', `${num(p.p_mw, 0)} MW` + (p.units ? `, ${p.units} generating units, ${num(p.s_mva, 0)} MVA` : '')],
             ['Grid short-circuit power at the STATCOM bus', strength(g.statcom_bus)],
             ['Short-circuit ratio of the STATCOM', scr(g.statcom_bus)]
         ];
         if (g.connection_point) {
             rows.push([`Grid short-circuit power at the connection point (${g.connection_point.bus})`, strength(g.connection_point)]);
-            rows.push(['Short-circuit ratio of the plant at the connection point', scr(g.connection_point)]);
+            rows.push([`Short-circuit ratio of the ${p.kind === 'load' ? 'facility' : 'plant'} at the connection point`, scr(g.connection_point)]);
         }
         if (s.phase_jump_mw != null && r.storage_needed !== false) rows.push(['Power drawn by the phase jump', `${num(s.phase_jump_mw)} MW`]);
         return this._table('Read from the model', ['Quantity', 'Value'], rows);
@@ -497,6 +546,14 @@ export class GridFormingStatcomResultsDialog {
             ['cells_series', b.cells_series], ['strings', b.strings], ['cells_total', b.cells_total],
             ['capacitance_eol_f', b.capacitance_eol_f], ['esr_eol_mohm', b.esr_eol_mohm], ['v_min', b.v_min], ['v_max', b.v_max], ['v_rest', b.v_rest],
             ['energy_usable_eol_mj', b.energy_usable_eol_mj]].forEach((row) => rows.push(row.map(csv).join(',')));
+        const f = r.frt || {};
+        if (f.enabled) {
+            [['frt_k_factor', f.k_factor], ['frt_deadband_percent', f.deadband_percent], ['frt_characteristic', f.characteristic],
+                ['frt_retained_pu', f.retained_pu], ['frt_base_mva', f.base_mva], ['frt_delta_iq_pu', f.delta_iq_pu],
+                ['frt_iq_before_dip_mva', f.iq_pre_mva], ['frt_iq_in_dip_mva', f.iq_total_mva], ['frt_iq_in_dip_ka', f.iq_total_ka],
+                ['frt_required_rating_mva', f.required_rating_mva], ['frt_rating_ok', f.rating_ok ? 'yes' : 'no']]
+                .forEach((row) => rows.push(row.map(csv).join(',')));
+        }
         rows.push('');
         rows.push('duty,basis,peak_mw,energy_to_deliver_mj,energy_to_absorb_mj');
         (r.duties || []).forEach((d) => rows.push([d.label, d.basis, d.peak_mw, d.energy_discharge_mj, d.energy_charge_mj].map(csv).join(',')));
