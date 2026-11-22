@@ -236,40 +236,40 @@ The campus voltage dips to about 0.88 per unit, above the UPS transfer voltage,
 so the UPS stays on the grid and the IT load never leaves it.
 
 55
-00:04:08,928 --> 00:04:13,867
+00:04:08,928 --> 00:04:13,799
 Now take the STATCOM out of service and
 run the same fault again.
 
 56
-00:04:13,917 --> 00:04:19,623
+00:04:13,849 --> 00:04:19,476
 Without it, the campus voltage starts lower, at
 0.97 per unit, and dips to 0.84.
 
 57
-00:04:19,673 --> 00:04:22,309
+00:04:19,526 --> 00:04:22,126
 That is just below the transfer voltage.
 
 58
-00:04:22,359 --> 00:04:30,751
+00:04:22,176 --> 00:04:30,453
 The UPS moves 257 megawatts to its battery, waits one second,
 and walks the load back in over five seconds.
 
 59
-00:04:30,801 --> 00:04:34,205
+00:04:30,503 --> 00:04:33,859
 The power is back 5.5 seconds after the voltage.
 
 60
-00:04:34,255 --> 00:04:35,740
+00:04:33,909 --> 00:04:35,373
 The verdict is fail:
 
 61
-00:04:35,790 --> 00:04:37,274
+00:04:35,423 --> 00:04:36,887
 power back too late.
 
 62
-00:04:37,324 --> 00:04:43,798
-So even a 150 Mvar STATCOM keeps this data centre
-on the grid in a remote fault.
+00:04:36,937 --> 00:04:41,808
+So the same remote fault fails without the
+STATCOM and passes with it.
 
 63
 00:04:46,414 --> 00:04:48,235
