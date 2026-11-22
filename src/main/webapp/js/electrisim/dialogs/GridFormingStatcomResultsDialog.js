@@ -326,7 +326,7 @@ export class GridFormingStatcomResultsDialog {
         const ok = s.rating_ok_events != null ? !!s.rating_ok_events : !!s.rating_ok;
         if (r.storage_needed === false || !r.bank) {
             const d0 = document.createElement('div');
-            d0.style.cssText = `padding:12px 16px;margin-bottom:14px;border-radius:8px;border-left:6px solid ${ok ? '#198754' : '#c92a2a'};background:#f8f9fa;font-size:14px;line-height:1.55;`;
+            d0.style.cssText = `padding:12px 16px;margin-bottom:14px;border-radius:8px;border-left:6px solid ${s.rating_ok ? '#198754' : '#c92a2a'};background:#f8f9fa;font-size:14px;line-height:1.55;`;
             const why = r.requirement_set === 'pse_island'
                 ? 'These connection conditions ask for island operation with FSM, LFSM-O and LFSM-U from the turbines and the park controller. They do not ask for grid forming or synthetic inertia.'
                 : 'No duty that needs active power is switched on.';
@@ -338,7 +338,7 @@ export class GridFormingStatcomResultsDialog {
             return d0;
         }
         const d = document.createElement('div');
-        d.style.cssText = `padding:12px 16px;margin-bottom:14px;border-radius:8px;border-left:6px solid ${ok ? '#198754' : '#c92a2a'};background:#f8f9fa;font-size:14px;line-height:1.55;`;
+        d.style.cssText = `padding:12px 16px;margin-bottom:14px;border-radius:8px;border-left:6px solid ${s.rating_ok ? '#198754' : '#c92a2a'};background:#f8f9fa;font-size:14px;line-height:1.55;`;
         const converter = ok
             ? `<strong>The ${num(s.rating_mva, 0)} MVA converter is large enough for the frequency events:</strong> the duties need up to ${num(q.peak_mw)} MW on top of ${num(s.q_reserved_mvar, 0)} Mvar, which is ${num(s.required_rating_events_mva ?? s.required_rating_mva, 0)} MVA.`
             : `<strong>The ${num(s.rating_mva, 0)} MVA converter is too small for the frequency events:</strong> ${num(q.peak_mw)} MW on top of ${num(s.q_reserved_mvar, 0)} Mvar needs ${num(s.required_rating_events_mva ?? s.required_rating_mva, 0)} MVA.`;
@@ -361,7 +361,8 @@ export class GridFormingStatcomResultsDialog {
             (f.iq_total_capped ? `, limited to ${num(f.iq_max_pu, 2)} p.u. of ${num(f.base_mva, 0)} MVA)` : ')') +
             (f.iq_total_ka != null ? `, ${num(f.iq_total_ka, 2)} kA` : '') +
             `; the converter gives ${num(f.available_mva, 0)} MVA` +
-            (f.rating_ok ? '.' : `, so it needs a rating of ${num(f.required_rating_mva, 0)} MVA (installed ${num(s.rating_mva, 0)} MVA).`));
+            (f.rating_ok ? '.' : `, so it needs a rating of ${num(f.required_rating_mva, 0)} MVA (installed ${num(s.rating_mva, 0)} MVA).`) +
+            (f.covers_down_to_pu != null && f.covers_down_to_pu > 0 ? ` The installed converter covers dips down to ${num(f.covers_down_to_pu, 2)} p.u.` : ''));
     }
 
     _buildFrtTable() {
@@ -378,7 +379,9 @@ export class GridFormingStatcomResultsDialog {
                 (f.iq_total_capped ? ` (before + ΔIq, limited to ${num(f.iq_max_pu, 2)} p.u.)` : '')],
             ['Reactive power in the dip (at the retained voltage)', `${num(f.q_in_dip_mvar, 0)} Mvar`],
             ['Converter short-time capability', `${num(f.available_mva, 0)} MVA`],
-            ['Converter rating needed for the dip', { text: `${num(f.required_rating_mva, 0)} MVA`, colour: f.rating_ok ? '#198754' : '#c92a2a' }]
+            ['Converter rating needed for the dip', { text: `${num(f.required_rating_mva, 0)} MVA`, colour: f.rating_ok ? '#198754' : '#c92a2a' }],
+            ['Deepest dip the installed converter covers', f.covers_down_to_pu == null ? 'none (not even the current before the dip)'
+                : f.covers_down_to_pu <= 0 ? 'every dip, down to 0 p.u.' : `${num(f.covers_down_to_pu, 2)} p.u.`]
         ]);
     }
 

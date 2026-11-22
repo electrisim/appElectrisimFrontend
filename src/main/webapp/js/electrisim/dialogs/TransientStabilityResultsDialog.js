@@ -150,10 +150,10 @@ function escapeHtmlText(value) {
                 items.push(['POI voltage vs curve', rt.pass === true ? 'inside' : rt.pass === false ? 'outside' : '—']);
             }
             const verdicts = {
-                pass: 'PASS (load kept)',
-                load_dropped: 'FAIL (load dropped)',
-                outside_envelope: 'outside the curve',
-                outside_envelope_load_dropped: 'outside the curve, load dropped'
+                pass: 'PASS',
+                slow_recovery: 'FAIL (power back too late)',
+                load_lost: 'FAIL (IT load lost)',
+                outside_envelope: 'outside the curve'
             };
             if (rt.verdict) items.push(['Data-centre ride-through', verdicts[rt.verdict] || rt.verdict]);
             items.forEach(([k, v]) => {
@@ -168,25 +168,33 @@ function escapeHtmlText(value) {
 
         buildDataCentre(dc) {
             const box = document.createElement('div');
-            const colours = { rides_through: ['#d1e7dd', '#0f5132'], ups_transfer: ['#f8d7da', '#842029'], it_lost: ['#f8d7da', '#842029'] };
-            const [bg, fg] = colours[dc.verdict] || ['#f1f3f5', '#212529'];
+            const inside = dc.within_envelope !== false;
+            const good = dc.verdict === 'rides_through' || (dc.verdict === 'ups_transfer' && dc.recovered_in_time);
+            const [bg, fg] = !inside ? ['#fff3cd', '#664d03'] : good ? ['#d1e7dd', '#0f5132'] : ['#f8d7da', '#842029'];
             const mw = (v) => (v == null ? '—' : `${Number(v).toFixed(0)} MW`);
             const sec = (v) => (v == null ? '—' : `${Number(v).toFixed(2)} s`);
-            const inside = dc.within_envelope !== false;
             let head;
             if (dc.verdict === 'rides_through') {
                 head = `<strong>${escapeHtmlText(dc.name)} rides through:</strong> the UPS stays on the grid and the data centre keeps drawing its power.`;
             } else if (dc.verdict === 'ups_transfer') {
                 head = `<strong>${escapeHtmlText(dc.name)} drops ${mw(dc.load_drop_mw)} from the grid:</strong> the UPS moves the IT load to its battery and walks it back in` +
-                    (dc.recovery_s != null ? `; the power is back to 90 % ${sec(dc.recovery_s)} after the disturbance.` : ', but the power is not back by the end of the run.');
+                    (dc.recovery_after_voltage_s != null
+                        ? `; the power is back to 90 % ${sec(dc.recovery_after_voltage_s)} after the voltage recovered (allowed ${sec(dc.recovery_limit_s)}).`
+                        : ', but the power is not back by the end of the run.');
             } else {
                 head = `<strong>${escapeHtmlText(dc.name)} loses its IT load (${mw(dc.load_drop_mw)}):</strong> ` +
                     (dc.ups?.present ? 'the dip lasts longer than the UPS hold-up time.' : 'there is no UPS, so the servers restart.');
             }
-            if (dc.verdict !== 'rides_through') {
-                head += inside
-                    ? ' The voltage stays inside the ride-through curve, so the facility should have kept its load.'
-                    : ' The voltage leaves the ride-through curve, where the facility may disconnect.';
+            if (!inside) {
+                head += ' The voltage leaves the ride-through curve, where the facility may disconnect.';
+            } else if (dc.verdict === 'it_lost') {
+                head += ' The voltage stays inside the ride-through curve, so the facility had to ride through: <strong>FAIL</strong>.';
+            } else if (dc.verdict === 'ups_transfer') {
+                head += dc.recovered_in_time
+                    ? ' The voltage stays inside the ride-through curve and the power is back in time: <strong>PASS</strong>.'
+                    : ' The voltage stays inside the ride-through curve, so the power had to be back in time: <strong>FAIL</strong>.';
+            } else {
+                head += ' <strong>PASS</strong>.';
             }
             box.style.cssText = `margin:0 0 12px;padding:10px 12px;border-radius:4px;font-size:13px;line-height:1.5;background:${bg};color:${fg};`;
             const ups = dc.ups || {};
@@ -197,6 +205,8 @@ function escapeHtmlText(value) {
                     ? `transfer below ${ups.transfer_pu} pu, back above ${ups.return_pu} pu after ${ups.return_delay_s} s, walk-in ${ups.walk_in_s} s, hold-up ${ups.hold_s} s`
                     : 'none (IT power supplies bridge one cycle)'],
                 ['Time on battery / IT off the grid', `${sec(ups.battery_s)} / ${sec(dc.it_off_s)}`],
+                ['Voltage back above ' + (dc.voltage_back_pu ?? '—') + ' pu at', dc.voltage_back_t_s == null ? '—' : `t = ${Number(dc.voltage_back_t_s).toFixed(2)} s`],
+                ['Power back to 90 % after the voltage (allowed)', `${sec(dc.recovery_after_voltage_s)} (${sec(dc.recovery_limit_s)})`],
                 ['State at the end', ups.final_state || '—']
             ];
             const events = (dc.events || []).map((e) => `<li>t = ${escapeHtmlText(e.t_s)} s: ${escapeHtmlText(e.event)} (V = ${escapeHtmlText(e.v_pu)} pu)</li>`).join('');
@@ -349,7 +359,7 @@ function escapeHtmlText(value) {
                 }
                 if (rt?.verdict) lines.push(`data_centre_ride_through,${rt.verdict}`);
                 (this.results.data_centres || []).forEach((d) => {
-                    lines.push(`data_centre,${d.name},verdict,${d.verdict},load_drop_mw,${d.load_drop_mw ?? ''},recovery_s,${d.recovery_s ?? ''}`);
+                    lines.push(`data_centre,${d.name},verdict,${d.verdict},load_drop_mw,${d.load_drop_mw ?? ''},recovery_after_voltage_s,${d.recovery_after_voltage_s ?? ''},recovered_in_time,${d.recovered_in_time ?? ''}`);
                 });
             }
             const blob = new Blob([lines.join('\n')], { type: 'text/csv' });

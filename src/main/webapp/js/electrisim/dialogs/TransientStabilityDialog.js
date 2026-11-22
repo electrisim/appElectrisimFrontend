@@ -116,6 +116,23 @@ export class TransientStabilityDialog extends Dialog {
                 step: '0.01'
             },
             {
+                id: 'fault_xf',
+                label: 'Fault reactance xf (p.u. on the system base)',
+                type: 'number',
+                value: '0.0001',
+                min: '0.0001',
+                step: '0.01',
+                description: '0.0001 is a bolted fault. A larger value leaves part of the voltage, as a fault further away in the grid does.'
+            },
+            {
+                id: 'fault_rf',
+                label: 'Fault resistance rf (p.u. on the system base)',
+                type: 'number',
+                value: '0',
+                min: '0',
+                step: '0.01'
+            },
+            {
                 id: 'toggle_line',
                 label: 'Line Outage (optional)',
                 type: 'select',

@@ -1107,6 +1107,7 @@ export function prepareNetworkData(graph, simulationParameters, options = {}) {
                         dc_ups_return_pu: { name: 'dc_ups_return_pu', optional: true },
                         dc_ups_return_delay_s: { name: 'dc_ups_return_delay_s', optional: true },
                         dc_ups_walk_in_s: { name: 'dc_ups_walk_in_s', optional: true },
+                        dc_recovery_s: { name: 'dc_recovery_s', optional: true },
                         dc_ride_through_csv: { name: 'dc_ride_through_csv', optional: true },
                     })
                 };

@@ -639,6 +639,7 @@ export function configureLoadAttributes(grafka, vertex, options = {}) {
     g.setAttribute("dc_ups_return_pu", String(options.dc_ups_return_pu ?? "0.9"));
     g.setAttribute("dc_ups_return_delay_s", String(options.dc_ups_return_delay_s ?? "1"));
     g.setAttribute("dc_ups_walk_in_s", String(options.dc_ups_walk_in_s ?? "5"));
+    g.setAttribute("dc_recovery_s", String(options.dc_recovery_s ?? "1"));
     g.setAttribute("dc_ride_through_csv", options.dc_ride_through_csv || "0,0.9\n10,0.9\n20,0.9");
 
     grafka.getModel().setValue(vertex, g)

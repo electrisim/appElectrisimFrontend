@@ -107,6 +107,8 @@ window.transientStabilityAndes = function (a, b, c) {
             fault_enabled: values.fault_bus ? 'true' : 'false',
             fault_tf: String(values.fault_tf ?? '1.0'),
             fault_tc: String(values.fault_tc ?? '1.1'),
+            fault_xf: String(values.fault_xf ?? '0.0001'),
+            fault_rf: String(values.fault_rf ?? '0'),
             toggle_line: values.toggle_line || '',
             toggle_t: String(values.toggle_t ?? '2.0'),
             toggle_gen: values.toggle_gen || '',

@@ -33,6 +33,10 @@ The canvas places `Utility_138` and `POI_138` on the upper row (two parallel lin
 
 Import your own utility case with **pandapower `.py`** or **OpenDSS `.dss`** instead of this pocket. Electrisim does not ship MMWG / WECC / ISO copyrighted base cases.
 
+## Ready-made model: data centre fault ride-through
+
+**File → New → Tutorials → Data centre fault ride-through (STATCOM and UPS)** opens the same pocket with a 400 MVA transformer, the 300 MW data centre already set up as a computational load (85 % IT behind a UPS, ride-through curve, power back within 1 s) and a ±150 Mvar STATCOM on `Campus_34.5`. Use it for the STATCOM fault ride-through sizing and the Transient Stability ride-through checks below. Video script: [`DATA_CENTRE_FRT_VIDEO_SCRIPT.md`](DATA_CENTRE_FRT_VIDEO_SCRIPT.md).
+
 ## Phase 2 — Interconnection
 
 - **Load flow / contingency** at final MW with Grid Code P-Q at the POI if required.
