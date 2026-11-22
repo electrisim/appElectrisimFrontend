@@ -53,7 +53,7 @@ Written out so the voice reads them correctly: “U P S”, “I T”, “M V A�
 
 ## Produced video
 
-A finished cut was rendered with an open-source neural voice (Kokoro, voice *af_heart*) from this text, with the screen recorded in the running app; subtitles (SRT) and YouTube chapters come with it. To use the usual Clipchamp voice instead, paste the `.txt` into Clipchamp text to speech and lay the paragraphs over the same shots.
+A finished cut was rendered with an open-source neural voice (Kokoro, male voice *am_michael*) from this text, with the screen recorded in the running app; subtitles (SRT) and YouTube chapters come with it. To use the usual Clipchamp voice instead, paste the `.txt` into Clipchamp text to speech and lay the paragraphs over the same shots.
 
 ## YouTube
 
