@@ -84,3 +84,21 @@ Documentation: https://electrisim.com/docs-stability#data-centre-ride-through
 
 **Subtitles:** [`DATA_CENTRE_FRT_SUBTITLES.srt`](DATA_CENTRE_FRT_SUBTITLES.srt) (timed to the produced cut)
 
+
+## Clipchamp voice — timing for the recorded cut
+
+The recorded cut without a voice is `electrisim_data_centre_fault_ride_through_no_voice.mp4` (sent with the tutorial; slides included). In Clipchamp: import it, then for each paragraph of `DATA_CENTRE_FRT_CLIPCHAMP.txt` create a text-to-speech clip with your usual voice and place it at the start time below. If a clip is longer than its window, raise the speed in the text-to-speech panel (1.1× is usually enough) or trim the slide before it.
+
+| # | Starts at | Window | Paragraph |
+|---|-----------|--------|-----------|
+| 1 | 0:00.60 | 34.9 s | Today we check whether a data centre rides through a fault i… |
+| 2 | 0:35.80 | 19.5 s | Six steps. Open the template. Look at the data centre and it… |
+| 3 | 0:55.59 | 33.4 s | Step one. Open Electrisim in the browser, go to File, New, a… |
+| 4 | 1:29.31 | 48.7 s | Step two, the data centre. Double-click the load and open th… |
+| 5 | 2:18.34 | 29.6 s | Step three, the STATCOM. On its Dynamics tab, the STATCOM is… |
+| 6 | 2:48.24 | 46.4 s | Step four, size the STATCOM. Go to Simulate, Grid-Forming ST… |
+| 7 | 3:34.94 | 37.9 s | Step five, the time domain. Go to Simulate, Transient Stabil… |
+| 8 | 4:13.15 | 37.2 s | Now take the STATCOM out of service and run the same fault a… |
+| 9 | 4:50.63 | 34.1 s | Step six, a close-in fault. Put the STATCOM back in service,… |
+| 10 | 5:25.00 | 36.5 s | The fix is in the U P S. Open the data centre load again, an… |
+| 11 | 6:01.81 | 20.6 s | That is fault ride-through of a data centre in Electrisim: a… |
