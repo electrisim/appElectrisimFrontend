@@ -88,6 +88,9 @@ function _applySaved(parameters, saved) {
         if (!param || !param.id || !REMEMBERED_TYPES.has(param.type) || !(param.id in saved)) return;
         const value = saved[param.id];
         if (param.type === 'radio') {
+            // A value no option has (e.g. a frequency typed into the old number field) would leave
+            // every radio unchecked; keep the dialog's own default then, as for selects.
+            if (!(param.options || []).some((option) => String(option.value) === String(value))) return;
             (param.options || []).forEach((option) => {
                 option.default = String(option.value) === String(value);
             });

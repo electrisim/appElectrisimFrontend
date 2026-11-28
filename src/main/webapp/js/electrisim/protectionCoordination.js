@@ -177,6 +177,9 @@ function downloadProtectionResultsText(dataJson) {
             lines.push(`Tripped (total across scenarios): ${s.n_tripped}`);
             lines.push(`Miscoordination warnings: ${s.n_miscoordination}`);
             lines.push(`Fault type: ${s.fault_type}, case: ${s.case}, t_diff: ${s.t_diff_s}s`);
+            if (s.frequency_hz != null) {
+                lines.push(`System frequency: ${s.frequency_hz} Hz`);
+            }
             if (s.fault_location_mode) {
                 lines.push(`Fault location mode: ${s.fault_location_mode}`);
             }
@@ -292,6 +295,8 @@ async function buildPayloadFromGraph(graph, dialogValues) {
         user_email: userEmail,
         // Mirror keys read by the Flask dispatch in app.py.
         fault_type: dialogValues.fault_type || '3ph',
+        // System frequency of the IEC 60909 short circuits (50 or 60 Hz).
+        frequency: dialogValues.frequency || '50',
         case: dialogValues.case || 'max',
         fault_location_mode: dialogValues.fault_location_mode || 'line',
         fault_bus_id: (dialogValues.fault_bus_id && String(dialogValues.fault_bus_id).trim()) || '',

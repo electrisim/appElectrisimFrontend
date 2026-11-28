@@ -60,6 +60,16 @@ export class MotorStartingDialog extends Dialog {
                 ]
             },
             {
+                // Both modes: the cable charging of the load flows and the Motor3 synchronous speed.
+                id: 'frequency',
+                label: 'System frequency',
+                type: 'radio',
+                options: [
+                    { value: '50', label: '50 Hz', default: true },
+                    { value: '60', label: '60 Hz' }
+                ]
+            },
+            {
                 id: 'motor_ids',
                 label: 'Motor(s) to Start',
                 type: 'select',
@@ -137,14 +147,6 @@ export class MotorStartingDialog extends Dialog {
                 step: '0.1'
             },
             {
-                id: 'frequency',
-                label: 'Dynamic: System Frequency (Hz)',
-                type: 'number',
-                value: '50',
-                min: '50',
-                step: '10'
-            },
-            {
                 id: 'sn_mva',
                 label: 'Dynamic: System Base (MVA)',
                 type: 'number',
@@ -181,20 +183,11 @@ export class MotorStartingDialog extends Dialog {
                 if (values && typeof values === 'object' && !Array.isArray(values) && ('mode' in values || 'starting_method' in values)) {
                     params = values;
                 } else if (Array.isArray(values)) {
-                    params = {
-                        mode: values[0],
-                        motor_ids: values[1],
-                        starting_method: values[2],
-                        i_limit_pu: values[3],
-                        at_tap_pu: values[4],
-                        reactor_x_pu: values[5],
-                        voltage_limit_percent: values[6],
-                        thermal_limit_percent: values[7],
-                        t_start: values[8],
-                        t_end: values[9],
-                        frequency: values[10],
-                        sn_mva: values[11]
-                    };
+                    // Dialog.getFormValues lists the values in parameter order.
+                    params = {};
+                    this.parameters
+                        .filter((param) => param.type !== 'section')
+                        .forEach((param, i) => { params[param.id] = values[i]; });
                 } else {
                     params = values || {};
                 }
