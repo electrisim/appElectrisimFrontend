@@ -129,6 +129,7 @@ export class ProtectionCoordinationResultsDialog {
                 <div><b>Trips:</b> ${this._safe(s.n_tripped)}</div>
                 <div><b>Miscoordinations:</b> ${this._safe(s.n_miscoordination)}</div>
                 <div><b>Fault type:</b> ${this._safe(s.fault_type)} (case ${this._safe(s.case)})</div>
+                ${s.frequency_hz != null ? `<div><b>System frequency:</b> ${this._safe(s.frequency_hz)} Hz</div>` : ''}
                 <div><b>Fault location:</b> ${s.fault_location_mode === 'bus' ? 'Selected busbar' : 'Line fault'}</div>
                 <div><b>Grading margin t_diff:</b> ${this._safe(s.t_diff_s)} s</div>
             </div>

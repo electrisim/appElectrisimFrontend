@@ -98,6 +98,7 @@
                 <span><strong>Method:</strong> ${summary.starting_method || '—'}</span>
                 <span><strong>Motors:</strong> ${summary.n_motors_started ?? 0}</span>
                 <span><strong>Dip limit:</strong> ${fmt(summary.voltage_limit_percent, 1)}%</span>
+                ${summary.frequency_hz != null ? `<span><strong>Frequency:</strong> ${fmt(summary.frequency_hz, 0)} Hz</span>` : ''}
             `;
             header.appendChild(sum);
             dialog.appendChild(header);

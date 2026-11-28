@@ -37,6 +37,15 @@ export class ProtectionCoordinationDialog extends Dialog {
                 ]
             },
             {
+                // IEC 60909 at 50 or 60 Hz: on unearthed systems the single-phase fault current is
+                // the cable charging current, which earth-fault relays are set against.
+                id: 'frequency', label: 'System frequency', type: 'radio',
+                options: [
+                    { value: '50', label: '50 Hz', default: true },
+                    { value: '60', label: '60 Hz' }
+                ]
+            },
+            {
                 id: 'case', label: 'Case', type: 'radio',
                 options: [
                     { value: 'max', label: 'Maximum', default: true },
